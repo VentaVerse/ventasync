@@ -53,7 +53,7 @@ class ShopeeReconcileTest extends TestCase
         $body = $this->methodBody('shopeeItemStillExists');
 
         $this->assertStringContainsString('not_found', $body,
-            'The missing-item error is no longer recognised, so a deleted item cannot be detected.');
+            'The missing-item error is no longer recognized, so a deleted item cannot be detected.');
         $this->assertMatchesRegularExpression(
             "/not_found.*?:\s*'unknown'/s",
             $body,
@@ -144,9 +144,9 @@ class ShopeeReconcileTest extends TestCase
     {
         $body = $this->methodBody('shopeeCandidateSkus');
 
-        $this->assertStringContainsString('product_option_value', $body,
+        $this->assertStringContainsString('product_variation_values', $body,
             'Variation SKUs are no longer candidates.');
-        $this->assertStringContainsString('product_option_combinations', $body,
+        $this->assertStringContainsString('product_variations', $body,
             'Combination SKUs are not candidates, so a product whose variations live there and whose '
             .'parent carries no SKU can never be matched back to its Shopee item - which is exactly the '
             .'product Maria pushed four times. Lazada and TikTok have always read both tables.');
@@ -191,7 +191,7 @@ class ShopeeReconcileTest extends TestCase
         $this->assertStringContainsString("'state' => 'taken'", $body);
 
         $takenAt = strpos($body, "'state' => 'taken'");
-        $writeAt = strpos($body, 'ShopeeProductLink::updateOrCreate');
+        $writeAt = strpos($body, 'ShopeeListingLink::updateOrCreate');
 
         $this->assertNotFalse($takenAt);
         $this->assertNotFalse($writeAt);

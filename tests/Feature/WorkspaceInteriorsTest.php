@@ -6,35 +6,35 @@ use App\Extensions\ExtensionManager;
 use App\Models\Admin\Permission;
 use App\Models\Admin\UserGroup;
 use App\Models\User;
-use Extensions\shopee\Models\ShopeeApiLog;
-use Extensions\shopee\Models\ShopeeCategory;
-use Extensions\shopee\Models\ShopeeLogistic;
-use Extensions\shopee\Models\ShopeeProductGroup;
-use Extensions\shopee\Models\ShopeeSetting;
-use Extensions\shopee\ShopeeExtension;
-use Extensions\lazada\LazadaExtension;
-use Extensions\lazada\Models\LazadaApiLog;
-use Extensions\lazada\Models\LazadaBrand;
-use Extensions\lazada\Models\LazadaCategory;
-use Extensions\lazada\Models\LazadaProduct;
-use Extensions\lazada\Models\LazadaProductGroup;
-use Extensions\lazada\Models\LazadaSetting;
-use Extensions\opencart\Models\OpenCartOrderStatusMap;
-use Extensions\opencart\Models\OpenCartProductGroup;
-use Extensions\opencart\Models\OpenCartSetting;
-use Extensions\opencart\Models\OpenCartSyncLog;
-use Extensions\opencart\OpencartExtension;
-use Extensions\tiktok\Models\TikTokApiLog;
-use Extensions\tiktok\Models\TikTokCategory;
-use Extensions\tiktok\Models\TikTokProductGroup;
-use Extensions\tiktok\Models\TikTokSetting;
-use Extensions\tiktok\TiktokExtension;
-use Extensions\ventacart\Models\VentaCartApiLog;
-use Extensions\ventacart\Models\VentaCartOrderStatusMap;
-use Extensions\ventacart\Models\VentaCartProductGroup;
-use Extensions\ventacart\Models\VentaCartSetting;
-use Extensions\ventacart\Models\VentaCartSyncLog;
-use Extensions\ventacart\VentaCartExtension;
+use Extensions\Shopee\Models\ShopeeApiLog;
+use Extensions\Shopee\Models\ShopeeCategory;
+use Extensions\Shopee\Models\ShopeeLogistic;
+use Extensions\Shopee\Models\ShopeeProductGroup;
+use Extensions\Shopee\Models\ShopeeStore;
+use Extensions\Shopee\ShopeeExtension;
+use Extensions\Lazada\LazadaExtension;
+use Extensions\Lazada\Models\LazadaApiLog;
+use Extensions\Lazada\Models\LazadaBrand;
+use Extensions\Lazada\Models\LazadaCategory;
+use Extensions\Lazada\Models\LazadaListing;
+use Extensions\Lazada\Models\LazadaProductGroup;
+use Extensions\Lazada\Models\LazadaStore;
+use Extensions\OpenCart\Models\OpenCartOrderStatusMap;
+use Extensions\OpenCart\Models\OpenCartProductGroup;
+use Extensions\OpenCart\Models\OpenCartStore;
+use Extensions\OpenCart\Models\OpenCartSyncLog;
+use Extensions\OpenCart\OpenCartExtension;
+use Extensions\TikTok\Models\TikTokApiLog;
+use Extensions\TikTok\Models\TikTokCategory;
+use Extensions\TikTok\Models\TikTokProductGroup;
+use Extensions\TikTok\Models\TikTokStore;
+use Extensions\TikTok\TikTokExtension;
+use Extensions\VentaCart\Models\VentaCartApiLog;
+use Extensions\VentaCart\Models\VentaCartOrderStatusMap;
+use Extensions\VentaCart\Models\VentaCartProductGroup;
+use Extensions\VentaCart\Models\VentaCartStore;
+use Extensions\VentaCart\Models\VentaCartSyncLog;
+use Extensions\VentaCart\VentaCartExtension;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
@@ -62,9 +62,9 @@ class WorkspaceInteriorsTest extends TestCase
 
         $this->app->register(ShopeeExtension::class);
         $this->app->register(LazadaExtension::class);
-        $this->app->register(TiktokExtension::class);
+        $this->app->register(TikTokExtension::class);
         $this->app->register(VentaCartExtension::class);
-        $this->app->register(OpencartExtension::class);
+        $this->app->register(OpenCartExtension::class);
 
         $this->app['router']->getRoutes()->refreshNameLookups();
     }
@@ -111,7 +111,7 @@ class WorkspaceInteriorsTest extends TestCase
 
     private function interiorUrls(): array
     {
-        if (ShopeeSetting::query()->count() === 0) {
+        if (ShopeeStore::query()->count() === 0) {
             $this->seedSetting();
         }
 
@@ -124,9 +124,9 @@ class WorkspaceInteriorsTest extends TestCase
         ];
     }
 
-    private function seedSetting(array $overrides = []): ShopeeSetting
+    private function seedSetting(array $overrides = []): ShopeeStore
     {
-        return ShopeeSetting::create(array_merge([
+        return ShopeeStore::create(array_merge([
             'mode' => 'live',
             'partner_id' => 200123,
             'partner_key' => encrypt('live-partner-key'),
@@ -246,7 +246,7 @@ class WorkspaceInteriorsTest extends TestCase
         ShopeeProductGroup::create(['name' => '<b>bold group</b>']);
 
         $xssProduct = $this->seedCatalogProduct('<svg onload=alert(4)>', 'CS-XSS-1');
-        \Extensions\shopee\Models\ShopeeListing::create(['product_id' => $xssProduct]);
+        \Extensions\Shopee\Models\ShopeeListing::create(['product_id' => $xssProduct]);
         ShopeeApiLog::create([
             'method' => 'GET', 'api_path' => '/api/v2/<i>alert(5)</i>',
             'auth_required' => true, 'status_code' => 200, 'response_time_ms' => 10,
@@ -387,7 +387,7 @@ class WorkspaceInteriorsTest extends TestCase
         $this->assertDenied($this->actingAs($user)->delete(route('ext.shopee.clear_api_logs')), 'clear logs');
         $this->assertDenied($this->actingAs($user)->get(route('ext.shopee.product-groups.create')), 'group create');
 
-        $this->assertSame('live', ShopeeSetting::query()->first()->mode);
+        $this->assertSame('live', ShopeeStore::query()->first()->mode);
     }
 
     public function test_the_save_gate_separates_the_two_tiers_on_one_route(): void
@@ -401,13 +401,13 @@ class WorkspaceInteriorsTest extends TestCase
             'save as viewer'
         );
 
-        $this->assertSame(200123, (int) ShopeeSetting::query()->first()->partner_id);
+        $this->assertSame(200123, (int) ShopeeStore::query()->first()->partner_id);
 
         $this->actingAs($this->manager())
             ->post(route('ext.shopee.save'), $payload)
             ->assertRedirect(route('ext.shopee.settings.show'));
 
-        $this->assertSame(111222, (int) ShopeeSetting::query()->first()->partner_id);
+        $this->assertSame(111222, (int) ShopeeStore::query()->first()->partner_id);
     }
 
     public function test_the_settings_save_round_trips_every_validated_field(): void
@@ -424,7 +424,7 @@ class WorkspaceInteriorsTest extends TestCase
             'region' => 'ph',
         ])->assertRedirect(route('ext.shopee.settings.show'))->assertSessionHas('status');
 
-        $row = ShopeeSetting::query()->first();
+        $row = ShopeeStore::query()->first();
         $this->assertSame('live', $row->mode);
         $this->assertSame(200999, (int) $row->partner_id);
         $this->assertSame(900999, (int) $row->shop_id);
@@ -467,7 +467,7 @@ class WorkspaceInteriorsTest extends TestCase
             'region' => 'sg',
         ])->assertRedirect(route('ext.shopee.settings.show'));
 
-        $row = ShopeeSetting::query()->first();
+        $row = ShopeeStore::query()->first();
         $this->assertSame('live-partner-key', decrypt($row->partner_key));
         $this->assertSame('live-access-token', decrypt($row->access_token));
         $this->assertSame(200123, (int) $row->partner_id);
@@ -483,12 +483,12 @@ class WorkspaceInteriorsTest extends TestCase
         $this->actingAs($user)->post(route('ext.shopee.toggle_mode'), ['mode' => 'sandbox'])
             ->assertRedirect(route('ext.shopee.settings.show'));
 
-        $this->assertSame('sandbox', ShopeeSetting::query()->first()->mode);
+        $this->assertSame('sandbox', ShopeeStore::query()->first()->mode);
 
         $this->actingAs($user)->post(route('ext.shopee.toggle_mode'), ['mode' => 'live'])
             ->assertRedirect(route('ext.shopee.settings.show'));
 
-        $this->assertSame('live', ShopeeSetting::query()->first()->mode);
+        $this->assertSame('live', ShopeeStore::query()->first()->mode);
     }
 
     public function test_the_log_mode_control_saves_and_returns_to_the_panel(): void
@@ -498,14 +498,14 @@ class WorkspaceInteriorsTest extends TestCase
 
         $this->actingAs($user)
             ->post(route('ext.shopee.api_log_mode'), ['mode' => 'errors'])
-            ->assertRedirect(route('ext.shopee.settings.show', ['store' => ShopeeSetting::query()->first()->id, 'tab' => 'logs']));
+            ->assertRedirect(route('ext.shopee.settings.show', ['store' => ShopeeStore::query()->first()->id, 'tab' => 'logs']));
 
-        $this->assertSame('errors', ShopeeSetting::query()->first()->api_log_mode);
+        $this->assertSame('errors', ShopeeStore::query()->first()->api_log_mode);
 
         $this->actingAs($user)
             ->post(route('ext.shopee.api_log_mode'), ['mode' => 'loud'])
             ->assertSessionHasErrors('mode');
-        $this->assertSame('errors', ShopeeSetting::query()->first()->api_log_mode);
+        $this->assertSame('errors', ShopeeStore::query()->first()->api_log_mode);
     }
 
     public function test_the_oauth_callback_still_exchanges_the_code_on_this_url(): void
@@ -545,7 +545,7 @@ class WorkspaceInteriorsTest extends TestCase
                 && (int) $request['partner_id'] === 200123;
         });
 
-        $row = ShopeeSetting::query()->first();
+        $row = ShopeeStore::query()->first();
         $this->assertSame(900456, (int) $row->shop_id, 'shop_id from the callback was not persisted.');
         $this->assertSame('fresh-access-token', decrypt($row->access_token));
         $this->assertSame('fresh-refresh-token', decrypt($row->refresh_token));
@@ -580,7 +580,7 @@ class WorkspaceInteriorsTest extends TestCase
             ) && $request['code'] === 'sandbox-code';
         });
 
-        $row = ShopeeSetting::query()->first();
+        $row = ShopeeStore::query()->first();
         $this->assertSame(800111, (int) $row->sandbox_shop_id);
         $this->assertSame('sandbox-access-token', decrypt($row->sandbox_access_token));
         $this->assertSame('live-access-token', decrypt($row->access_token), 'A sandbox callback overwrote the live token.');
@@ -627,7 +627,7 @@ class WorkspaceInteriorsTest extends TestCase
         $html = $this->actingAs($this->manager())
             ->get(route('ext.shopee.settings.show'))->assertOk()->getContent();
 
-        $this->assertStringContainsString('href="'.e(route('ext.shopee.authorize', ['store' => ShopeeSetting::query()->value('id')])).'"', $html);
+        $this->assertStringContainsString('href="'.e(route('ext.shopee.authorize', ['store' => ShopeeStore::query()->value('id')])).'"', $html);
         $this->assertStringContainsString('rel="noopener"', $html);
         $this->assertStringContainsString('action="'.e(route('ext.shopee.token_get')).'"', $html);
         $this->assertStringContainsString('action="'.e(route('ext.shopee.token_refresh')).'"', $html);
@@ -746,7 +746,7 @@ class WorkspaceInteriorsTest extends TestCase
 
     private function lazadaInteriorUrls(): array
     {
-        if (LazadaSetting::query()->count() === 0) {
+        if (LazadaStore::query()->count() === 0) {
             $this->seedLazadaSetting();
         }
 
@@ -759,9 +759,9 @@ class WorkspaceInteriorsTest extends TestCase
         ];
     }
 
-    private function seedLazadaSetting(array $overrides = []): LazadaSetting
+    private function seedLazadaSetting(array $overrides = []): LazadaStore
     {
-        return LazadaSetting::create(array_merge([
+        return LazadaStore::create(array_merge([
             'mode' => 'live',
             'region' => 'ph',
             'app_key' => '100123',
@@ -838,7 +838,7 @@ class WorkspaceInteriorsTest extends TestCase
             'markup_percent' => 7.5,
         ]);
 
-        $listing = LazadaProduct::create([
+        $listing = LazadaListing::create([
             'product_id' => 4242,
             'primary_category_id' => 9257,
             'lazada_item_id' => '778899',
@@ -1038,7 +1038,7 @@ class WorkspaceInteriorsTest extends TestCase
         $this->assertDenied($this->actingAs($user)->get(route('ext.lazada.products.edit', ['productId' => 1])), 'listing create');
         $this->assertDenied($this->actingAs($user)->get(route('ext.lazada.authorize')), 'authorize');
 
-        $this->assertSame('live', LazadaSetting::query()->first()->mode);
+        $this->assertSame('live', LazadaStore::query()->first()->mode);
     }
 
     public function test_the_lazada_save_gate_separates_the_two_tiers_on_one_route(): void
@@ -1052,15 +1052,15 @@ class WorkspaceInteriorsTest extends TestCase
             'save as viewer'
         );
 
-        $this->assertSame('100123', (string) LazadaSetting::query()->first()->app_key);
-        $this->assertSame('ph', LazadaSetting::query()->first()->region);
+        $this->assertSame('100123', (string) LazadaStore::query()->first()->app_key);
+        $this->assertSame('ph', LazadaStore::query()->first()->region);
 
         $this->actingAs($this->lazadaManager())
             ->post(route('ext.lazada.save'), $payload)
             ->assertRedirect(route('ext.lazada.index'));
 
-        $this->assertSame('100999', (string) LazadaSetting::query()->first()->app_key);
-        $this->assertSame('sg', LazadaSetting::query()->first()->region);
+        $this->assertSame('100999', (string) LazadaStore::query()->first()->app_key);
+        $this->assertSame('sg', LazadaStore::query()->first()->region);
     }
 
     public function test_the_lazada_settings_save_round_trips_every_validated_field(): void
@@ -1077,7 +1077,7 @@ class WorkspaceInteriorsTest extends TestCase
             'app_secret' => 'the-live-app-secret',
         ])->assertRedirect(route('ext.lazada.index'))->assertSessionHas('status');
 
-        $row = LazadaSetting::query()->first();
+        $row = LazadaStore::query()->first();
         $this->assertSame('live', $row->mode);
         $this->assertSame('ph', $row->region);
         $this->assertSame('100777', (string) $row->app_key);
@@ -1113,7 +1113,7 @@ class WorkspaceInteriorsTest extends TestCase
             'app_secret' => '',
         ])->assertRedirect(route('ext.lazada.index'));
 
-        $row = LazadaSetting::query()->first();
+        $row = LazadaStore::query()->first();
         $this->assertSame('live-app-secret', decrypt($row->app_secret));
         $this->assertSame('100123', (string) $row->app_key);
         $this->assertSame('vn', $row->region);
@@ -1127,12 +1127,12 @@ class WorkspaceInteriorsTest extends TestCase
         $this->actingAs($user)->post(route('ext.lazada.toggle_mode'), ['mode' => 'sandbox'])
             ->assertRedirect(route('ext.lazada.index'));
 
-        $this->assertSame('sandbox', LazadaSetting::query()->first()->mode);
+        $this->assertSame('sandbox', LazadaStore::query()->first()->mode);
 
         $this->actingAs($user)->post(route('ext.lazada.toggle_mode'), ['mode' => 'live'])
             ->assertRedirect(route('ext.lazada.index'));
 
-        $this->assertSame('live', LazadaSetting::query()->first()->mode);
+        $this->assertSame('live', LazadaStore::query()->first()->mode);
     }
 
     public function test_the_lazada_log_mode_control_saves_and_returns_to_the_panel(): void
@@ -1144,7 +1144,7 @@ class WorkspaceInteriorsTest extends TestCase
             ->post(route('ext.lazada.api_log_mode'), ['mode' => 'errors'])
             ->assertRedirect(route('ext.lazada.index', ['tab' => 'logs']));
 
-        $this->assertSame('errors', LazadaSetting::query()->first()->api_log_mode);
+        $this->assertSame('errors', LazadaStore::query()->first()->api_log_mode);
     }
 
     public function test_the_lazada_redirect_uri_is_the_callback_and_is_not_submittable(): void
@@ -1277,7 +1277,7 @@ class WorkspaceInteriorsTest extends TestCase
     {
         $this->seedLazadaSetting();
         $pid = $this->seedCatalogProduct('Sortable Strings', 'SORT-1');
-        LazadaProduct::create(['product_id' => $pid, 'lazada_item_id' => '551122']);
+        LazadaListing::create(['product_id' => $pid, 'lazada_item_id' => '551122']);
         $user = $this->lazadaManager();
 
         $html = $this->actingAs($user)
@@ -1305,9 +1305,9 @@ class WorkspaceInteriorsTest extends TestCase
     private function opencartViewer(): User { return $this->tierUser('OpenCart Viewer', ['view_opencart/settings', 'view_opencart/product_group', 'view_opencart/dashboard']); }
     private function opencartManager(): User { return $this->tierUser('OpenCart Manager', ['manage_opencart/settings', 'manage_opencart/product_group', 'manage_opencart/dashboard']); }
 
-    private function seedTiktokSetting(array $overrides = []): TikTokSetting
+    private function seedTiktokSetting(array $overrides = []): TikTokStore
     {
-        $setting = new TikTokSetting();
+        $setting = new TikTokStore();
         $setting->forceFill(array_merge([
             'mode' => 'live',
             'app_key' => '6h1tv0kbcdefg',
@@ -1326,7 +1326,7 @@ class WorkspaceInteriorsTest extends TestCase
 
     private function seedVentaStores(): array
     {
-        $one = VentaCartSetting::create([
+        $one = VentaCartStore::create([
             'store_name' => 'Gear Depot',
             'base_url' => 'https://one.ventacart.test',
             'api_token' => 'ventacart-token-one',
@@ -1337,7 +1337,7 @@ class WorkspaceInteriorsTest extends TestCase
             'brand_color' => '#059669',
         ]);
 
-        $two = VentaCartSetting::create([
+        $two = VentaCartStore::create([
             'store_name' => 'Switch Bazaar',
             'base_url' => 'https://two.ventacart.test',
             'api_token' => 'ventacart-token-two',
@@ -1353,7 +1353,7 @@ class WorkspaceInteriorsTest extends TestCase
 
     private function seedOpencartStores(): array
     {
-        $one = OpenCartSetting::create([
+        $one = OpenCartStore::create([
             'store_name' => 'Parts Yard',
             'base_url' => 'https://one.opencart.test',
             'api_key' => 'oc-key-one',
@@ -1363,7 +1363,7 @@ class WorkspaceInteriorsTest extends TestCase
             'review_auto_approve' => true,
         ]);
 
-        $two = OpenCartSetting::create([
+        $two = OpenCartStore::create([
             'store_name' => 'Cable Loft',
             'base_url' => 'https://two.opencart.test',
             'api_key' => 'oc-key-two',
@@ -1378,16 +1378,15 @@ class WorkspaceInteriorsTest extends TestCase
 
     private function seedCatalogProduct(string $name, string $sku): int
     {
-        $prefix = (string) config('catalog.prefix');
         $langId = (int) config('catalog.default_language_id');
 
-        $id = DB::table($prefix.'product')->insertGetId([
+        $id = DB::table('products')->insertGetId([
             'model' => $sku, 'sku' => $sku, 'quantity' => 6,
             'price' => 249.0000, 'status' => 1, 'image' => null,
             'date_added' => now(), 'date_modified' => now(), 'date_available' => now(),
         ]);
 
-        DB::table($prefix.'product_description')->insert([
+        DB::table('product_descriptions')->insert([
             'product_id' => $id, 'language_id' => $langId, 'name' => $name,
             'description' => '', 'tag' => '', 'meta_title' => $name,
             'meta_description' => '', 'meta_keyword' => '',
@@ -1717,7 +1716,7 @@ class WorkspaceInteriorsTest extends TestCase
             'app_secret' => 'new-live-secret',
         ])->assertRedirect(route('ext.tiktok.index'));
 
-        $setting = TikTokSetting::query()->first();
+        $setting = TikTokStore::query()->first();
         $this->assertSame('live', $setting->mode);
         $this->assertSame('new-live-key', $setting->app_key);
         $this->assertSame('new-live-secret', decrypt($setting->app_secret));
@@ -1745,7 +1744,7 @@ class WorkspaceInteriorsTest extends TestCase
             'app_secret' => '',
         ])->assertRedirect();
 
-        $setting = TikTokSetting::query()->first();
+        $setting = TikTokStore::query()->first();
         $this->assertSame('still-here', $setting->app_key);
         $this->assertSame('live-app-secret', decrypt($setting->app_secret));
     }
@@ -1759,7 +1758,7 @@ class WorkspaceInteriorsTest extends TestCase
             'app_key' => 'still-here',
         ])->assertRedirect();
 
-        $this->assertSame('ph', TikTokSetting::query()->first()->region);
+        $this->assertSame('ph', TikTokStore::query()->first()->region);
     }
 
     public function test_stored_tiktok_secrets_never_reach_the_page_source(): void
@@ -1784,19 +1783,19 @@ class WorkspaceInteriorsTest extends TestCase
             ->post(route('ext.tiktok.api_log_mode'), ['mode' => 'off'])
             ->assertRedirect(route('ext.tiktok.index', ['tab' => 'logs']));
 
-        $this->assertSame('off', TikTokSetting::query()->first()->api_log_mode);
+        $this->assertSame('off', TikTokStore::query()->first()->api_log_mode);
 
         $this->actingAs($this->tiktokManager())
             ->post(route('ext.tiktok.api_log_mode'), ['mode' => 'all'])
             ->assertRedirect(route('ext.tiktok.index', ['tab' => 'logs']));
 
-        $this->assertSame('all', TikTokSetting::query()->first()->api_log_mode);
+        $this->assertSame('all', TikTokStore::query()->first()->api_log_mode);
     }
 
     public function test_every_ventacart_interior_renders_for_both_tiers(): void
     {
         [$one] = $this->seedVentaStores();
-        $group = VentaCartProductGroup::create(['ventacart_setting_id' => $one, 'name' => 'Pedals']);
+        $group = VentaCartProductGroup::create(['store_id' => $one, 'name' => 'Pedals']);
 
         foreach ([$this->ventaCartManager(), $this->ventaCartViewer()] as $user) {
             foreach ($this->ventaCartInteriorUrls($one, $group->id) as $label => $url) {
@@ -1808,7 +1807,7 @@ class WorkspaceInteriorsTest extends TestCase
     public function test_no_ventacart_interior_still_carries_the_legacy_boundary(): void
     {
         [$one] = $this->seedVentaStores();
-        $group = VentaCartProductGroup::create(['ventacart_setting_id' => $one, 'name' => 'Pedals']);
+        $group = VentaCartProductGroup::create(['store_id' => $one, 'name' => 'Pedals']);
         $user = $this->ventaCartManager();
 
         foreach ($this->ventaCartInteriorUrls($one, $group->id) as $label => $url) {
@@ -1820,7 +1819,7 @@ class WorkspaceInteriorsTest extends TestCase
     public function test_every_ventacart_self_link_carries_the_store_it_arrived_on(): void
     {
         [$one, $two] = $this->seedVentaStores();
-        $groupTwo = VentaCartProductGroup::create(['ventacart_setting_id' => $two, 'name' => 'Switches']);
+        $groupTwo = VentaCartProductGroup::create(['store_id' => $two, 'name' => 'Switches']);
         $user = $this->ventaCartManager();
 
         foreach ($this->ventaCartInteriorUrls($two, $groupTwo->id) as $label => $url) {
@@ -1847,7 +1846,7 @@ class WorkspaceInteriorsTest extends TestCase
     public function test_every_ventacart_interior_names_its_store_in_the_content(): void
     {
         [, $two] = $this->seedVentaStores();
-        $groupTwo = VentaCartProductGroup::create(['ventacart_setting_id' => $two, 'name' => 'Switches']);
+        $groupTwo = VentaCartProductGroup::create(['store_id' => $two, 'name' => 'Switches']);
         $user = $this->ventaCartManager();
 
         foreach ($this->ventaCartInteriorUrls($two, $groupTwo->id) as $label => $url) {
@@ -1864,7 +1863,7 @@ class WorkspaceInteriorsTest extends TestCase
     public function test_an_operator_with_no_ventacart_permission_is_refused_every_ventacart_interior(): void
     {
         [$one] = $this->seedVentaStores();
-        $group = VentaCartProductGroup::create(['ventacart_setting_id' => $one, 'name' => 'Pedals']);
+        $group = VentaCartProductGroup::create(['store_id' => $one, 'name' => 'Pedals']);
         $user = $this->outsider();
 
         foreach ($this->ventaCartInteriorUrls($one, $group->id) as $label => $url) {
@@ -1875,7 +1874,7 @@ class WorkspaceInteriorsTest extends TestCase
     public function test_guests_are_redirected_away_from_every_ventacart_interior(): void
     {
         [$one] = $this->seedVentaStores();
-        $group = VentaCartProductGroup::create(['ventacart_setting_id' => $one, 'name' => 'Pedals']);
+        $group = VentaCartProductGroup::create(['store_id' => $one, 'name' => 'Pedals']);
 
         foreach ($this->ventaCartInteriorUrls($one, $group->id) as $label => $url) {
             $this->get($url)->assertRedirect(route('login'));
@@ -1885,7 +1884,7 @@ class WorkspaceInteriorsTest extends TestCase
     public function test_the_ventacart_read_tier_is_not_offered_write_controls(): void
     {
         [$one] = $this->seedVentaStores();
-        $group = VentaCartProductGroup::create(['ventacart_setting_id' => $one, 'name' => 'Pedals']);
+        $group = VentaCartProductGroup::create(['store_id' => $one, 'name' => 'Pedals']);
         $user = $this->ventaCartViewer();
 
         $groups = $this->actingAs($user)->get(route('ext.ventacart.product-groups.index', $one))->assertOk();
@@ -1945,9 +1944,9 @@ class WorkspaceInteriorsTest extends TestCase
     public function test_the_ventacart_manage_tier_is_offered_those_same_controls(): void
     {
         [$one] = $this->seedVentaStores();
-        $group = VentaCartProductGroup::create(['ventacart_setting_id' => $one, 'name' => 'Pedals']);
+        $group = VentaCartProductGroup::create(['store_id' => $one, 'name' => 'Pedals']);
         VentaCartApiLog::create([
-            'ventacart_setting_id' => $one, 'method' => 'GET', 'endpoint' => '/api/orders',
+            'store_id' => $one, 'method' => 'GET', 'endpoint' => '/api/orders',
             'status_code' => 200, 'response_time_ms' => 12, 'ok' => true,
             'request_body' => null, 'response_body' => [],
         ]);
@@ -1985,7 +1984,7 @@ class WorkspaceInteriorsTest extends TestCase
     public function test_the_ventacart_write_routes_refuse_the_read_tier_on_their_own(): void
     {
         [$one] = $this->seedVentaStores();
-        $group = VentaCartProductGroup::create(['ventacart_setting_id' => $one, 'name' => 'Pedals']);
+        $group = VentaCartProductGroup::create(['store_id' => $one, 'name' => 'Pedals']);
         $user = $this->ventaCartViewer();
 
         $this->assertDenied($this->actingAs($user)->post(route('ext.ventacart.save'), [
@@ -2005,7 +2004,7 @@ class WorkspaceInteriorsTest extends TestCase
     {
         [$one, $two] = $this->seedVentaStores();
 
-        $before = VentaCartSetting::findOrFail($two);
+        $before = VentaCartStore::findOrFail($two);
         $beforeTwo = [
             'store_name' => $before->store_name,
             'base_url' => $before->base_url,
@@ -2028,7 +2027,7 @@ class WorkspaceInteriorsTest extends TestCase
             'enabled' => '1',
         ])->assertRedirect(route('ext.ventacart.settings.show', ['store' => $one]));
 
-        $saved = VentaCartSetting::findOrFail($one);
+        $saved = VentaCartStore::findOrFail($one);
         $this->assertSame('Gear Depot Renamed', $saved->store_name);
         $this->assertSame('#aabbcc', $saved->brand_color);
         $this->assertSame('https://renamed.ventacart.test', $saved->base_url);
@@ -2038,7 +2037,7 @@ class WorkspaceInteriorsTest extends TestCase
         $this->assertSame('2026-01-15', $saved->sync_orders_from->format('Y-m-d'));
         $this->assertTrue((bool) $saved->enabled);
 
-        $after = VentaCartSetting::findOrFail($two);
+        $after = VentaCartStore::findOrFail($two);
         $this->assertSame($beforeTwo['store_name'], $after->store_name);
         $this->assertSame($beforeTwo['base_url'], $after->base_url);
         $this->assertSame($beforeTwo['api_token'], $after->api_token);
@@ -2059,7 +2058,7 @@ class WorkspaceInteriorsTest extends TestCase
             'api_token' => '',
         ])->assertRedirect(route('ext.ventacart.settings.show', ['store' => $one]));
 
-        $saved = VentaCartSetting::findOrFail($one);
+        $saved = VentaCartStore::findOrFail($one);
         $this->assertSame('Gear Depot Renamed', $saved->store_name, 'The rest of the form still saved.');
         $this->assertSame('ventacart-token-one', $saved->api_token, 'The stored token survived a blank submission.');
     }
@@ -2074,7 +2073,7 @@ class WorkspaceInteriorsTest extends TestCase
             'api_token' => 'ventacart-token-one-replaced',
         ])->assertRedirect(route('ext.ventacart.settings.show', ['store' => $one]));
 
-        $this->assertSame('ventacart-token-one-replaced', VentaCartSetting::findOrFail($one)->api_token);
+        $this->assertSame('ventacart-token-one-replaced', VentaCartStore::findOrFail($one)->api_token);
     }
 
     public function test_a_new_ventacart_store_still_requires_the_api_token(): void
@@ -2083,7 +2082,7 @@ class WorkspaceInteriorsTest extends TestCase
             'base_url' => 'https://new.ventacart.test',
         ])->assertSessionHasErrors('api_token');
 
-        $this->assertSame(0, VentaCartSetting::query()->count());
+        $this->assertSame(0, VentaCartStore::query()->count());
     }
 
     public function test_the_ventacart_api_token_never_reaches_the_page_source_for_either_tier(): void
@@ -2115,7 +2114,7 @@ class WorkspaceInteriorsTest extends TestCase
             'api_token' => 'ventacart-token-one',
         ])->assertRedirect();
 
-        $this->assertFalse((bool) VentaCartSetting::findOrFail($one)->enabled);
+        $this->assertFalse((bool) VentaCartStore::findOrFail($one)->enabled);
     }
 
     public function test_the_ventacart_status_map_save_is_scoped_to_its_own_store(): void
@@ -2123,7 +2122,7 @@ class WorkspaceInteriorsTest extends TestCase
         [$one, $two] = $this->seedVentaStores();
 
         VentaCartOrderStatusMap::create([
-            'ventacart_setting_id' => $two, 'ventacart_status_id' => 3,
+            'store_id' => $two, 'ventacart_status_id' => 3,
             'ventacart_status_name' => 'Shipped', 'order_status_id' => 3,
         ]);
 
@@ -2134,9 +2133,9 @@ class WorkspaceInteriorsTest extends TestCase
             ],
         ])->assertOk();
 
-        $this->assertSame(5, (int) VentaCartOrderStatusMap::where('ventacart_setting_id', $one)
+        $this->assertSame(5, (int) VentaCartOrderStatusMap::where('store_id', $one)
             ->where('ventacart_status_id', 3)->value('order_status_id'));
-        $this->assertSame(3, (int) VentaCartOrderStatusMap::where('ventacart_setting_id', $two)
+        $this->assertSame(3, (int) VentaCartOrderStatusMap::where('store_id', $two)
             ->where('ventacart_status_id', 3)->value('order_status_id'));
     }
 
@@ -2146,25 +2145,25 @@ class WorkspaceInteriorsTest extends TestCase
         $productId = $this->seedCatalogProduct('Overdrive Pedal', 'OD-808');
 
         $group = VentaCartProductGroup::create([
-            'ventacart_setting_id' => $one, 'name' => 'Pedal Batch',
+            'store_id' => $one, 'name' => 'Pedal Batch',
             'markup_percent' => 5, 'markup_fixed' => 100,
         ]);
-        DB::table('ventacart_product_group_products')->insert([
+        DB::table('ch_ventacart_product_group_products')->insert([
             'ventacart_product_group_id' => $group->id, 'product_id' => $productId,
             'created_at' => now(), 'updated_at' => now(),
         ]);
 
         VentaCartOrderStatusMap::create([
-            'ventacart_setting_id' => $one, 'ventacart_status_id' => 7,
+            'store_id' => $one, 'ventacart_status_id' => 7,
             'ventacart_status_name' => 'Awaiting pickup', 'order_status_id' => 0,
         ]);
         VentaCartApiLog::create([
-            'ventacart_setting_id' => $one, 'method' => 'GET', 'endpoint' => '/api/orders',
+            'store_id' => $one, 'method' => 'GET', 'endpoint' => '/api/orders',
             'status_code' => 200, 'response_time_ms' => 84, 'ok' => true,
             'request_body' => null, 'response_body' => ['data' => []],
         ]);
         VentaCartSyncLog::create([
-            'ventacart_setting_id' => $one, 'entity_type' => 'orders', 'direction' => 'pull',
+            'store_id' => $one, 'entity_type' => 'orders', 'direction' => 'pull',
             'status' => 'completed', 'started_at' => now()->subMinute(), 'completed_at' => now(),
             'records_processed' => 12, 'records_updated' => 4, 'records_failed' => 0,
         ]);
@@ -2195,13 +2194,13 @@ class WorkspaceInteriorsTest extends TestCase
         [$one] = $this->seedVentaStores();
         $payload = '<img src=x onerror=alert(1)>';
 
-        $group = VentaCartProductGroup::create(['ventacart_setting_id' => $one, 'name' => $payload]);
+        $group = VentaCartProductGroup::create(['store_id' => $one, 'name' => $payload]);
         VentaCartOrderStatusMap::create([
-            'ventacart_setting_id' => $one, 'ventacart_status_id' => 9,
+            'store_id' => $one, 'ventacart_status_id' => 9,
             'ventacart_status_name' => $payload, 'order_status_id' => 0,
         ]);
         VentaCartApiLog::create([
-            'ventacart_setting_id' => $one, 'method' => 'GET', 'endpoint' => $payload,
+            'store_id' => $one, 'method' => 'GET', 'endpoint' => $payload,
             'status_code' => 500, 'response_time_ms' => 3, 'ok' => false,
             'request_body' => null, 'response_body' => ['error' => $payload],
         ]);
@@ -2221,7 +2220,7 @@ class WorkspaceInteriorsTest extends TestCase
     public function test_every_opencart_interior_renders_for_both_tiers(): void
     {
         [$one] = $this->seedOpencartStores();
-        $group = OpenCartProductGroup::create(['opencart_setting_id' => $one, 'name' => 'Cables']);
+        $group = OpenCartProductGroup::create(['store_id' => $one, 'name' => 'Cables']);
 
         foreach ([$this->opencartManager(), $this->opencartViewer()] as $user) {
             foreach ($this->opencartInteriorUrls($one, $group->id) as $label => $url) {
@@ -2233,7 +2232,7 @@ class WorkspaceInteriorsTest extends TestCase
     public function test_no_opencart_interior_still_carries_the_legacy_boundary(): void
     {
         [$one] = $this->seedOpencartStores();
-        $group = OpenCartProductGroup::create(['opencart_setting_id' => $one, 'name' => 'Cables']);
+        $group = OpenCartProductGroup::create(['store_id' => $one, 'name' => 'Cables']);
         $user = $this->opencartManager();
 
         foreach ($this->opencartInteriorUrls($one, $group->id) as $label => $url) {
@@ -2245,7 +2244,7 @@ class WorkspaceInteriorsTest extends TestCase
     public function test_every_opencart_self_link_carries_the_store_it_arrived_on(): void
     {
         [$one, $two] = $this->seedOpencartStores();
-        $groupTwo = OpenCartProductGroup::create(['opencart_setting_id' => $two, 'name' => 'Looms']);
+        $groupTwo = OpenCartProductGroup::create(['store_id' => $two, 'name' => 'Looms']);
         $user = $this->opencartManager();
 
         foreach ($this->opencartInteriorUrls($two, $groupTwo->id) as $label => $url) {
@@ -2285,7 +2284,7 @@ class WorkspaceInteriorsTest extends TestCase
     public function test_every_opencart_interior_names_its_store_in_the_content(): void
     {
         [, $two] = $this->seedOpencartStores();
-        $groupTwo = OpenCartProductGroup::create(['opencart_setting_id' => $two, 'name' => 'Looms']);
+        $groupTwo = OpenCartProductGroup::create(['store_id' => $two, 'name' => 'Looms']);
         $user = $this->opencartManager();
 
         foreach ($this->opencartInteriorUrls($two, $groupTwo->id) as $label => $url) {
@@ -2302,7 +2301,7 @@ class WorkspaceInteriorsTest extends TestCase
     public function test_an_operator_with_no_opencart_permission_is_refused_every_opencart_interior(): void
     {
         [$one] = $this->seedOpencartStores();
-        $group = OpenCartProductGroup::create(['opencart_setting_id' => $one, 'name' => 'Cables']);
+        $group = OpenCartProductGroup::create(['store_id' => $one, 'name' => 'Cables']);
         $user = $this->outsider();
 
         foreach ($this->opencartInteriorUrls($one, $group->id) as $label => $url) {
@@ -2313,7 +2312,7 @@ class WorkspaceInteriorsTest extends TestCase
     public function test_guests_are_redirected_away_from_every_opencart_interior(): void
     {
         [$one] = $this->seedOpencartStores();
-        $group = OpenCartProductGroup::create(['opencart_setting_id' => $one, 'name' => 'Cables']);
+        $group = OpenCartProductGroup::create(['store_id' => $one, 'name' => 'Cables']);
 
         foreach ($this->opencartInteriorUrls($one, $group->id) as $label => $url) {
             $this->get($url)->assertRedirect(route('login'));
@@ -2323,7 +2322,7 @@ class WorkspaceInteriorsTest extends TestCase
     public function test_the_opencart_read_tier_is_not_offered_write_controls(): void
     {
         [$one] = $this->seedOpencartStores();
-        $group = OpenCartProductGroup::create(['opencart_setting_id' => $one, 'name' => 'Cables']);
+        $group = OpenCartProductGroup::create(['store_id' => $one, 'name' => 'Cables']);
         $user = $this->opencartViewer();
 
         $groups = $this->actingAs($user)->get(route('ext.opencart.product-groups.index', $one))->assertOk();
@@ -2378,7 +2377,7 @@ class WorkspaceInteriorsTest extends TestCase
     public function test_the_opencart_manage_tier_is_offered_those_same_controls(): void
     {
         [$one] = $this->seedOpencartStores();
-        $group = OpenCartProductGroup::create(['opencart_setting_id' => $one, 'name' => 'Cables']);
+        $group = OpenCartProductGroup::create(['store_id' => $one, 'name' => 'Cables']);
         $user = $this->opencartManager();
 
         $this->actingAs($user)->get(route('ext.opencart.product-groups.index', $one))
@@ -2412,7 +2411,7 @@ class WorkspaceInteriorsTest extends TestCase
     public function test_the_opencart_write_routes_refuse_the_read_tier_on_their_own(): void
     {
         [$one] = $this->seedOpencartStores();
-        $group = OpenCartProductGroup::create(['opencart_setting_id' => $one, 'name' => 'Cables']);
+        $group = OpenCartProductGroup::create(['store_id' => $one, 'name' => 'Cables']);
         $user = $this->opencartViewer();
 
         $this->assertDenied($this->actingAs($user)->post(route('ext.opencart.save'), [
@@ -2435,7 +2434,7 @@ class WorkspaceInteriorsTest extends TestCase
     {
         [$one, $two] = $this->seedOpencartStores();
 
-        $before = OpenCartSetting::findOrFail($two);
+        $before = OpenCartStore::findOrFail($two);
         $beforeTwo = [
             'store_name' => $before->store_name,
             'base_url' => $before->base_url,
@@ -2455,7 +2454,7 @@ class WorkspaceInteriorsTest extends TestCase
             'enabled' => '1',
         ])->assertRedirect();
 
-        $saved = OpenCartSetting::findOrFail($one);
+        $saved = OpenCartStore::findOrFail($one);
         $this->assertSame('Parts Yard Renamed', $saved->store_name);
         $this->assertSame('#ddeeff', $saved->brand_color);
         $this->assertSame('https://renamed.opencart.test', $saved->base_url);
@@ -2463,7 +2462,7 @@ class WorkspaceInteriorsTest extends TestCase
         $this->assertSame('2026-02-20', $saved->sync_orders_from->format('Y-m-d'));
         $this->assertTrue((bool) $saved->enabled);
 
-        $after = OpenCartSetting::findOrFail($two);
+        $after = OpenCartStore::findOrFail($two);
         $this->assertSame($beforeTwo['store_name'], $after->store_name);
         $this->assertSame($beforeTwo['base_url'], $after->base_url);
         $this->assertSame($beforeTwo['api_key'], $after->api_key);
@@ -2483,7 +2482,7 @@ class WorkspaceInteriorsTest extends TestCase
             'api_key' => '',
         ])->assertRedirect();
 
-        $saved = OpenCartSetting::findOrFail($one);
+        $saved = OpenCartStore::findOrFail($one);
         $this->assertSame('Parts Yard Renamed', $saved->store_name, 'The rest of the form still saved.');
         $this->assertSame('oc-key-one', $saved->api_key, 'The stored key survived a blank submission.');
     }
@@ -2498,7 +2497,7 @@ class WorkspaceInteriorsTest extends TestCase
             'api_key' => 'oc-key-one-replaced',
         ])->assertRedirect();
 
-        $this->assertSame('oc-key-one-replaced', OpenCartSetting::findOrFail($one)->api_key);
+        $this->assertSame('oc-key-one-replaced', OpenCartStore::findOrFail($one)->api_key);
     }
 
     public function test_a_new_opencart_store_still_requires_the_api_key(): void
@@ -2507,7 +2506,7 @@ class WorkspaceInteriorsTest extends TestCase
             'base_url' => 'https://new.opencart.test',
         ])->assertSessionHasErrors('api_key');
 
-        $this->assertSame(0, OpenCartSetting::query()->count());
+        $this->assertSame(0, OpenCartStore::query()->count());
     }
 
     public function test_the_opencart_api_key_never_reaches_the_page_source_for_either_tier(): void
@@ -2537,7 +2536,7 @@ class WorkspaceInteriorsTest extends TestCase
             'store_id' => $one,
         ])->assertRedirect();
 
-        $this->assertFalse((bool) OpenCartSetting::findOrFail($one)->review_auto_approve);
+        $this->assertFalse((bool) OpenCartStore::findOrFail($one)->review_auto_approve);
     }
 
     public function test_the_opencart_status_map_save_is_scoped_to_its_own_store(): void
@@ -2545,7 +2544,7 @@ class WorkspaceInteriorsTest extends TestCase
         [$one, $two] = $this->seedOpencartStores();
 
         OpenCartOrderStatusMap::create([
-            'opencart_setting_id' => $two, 'oc_status_id' => 3,
+            'store_id' => $two, 'oc_status_id' => 3,
             'oc_status_name' => 'Shipped', 'order_status_id' => 3,
         ]);
 
@@ -2556,9 +2555,9 @@ class WorkspaceInteriorsTest extends TestCase
             ],
         ])->assertOk();
 
-        $this->assertSame(5, (int) OpenCartOrderStatusMap::where('opencart_setting_id', $one)
+        $this->assertSame(5, (int) OpenCartOrderStatusMap::where('store_id', $one)
             ->where('oc_status_id', 3)->value('order_status_id'));
-        $this->assertSame(3, (int) OpenCartOrderStatusMap::where('opencart_setting_id', $two)
+        $this->assertSame(3, (int) OpenCartOrderStatusMap::where('store_id', $two)
             ->where('oc_status_id', 3)->value('order_status_id'));
     }
 
@@ -2567,17 +2566,17 @@ class WorkspaceInteriorsTest extends TestCase
         [$one] = $this->seedOpencartStores();
         $productId = $this->seedCatalogProduct('Patch Cable', 'PC-15');
 
-        $group = OpenCartProductGroup::create(['opencart_setting_id' => $one, 'name' => 'Cable Batch']);
-        DB::table('opencart_product_group_products')->insert([
+        $group = OpenCartProductGroup::create(['store_id' => $one, 'name' => 'Cable Batch']);
+        DB::table('ch_opencart_product_group_products')->insert([
             'opencart_product_group_id' => $group->id, 'product_id' => $productId,
         ]);
 
         OpenCartOrderStatusMap::create([
-            'opencart_setting_id' => $one, 'oc_status_id' => 5,
+            'store_id' => $one, 'oc_status_id' => 5,
             'oc_status_name' => 'Complete', 'order_status_id' => 0,
         ]);
         OpenCartSyncLog::create([
-            'opencart_setting_id' => $one, 'entity_type' => 'orders', 'direction' => 'pull',
+            'store_id' => $one, 'entity_type' => 'orders', 'direction' => 'pull',
             'status' => 'completed', 'started_at' => now()->subMinute(), 'completed_at' => now(),
             'records_processed' => 9, 'records_updated' => 2, 'records_failed' => 0,
         ]);
@@ -2605,13 +2604,13 @@ class WorkspaceInteriorsTest extends TestCase
         [$one] = $this->seedOpencartStores();
         $payload = '<img src=x onerror=alert(1)>';
 
-        $group = OpenCartProductGroup::create(['opencart_setting_id' => $one, 'name' => $payload]);
+        $group = OpenCartProductGroup::create(['store_id' => $one, 'name' => $payload]);
         OpenCartOrderStatusMap::create([
-            'opencart_setting_id' => $one, 'oc_status_id' => 11,
+            'store_id' => $one, 'oc_status_id' => 11,
             'oc_status_name' => $payload, 'order_status_id' => 0,
         ]);
         OpenCartSyncLog::create([
-            'opencart_setting_id' => $one, 'entity_type' => 'orders', 'direction' => 'pull',
+            'store_id' => $one, 'entity_type' => 'orders', 'direction' => 'pull',
             'status' => 'failed', 'started_at' => now(), 'completed_at' => now(),
             'records_processed' => 0, 'records_updated' => 0, 'records_failed' => 1,
             'error_message' => $payload,
@@ -2636,8 +2635,8 @@ class WorkspaceInteriorsTest extends TestCase
         [$ventaCartStore] = $this->seedVentaStores();
         [$opencartStore] = $this->seedOpencartStores();
 
-        $ventaCartGroup = VentaCartProductGroup::create(['ventacart_setting_id' => $ventaCartStore, 'name' => 'Pedals']);
-        $opencartGroup = OpenCartProductGroup::create(['opencart_setting_id' => $opencartStore, 'name' => 'Cables']);
+        $ventaCartGroup = VentaCartProductGroup::create(['store_id' => $ventaCartStore, 'name' => 'Pedals']);
+        $opencartGroup = OpenCartProductGroup::create(['store_id' => $opencartStore, 'name' => 'Cables']);
 
         $shopeeUrls = $this->interiorUrls();
         $tiktokUrls = $this->tiktokInteriorUrls();
@@ -2673,10 +2672,10 @@ class WorkspaceInteriorsTest extends TestCase
             $this->actingAs($this->ventaCartViewer())->post(route('ext.ventacart.save'), $payload),
             'ventacart save, viewer'
         );
-        $this->assertSame('Gear Depot', VentaCartSetting::findOrFail($one)->store_name);
+        $this->assertSame('Gear Depot', VentaCartStore::findOrFail($one)->store_name);
 
         $this->actingAs($this->ventaCartManager())->post(route('ext.ventacart.save'), $payload)->assertRedirect();
-        $this->assertSame('Renamed By Test', VentaCartSetting::findOrFail($one)->store_name);
+        $this->assertSame('Renamed By Test', VentaCartStore::findOrFail($one)->store_name);
     }
 
     public function test_a_channel_that_contributes_no_banners_shows_no_other_channels_banners(): void
@@ -2684,7 +2683,7 @@ class WorkspaceInteriorsTest extends TestCase
         $this->seedTiktokSetting(['expires_at' => now()->subWeeks(2)]);
 
         [$ventaCartStore] = $this->seedVentaStores();
-        $ventaCartGroup = VentaCartProductGroup::create(['ventacart_setting_id' => $ventaCartStore, 'name' => 'Pedals']);
+        $ventaCartGroup = VentaCartProductGroup::create(['store_id' => $ventaCartStore, 'name' => 'Pedals']);
 
         foreach ($this->ventaCartInteriorUrls($ventaCartStore, $ventaCartGroup->id) as $label => $url) {
             $this->actingAs($this->ventaCartManager())->get($url)->assertOk()
@@ -2692,7 +2691,7 @@ class WorkspaceInteriorsTest extends TestCase
         }
 
         [$ocStore] = $this->seedOpencartStores();
-        $ocGroup = OpenCartProductGroup::create(['opencart_setting_id' => $ocStore, 'name' => 'Pedals']);
+        $ocGroup = OpenCartProductGroup::create(['store_id' => $ocStore, 'name' => 'Pedals']);
 
         foreach ($this->opencartInteriorUrls($ocStore, $ocGroup->id) as $label => $url) {
             $this->actingAs($this->opencartManager())->get($url)->assertOk()

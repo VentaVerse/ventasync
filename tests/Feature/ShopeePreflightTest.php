@@ -6,9 +6,9 @@ use App\Extensions\ExtensionManager;
 use App\Models\Admin\Permission;
 use App\Models\Admin\UserGroup;
 use App\Models\User;
-use Extensions\shopee\Models\ShopeeProductLink;
-use Extensions\shopee\Models\ShopeeSetting;
-use Extensions\shopee\Services\Shopee\ShopeeClient;
+use Extensions\Shopee\Models\ShopeeListingLink;
+use Extensions\Shopee\Models\ShopeeStore;
+use Extensions\Shopee\Services\Shopee\ShopeeClient;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
@@ -26,11 +26,11 @@ class ShopeePreflightTest extends TestCase
         $manager = $this->app->make(ExtensionManager::class);
         $manager->install('shopee');
         $manager->enable('shopee');
-        $this->app->register(\Extensions\shopee\ShopeeExtension::class);
+        $this->app->register(\Extensions\Shopee\ShopeeExtension::class);
         $this->app['router']->getRoutes()->refreshNameLookups();
-        $this->artisan('permissions:sync-catalogue');
+        $this->artisan('permissions:sync-catalog');
 
-        ShopeeSetting::create([
+        ShopeeStore::create([
             'mode' => 'production', 'store_name' => 'Main store',
             'partner_id' => 1, 'partner_key' => 'k', 'shop_id' => 2,
             'access_token' => 't', 'refresh_token' => 'r',
@@ -62,14 +62,13 @@ class ShopeePreflightTest extends TestCase
 
     private function seedProduct(string $sku, float $weight, float $dims): int
     {
-        $pfx = (string) config('catalog.prefix');
-        $productId = DB::table($pfx . 'product')->insertGetId([
+        $productId = DB::table('products')->insertGetId([
             'model' => $sku, 'sku' => $sku, 'quantity' => 5, 'price' => 300,
             'status' => 1, 'image' => 'catalog/x.png',
             'weight' => $weight, 'length' => $dims, 'width' => $dims, 'height' => $dims,
-            'manufacturer_id' => 0, 'date_added' => now(), 'date_modified' => now(), 'date_available' => now(),
+            'brand_id' => 0, 'date_added' => now(), 'date_modified' => now(), 'date_available' => now(),
         ]);
-        DB::table($pfx . 'product_description')->insert([
+        DB::table('product_descriptions')->insert([
             'product_id' => $productId, 'language_id' => (int) config('catalog.default_language_id'),
             'name' => 'Preflight product ' . $sku, 'description' => '',
             'meta_title' => '', 'meta_description' => '', 'meta_keyword' => '', 'tag' => '',
@@ -81,21 +80,21 @@ class ShopeePreflightTest extends TestCase
     public function test_a_relist_that_shopee_would_refuse_is_refused_here_first(): void
     {
         $pid = $this->seedProduct('PF-1', 0, 0);
-        ShopeeProductLink::create(['product_id' => $pid, 'shopee_item_id' => 700, 'live_status' => 'UNLIST']);
+        ShopeeListingLink::create(['product_id' => $pid, 'shopee_item_id' => 700, 'live_status' => 'UNLIST']);
 
         $r = $this->actingAs($this->manager())
             ->post(route('ext.shopee.listings.toggle', $pid), ['action' => 'list']);
 
         $r->assertSessionHas('error');
         $this->assertStringContainsString('a package weight', session('error'));
-        $this->assertStringContainsString('Add them on the catalog product', session('error'));
+        $this->assertStringContainsString('Add them on the Master Catalog product', session('error'));
         $this->assertSame([], $this->calls, 'the marketplace was never asked - that is the whole point');
     }
 
     public function test_a_ready_relist_still_goes_through(): void
     {
         $pid = $this->seedProduct('PF-2', 0.5, 10);
-        ShopeeProductLink::create(['product_id' => $pid, 'shopee_item_id' => 701, 'live_status' => 'UNLIST']);
+        ShopeeListingLink::create(['product_id' => $pid, 'shopee_item_id' => 701, 'live_status' => 'UNLIST']);
 
         $this->actingAs($this->manager())
             ->post(route('ext.shopee.listings.toggle', $pid), ['action' => 'list']);
@@ -107,8 +106,8 @@ class ShopeePreflightTest extends TestCase
     {
         $good = $this->seedProduct('PF-3', 0.5, 10);
         $bad = $this->seedProduct('PF-4', 0, 0);
-        ShopeeProductLink::create(['product_id' => $good, 'shopee_item_id' => 702, 'live_status' => 'UNLIST']);
-        ShopeeProductLink::create(['product_id' => $bad, 'shopee_item_id' => 703, 'live_status' => 'UNLIST']);
+        ShopeeListingLink::create(['product_id' => $good, 'shopee_item_id' => 702, 'live_status' => 'UNLIST']);
+        ShopeeListingLink::create(['product_id' => $bad, 'shopee_item_id' => 703, 'live_status' => 'UNLIST']);
 
         $r = $this->actingAs($this->manager())->post(route('ext.shopee.products.bulk_toggle'), [
             'action' => 'list', 'product_ids' => [$good, $bad],
@@ -122,7 +121,7 @@ class ShopeePreflightTest extends TestCase
     public function test_the_row_menu_offers_the_fix_instead_of_the_failure(): void
     {
         $pid = $this->seedProduct('PF-5', 0, 0);
-        ShopeeProductLink::create(['product_id' => $pid, 'shopee_item_id' => 704, 'live_status' => 'UNLIST']);
+        ShopeeListingLink::create(['product_id' => $pid, 'shopee_item_id' => 704, 'live_status' => 'UNLIST']);
 
         $html = $this->actingAs($this->manager())
             ->get(route('ext.shopee.products.index', ['q' => 'PF-5']))->assertOk()->getContent();
@@ -135,7 +134,7 @@ class ShopeePreflightTest extends TestCase
     public function test_a_push_update_without_a_parcel_is_refused_before_the_call(): void
     {
         $pid = $this->seedProduct('PF-6', 0, 5);
-        ShopeeProductLink::create(['product_id' => $pid, 'shopee_item_id' => 705, 'live_status' => 'NORMAL']);
+        ShopeeListingLink::create(['product_id' => $pid, 'shopee_item_id' => 705, 'live_status' => 'NORMAL']);
 
         $r = $this->actingAs($this->manager())
             ->post(route('ext.shopee.listings.push_update', $pid));

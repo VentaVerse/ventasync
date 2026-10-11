@@ -1,12 +1,12 @@
 <?php
 
-namespace Extensions\shopee\Models;
+namespace Extensions\Shopee\Models;
 
 use Illuminate\Database\Eloquent\Model;
 
 class ShopeeOrderProduct extends Model
 {
-    protected $table = 'shopee_order_products';
+    protected $table = 'ch_shopee_order_products';
 
     protected $fillable = [
         'shopee_order_id',

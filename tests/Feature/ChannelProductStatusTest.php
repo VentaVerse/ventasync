@@ -13,9 +13,9 @@ class ChannelProductStatusTest extends TestCase
 
     private function makeGroup(): int
     {
-        return DB::table('shopee_product_groups')->insertGetId([
-            'shopee_setting_id' => \Extensions\shopee\Models\ShopeeSetting::query()->orderBy('id')->value('id')
-                ?? \Extensions\shopee\Models\ShopeeSetting::create(['mode' => 'live', 'store_name' => 'Main store'])->id,
+        return DB::table('ch_shopee_product_groups')->insertGetId([
+            'store_id' => \Extensions\Shopee\Models\ShopeeStore::query()->orderBy('id')->value('id')
+                ?? \Extensions\Shopee\Models\ShopeeStore::create(['mode' => 'live', 'store_name' => 'Main store'])->id,
             'name' => 'Group '.uniqid('', true),
             'created_at' => now(),
             'updated_at' => now(),
@@ -24,7 +24,7 @@ class ChannelProductStatusTest extends TestCase
 
     private function seedPivot(int $groupId, int $productId, string $status, ?string $error = null): void
     {
-        DB::table('shopee_product_group_products')->insert([
+        DB::table('ch_shopee_product_group_products')->insert([
             'shopee_product_group_id' => $groupId,
             'product_id' => $productId,
             'sync_status' => $status,
@@ -34,7 +34,7 @@ class ChannelProductStatusTest extends TestCase
 
     private function statusIn(int $groupId, int $productId): ?object
     {
-        return DB::table('shopee_product_group_products')
+        return DB::table('ch_shopee_product_group_products')
             ->where('shopee_product_group_id', $groupId)
             ->where('product_id', $productId)
             ->first();
@@ -43,7 +43,7 @@ class ChannelProductStatusTest extends TestCase
     private function write(?array $groupIds, int $productId, array $attributes): int
     {
         return ChannelProductStatus::write(
-            'shopee_product_group_products',
+            'ch_shopee_product_group_products',
             'shopee_product_group_id',
             $groupIds,
             $productId,

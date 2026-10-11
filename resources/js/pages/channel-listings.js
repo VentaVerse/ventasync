@@ -162,12 +162,12 @@ function buildResultButton(item, onPick) {
         button.classList.add('is-held');
     }
 
-    if (item.options && item.options.length) {
-        item.options.forEach((option) => {
+    if (item.variations && item.variations.length) {
+        item.variations.forEach((variation) => {
             const line = document.createElement('span');
             line.className = 'cc-ta__var';
-            const label = option.name ? option.name + ' / ' : '';
-            line.textContent = label + option.sku + ' / ' + option.qty + ' in stock';
+            const label = variation.name ? variation.name + ' / ' : '';
+            line.textContent = label + variation.sku + ' / ' + variation.qty + ' in stock';
             body.appendChild(line);
         });
     }
@@ -270,7 +270,7 @@ export function initCatalogPicker(form) {
                 .then((response) => response.json())
                 .then((items) => {
                     if (!Array.isArray(items) || !items.length) {
-                        message('No catalog product matches that.');
+                        message('No Master Catalog product matches that.');
                         return;
                     }
                     list.textContent = '';

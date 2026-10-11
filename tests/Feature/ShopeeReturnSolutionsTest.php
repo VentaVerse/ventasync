@@ -6,7 +6,7 @@ use App\Extensions\ExtensionManager;
 use App\Models\Admin\Permission;
 use App\Models\Admin\UserGroup;
 use App\Models\User;
-use Extensions\shopee\ShopeeExtension;
+use Extensions\Shopee\ShopeeExtension;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\File;
 use Tests\TestCase;
@@ -19,7 +19,7 @@ class ShopeeReturnSolutionsTest extends TestCase
     {
         parent::setUp();
 
-        \Extensions\shopee\Models\ShopeeSetting::create(['mode' => 'live', 'store_name' => 'Main store']);
+        \Extensions\Shopee\Models\ShopeeStore::create(['mode' => 'live', 'store_name' => 'Main store']);
 
         $manager = $this->app->make(ExtensionManager::class);
         $manager->install('shopee');
@@ -54,7 +54,7 @@ class ShopeeReturnSolutionsTest extends TestCase
 
     public function test_someone_with_no_shopee_permission_cannot_ask(): void
     {
-        $outsider = $this->userWith(['view_catalog/manufacturer', 'view_catalog/category', 'view_api/catalog', 'view_catalog/product', 'view_catalog/product_image']);
+        $outsider = $this->userWith(['view_catalog/brand', 'view_catalog/category', 'view_api/catalog', 'view_catalog/product', 'view_catalog/product_image']);
 
         $this->actingAs($outsider)
             ->get(route('ext.shopee.orders.return_solutions', ['returnSn' => '220106202649696']))

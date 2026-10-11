@@ -2,7 +2,7 @@
 
 namespace Tests\Feature;
 
-use Extensions\ventacart\Controllers\VentaCartProductGroupController;
+use Extensions\VentaCart\Controllers\VentaCartProductGroupController;
 use ReflectionMethod;
 use Tests\TestCase;
 
@@ -36,7 +36,7 @@ class VentaCartReconcileTest extends TestCase
         $body = $this->methodBody('reconcileLink');
 
         $this->assertStringContainsString("'state' => 'lost'", $body,
-            'Nothing recognises a product that has been removed on VentaCart.');
+            'Nothing recognizes a product that has been removed on VentaCart.');
         $this->assertStringContainsString('$link->delete();', $body,
             'A stale link survives reconciliation, so the next push sends an update VentaCart can only 404.');
     }
@@ -80,7 +80,7 @@ class VentaCartReconcileTest extends TestCase
     {
         $body = $this->methodBody('unlinkProduct');
 
-        $this->assertStringContainsString('VentaCartProductLink::where', $body,
+        $this->assertStringContainsString('VentaCartListingLink::where', $body,
             'Unlink still only flips a status flag, so the ERP goes on believing the product is on VentaCart.');
         $this->assertStringContainsString('->delete();', $body);
     }
@@ -101,14 +101,14 @@ class VentaCartReconcileTest extends TestCase
         $this->assertStringContainsString('images_unavailable', $source);
         $this->assertStringContainsString('will not create a product it cannot fetch images for', $source,
             'VentaCart refusing to create a product without fetchable images is shown as a raw envelope.');
-        $this->assertStringContainsString('Nothing in the catalog needs fixing', $source,
+        $this->assertStringContainsString('Nothing in the Master Catalog needs fixing', $source,
             'The refusal does not tell the operator where the problem is not, so they will go hunting in the product.');
     }
 
     private function methodBody(string $method): string
     {
         $map = [
-            'reconcileLink' => [\Extensions\ventacart\Services\VentaCart\VentaCartProductPush::class, self::SERVICE],
+            'reconcileLink' => [\Extensions\VentaCart\Services\VentaCart\VentaCartProductPush::class, self::SERVICE],
         ];
         [$class, $file] = $map[$method] ?? [VentaCartProductGroupController::class, self::CONTROLLER];
         $ref = new ReflectionMethod($class, $method);

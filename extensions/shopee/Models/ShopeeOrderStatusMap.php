@@ -1,12 +1,12 @@
 <?php
 
-namespace Extensions\shopee\Models;
+namespace Extensions\Shopee\Models;
 
 use Illuminate\Database\Eloquent\Model;
 
 class ShopeeOrderStatusMap extends Model
 {
-    protected $table = 'shopee_order_status_map';
+    protected $table = 'ch_shopee_order_status_map';
 
     protected $fillable = [
         'shopee_status',

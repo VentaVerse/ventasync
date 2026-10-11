@@ -1,9 +1,9 @@
 <?php
 
-namespace Extensions\shopee\Http;
+namespace Extensions\Shopee\Http;
 
 use Closure;
-use Extensions\shopee\Models\ShopeeSetting;
+use Extensions\Shopee\Models\ShopeeStore;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\URL;
 
@@ -13,7 +13,7 @@ class ResolveShopeeStore
     {
         $id = $request->route('store');
         if ($id !== null) {
-            $store = ShopeeSetting::query()->find((int) $id);
+            $store = ShopeeStore::query()->find((int) $id);
             abort_unless($store !== null, 404);
 
             app()->instance('shopee.route-store', $store);

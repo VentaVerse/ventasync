@@ -6,13 +6,13 @@ use App\Extensions\ExtensionManager;
 use App\Models\Admin\Permission;
 use App\Models\Admin\UserGroup;
 use App\Models\User;
-use Extensions\lazada\Models\LazadaSetting;
-use Extensions\shopee\Models\ShopeeCategory;
-use Extensions\shopee\Models\ShopeeListing;
-use Extensions\shopee\Models\ShopeeLogistic;
-use Extensions\shopee\Models\ShopeeSetting;
-use Extensions\shopee\Services\Shopee\ShopeeListingReadiness;
-use Extensions\tiktok\Models\TikTokSetting;
+use Extensions\Lazada\Models\LazadaStore;
+use Extensions\Shopee\Models\ShopeeCategory;
+use Extensions\Shopee\Models\ShopeeListing;
+use Extensions\Shopee\Models\ShopeeLogistic;
+use Extensions\Shopee\Models\ShopeeStore;
+use Extensions\Shopee\Services\Shopee\ShopeeListingReadiness;
+use Extensions\TikTok\Models\TikTokStore;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
@@ -30,11 +30,11 @@ class StoreSetupTest extends TestCase
             $manager->install($ext);
             $manager->enable($ext);
         }
-        $this->app->register(\Extensions\shopee\ShopeeExtension::class);
-        $this->app->register(\Extensions\lazada\LazadaExtension::class);
-        $this->app->register(\Extensions\tiktok\TikTokExtension::class);
+        $this->app->register(\Extensions\Shopee\ShopeeExtension::class);
+        $this->app->register(\Extensions\Lazada\LazadaExtension::class);
+        $this->app->register(\Extensions\TikTok\TikTokExtension::class);
         $this->app['router']->getRoutes()->refreshNameLookups();
-        $this->artisan('permissions:sync-catalogue');
+        $this->artisan('permissions:sync-catalog');
     }
 
     private function manager(string $channel): User
@@ -47,13 +47,12 @@ class StoreSetupTest extends TestCase
 
     private function seedProduct(string $name, string $sku): int
     {
-        $pfx = (string) config('catalog.prefix');
-        $pid = DB::table($pfx . 'product')->insertGetId([
+        $pid = DB::table('products')->insertGetId([
             'model' => $sku, 'sku' => $sku, 'quantity' => 5, 'price' => 100, 'status' => 1,
-            'image' => 'catalog/x.png', 'weight' => 1, 'length' => 1, 'width' => 1, 'height' => 1, 'manufacturer_id' => 0,
+            'image' => 'catalog/x.png', 'weight' => 1, 'length' => 1, 'width' => 1, 'height' => 1, 'brand_id' => 0,
             'date_added' => now(), 'date_modified' => now(), 'date_available' => now(),
         ]);
-        DB::table($pfx . 'product_description')->insert([
+        DB::table('product_descriptions')->insert([
             'product_id' => $pid, 'language_id' => (int) config('catalog.default_language_id'),
             'name' => $name, 'description' => '', 'meta_title' => '', 'meta_description' => '', 'meta_keyword' => '', 'tag' => '',
         ]);
@@ -63,7 +62,7 @@ class StoreSetupTest extends TestCase
 
     public function test_the_settings_page_carries_the_setup_popup_and_starts_it_after_an_authorisation(): void
     {
-        $store = ShopeeSetting::create(['mode' => 'live', 'store_name' => 'Main']);
+        $store = ShopeeStore::create(['mode' => 'live', 'store_name' => 'Main']);
         $user = $this->manager('shopee');
 
         $html = $this->actingAs($user)->get(route('ext.shopee.settings.show', ['store' => $store->id]))->assertOk()->getContent();
@@ -80,7 +79,7 @@ class StoreSetupTest extends TestCase
 
     public function test_a_setup_step_on_an_unconnected_store_answers_a_plain_sentence(): void
     {
-        $store = ShopeeSetting::create(['mode' => 'live', 'store_name' => 'Main']);
+        $store = ShopeeStore::create(['mode' => 'live', 'store_name' => 'Main']);
 
         $r = $this->actingAs($this->manager('shopee'))
             ->postJson('/channels/shopee/' . $store->id . '/setup/categories');
@@ -96,7 +95,7 @@ class StoreSetupTest extends TestCase
 
     public function test_a_connection_result_is_one_plain_line_and_never_a_payload(): void
     {
-        $store = ShopeeSetting::create(['mode' => 'live', 'store_name' => 'Main']);
+        $store = ShopeeStore::create(['mode' => 'live', 'store_name' => 'Main']);
         $user = $this->manager('shopee');
 
         $html = $this->actingAs($user)
@@ -117,7 +116,7 @@ class StoreSetupTest extends TestCase
 
     public function test_readiness_says_when_nothing_has_been_fetched_yet(): void
     {
-        ShopeeSetting::create(['mode' => 'live', 'store_name' => 'Main']);
+        ShopeeStore::create(['mode' => 'live', 'store_name' => 'Main']);
         $pid = $this->seedProduct('Bare widget', 'BARE-1');
         ShopeeListing::create(['product_id' => $pid]);
 
@@ -136,17 +135,17 @@ class StoreSetupTest extends TestCase
 
     public function test_lazada_and_tiktok_readiness_say_when_no_categories_were_fetched(): void
     {
-        LazadaSetting::create(['mode' => 'live', 'store_name' => 'Laz']);
-        TikTokSetting::create(['mode' => 'production', 'store_name' => 'TT', 'app_key' => 'k', 'app_secret' => 's',
+        LazadaStore::create(['mode' => 'live', 'store_name' => 'Laz']);
+        TikTokStore::create(['mode' => 'production', 'store_name' => 'TT', 'app_key' => 'k', 'app_secret' => 's',
             'access_token' => 't', 'refresh_token' => 'r', 'shop_cipher' => 'c', 'expires_at' => now()->addDays(3)]);
         $pid = $this->seedProduct('Bare widget', 'BARE-1');
-        \Extensions\lazada\Models\LazadaProduct::create(['product_id' => $pid]);
-        \Extensions\tiktok\Models\TikTokListing::create(['product_id' => $pid]);
+        \Extensions\Lazada\Models\LazadaListing::create(['product_id' => $pid]);
+        \Extensions\TikTok\Models\TikTokListing::create(['product_id' => $pid]);
 
-        $laz = app(\Extensions\lazada\Services\Lazada\LazadaListingReadiness::class)->forProducts([$pid])[$pid]['missing'];
+        $laz = app(\Extensions\Lazada\Services\Lazada\LazadaListingReadiness::class)->forProducts([$pid])[$pid]['missing'];
         $this->assertStringContainsString('none have been fetched for this store yet', implode(' | ', $laz));
 
-        $tt = app(\Extensions\tiktok\Services\TikTok\TikTokListingReadiness::class)->forProducts([$pid])[$pid]['missing'];
+        $tt = app(\Extensions\TikTok\Services\TikTok\TikTokListingReadiness::class)->forProducts([$pid])[$pid]['missing'];
         $this->assertStringContainsString('none have been fetched for this store yet', implode(' | ', $tt));
     }
 }

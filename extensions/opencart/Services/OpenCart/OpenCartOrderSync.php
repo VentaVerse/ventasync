@@ -1,11 +1,11 @@
 <?php
 
-namespace Extensions\opencart\Services\OpenCart;
+namespace Extensions\OpenCart\Services\OpenCart;
 
 use App\Models\Catalog\Order;
-use Extensions\opencart\Models\OpenCartOrderStatusMap;
-use Extensions\opencart\Models\OpenCartSetting;
-use Extensions\opencart\Models\OpenCartSyncLog;
+use Extensions\OpenCart\Models\OpenCartOrderStatusMap;
+use Extensions\OpenCart\Models\OpenCartStore;
+use Extensions\OpenCart\Models\OpenCartSyncLog;
 use App\Events\OrderStatusChanged;
 use App\Services\OrderStockService;
 use App\Services\ActivityLogger;
@@ -15,13 +15,13 @@ use Illuminate\Support\Facades\Log;
 class OpenCartOrderSync
 {
     private OpenCartClient $client;
-    private OpenCartSetting $setting;
+    private OpenCartStore $store;
     private bool $skipStockAdjust = false;
 
-    public function __construct(OpenCartClient $client, OpenCartSetting $setting)
+    public function __construct(OpenCartClient $client, OpenCartStore $store)
     {
         $this->client = $client;
-        $this->setting = $setting;
+        $this->store = $store;
     }
 
     public function setSkipStockAdjust(bool $skip = true): self
@@ -39,7 +39,7 @@ class OpenCartOrderSync
         ?string $modifiedBefore = null
     ): OpenCartSyncLog {
         $log = OpenCartSyncLog::create([
-            'opencart_setting_id' => $this->setting->id,
+            'store_id' => $this->store->id,
             'entity_type' => 'order',
             'direction'   => 'pull',
             'status'      => 'started',
@@ -88,7 +88,7 @@ class OpenCartOrderSync
                     }
                 }
 
-                $this->setting->update(['last_order_page' => $page]);
+                $this->store->update(['last_order_page' => $page]);
 
                 if ($onProgress) {
                     $onProgress($created + $updated + $failed, $total);
@@ -102,7 +102,7 @@ class OpenCartOrderSync
                 }
             } while ($hasMore);
 
-            $this->setting->update([
+            $this->store->update([
                 'last_order_sync_at' => now(),
                 'last_order_page'    => 0,
             ]);
@@ -130,12 +130,12 @@ class OpenCartOrderSync
 
     private function resolveSinceDate(): ?string
     {
-        if ($this->setting->sync_last_days && $this->setting->sync_last_days > 0) {
-            return now()->subDays($this->setting->sync_last_days)->startOfDay()->toDateTimeString();
+        if ($this->store->sync_last_days && $this->store->sync_last_days > 0) {
+            return now()->subDays($this->store->sync_last_days)->startOfDay()->toDateTimeString();
         }
 
-        if ($this->setting->sync_orders_from) {
-            return $this->setting->sync_orders_from->startOfDay()->toDateTimeString();
+        if ($this->store->sync_orders_from) {
+            return $this->store->sync_orders_from->startOfDay()->toDateTimeString();
         }
 
         return null;
@@ -143,17 +143,16 @@ class OpenCartOrderSync
 
     private function buildStatusMap(): array
     {
-        $pfx = (string) config('catalog.prefix');
         $langId = (int) config('catalog.default_language_id');
 
         $idMap = [];
-        $storeMap = OpenCartOrderStatusMap::where('opencart_setting_id', $this->setting->id)->get();
+        $storeMap = OpenCartOrderStatusMap::where('store_id', $this->store->id)->get();
         foreach ($storeMap as $row) {
             $idMap[(int) $row->oc_status_id] = (int) $row->order_status_id;
         }
 
         $nameMap = [];
-        $rows = DB::table($pfx . 'order_status')
+        $rows = DB::table('order_statuses')
             ->where('language_id', $langId)
             ->select('order_status_id', 'name')
             ->get();
@@ -182,7 +181,6 @@ class OpenCartOrderSync
 
     private function upsertOrder(array $raw, array $statusMap): bool
     {
-        $pfx = (string) config('catalog.prefix');
         $ocOrderId = (int) ($raw['order_id'] ?? 0);
         if ($ocOrderId <= 0) {
             throw new \RuntimeException('Missing order_id');
@@ -196,17 +194,17 @@ class OpenCartOrderSync
         $oldStatusId = 0;
         $coreOrderId = null;
 
-        $marketplaceSource = 'opencart:' . $this->setting->id;
+        $orderChannel = 'opencart:' . $this->store->id;
 
-        DB::transaction(function () use ($raw, $pfx, $ocOrderId, $coreStatusId, $marketplaceSource, $statusMap, &$created, &$oldStatusId, &$coreOrderId) {
-            $existing = DB::table($pfx . 'order')
-                ->where('marketplace_source', $marketplaceSource)
+        DB::transaction(function () use ($raw, $ocOrderId, $coreStatusId, $orderChannel, $statusMap, &$created, &$oldStatusId, &$coreOrderId) {
+            $existing = DB::table('orders')
+                ->where('channel', $orderChannel)
                 ->where('marketplace_order_id', (string) $ocOrderId)
                 ->first();
 
             if (! $existing) {
-                $existing = DB::table($pfx . 'order')
-                    ->where('marketplace_source', 'opencart')
+                $existing = DB::table('orders')
+                    ->where('channel', 'opencart')
                     ->where('marketplace_order_id', (string) $ocOrderId)
                     ->first();
             }
@@ -291,7 +289,7 @@ class OpenCartOrderSync
                 'tracking_number'        => '',
                 'date_modified'          => (isset($raw['date_modified']) && $raw['date_modified'] !== '0000-00-00 00:00:00') ? $raw['date_modified'] : now()->toDateTimeString(),
                 'oe_import'              => 0,
-                'marketplace_source'     => $marketplaceSource,
+                'channel'     => $orderChannel,
                 'marketplace_order_id'   => (string) $ocOrderId,
             ];
 
@@ -312,29 +310,29 @@ class OpenCartOrderSync
                     'new_date_added'   => $dateAdded,
                     'api_date_added'   => $raw['date_added'] ?? 'NOT SET',
                 ]);
-                DB::table($pfx . 'order')
+                DB::table('orders')
                     ->where('order_id', $coreOrderId)
                     ->update($orderData);
             } else {
                 $orderData['date_added'] = $dateAdded;
                 \App\Plans\Quota::refuseOrder();
-                $coreOrderId = DB::table($pfx . 'order')->insertGetId($orderData, 'order_id');
+                $coreOrderId = DB::table('orders')->insertGetId($orderData, 'order_id');
                 $created = true;
             }
 
             if (isset($raw['products']) && is_array($raw['products'])) {
-                DB::table($pfx . 'order_product')
+                DB::table('order_products')
                     ->where('order_id', $coreOrderId)
                     ->delete();
 
-                DB::table($pfx . 'order_option')
+                DB::table('order_variations')
                     ->where('order_id', $coreOrderId)
                     ->delete();
 
                 foreach ($raw['products'] as $p) {
-                    $coreProductId = $this->resolveProductBySku($pfx, $p);
+                    $coreProductId = $this->resolveProductBySku( $p);
 
-                    $resolvedOptions = [];
+                    $resolvedVariationTypes = [];
                     $firstMatchedPovId = 0;
                     if ($coreProductId > 0 && isset($p['options']) && is_array($p['options'])) {
                         foreach ($p['options'] as $opt) {
@@ -342,26 +340,26 @@ class OpenCartOrderSync
                             $localPoId = 0;
                             $optValue = trim($opt['value'] ?? '');
                             if ($optValue !== '') {
-                                $localPov = DB::table($pfx . 'product_option_value as pov')
-                                    ->join($pfx . 'option_value_description as ovd', function ($j) use ($pfx) {
+                                $localPov = DB::table('product_variation_values as pov')
+                                    ->join('variation_value_descriptions as ovd', function ($j)  {
                                         $langId = (int) config('catalog.default_language_id');
-                                        $j->on('pov.option_value_id', '=', 'ovd.option_value_id')
+                                        $j->on('pov.variation_value_id', '=', 'ovd.variation_value_id')
                                             ->where('ovd.language_id', '=', $langId);
                                     })
                                     ->where('pov.product_id', $coreProductId)
                                     ->where('ovd.name', $optValue)
-                                    ->select('pov.product_option_value_id', 'pov.product_option_id')
+                                    ->select('pov.product_variation_value_id', 'pov.product_variation_type_id')
                                     ->first();
 
                                 if ($localPov) {
-                                    $localPovId = (int) $localPov->product_option_value_id;
-                                    $localPoId = (int) $localPov->product_option_id;
+                                    $localPovId = (int) $localPov->product_variation_value_id;
+                                    $localPoId = (int) $localPov->product_variation_type_id;
                                     if ($firstMatchedPovId === 0) {
                                         $firstMatchedPovId = $localPovId;
                                     }
                                 }
                             }
-                            $resolvedOptions[] = [
+                            $resolvedVariationTypes[] = [
                                 'localPovId' => $localPovId,
                                 'localPoId'  => $localPoId,
                                 'name'       => $opt['name'] ?? '',
@@ -373,7 +371,7 @@ class OpenCartOrderSync
 
                     $productCost = \App\Support\LineCost::resolve((int) $coreProductId, (int) ($firstMatchedPovId ?? 0));
 
-                    $opId = DB::table($pfx . 'order_product')->insertGetId([
+                    $opId = DB::table('order_products')->insertGetId([
                         'order_id'   => $coreOrderId,
                         'product_id' => $coreProductId,
                         'name'       => $p['name'] ?? '',
@@ -386,12 +384,12 @@ class OpenCartOrderSync
                         'cost'       => $productCost,
                     ]);
 
-                    foreach ($resolvedOptions as $ro) {
-                        DB::table($pfx . 'order_option')->insert([
+                    foreach ($resolvedVariationTypes as $ro) {
+                        DB::table('order_variations')->insert([
                             'order_id'                 => $coreOrderId,
                             'order_product_id'         => $opId,
-                            'product_option_id'        => $ro['localPoId'],
-                            'product_option_value_id'  => $ro['localPovId'],
+                            'product_variation_type_id'        => $ro['localPoId'],
+                            'product_variation_value_id'  => $ro['localPovId'],
                             'name'                     => $ro['name'],
                             'value'                    => $ro['value'],
                             'type'                     => $ro['type'],
@@ -401,12 +399,12 @@ class OpenCartOrderSync
             }
 
             if (isset($raw['totals']) && is_array($raw['totals'])) {
-                DB::table($pfx . 'order_total')
+                DB::table('order_totals')
                     ->where('order_id', $coreOrderId)
                     ->delete();
 
                 foreach ($raw['totals'] as $t) {
-                    DB::table($pfx . 'order_total')->insert([
+                    DB::table('order_totals')->insert([
                         'order_id'   => $coreOrderId,
                         'code'       => $t['code'] ?? '',
                         'title'      => $t['title'] ?? '',
@@ -422,7 +420,7 @@ class OpenCartOrderSync
                     $hStatusName = trim($h['order_status_name'] ?? '');
                     $hCoreStatusId = $this->resolveOrderStatus($statusMap, $hOcStatusId, $hStatusName);
 
-                    DB::table($pfx . 'order_history')->insert([
+                    DB::table('order_history')->insert([
                         'order_id'        => $coreOrderId,
                         'order_status_id' => $hCoreStatusId,
                         'notify'          => (int) ($h['notify'] ?? 0),
@@ -462,12 +460,12 @@ class OpenCartOrderSync
         return $created;
     }
 
-    private function resolveProductBySku(string $pfx, array $p): int
+    private function resolveProductBySku( array $p): int
     {
         $ocProductId = (int) ($p['product_id'] ?? 0);
         if ($ocProductId > 0) {
-            $link = DB::table('opencart_product_links')
-                ->where('opencart_setting_id', $this->setting->id)
+            $link = DB::table('ch_opencart_listing_links')
+                ->where('store_id', $this->store->id)
                 ->where('oc_product_id', $ocProductId)
                 ->select('product_id')
                 ->first();
@@ -478,7 +476,7 @@ class OpenCartOrderSync
 
         $model = trim($p['model'] ?? '');
         if ($model !== '') {
-            $found = DB::table($pfx . 'product')
+            $found = DB::table('products')
                 ->where('sku', $model)
                 ->select('product_id')
                 ->first();
@@ -488,7 +486,7 @@ class OpenCartOrderSync
         $name = trim($p['name'] ?? '');
         if ($name !== '') {
             $langId = (int) config('catalog.default_language_id');
-            $found = DB::table($pfx . 'product_description')
+            $found = DB::table('product_descriptions')
                 ->where('name', $name)
                 ->where('language_id', $langId)
                 ->select('product_id')

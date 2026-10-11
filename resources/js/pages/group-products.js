@@ -160,7 +160,7 @@ function initManualAdd(section) {
             .then(function (data) {
                 const items = Array.isArray(data.items) ? data.items : [];
                 if (!items.length) {
-                    message('No catalog product matches that.');
+                    message('No Master Catalog product matches that.');
                     return;
                 }
                 render(items);

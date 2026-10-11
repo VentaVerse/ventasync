@@ -1,6 +1,6 @@
 <?php
 
-namespace Extensions\shopee\Models;
+namespace Extensions\Shopee\Models;
 
 use App\Models\Catalog\Order;
 use Illuminate\Database\Eloquent\Model;
@@ -9,12 +9,12 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class ShopeeOrder extends Model
 {
-    use \Extensions\shopee\Models\Concerns\BelongsToShopeeStore;
+    use \Extensions\Shopee\Models\Concerns\BelongsToShopeeStore;
 
-    protected $table = 'shopee_orders';
+    protected $table = 'ch_shopee_orders';
 
     protected $fillable = [
-        'shopee_setting_id',
+        'store_id',
         'region',
         'order_sn',
         'status',

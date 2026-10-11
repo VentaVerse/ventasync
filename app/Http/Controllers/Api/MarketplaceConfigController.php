@@ -10,14 +10,14 @@ class MarketplaceConfigController extends Controller
     public function index()
     {
         return response()->json([
-            'lazada'          => $this->isMarketplaceActive(\Extensions\lazada\Models\LazadaSetting::class, 'lazada_settings'),
-            'shopee'          => $this->isMarketplaceActive(\Extensions\shopee\Models\ShopeeSetting::class, 'shopee_settings'),
-            'tiktok'          => $this->isMarketplaceActive(\Extensions\tiktok\Models\TikTokSetting::class, 'tiktok_settings'),
-            'opencart_stores' => $this->getExtensionStores(\Extensions\opencart\Models\OpenCartSetting::class, 'opencart_settings'),
-            'ventacart_stores'    => $this->getExtensionStores(\Extensions\ventacart\Models\VentaCartSetting::class, 'ventacart_settings'),
-            'lazada_stores'   => $this->getExtensionStores(\Extensions\lazada\Models\LazadaSetting::class, 'lazada_settings'),
-            'shopee_stores'   => $this->getExtensionStores(\Extensions\shopee\Models\ShopeeSetting::class, 'shopee_settings'),
-            'tiktok_stores'   => $this->getExtensionStores(\Extensions\tiktok\Models\TikTokSetting::class, 'tiktok_settings'),
+            'lazada'          => $this->isMarketplaceActive(\Extensions\Lazada\Models\LazadaStore::class, 'ch_lazada_stores'),
+            'shopee'          => $this->isMarketplaceActive(\Extensions\Shopee\Models\ShopeeStore::class, 'ch_shopee_stores'),
+            'tiktok'          => $this->isMarketplaceActive(\Extensions\TikTok\Models\TikTokStore::class, 'ch_tiktok_stores'),
+            'opencart_stores' => $this->getExtensionStores(\Extensions\OpenCart\Models\OpenCartStore::class, 'ch_opencart_stores'),
+            'ventacart_stores'    => $this->getExtensionStores(\Extensions\VentaCart\Models\VentaCartStore::class, 'ch_ventacart_stores'),
+            'lazada_stores'   => $this->getExtensionStores(\Extensions\Lazada\Models\LazadaStore::class, 'ch_lazada_stores'),
+            'shopee_stores'   => $this->getExtensionStores(\Extensions\Shopee\Models\ShopeeStore::class, 'ch_shopee_stores'),
+            'tiktok_stores'   => $this->getExtensionStores(\Extensions\TikTok\Models\TikTokStore::class, 'ch_tiktok_stores'),
         ]);
     }
 

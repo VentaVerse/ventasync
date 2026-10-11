@@ -1,10 +1,10 @@
 <?php
 
-namespace Extensions\opencart\Commands;
+namespace Extensions\OpenCart\Commands;
 
-use Extensions\opencart\Models\OpenCartSetting;
-use Extensions\opencart\Services\OpenCart\OpenCartClient;
-use Extensions\opencart\Services\OpenCart\OpenCartOrderSync;
+use Extensions\OpenCart\Models\OpenCartStore;
+use Extensions\OpenCart\Services\OpenCart\OpenCartClient;
+use Extensions\OpenCart\Services\OpenCart\OpenCartOrderSync;
 use Illuminate\Console\Command;
 
 class OpenCartImportOrders extends Command
@@ -17,20 +17,20 @@ class OpenCartImportOrders extends Command
 
     public function handle(): int
     {
-        $setting = OpenCartSetting::query()->first();
+        $store = OpenCartStore::query()->first();
 
-        if (!$setting || !$setting->enabled) {
+        if (!$store || !$store->enabled) {
             $this->error('OpenCart connection not configured or disabled.');
             return 1;
         }
 
-        $client = new OpenCartClient($setting);
+        $client = new OpenCartClient($store);
         $startPage = (int) $this->option('page');
 
-        if ($startPage === 1 && $setting->last_order_page > 0) {
-            $this->warn("Previous import stopped at page {$setting->last_order_page}.");
-            if ($this->confirm("Resume from page {$setting->last_order_page}?", true)) {
-                $startPage = (int) $setting->last_order_page;
+        if ($startPage === 1 && $store->last_order_page > 0) {
+            $this->warn("Previous import stopped at page {$store->last_order_page}.");
+            if ($this->confirm("Resume from page {$store->last_order_page}?", true)) {
+                $startPage = (int) $store->last_order_page;
             }
         }
 
@@ -40,7 +40,7 @@ class OpenCartImportOrders extends Command
 
         $bar = null;
 
-        $sync = new OpenCartOrderSync($client, $setting);
+        $sync = new OpenCartOrderSync($client, $store);
         $log = $sync->pull(
             null,
             $startPage,

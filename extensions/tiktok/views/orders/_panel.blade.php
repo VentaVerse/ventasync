@@ -201,7 +201,7 @@
                 <x-ui.hint>Fetch pulls the orders created between these dates. Update statuses ignores them and refreshes the last 30 days.</x-ui.hint>
             </div>
         </form>
-        <x-channel.order-fetch integration="tiktok" :store-id="\Extensions\tiktok\Models\TikTokSetting::defaultStore()?->id" form-id="formFetchTiktokOrders" channel-label="TikTok Shop"
+        <x-channel.order-fetch channel="tiktok" :store-id="\Extensions\TikTok\Models\TikTokStore::defaultStore()?->id" form-id="formFetchTiktokOrders" channel-label="TikTok Shop"
             :begin-url="route('ext.tiktok.orders.fetch_run_begin')" :step-url="route('ext.tiktok.orders.fetch_run_step', ['run' => 0])" :stop-url="route('ext.tiktok.orders.fetch_run_stop', ['run' => 0])" :state-url="route('ext.tiktok.orders.fetch_run_state', ['run' => 0])" />
         </div>
     </x-ui.foldout>

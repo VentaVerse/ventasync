@@ -11,7 +11,6 @@ class ProductController extends Controller
 {
     public function index(Request $request)
     {
-        $p = (string) config('catalog.prefix');
         $langId = (int) config('catalog.default_language_id');
 
         $q = trim((string) $request->get('q', ''));
@@ -30,12 +29,12 @@ class ProductController extends Controller
             $sort = 'product_id';
         }
 
-        $optQtySub = DB::table($p . 'product_option_value as pov')
-            ->select('pov.product_id', DB::raw('SUM(pov.quantity) as options_quantity'))
+        $optQtySub = DB::table('product_variation_values as pov')
+            ->select('pov.product_id', DB::raw('SUM(pov.quantity) as variations_quantity'))
             ->groupBy('pov.product_id');
 
-        $query = DB::table($p . 'product as p')
-            ->leftJoin($p . 'product_description as pd', function ($j) use ($langId) {
+        $query = DB::table('products as p')
+            ->leftJoin('product_descriptions as pd', function ($j) use ($langId) {
                 $j->on('p.product_id', '=', 'pd.product_id')
                     ->where('pd.language_id', '=', $langId);
             })
@@ -49,13 +48,13 @@ class ProductController extends Controller
                 'p.model',
                 'p.sku',
                 'p.quantity',
-                DB::raw('COALESCE(povsum.options_quantity, 0) as options_quantity'),
+                DB::raw('COALESCE(povsum.variations_quantity, 0) as variations_quantity'),
                 'p.price',
                 'p.status'
             );
 
         if ($q !== '') {
-            $ids = DB::table($p . 'product_description as pd')
+            $ids = DB::table('product_descriptions as pd')
                 ->where('pd.language_id', '=', $langId)
                 ->where('pd.name', 'like', "%{$q}%")
                 ->limit(800)
@@ -81,7 +80,7 @@ class ProductController extends Controller
                 'model'            => $row->model ?? '',
                 'sku'              => $row->sku ?? '',
                 'quantity'         => (int) $row->quantity,
-                'options_quantity' => (int) $row->options_quantity,
+                'variations_quantity' => (int) $row->variations_quantity,
                 'price'            => (float) $row->price,
                 'status'           => (int) $row->status,
             ];
@@ -92,50 +91,49 @@ class ProductController extends Controller
 
     public function showQuantity(int $id)
     {
-        $p = (string) config('catalog.prefix');
         $langId = (int) config('catalog.default_language_id');
 
-        $product = DB::table($p . 'product')->where('product_id', $id)->first();
+        $product = DB::table('products')->where('product_id', $id)->first();
         if (! $product) {
             return response()->json(['message' => 'Product not found'], 404);
         }
 
-        $name = DB::table($p . 'product_description')
+        $name = DB::table('product_descriptions')
             ->where('product_id', $id)
             ->where('language_id', $langId)
             ->value('name') ?? '';
 
-        $optionValues = DB::table($p . 'product_option_value as pov')
-            ->join($p . 'option_description as od', function ($j) use ($langId) {
-                $j->on('pov.option_id', '=', 'od.option_id')
+        $variationValues = DB::table('product_variation_values as pov')
+            ->join('variation_type_descriptions as od', function ($j) use ($langId) {
+                $j->on('pov.variation_type_id', '=', 'od.variation_type_id')
                     ->where('od.language_id', '=', $langId);
             })
-            ->join($p . 'option_value_description as ovd', function ($j) use ($langId) {
-                $j->on('pov.option_value_id', '=', 'ovd.option_value_id')
+            ->join('variation_value_descriptions as ovd', function ($j) use ($langId) {
+                $j->on('pov.variation_value_id', '=', 'ovd.variation_value_id')
                     ->where('ovd.language_id', '=', $langId);
             })
             ->where('pov.product_id', $id)
             ->select(
-                'pov.product_option_value_id',
-                'od.name as option_name',
-                'ovd.name as option_value_name',
+                'pov.product_variation_value_id',
+                'od.name as variation_type_name',
+                'ovd.name as variation_value_name',
                 'pov.quantity'
             )
             ->orderBy('od.name')
             ->orderBy('ovd.name')
             ->get();
 
-        $hasOptions = $optionValues->isNotEmpty();
+        $hasVariations = $variationValues->isNotEmpty();
 
         return response()->json([
             'product_id'  => (int) $product->product_id,
             'name'        => html_entity_decode((string) $name, ENT_QUOTES | ENT_HTML5, 'UTF-8'),
-            'has_options'  => $hasOptions,
+            'has_variations'  => $hasVariations,
             'quantity'     => (int) $product->quantity,
-            'options'      => $hasOptions ? $optionValues->map(fn ($row) => [
-                'product_option_value_id' => (int) $row->product_option_value_id,
-                'option_name'             => (string) $row->option_name,
-                'option_value_name'       => (string) $row->option_value_name,
+            'variations'     => $hasVariations ? $variationValues->map(fn ($row) => [
+                'product_variation_value_id' => (int) $row->product_variation_value_id,
+                'variation_type_name'             => (string) $row->variation_type_name,
+                'variation_value_name'       => (string) $row->variation_value_name,
                 'quantity'                => (int) $row->quantity,
             ])->values()->all() : [],
         ]);
@@ -155,77 +153,76 @@ class ProductController extends Controller
 
     public function updateQuantity(Request $request, int $id)
     {
-        $p = (string) config('catalog.prefix');
 
-        $product = DB::table($p . 'product')->where('product_id', $id)->first();
+        $product = DB::table('products')->where('product_id', $id)->first();
         if (! $product) {
             return response()->json(['message' => 'Product not found'], 404);
         }
 
-        $hasOptions = DB::table($p . 'product_option_value')
+        $hasVariations = DB::table('product_variation_values')
             ->where('product_id', $id)
             ->exists();
 
         $oldProductQty = (int) $product->quantity;
 
-        if ($hasOptions) {
+        if ($hasVariations) {
             $request->validate([
-                'options'            => 'required|array|min:1',
-                'options.*.product_option_value_id' => 'required|integer',
-                'options.*.quantity'  => 'required|integer|min:0',
+                'variations'            => 'required|array|min:1',
+                'variations.*.product_variation_value_id' => 'required|integer',
+                'variations.*.quantity'  => 'required|integer|min:0',
             ]);
 
             $totalQty = 0;
-            foreach ($request->input('options') as $opt) {
-                $povId = (int) $opt['product_option_value_id'];
-                $qty = (int) $opt['quantity'];
+            foreach ($request->input('variations') as $variation) {
+                $povId = (int) $variation['product_variation_value_id'];
+                $qty = (int) $variation['quantity'];
 
-                $oldOptQty = (int) DB::table($p . 'product_option_value')
-                    ->where('product_option_value_id', $povId)
+                $oldVariationQty = (int) DB::table('product_variation_values')
+                    ->where('product_variation_value_id', $povId)
                     ->where('product_id', $id)
                     ->value('quantity');
 
-                DB::table($p . 'product_option_value')
-                    ->where('product_option_value_id', $povId)
+                DB::table('product_variation_values')
+                    ->where('product_variation_value_id', $povId)
                     ->where('product_id', $id)
                     ->update(['quantity' => $qty]);
 
-                if ($oldOptQty !== $qty) {
+                if ($oldVariationQty !== $qty) {
                     StockHistoryLogger::log(
                         productId: $id,
-                        optionValueId: $povId,
+                        variationValueId: $povId,
                         orderId: null,
                         type: 'set',
-                        qtyBefore: $oldOptQty,
+                        qtyBefore: $oldVariationQty,
                         qtyAfter: $qty,
                         source: 'mobile',
-                        note: "Mobile edit (option): qty {$oldOptQty} → {$qty}",
+                        note: "Mobile edit (variation): qty {$oldVariationQty} → {$qty}",
                     );
                 }
 
                 $totalQty += $qty;
 
-                if (class_exists(\Extensions\warehousing\Services\WarehouseStockService::class)) {
-                    $defaultWh = \Extensions\warehousing\Services\WarehouseStockService::getDefaultWarehouse();
+                if (class_exists(\Extensions\Warehousing\Services\WarehouseStockService::class)) {
+                    $defaultWh = \Extensions\Warehousing\Services\WarehouseStockService::getDefaultWarehouse();
                     if ($defaultWh) {
-                        $inv = \Extensions\warehousing\Services\WarehouseStockService::getOrCreateInventory($defaultWh->id, $id, $povId);
+                        $inv = \Extensions\Warehousing\Services\WarehouseStockService::getOrCreateInventory($defaultWh->id, $id, $povId);
                         $inv->update(['quantity' => $qty]);
                     }
                 }
 
-                $linkedComboIds = DB::table('product_option_combination_values')
-                    ->where('product_option_value_id', $povId)
-                    ->pluck('combination_id');
+                $linkedComboIds = DB::table('product_variation_parts')
+                    ->where('product_variation_value_id', $povId)
+                    ->pluck('product_variation_id');
 
                 if ($linkedComboIds->isNotEmpty()) {
-                    $singleValueComboIds = DB::table('product_option_combination_values')
-                        ->whereIn('combination_id', $linkedComboIds)
-                        ->groupBy('combination_id')
+                    $singleValueComboIds = DB::table('product_variation_parts')
+                        ->whereIn('product_variation_id', $linkedComboIds)
+                        ->groupBy('product_variation_id')
                         ->havingRaw('COUNT(*) = 1')
-                        ->pluck('combination_id');
+                        ->pluck('product_variation_id');
 
                     if ($singleValueComboIds->isNotEmpty()) {
-                        DB::table('product_option_combinations')
+                        DB::table('product_variations')
                             ->whereIn('id', $singleValueComboIds)
                             ->where('product_id', $id)
                             ->update(['quantity' => $qty, 'updated_at' => now()]);
@@ -233,7 +230,7 @@ class ProductController extends Controller
                 }
             }
 
-            DB::table($p . 'product')
+            DB::table('products')
                 ->where('product_id', $id)
                 ->update([
                     'quantity'      => $totalQty,
@@ -243,7 +240,7 @@ class ProductController extends Controller
             if ($oldProductQty !== $totalQty) {
                 StockHistoryLogger::log(
                     productId: $id,
-                    optionValueId: null,
+                    variationValueId: null,
                     orderId: null,
                     type: 'set',
                     qtyBefore: $oldProductQty,
@@ -259,7 +256,7 @@ class ProductController extends Controller
 
             $newQty = (int) $request->input('quantity');
 
-            DB::table($p . 'product')
+            DB::table('products')
                 ->where('product_id', $id)
                 ->update([
                     'quantity'      => $newQty,
@@ -269,7 +266,7 @@ class ProductController extends Controller
             if ($oldProductQty !== $newQty) {
                 StockHistoryLogger::log(
                     productId: $id,
-                    optionValueId: null,
+                    variationValueId: null,
                     orderId: null,
                     type: 'set',
                     qtyBefore: $oldProductQty,
@@ -279,10 +276,10 @@ class ProductController extends Controller
                 );
             }
 
-            if (class_exists(\Extensions\warehousing\Services\WarehouseStockService::class)) {
-                $defaultWh = \Extensions\warehousing\Services\WarehouseStockService::getDefaultWarehouse();
+            if (class_exists(\Extensions\Warehousing\Services\WarehouseStockService::class)) {
+                $defaultWh = \Extensions\Warehousing\Services\WarehouseStockService::getDefaultWarehouse();
                 if ($defaultWh) {
-                    $inv = \Extensions\warehousing\Services\WarehouseStockService::getOrCreateInventory($defaultWh->id, $id, 0);
+                    $inv = \Extensions\Warehousing\Services\WarehouseStockService::getOrCreateInventory($defaultWh->id, $id, 0);
                     $inv->update(['quantity' => $newQty]);
                 }
             }

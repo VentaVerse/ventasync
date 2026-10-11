@@ -14,7 +14,6 @@ class OrderEditKeepsStockTrueTest extends TestCase
 {
     use RefreshDatabase;
 
-    private string $p;
 
     private int $processing;
 
@@ -25,7 +24,6 @@ class OrderEditKeepsStockTrueTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        $this->p = (string) config('catalog.prefix');
         $this->processing = (int) OrderStatus::create(['language_id' => 1, 'name' => 'Processing', 'subtract_stock' => 1, 'add_revenue' => 1])->order_status_id;
         $this->pending = (int) OrderStatus::create(['language_id' => 1, 'name' => 'Pending', 'subtract_stock' => 0, 'add_revenue' => 0])->order_status_id;
         $this->cancelled = (int) OrderStatus::create(['language_id' => 1, 'name' => 'Cancelled', 'subtract_stock' => 0, 'add_revenue' => 0])->order_status_id;
@@ -37,11 +35,11 @@ class OrderEditKeepsStockTrueTest extends TestCase
 
     private function product(string $sku, int $qty): int
     {
-        $id = DB::table($this->p . 'product')->insertGetId([
+        $id = DB::table('products')->insertGetId([
             'model' => $sku, 'sku' => $sku, 'quantity' => $qty, 'subtract' => 1, 'price' => 100, 'status' => 1, 'image' => '',
             'date_added' => now(), 'date_modified' => now(), 'date_available' => now(),
         ]);
-        DB::table($this->p . 'product_description')->insert([
+        DB::table('product_descriptions')->insert([
             'product_id' => $id, 'language_id' => (int) config('catalog.default_language_id', 1),
             'name' => $sku, 'description' => '', 'tag' => '', 'meta_title' => '', 'meta_description' => '', 'meta_keyword' => '',
         ]);
@@ -51,15 +49,15 @@ class OrderEditKeepsStockTrueTest extends TestCase
 
     private function variation(int $productId, string $sku, int $qty): int
     {
-        return (int) DB::table($this->p . 'product_option_value')->insertGetId([
-            'product_option_id' => 1, 'product_id' => $productId, 'option_id' => 1, 'option_value_id' => 1,
+        return (int) DB::table('product_variation_values')->insertGetId([
+            'product_variation_type_id' => 1, 'product_id' => $productId, 'variation_type_id' => 1, 'variation_value_id' => 1,
             'sku' => $sku, 'quantity' => $qty, 'subtract' => 1,
         ]);
     }
 
     private function qty(int $productId): int
     {
-        return (int) DB::table($this->p . 'product')->where('product_id', $productId)->value('quantity');
+        return (int) DB::table('products')->where('product_id', $productId)->value('quantity');
     }
 
     private function line(int $productId, int $qty, array $extra = []): array
@@ -71,7 +69,7 @@ class OrderEditKeepsStockTrueTest extends TestCase
     {
         $this->post(route('orders.store'), ['firstname' => 'Juan', 'order_status_id' => $status ?? $this->processing, 'products' => $lines])->assertRedirect();
 
-        return (int) DB::table($this->p . 'order')->max('order_id');
+        return (int) DB::table('orders')->max('order_id');
     }
 
     private function edit(int $orderId, array $lines, ?int $status = null): void
@@ -153,12 +151,12 @@ class OrderEditKeepsStockTrueTest extends TestCase
     {
         $c = $this->product('C', 5);
         $pov = $this->variation($c, 'C-RED', 5);
-        $order = $this->create([$this->line($c, 1, ['option_value_id' => $pov])]);
-        $this->assertSame(4, (int) DB::table($this->p . 'product_option_value')->where('product_option_value_id', $pov)->value('quantity'));
+        $order = $this->create([$this->line($c, 1, ['variation_value_id' => $pov])]);
+        $this->assertSame(4, (int) DB::table('product_variation_values')->where('product_variation_value_id', $pov)->value('quantity'));
 
-        $this->edit($order, [$this->line($c, 3, ['option_value_id' => $pov])]);
+        $this->edit($order, [$this->line($c, 3, ['variation_value_id' => $pov])]);
 
-        $this->assertSame(2, (int) DB::table($this->p . 'product_option_value')->where('product_option_value_id', $pov)->value('quantity'));
+        $this->assertSame(2, (int) DB::table('product_variation_values')->where('product_variation_value_id', $pov)->value('quantity'));
         $this->assertSame(2, $this->qty($c));
     }
 }

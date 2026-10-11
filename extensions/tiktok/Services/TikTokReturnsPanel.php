@@ -1,9 +1,9 @@
 <?php
 
-namespace Extensions\tiktok\Services;
+namespace Extensions\TikTok\Services;
 
-use Extensions\tiktok\Models\TikTokReturn;
-use Extensions\tiktok\Models\TikTokSetting;
+use Extensions\TikTok\Models\TikTokReturn;
+use Extensions\TikTok\Models\TikTokStore;
 use Illuminate\Http\Request;
 
 class TikTokReturnsPanel
@@ -33,7 +33,7 @@ class TikTokReturnsPanel
         'BUYER_SHIPPED_ITEM' => ['Package on its way back', 'info'],
         'RETURN_OR_REFUND_REQUEST_SUCCESS' => ['Approved', 'success'],
         'RETURN_OR_REFUND_REQUEST_COMPLETE' => ['Refunded', 'success'],
-        'RETURN_OR_REFUND_REQUEST_CANCEL' => ['Cancelled by buyer', 'neutral'],
+        'RETURN_OR_REFUND_REQUEST_CANCEL' => ['Canceled by buyer', 'neutral'],
     ];
 
     public const TYPE_MAP = [
@@ -44,12 +44,12 @@ class TikTokReturnsPanel
 
     public function build(Request $request, ?int $storeId = null): array
     {
-        $setting = $storeId !== null
-            ? TikTokSetting::query()->find($storeId)
-            : TikTokSetting::defaultStore();
-        if ($storeId !== null && $setting !== null) {
-            app()->instance('tiktok.route-store', $setting);
-            \Illuminate\Support\Facades\URL::defaults(['store' => (int) $setting->id]);
+        $store = $storeId !== null
+            ? TikTokStore::query()->find($storeId)
+            : TikTokStore::defaultStore();
+        if ($storeId !== null && $store !== null) {
+            app()->instance('tiktok.route-store', $store);
+            \Illuminate\Support\Facades\URL::defaults(['store' => (int) $store->id]);
         }
 
         $filters = $request->validate([
@@ -117,10 +117,10 @@ class TikTokReturnsPanel
         $orders = $query->orderByDesc('id')->paginate($perPage)->appends($request->query());
 
         $orderIds = collect($orders->items())->pluck('order_id')->filter()->unique()->values();
-        $erpMap = $orderIds->isEmpty() ? collect() : \DB::table('tiktok_orders')
+        $erpMap = $orderIds->isEmpty() ? collect() : \DB::table('ch_tiktok_orders')
             ->whereIn('order_id', $orderIds->all())
             ->whereNotNull('catalog_order_id')
-            ->when(app()->bound('tiktok.route-store'), fn ($q) => $q->where('tiktok_setting_id', app('tiktok.route-store')->id))
+            ->when(app()->bound('tiktok.route-store'), fn ($q) => $q->where('store_id', app('tiktok.route-store')->id))
             ->pluck('catalog_order_id', 'order_id');
 
         return [

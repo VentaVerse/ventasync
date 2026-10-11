@@ -106,7 +106,7 @@
         36px            /* image  */
         minmax(0, 1fr)  /* description */
         110px           /* erp sku */
-        110px           /* vendor sku */
+        110px           /* supplier sku */
         68px            /* qty */
         104px           /* unit price */
         124px           /* discount + type */
@@ -203,6 +203,28 @@
 .po-sum--total .po-sum__v { font-size: 15px; font-weight: 600; }
 .po-sum--base .po-sum__k,
 .po-sum--base .po-sum__v { color: var(--bl-ink-3); font-size: 12px; }
+
+.po-charges {
+    border-top: 1px solid var(--bl-rule);
+    padding: var(--bl-space-3);
+    display: grid;
+    gap: var(--bl-space-2);
+}
+.po-charges__head { display: flex; justify-content: space-between; align-items: center; gap: var(--bl-space-2); }
+.po-charges__title { margin: 0; font-size: 13px; font-weight: 600; color: var(--bl-ink); }
+.po-charges__body { display: grid; gap: var(--bl-space-2); }
+.po-charges__body:empty { display: none; }
+.po-charge {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto 140px 28px;
+    gap: var(--bl-space-3);
+    align-items: center;
+}
+.po-charge__cost { display: inline-flex; gap: var(--bl-space-2); align-items: center; font-size: 13px; color: var(--bl-ink-2); white-space: nowrap; }
+
+.po-charges-form { display: grid; gap: var(--bl-space-3); }
+.po-charges-form .po-charges { border-top: 0; padding: 0; }
+.po-internal-notes { margin: 0; white-space: pre-line; font-size: 13px; color: var(--bl-ink-2); }
 
 .po-add {
     display: flex;
@@ -564,6 +586,8 @@
     .po-rcv__cost { place-items: start; }
     .po-lines__foot { justify-content: stretch; }
     .po-sum { grid-template-columns: minmax(0, 1fr) auto; }
+    .po-charge { grid-template-columns: minmax(0, 1fr) 110px 28px; }
+    .po-charge__cost { grid-column: 1 / -1; grid-row: 2; }
     .po-sum__k { text-align: left; }
 }
 

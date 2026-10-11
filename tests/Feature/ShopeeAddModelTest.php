@@ -6,10 +6,10 @@ use App\Extensions\ExtensionManager;
 use App\Models\Admin\Permission;
 use App\Models\Admin\UserGroup;
 use App\Models\User;
-use Extensions\shopee\Models\ShopeeListing;
-use Extensions\shopee\Models\ShopeeProductLink;
-use Extensions\shopee\Models\ShopeeSetting;
-use Extensions\shopee\Services\Shopee\ShopeeClient;
+use Extensions\Shopee\Models\ShopeeListing;
+use Extensions\Shopee\Models\ShopeeListingLink;
+use Extensions\Shopee\Models\ShopeeStore;
+use Extensions\Shopee\Services\Shopee\ShopeeClient;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
@@ -31,11 +31,11 @@ class ShopeeAddModelTest extends TestCase
         $manager = $this->app->make(ExtensionManager::class);
         $manager->install('shopee');
         $manager->enable('shopee');
-        $this->app->register(\Extensions\shopee\ShopeeExtension::class);
+        $this->app->register(\Extensions\Shopee\ShopeeExtension::class);
         $this->app['router']->getRoutes()->refreshNameLookups();
-        $this->artisan('permissions:sync-catalogue');
+        $this->artisan('permissions:sync-catalog');
 
-        ShopeeSetting::query()->create(['mode' => 'live', 'partner_id' => '1', 'partner_key' => 'k', 'shop_id' => '2', 'access_token' => 't', 'refresh_token' => 'r']);
+        ShopeeStore::query()->create(['mode' => 'live', 'partner_id' => '1', 'partner_key' => 'k', 'shop_id' => '2', 'access_token' => 't', 'refresh_token' => 'r']);
 
         $test = $this;
         $fake = new class($test) extends ShopeeClient {
@@ -75,53 +75,52 @@ class ShopeeAddModelTest extends TestCase
 
     private function packProduct(array $packs): int
     {
-        $pfx = (string) config('catalog.prefix');
         $langId = (int) config('catalog.default_language_id');
 
-        $productId = DB::table($pfx . 'product')->insertGetId([
+        $productId = DB::table('products')->insertGetId([
             'model' => 'PK', 'sku' => 'PK', 'quantity' => 30, 'price' => 100,
             'status' => 1, 'image' => 'catalog/x.png', 'weight' => 1, 'length' => 1, 'width' => 1, 'height' => 1,
-            'manufacturer_id' => 0,
+            'brand_id' => 0,
             'date_added' => now(), 'date_modified' => now(), 'date_available' => now(),
         ]);
-        DB::table($pfx . 'product_description')->insert([
+        DB::table('product_descriptions')->insert([
             'product_id' => $productId, 'language_id' => $langId,
             'name' => 'Pack product', 'description' => '',
             'meta_title' => '', 'meta_description' => '', 'meta_keyword' => '', 'tag' => '',
         ]);
 
-        $optionId = (int) DB::table($pfx . 'option')->insertGetId(['type' => 'select', 'sort_order' => 0]);
-        DB::table($pfx . 'option_description')->insert([
-            'option_id' => $optionId, 'language_id' => $langId, 'name' => 'Pack size',
+        $variationTypeId = (int) DB::table('variation_types')->insertGetId(['type' => 'select', 'sort_order' => 0]);
+        DB::table('variation_type_descriptions')->insert([
+            'variation_type_id' => $variationTypeId, 'language_id' => $langId, 'name' => 'Pack size',
         ]);
-        $productOptionId = (int) DB::table($pfx . 'product_option')->insertGetId([
-            'product_id' => $productId, 'option_id' => $optionId, 'value' => '', 'required' => 0,
+        $productVariationTypeId = (int) DB::table('product_variation_types')->insertGetId([
+            'product_id' => $productId, 'variation_type_id' => $variationTypeId, 'value' => '', 'required' => 0,
         ]);
 
         foreach ($packs as $i => [$name, $sku, $qty, $price]) {
-            $valueId = (int) DB::table($pfx . 'option_value')->insertGetId([
-                'option_id' => $optionId, 'image' => '', 'sort_order' => $i,
+            $valueId = (int) DB::table('variation_values')->insertGetId([
+                'variation_type_id' => $variationTypeId, 'image' => '', 'sort_order' => $i,
             ]);
-            DB::table($pfx . 'option_value_description')->insert([
-                'option_value_id' => $valueId, 'language_id' => $langId,
-                'option_id' => $optionId, 'name' => $name,
+            DB::table('variation_value_descriptions')->insert([
+                'variation_value_id' => $valueId, 'language_id' => $langId,
+                'variation_type_id' => $variationTypeId, 'name' => $name,
             ]);
-            $povId = (int) DB::table($pfx . 'product_option_value')->insertGetId([
-                'product_option_id' => $productOptionId, 'product_id' => $productId,
-                'option_id' => $optionId, 'option_value_id' => $valueId,
+            $povId = (int) DB::table('product_variation_values')->insertGetId([
+                'product_variation_type_id' => $productVariationTypeId, 'product_id' => $productId,
+                'variation_type_id' => $variationTypeId, 'variation_value_id' => $valueId,
                 'sku' => $sku, 'quantity' => $qty, 'subtract' => 1,
                 'price' => 0, 'price_prefix' => '+', 'points' => 0, 'points_prefix' => '+',
                 'weight' => 0, 'weight_prefix' => '+',
                 'cost' => 0, 'cost_amount' => 0, 'cost_percentage' => 0, 'cost_additional' => 0,
                 'absolute_cost' => 0, 'cost_prefix' => '+', 'absolute_price' => $price,
             ]);
-            $comboId = (int) DB::table('product_option_combinations')->insertGetId([
+            $comboId = (int) DB::table('product_variations')->insertGetId([
                 'product_id' => $productId, 'sku' => $sku, 'quantity' => $qty,
                 'absolute_price' => $price, 'image' => null, 'status' => 1,
                 'sort_order' => $i, 'created_at' => now(), 'updated_at' => now(),
             ]);
-            DB::table('product_option_combination_values')->insert([
-                'combination_id' => $comboId, 'product_option_value_id' => $povId,
+            DB::table('product_variation_parts')->insert([
+                'product_variation_id' => $comboId, 'product_variation_value_id' => $povId,
             ]);
         }
 
@@ -130,7 +129,7 @@ class ShopeeAddModelTest extends TestCase
 
     private function linkAndRule(int $productId): void
     {
-        ShopeeProductLink::create(['product_id' => $productId, 'shopee_item_id' => 800, 'shopee_model_id' => 81, 'sku' => 'PK-5']);
+        ShopeeListingLink::create(['product_id' => $productId, 'shopee_item_id' => 800, 'shopee_model_id' => 81, 'sku' => 'PK-5']);
         ShopeeListing::create(['product_id' => $productId, 'shopee_category_id' => 100139, 'markup_percent' => 0, 'markup_fixed' => 0]);
     }
 
@@ -180,7 +179,7 @@ class ShopeeAddModelTest extends TestCase
         $this->assertSame([1], $add['body']['model_list'][0]['tier_index']);
         $this->assertSame(950.0, (float) $add['body']['model_list'][0]['original_price']);
 
-        $models = ShopeeProductLink::query()->where('product_id', $pid)
+        $models = ShopeeListingLink::query()->where('product_id', $pid)
             ->pluck('shopee_model_id')->map(fn ($v) => (int) $v)->sort()->values()->all();
         $this->assertSame([81, 82], $models);
     }
@@ -217,41 +216,40 @@ class ShopeeAddModelTest extends TestCase
 
     private function variationProduct(array $options, array $combos): int
     {
-        $pfx = (string) config('catalog.prefix');
         $langId = (int) config('catalog.default_language_id');
 
-        $productId = DB::table($pfx . 'product')->insertGetId([
+        $productId = DB::table('products')->insertGetId([
             'model' => 'VR', 'sku' => 'VR', 'quantity' => 30, 'price' => 100,
             'status' => 1, 'image' => 'catalog/x.png', 'weight' => 1, 'length' => 1, 'width' => 1, 'height' => 1,
-            'manufacturer_id' => 0,
+            'brand_id' => 0,
             'date_added' => now(), 'date_modified' => now(), 'date_available' => now(),
         ]);
-        DB::table($pfx . 'product_description')->insert([
+        DB::table('product_descriptions')->insert([
             'product_id' => $productId, 'language_id' => $langId,
             'name' => 'Variation product', 'description' => 'Sold by the pack.',
             'meta_title' => '', 'meta_description' => '', 'meta_keyword' => '', 'tag' => '',
         ]);
 
         $povIds = [];
-        foreach ($options as $optionName => $values) {
-            $optionId = (int) DB::table($pfx . 'option')->insertGetId(['type' => 'select', 'sort_order' => 0]);
-            DB::table($pfx . 'option_description')->insert([
-                'option_id' => $optionId, 'language_id' => $langId, 'name' => $optionName,
+        foreach ($options as $variationTypeName => $values) {
+            $variationTypeId = (int) DB::table('variation_types')->insertGetId(['type' => 'select', 'sort_order' => 0]);
+            DB::table('variation_type_descriptions')->insert([
+                'variation_type_id' => $variationTypeId, 'language_id' => $langId, 'name' => $variationTypeName,
             ]);
-            $productOptionId = (int) DB::table($pfx . 'product_option')->insertGetId([
-                'product_id' => $productId, 'option_id' => $optionId, 'value' => '', 'required' => 0,
+            $productVariationTypeId = (int) DB::table('product_variation_types')->insertGetId([
+                'product_id' => $productId, 'variation_type_id' => $variationTypeId, 'value' => '', 'required' => 0,
             ]);
             foreach ($values as $i => $valueName) {
-                $valueId = (int) DB::table($pfx . 'option_value')->insertGetId([
-                    'option_id' => $optionId, 'image' => '', 'sort_order' => $i,
+                $valueId = (int) DB::table('variation_values')->insertGetId([
+                    'variation_type_id' => $variationTypeId, 'image' => '', 'sort_order' => $i,
                 ]);
-                DB::table($pfx . 'option_value_description')->insert([
-                    'option_value_id' => $valueId, 'language_id' => $langId,
-                    'option_id' => $optionId, 'name' => $valueName,
+                DB::table('variation_value_descriptions')->insert([
+                    'variation_value_id' => $valueId, 'language_id' => $langId,
+                    'variation_type_id' => $variationTypeId, 'name' => $valueName,
                 ]);
-                $povIds[$optionName][$valueName] = (int) DB::table($pfx . 'product_option_value')->insertGetId([
-                    'product_option_id' => $productOptionId, 'product_id' => $productId,
-                    'option_id' => $optionId, 'option_value_id' => $valueId,
+                $povIds[$variationTypeName][$valueName] = (int) DB::table('product_variation_values')->insertGetId([
+                    'product_variation_type_id' => $productVariationTypeId, 'product_id' => $productId,
+                    'variation_type_id' => $variationTypeId, 'variation_value_id' => $valueId,
                     'sku' => '', 'quantity' => 5, 'subtract' => 1,
                     'price' => 0, 'price_prefix' => '+', 'points' => 0, 'points_prefix' => '+',
                     'weight' => 0, 'weight_prefix' => '+',
@@ -261,17 +259,17 @@ class ShopeeAddModelTest extends TestCase
             }
         }
 
-        $optionNames = array_keys($options);
+        $variationTypeNames = array_keys($options);
         $n = 0;
         foreach ($combos as $sku => $picked) {
-            $comboId = (int) DB::table('product_option_combinations')->insertGetId([
+            $comboId = (int) DB::table('product_variations')->insertGetId([
                 'product_id' => $productId, 'sku' => $sku, 'quantity' => 5,
                 'absolute_price' => 100, 'image' => null, 'status' => 1,
                 'sort_order' => $n++, 'created_at' => now(), 'updated_at' => now(),
             ]);
             foreach ($picked as $k => $valueName) {
-                DB::table('product_option_combination_values')->insert([
-                    'combination_id' => $comboId, 'product_option_value_id' => $povIds[$optionNames[$k]][$valueName],
+                DB::table('product_variation_parts')->insert([
+                    'product_variation_id' => $comboId, 'product_variation_value_id' => $povIds[$variationTypeNames[$k]][$valueName],
                 ]);
             }
         }
@@ -281,7 +279,7 @@ class ShopeeAddModelTest extends TestCase
 
     private function linkForUpdate(int $productId): void
     {
-        ShopeeProductLink::create(['product_id' => $productId, 'shopee_item_id' => 800, 'shopee_model_id' => 81, 'sku' => 'PK-5']);
+        ShopeeListingLink::create(['product_id' => $productId, 'shopee_item_id' => 800, 'shopee_model_id' => 81, 'sku' => 'PK-5']);
         ShopeeListing::create(['product_id' => $productId, 'shopee_category_id' => 100139, 'logistic_ids' => [8003]]);
     }
 
@@ -342,7 +340,7 @@ class ShopeeAddModelTest extends TestCase
     public function test_a_category_defined_type_keeps_the_stores_name(): void
     {
         $pid = $this->variationProduct(
-            ['Colour' => ['Red', 'Blue'], 'Pack size' => ['Small', 'Large']],
+            ['Shade' => ['Red', 'Blue'], 'Pack size' => ['Small', 'Large']],
             ['CL-RS' => ['Red', 'Small'], 'CL-RL' => ['Red', 'Large'], 'CL-BS' => ['Blue', 'Small'], 'CL-BL' => ['Blue', 'Large']]
         );
         $this->linkForUpdate($pid);
@@ -372,8 +370,8 @@ class ShopeeAddModelTest extends TestCase
                 ['model_id' => 94, 'model_sku' => 'CL-BL', 'tier_index' => [1, 1]],
             ],
         ]);
-        $group = \Extensions\shopee\Models\ShopeeProductGroup::create([
-            'name' => 'Packs', 'shopee_setting_id' => (int) ShopeeSetting::query()->value('id'),
+        $group = \Extensions\Shopee\Models\ShopeeProductGroup::create([
+            'name' => 'Packs', 'store_id' => (int) ShopeeStore::query()->value('id'),
             'shopee_category_id' => 100139, 'logistic_ids' => [8003],
         ]);
 
@@ -451,7 +449,7 @@ class ShopeeAddModelTest extends TestCase
 
         $status = (string) session('status');
         $this->assertStringStartsWith('Update pushed.', $status);
-        $this->assertStringContainsString('Variation names were not changed: none of the item\'s variations on Shopee carries a SKU the catalog holds.', $status);
+        $this->assertStringContainsString('Variation names were not changed: none of the item\'s variations on Shopee carries a SKU the Master Catalog holds.', $status);
         $this->assertNull($this->postIndex('/api/v2/product/update_tier_variation'));
         $this->assertNotNull($this->postIndex('/api/v2/product/update_item'), 'A skipped rename never holds the update back.');
         $this->assertNull(ShopeeListing::query()->where('product_id', $pid)->value('last_push_error'), 'The update succeeded, so the success is recorded.');
@@ -475,8 +473,8 @@ class ShopeeAddModelTest extends TestCase
             ['PK-5' => ['5 pcs'], 'PK-10' => ['10 pcs'], 'PK-20' => ['20 pcs']]
         );
         $this->linkForUpdate($pid);
-        ShopeeProductLink::create(['product_id' => $pid, 'shopee_item_id' => 800, 'shopee_model_id' => 82, 'sku' => 'PK-10']);
-        ShopeeProductLink::create(['product_id' => $pid, 'shopee_item_id' => 800, 'shopee_model_id' => 83, 'sku' => 'PK-20']);
+        ShopeeListingLink::create(['product_id' => $pid, 'shopee_item_id' => 800, 'shopee_model_id' => 82, 'sku' => 'PK-10']);
+        ShopeeListingLink::create(['product_id' => $pid, 'shopee_item_id' => 800, 'shopee_model_id' => 83, 'sku' => 'PK-20']);
 
         return $pid;
     }
@@ -488,7 +486,7 @@ class ShopeeAddModelTest extends TestCase
 
     private function storeId(): int
     {
-        return (int) ShopeeSetting::defaultStore()->id;
+        return (int) ShopeeStore::defaultStore()->id;
     }
 
     private function sentTo(string $path): array
@@ -498,7 +496,7 @@ class ShopeeAddModelTest extends TestCase
 
     private function rememberedSkus(int $pid): array
     {
-        $skus = (array) json_decode((string) DB::table(\App\Integrations\Listings\ListingVariations::STORE_SKUS)
+        $skus = (array) json_decode((string) DB::table(\App\Channels\Listings\ListingVariations::STORE_SKUS)
             ->where('channel', 'shopee')->where('product_id', $pid)->value('skus'), true);
         sort($skus);
 
@@ -508,7 +506,7 @@ class ShopeeAddModelTest extends TestCase
     public function test_a_switched_off_variation_has_its_model_deleted_and_nothing_else(): void
     {
         $pid = $this->threePacksOnTheItem();
-        \App\Integrations\Listings\ListingVariations::save('shopee', $this->storeId(), $pid, ['PK-5', 'PK-20']);
+        \App\Channels\Listings\ListingVariations::save('shopee', $this->storeId(), $pid, ['PK-5', 'PK-20']);
         $this->itemHolds([
             'tier_variation' => $this->packTier(),
             'model' => [
@@ -532,7 +530,7 @@ class ShopeeAddModelTest extends TestCase
         $this->assertStringStartsWith('Update pushed.', $status);
         $this->assertStringContainsString('Removed from Shopee: 10 pcs (PK-10).', $status);
 
-        $this->assertSame([81, 83], ShopeeProductLink::query()->where('product_id', $pid)->orderBy('shopee_model_id')
+        $this->assertSame([81, 83], ShopeeListingLink::query()->where('product_id', $pid)->orderBy('shopee_model_id')
             ->pluck('shopee_model_id')->map(fn ($v) => (int) $v)->all(), 'The deleted model takes its link with it.');
         $this->assertSame(['PK-20', 'PK-5'], $this->rememberedSkus($pid), 'The item is remembered holding what is left.');
         $this->assertNull(ShopeeListing::query()->where('product_id', $pid)->value('last_push_error'));
@@ -541,7 +539,7 @@ class ShopeeAddModelTest extends TestCase
     public function test_switching_it_back_on_adds_it_through_the_add_path(): void
     {
         $pid = $this->threePacksOnTheItem();
-        ShopeeProductLink::query()->where('shopee_model_id', 82)->delete();
+        ShopeeListingLink::query()->where('shopee_model_id', 82)->delete();
         $reads = 0;
         $this->getResponses['/api/v2/product/get_model_list'] = function () use (&$reads) {
             $reads++;
@@ -570,14 +568,14 @@ class ShopeeAddModelTest extends TestCase
         $this->assertSame(2, $reads, 'One read for the update, one after the add to learn the new model.');
 
         $this->assertStringContainsString('Added to Shopee: 10 pcs (PK-10).', (string) session('status'));
-        $this->assertTrue(ShopeeProductLink::query()->where('product_id', $pid)->where('shopee_model_id', 84)->exists());
+        $this->assertTrue(ShopeeListingLink::query()->where('product_id', $pid)->where('shopee_model_id', 84)->exists());
         $this->assertSame(['PK-10', 'PK-20', 'PK-5'], $this->rememberedSkus($pid));
     }
 
     public function test_a_refused_delete_is_the_listings_error(): void
     {
         $pid = $this->threePacksOnTheItem();
-        \App\Integrations\Listings\ListingVariations::save('shopee', $this->storeId(), $pid, ['PK-5', 'PK-20']);
+        \App\Channels\Listings\ListingVariations::save('shopee', $this->storeId(), $pid, ['PK-5', 'PK-20']);
         $this->itemHolds([
             'tier_variation' => $this->packTier(),
             'model' => [
@@ -598,16 +596,16 @@ class ShopeeAddModelTest extends TestCase
         $this->assertStringStartsWith('Not removed from Shopee: 10 pcs (PK-10) (', $error);
         $this->assertStringContainsString('promotion', $error, 'Shopee\'s reason is kept.');
         $this->assertStringContainsString('Update pushed.', (string) session('error'));
-        $this->assertTrue(ShopeeProductLink::query()->where('shopee_model_id', 82)->exists(), 'A model still live keeps its link.');
+        $this->assertTrue(ShopeeListingLink::query()->where('shopee_model_id', 82)->exists(), 'A model still live keeps its link.');
         $this->assertSame([], $this->sentTo('/api/v2/product/add_model'));
     }
 
     public function test_the_last_remaining_model_is_never_deleted(): void
     {
         $pid = $this->variationProduct(['Pack size' => ['5 pcs', '10 pcs']], ['PK-5' => ['5 pcs'], 'PK-10' => ['10 pcs']]);
-        ShopeeProductLink::create(['product_id' => $pid, 'shopee_item_id' => 800, 'shopee_model_id' => 82, 'sku' => 'PK-10']);
+        ShopeeListingLink::create(['product_id' => $pid, 'shopee_item_id' => 800, 'shopee_model_id' => 82, 'sku' => 'PK-10']);
         ShopeeListing::create(['product_id' => $pid, 'shopee_category_id' => 100139, 'logistic_ids' => [8003]]);
-        \App\Integrations\Listings\ListingVariations::save('shopee', $this->storeId(), $pid, ['PK-5']);
+        \App\Channels\Listings\ListingVariations::save('shopee', $this->storeId(), $pid, ['PK-5']);
         $this->itemHolds([
             'tier_variation' => [['name' => 'Pack size', 'option_list' => [['option' => '5 pcs'], ['option' => '10 pcs']]]],
             'model' => [['model_id' => 82, 'model_sku' => 'PK-10', 'tier_index' => [1], 'price_info' => [['original_price' => 100]]]],
@@ -643,7 +641,7 @@ class ShopeeAddModelTest extends TestCase
     public function test_every_variation_off_is_refused_and_nothing_is_deleted(): void
     {
         $pid = $this->threePacksOnTheItem();
-        \App\Integrations\Listings\ListingVariations::save('shopee', $this->storeId(), $pid, []);
+        \App\Channels\Listings\ListingVariations::save('shopee', $this->storeId(), $pid, []);
         $this->itemHolds([
             'tier_variation' => $this->packTier(),
             'model' => [
@@ -652,8 +650,8 @@ class ShopeeAddModelTest extends TestCase
                 ['model_id' => 83, 'model_sku' => 'PK-20', 'tier_index' => [2]],
             ],
         ]);
-        $group = \Extensions\shopee\Models\ShopeeProductGroup::create([
-            'name' => 'Packs', 'shopee_setting_id' => $this->storeId(),
+        $group = \Extensions\Shopee\Models\ShopeeProductGroup::create([
+            'name' => 'Packs', 'store_id' => $this->storeId(),
             'shopee_category_id' => 100139, 'logistic_ids' => [8003],
         ]);
 
@@ -663,7 +661,7 @@ class ShopeeAddModelTest extends TestCase
 
         $this->assertSame([], $this->sentTo('/api/v2/product/delete_model'));
         $this->assertSame(
-            \App\Integrations\Listings\ListingVariations::noneSoldMessage('Shopee'),
+            \App\Channels\Listings\ListingVariations::noneSoldMessage('Shopee'),
             ShopeeListing::query()->where('product_id', $pid)->value('last_push_error')
         );
     }
@@ -671,7 +669,7 @@ class ShopeeAddModelTest extends TestCase
     public function test_the_group_update_deletes_a_switched_off_variation(): void
     {
         $pid = $this->threePacksOnTheItem();
-        \App\Integrations\Listings\ListingVariations::save('shopee', $this->storeId(), $pid, ['PK-5', 'PK-10']);
+        \App\Channels\Listings\ListingVariations::save('shopee', $this->storeId(), $pid, ['PK-5', 'PK-10']);
         $this->itemHolds([
             'tier_variation' => $this->packTier(),
             'model' => [
@@ -680,8 +678,8 @@ class ShopeeAddModelTest extends TestCase
                 ['model_id' => 83, 'model_sku' => 'PK-20', 'tier_index' => [2]],
             ],
         ]);
-        $group = \Extensions\shopee\Models\ShopeeProductGroup::create([
-            'name' => 'Packs', 'shopee_setting_id' => $this->storeId(),
+        $group = \Extensions\Shopee\Models\ShopeeProductGroup::create([
+            'name' => 'Packs', 'store_id' => $this->storeId(),
             'shopee_category_id' => 100139, 'logistic_ids' => [8003],
         ]);
 
@@ -691,7 +689,7 @@ class ShopeeAddModelTest extends TestCase
 
         $this->assertSame([['item_id' => 800, 'model_id' => 83]], $this->sentTo('/api/v2/product/delete_model'));
         $this->assertStringContainsString("#{$pid}: Removed from Shopee: 20 pcs (PK-20).", (string) session('status'));
-        $this->assertFalse(ShopeeProductLink::query()->where('shopee_model_id', 83)->exists());
+        $this->assertFalse(ShopeeListingLink::query()->where('shopee_model_id', 83)->exists());
     }
 
     public function test_a_refused_rename_call_warns_and_the_update_goes(): void
@@ -708,8 +706,8 @@ class ShopeeAddModelTest extends TestCase
         $this->postResponses['/api/v2/product/update_tier_variation'] = ['ok' => true, 'status' => 200, 'body' => [
             'error' => 'error_in_item_promotion_remove_model', 'message' => 'Can\'t change tier_variation when item is under promotion.',
         ]];
-        $group = \Extensions\shopee\Models\ShopeeProductGroup::create([
-            'name' => 'Packs', 'shopee_setting_id' => (int) ShopeeSetting::query()->value('id'),
+        $group = \Extensions\Shopee\Models\ShopeeProductGroup::create([
+            'name' => 'Packs', 'store_id' => (int) ShopeeStore::query()->value('id'),
             'shopee_category_id' => 100139, 'logistic_ids' => [8003],
         ]);
 

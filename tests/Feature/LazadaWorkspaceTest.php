@@ -3,13 +3,13 @@
 namespace Tests\Feature;
 
 use App\Extensions\ExtensionManager;
-use App\Integrations\IntegrationRegistry;
+use App\Channels\ChannelRegistry;
 use App\Models\Admin\Permission;
 use App\Models\Admin\UserGroup;
 use App\Models\User;
 use App\Support\ChannelWorkspace;
-use Extensions\lazada\LazadaExtension;
-use Extensions\lazada\Models\LazadaSetting;
+use Extensions\Lazada\LazadaExtension;
+use Extensions\Lazada\Models\LazadaStore;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -17,7 +17,7 @@ class LazadaWorkspaceTest extends TestCase
 {
     use RefreshDatabase;
 
-    private LazadaSetting $lazadaStore;
+    private LazadaStore $lazadaStore;
 
     private function lazadaOperator(): User
     {
@@ -57,22 +57,22 @@ class LazadaWorkspaceTest extends TestCase
 
         $this->app['router']->getRoutes()->refreshNameLookups();
 
-        $this->lazadaStore = LazadaSetting::create(['mode' => 'live', 'store_name' => 'Main store']);
+        $this->lazadaStore = LazadaStore::create(['mode' => 'live', 'store_name' => 'Main store']);
     }
 
-    private function lazadaCard(): \App\Integrations\IntegrationCard
+    private function lazadaCard(): \App\Channels\ChannelCard
     {
-        $registry = app(IntegrationRegistry::class);
+        $registry = app(ChannelRegistry::class);
 
         foreach ($registry->all() as $provider) {
-            foreach ($provider->integrationCards() as $card) {
+            foreach ($provider->channelCards() as $card) {
                 if ($card->id === 'lazada') {
                     return $card;
                 }
             }
         }
 
-        $this->fail('Lazada did not register an IntegrationCard.');
+        $this->fail('Lazada did not register an ChannelCard.');
     }
 
     private function lazadaMenu(): array
@@ -143,7 +143,7 @@ class LazadaWorkspaceTest extends TestCase
             array_column($groups[0]['items'], 'label')
         );
         $this->assertSame(
-            ['Listings', 'Product Groups', 'Categories', 'Brands', 'Import'],
+            ['Products', 'Product Groups', 'Categories', 'Brands', 'Import'],
             array_column($groups[1]['items'], 'label')
         );
         $this->assertSame(
@@ -205,7 +205,7 @@ class LazadaWorkspaceTest extends TestCase
 
         $response->assertDontSee('data-chnav-group="Catalog"', false);
         $response->assertDontSee('data-chnav-group="Channel"', false);
-        $response->assertDontSee('>Listings</a>', false);
+        $response->assertDontSee('>Products</a>', false);
         $response->assertDontSee('>Product Groups</a>', false);
         $response->assertDontSee('>Categories</a>', false);
         $response->assertDontSee('>Brands</a>', false);
@@ -321,7 +321,7 @@ class LazadaWorkspaceTest extends TestCase
         $out = [];
 
         foreach (['unpaid', 'pending', 'repacked', 'packed', 'ready_to_ship', 'shipped', 'delivered', 'canceled', 'failed_delivery'] as $status) {
-            $out[$status] = \Extensions\lazada\Models\LazadaOrder::create([
+            $out[$status] = \Extensions\Lazada\Models\LazadaOrder::create([
                 'region' => 'ph',
                 'order_id' => 'T2-' . strtoupper($status),
                 'status' => $status,
@@ -454,7 +454,7 @@ class LazadaWorkspaceTest extends TestCase
             'To hand over' => 'info',
             'Shipped' => 'info',
             'Delivered' => 'success',
-            'Cancelled' => 'danger',
+            'Canceled' => 'danger',
             'Delivery failed' => 'danger',
         ];
         ksort($expected);

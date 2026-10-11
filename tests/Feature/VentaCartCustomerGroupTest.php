@@ -7,10 +7,10 @@ use App\Models\Admin\Permission;
 use App\Models\Admin\UserGroup;
 use App\Models\Catalog\Order;
 use App\Models\User;
-use Extensions\ventacart\Models\VentaCartOrder;
-use Extensions\ventacart\Models\VentaCartSetting;
-use Extensions\ventacart\Services\VentaCart\VentaCartClient;
-use Extensions\ventacart\Services\VentaCart\VentaCartOrderSync;
+use Extensions\VentaCart\Models\VentaCartOrder;
+use Extensions\VentaCart\Models\VentaCartStore;
+use Extensions\VentaCart\Services\VentaCart\VentaCartClient;
+use Extensions\VentaCart\Services\VentaCart\VentaCartOrderSync;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use ReflectionMethod;
 use Tests\TestCase;
@@ -21,7 +21,7 @@ class VentaCartCustomerGroupTest extends TestCase
 
     private function sync(): array
     {
-        $setting = VentaCartSetting::create(['store_name' => 'Group store', 'base_url' => 'https://ventacart.example.test', 'api_token' => 'secret']);
+        $setting = VentaCartStore::create(['store_name' => 'Group store', 'base_url' => 'https://ventacart.example.test', 'api_token' => 'secret']);
         $client = app(VentaCartClient::class, ['setting' => $setting]);
 
         return [new VentaCartOrderSync($client, $setting), $setting];
@@ -41,7 +41,7 @@ class VentaCartCustomerGroupTest extends TestCase
 
         $this->upsert($sync, $raw);
 
-        $order = Order::where('marketplace_source', 'ventacart:' . $setting->id)->where('marketplace_order_id', '777001')->firstOrFail();
+        $order = Order::where('channel', 'ventacart:' . $setting->id)->where('marketplace_order_id', '777001')->firstOrFail();
         $this->assertSame('Reseller', $order->customer_group);
         $this->assertSame(0, (int) $order->customer_group_id, 'the id stays 0: nothing here to point at (#132)');
         $this->assertSame('Reseller', VentaCartOrder::where('ventacart_order_id', 777001)->value('customer_group'));
@@ -58,9 +58,9 @@ class VentaCartCustomerGroupTest extends TestCase
         $manager = $this->app->make(ExtensionManager::class);
         $manager->install('ventacart');
         $manager->enable('ventacart');
-        $this->app->register(\Extensions\ventacart\VentaCartExtension::class);
+        $this->app->register(\Extensions\VentaCart\VentaCartExtension::class);
         $this->app['router']->getRoutes()->refreshNameLookups();
-        $this->artisan('permissions:sync-catalogue');
+        $this->artisan('permissions:sync-catalog');
 
         [$sync, $setting] = $this->sync();
         $this->upsert($sync, ['id' => 777003, 'order_number' => 2003, 'status' => 'pending', 'status_id' => 1, 'totals' => ['total' => 500], 'items' => [],

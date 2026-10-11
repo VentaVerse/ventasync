@@ -133,7 +133,7 @@
                 <div class="fm-section__head">
                     <h2 class="fm-section__title">Category attributes</h2>
                 </div>
-                <p class="fm-section__note">Values Lazada asks for on every product in this category. Type one, or point it at a field on the catalog product so every push reads the current value.</p>
+                <p class="fm-section__note">Values Lazada asks for on every product in this category. Type one, or point it at a field on the Master Catalog product so every push reads the current value.</p>
                 <div data-attributes-target>
                     @if($hasAttributes)
                         @include('ext-lazada::product-groups._attributes', [
@@ -159,17 +159,17 @@
             <div class="fm-card">
                 <div class="fm-card__head"><h2 class="fm-card__title">Watermark</h2></div>
                 <div class="fm-card__body">
-                    @include('partials.watermark-pick', ['selected' => old('watermark_template_id', $group->watermark_template_id ?? null), 'integration' => 'lazada', 'canManage' => $canManageLazada])
+                    @include('partials.watermark-pick', ['selected' => old('watermark_template_id', $group->watermark_template_id ?? null), 'channel' => 'lazada', 'canManage' => $canManageLazada])
                 </div>
             </div>
 
             <div class="fm-card">
                 <div class="fm-card__head"><h2 class="fm-card__title">Price markup</h2></div>
                 <div class="fm-card__body">
-                    <p class="fm-section__note">The percentage is added to the catalog price first, then the fixed amount on top. Leave both empty to push the catalog price as it is.</p>
+                    <p class="fm-section__note">The percentage is added to the Master Catalog price first, then the fixed amount on top. Leave both empty to push the Master Catalog price as it is.</p>
 
                     <x-ui.field label="Percentage of price" for="pg-markup-percent" name="markup_percent"
-                                hint="5 means the pushed price is 5% above the catalog price.">
+                                hint="5 means the pushed price is 5% above the Master Catalog price.">
                         <div class="cs-inline">
                             <x-ui.input id="pg-markup-percent" name="markup_percent" type="number" step="0.01" min="0"
                                         class="fm-input--num cs-days"

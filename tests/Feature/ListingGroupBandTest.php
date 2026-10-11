@@ -6,9 +6,9 @@ use App\Extensions\ExtensionManager;
 use App\Models\Admin\Permission;
 use App\Models\Admin\UserGroup;
 use App\Models\User;
-use Extensions\shopee\Models\ShopeeProductGroup;
-use Extensions\shopee\Models\ShopeeSetting;
-use Extensions\shopee\Services\Shopee\ShopeeClient;
+use Extensions\Shopee\Models\ShopeeProductGroup;
+use Extensions\Shopee\Models\ShopeeStore;
+use Extensions\Shopee\Services\Shopee\ShopeeClient;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
@@ -26,11 +26,11 @@ class ListingGroupBandTest extends TestCase
         $manager = $this->app->make(ExtensionManager::class);
         $manager->install('shopee');
         $manager->enable('shopee');
-        $this->app->register(\Extensions\shopee\ShopeeExtension::class);
+        $this->app->register(\Extensions\Shopee\ShopeeExtension::class);
         $this->app['router']->getRoutes()->refreshNameLookups();
-        $this->artisan('permissions:sync-catalogue');
+        $this->artisan('permissions:sync-catalog');
 
-        ShopeeSetting::query()->create(['mode' => 'live', 'partner_id' => '1', 'partner_key' => 'k', 'shop_id' => '2', 'access_token' => 't', 'refresh_token' => 'r']);
+        ShopeeStore::query()->create(['mode' => 'live', 'partner_id' => '1', 'partner_key' => 'k', 'shop_id' => '2', 'access_token' => 't', 'refresh_token' => 'r']);
         $this->app->instance(ShopeeClient::class, new class extends ShopeeClient {
             public function __construct() {}
             public function shopPost(string $mode, int $partnerId, string $partnerKey, string $accessToken, int $shopId, string $path, array $extraQuery = [], array $body = []): array
@@ -54,13 +54,12 @@ class ListingGroupBandTest extends TestCase
 
     private function product(): int
     {
-        $pfx = (string) config('catalog.prefix');
-        $pid = DB::table($pfx . 'product')->insertGetId([
+        $pid = DB::table('products')->insertGetId([
             'model' => 'BAND-1', 'sku' => 'BAND-1', 'quantity' => 5, 'price' => 300,
             'status' => 1, 'image' => 'catalog/x.png', 'weight' => 1, 'length' => 1, 'width' => 1, 'height' => 1,
-            'manufacturer_id' => 0, 'date_added' => now(), 'date_modified' => now(), 'date_available' => now(),
+            'brand_id' => 0, 'date_added' => now(), 'date_modified' => now(), 'date_available' => now(),
         ]);
-        DB::table($pfx . 'product_description')->insert([
+        DB::table('product_descriptions')->insert([
             'product_id' => $pid, 'language_id' => (int) config('catalog.default_language_id'),
             'name' => 'Band product', 'description' => '', 'meta_title' => '', 'meta_description' => '', 'meta_keyword' => '', 'tag' => '',
         ]);
@@ -73,7 +72,7 @@ class ListingGroupBandTest extends TestCase
         $pid = $this->product();
         $mine = ShopeeProductGroup::create(['name' => 'Multi-effects pedals', 'shopee_category_id' => 100013, 'logistic_ids' => [8003], 'markup_percent' => 12]);
         ShopeeProductGroup::create(['name' => 'Overdrive pedals', 'shopee_category_id' => 100200, 'logistic_ids' => [8003]]);
-        DB::table('shopee_product_group_products')->insert(['shopee_product_group_id' => $mine->id, 'product_id' => $pid]);
+        DB::table('ch_shopee_product_group_products')->insert(['shopee_product_group_id' => $mine->id, 'product_id' => $pid]);
 
         $html = $this->actingAs($this->user(['view_shopee/product', 'manage_shopee/product']))
             ->get(route('ext.shopee.listings.edit', $pid))
@@ -92,7 +91,7 @@ class ListingGroupBandTest extends TestCase
     {
         $pid = $this->product();
         $mine = ShopeeProductGroup::create(['name' => 'Multi-effects pedals', 'shopee_category_id' => 100013, 'logistic_ids' => [8003]]);
-        DB::table('shopee_product_group_products')->insert(['shopee_product_group_id' => $mine->id, 'product_id' => $pid]);
+        DB::table('ch_shopee_product_group_products')->insert(['shopee_product_group_id' => $mine->id, 'product_id' => $pid]);
 
         $this->actingAs($this->user(['view_shopee/product']))
             ->get(route('ext.shopee.listings.edit', $pid))

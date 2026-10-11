@@ -1,12 +1,12 @@
 <?php
 
-namespace Extensions\shopee\Services\Shopee;
+namespace Extensions\Shopee\Services\Shopee;
 
-use App\Integrations\Listings\SheetReads;
-use Extensions\shopee\Controllers\ShopeeProductGroupController;
-use Extensions\shopee\Models\ShopeeCategoryTemplate;
-use Extensions\shopee\Models\ShopeeListing;
-use Extensions\shopee\Models\ShopeeProductGroup;
+use App\Channels\Listings\SheetReads;
+use Extensions\Shopee\Controllers\ShopeeProductGroupController;
+use Extensions\Shopee\Models\ShopeeCategoryTemplate;
+use Extensions\Shopee\Models\ShopeeListing;
+use Extensions\Shopee\Models\ShopeeProductGroup;
 
 class ShopeeSheetReads
 {

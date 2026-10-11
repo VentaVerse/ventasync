@@ -1,11 +1,11 @@
 <?php
 
-namespace Extensions\ventacart\Services\VentaCart;
+namespace Extensions\VentaCart\Services\VentaCart;
 
 use App\Services\ActivityLogger;
 use App\Support\FulfilmentSteps;
-use Extensions\ventacart\Models\VentaCartOrder;
-use Extensions\ventacart\Models\VentaCartSetting;
+use Extensions\VentaCart\Models\VentaCartOrder;
+use Extensions\VentaCart\Models\VentaCartStore;
 use Illuminate\Support\Facades\Log;
 
 class VentaCartFulfilment
@@ -26,14 +26,14 @@ class VentaCartFulfilment
     ];
 
     public function __construct(
-        private VentaCartSetting $setting,
+        private VentaCartStore $store,
         private VentaCartClient $client,
     ) {
     }
 
-    public static function for(VentaCartSetting $setting): self
+    public static function for(VentaCartStore $store): self
     {
-        return new self($setting, new VentaCartClient($setting));
+        return new self($store, new VentaCartClient($store));
     }
 
     public function serviceability(VentaCartOrder $order): array
@@ -149,7 +149,7 @@ class VentaCartFulfilment
             (int) $order->id,
             'Booked ' . ($body['courier'] ?? 'courier') . ' for VentaCart #' . $order->ventacart_order_id
                 . (isset($body['tracking_number']) ? ' (' . $body['tracking_number'] . ')' : ''),
-            ['store' => $this->setting->store_name, 'opts' => $opts]
+            ['store' => $this->store->store_name, 'opts' => $opts]
         );
 
         $this->refresh($order);
@@ -228,7 +228,7 @@ class VentaCartFulfilment
             (int) $order->id,
             'Recorded a shipment by hand' . ($courierName !== '' ? ' with ' . $courierName : '') . ' for VentaCart #' . $order->ventacart_order_id
                 . ($tracking !== '' ? ' (' . $tracking . ')' : ''),
-            ['store' => $this->setting->store_name, 'opts' => $opts]
+            ['store' => $this->store->store_name, 'opts' => $opts]
         );
 
         $this->refresh($order);
@@ -261,7 +261,7 @@ class VentaCartFulfilment
         ])->save();
 
         ActivityLogger::log('unbooked', 'VentaCartOrder', (int) $order->id,
-            'Cleared the hand-recorded shipment for VentaCart #' . $order->ventacart_order_id, ['store' => $this->setting->store_name]);
+            'Cleared the hand-recorded shipment for VentaCart #' . $order->ventacart_order_id, ['store' => $this->store->store_name]);
 
         $this->refresh($order);
 
@@ -291,13 +291,13 @@ class VentaCartFulfilment
             'unbooked',
             'VentaCartOrder',
             (int) $order->id,
-            'Cancelled the courier booking for VentaCart #' . $order->ventacart_order_id,
-            ['store' => $this->setting->store_name]
+            'Canceled the courier booking for VentaCart #' . $order->ventacart_order_id,
+            ['store' => $this->store->store_name]
         );
 
         $this->refresh($order);
 
-        return ['ok' => true, 'message' => (string) ($body['message'] ?? 'Booking cancelled. The order is back in To Pack.')];
+        return ['ok' => true, 'message' => (string) ($body['message'] ?? 'Booking canceled. The order is back in To Pack.')];
     }
 
     public function tracking(VentaCartOrder $order): array
@@ -376,7 +376,7 @@ class VentaCartFulfilment
 
     private function labelPath(VentaCartOrder $order): string
     {
-        return \App\Support\Fulfilment\Waybills::path('ventacart', (int) $this->setting->id, (string) (int) $order->ventacart_order_id);
+        return \App\Support\Fulfilment\Waybills::path('ventacart', (int) $this->store->id, (string) (int) $order->ventacart_order_id);
     }
 
     private function forgetLabel(VentaCartOrder $order): void
@@ -390,7 +390,7 @@ class VentaCartFulfilment
     private function refresh(VentaCartOrder $order): void
     {
         try {
-            $fresh = (new VentaCartOrderSync($this->client, $this->setting))->pullOne((int) $order->ventacart_order_id);
+            $fresh = (new VentaCartOrderSync($this->client, $this->store))->pullOne((int) $order->ventacart_order_id);
             if ($fresh) {
                 $order->setRawAttributes($fresh->getAttributes(), true);
             }
@@ -405,9 +405,9 @@ class VentaCartFulfilment
     public function landing(VentaCartOrder $order): array
     {
         $status = trim((string) $order->status);
-        $step = VentaCartStatusPlacements::stepFor((int) $this->setting->id, $status) ?? 'other';
+        $step = VentaCartStatusPlacements::stepFor((int) $this->store->id, $status) ?? 'other';
         $label = FulfilmentSteps::label($step);
-        $known = VentaCartStatusPlacements::known((int) $this->setting->id);
+        $known = VentaCartStatusPlacements::known((int) $this->store->id);
 
         if ($step === 'to_handover') {
             $sentence = 'The store moved it to "' . $status . '", so it is in To Handover.';

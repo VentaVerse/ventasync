@@ -3,7 +3,7 @@
 namespace App\Support;
 
 use App\Extensions\ExtensionManager;
-use App\Integrations\Support\AutomationCatalogue;
+use App\Channels\Support\AutomationCatalog;
 use App\Services\PermissionHierarchy;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Schema;
@@ -31,7 +31,7 @@ final class AppCaches
         $app->make(PermissionHierarchy::class)->invalidate();
 
         if (Schema::hasTable('scheduled_jobs')) {
-            $app->make(AutomationCatalogue::class)->sync();
+            $app->make(AutomationCatalog::class)->sync();
         }
     }
 }

@@ -4,6 +4,8 @@ namespace App\Models\Catalog;
 
 class OrderTotal extends BaseModel
 {
+    protected $table = 'order_totals';
+
     protected $primaryKey = 'order_total_id';
 
     protected $fillable = [
@@ -13,11 +15,6 @@ class OrderTotal extends BaseModel
         'value',
         'sort_order',
     ];
-
-    public function getTable()
-    {
-        return $this->tableName('order_total');
-    }
 
     public function order()
     {

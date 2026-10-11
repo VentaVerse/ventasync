@@ -8,7 +8,7 @@
             $suggestion = $suggested[$key] ?? null;
             $rawSaved = $saved[$key] ?? '';
         @endphp
-        @continue(\Extensions\lazada\Services\Lazada\LazadaAttributes::isAutoFilledAttributeKey($key)
+        @continue(\Extensions\Lazada\Services\Lazada\LazadaAttributes::isAutoFilledAttributeKey($key)
             && (trim((string) $rawSaved) === '' || str_starts_with((string) $rawSaved, '__map:')))
         @php
             $fromGroup = !array_key_exists($key, ($productOwnAttrs ?? []))
@@ -62,11 +62,11 @@
                             <option value="">Not set</option>
                             @foreach($options as $option)
                                 @php
-                                    $optionValue = is_array($option)
+                                    $variationValue = is_array($option)
                                         ? (string) ($option['name'] ?? $option['label'] ?? $option['value'] ?? '')
                                         : (string) $option;
                                 @endphp
-                                <option value="{{ $optionValue }}" @selected((string) $value === $optionValue)>{{ $optionValue }}</option>
+                                <option value="{{ $variationValue }}" @selected((string) $value === $variationValue)>{{ $variationValue }}</option>
                             @endforeach
                         </select>
                         <x-ui.icon name="chevron-down" size="14" class="x-select-wrap__chevron" />
@@ -111,7 +111,7 @@
                 @endif
 
                 @if(!$isSelect && !$isMapped && empty($saved[$key] ?? null) && empty(old('attributes.' . $key)) && !empty($suggestion))
-                    <p class="gf-attr__note">The catalog suggests {{ $suggestion }}.</p>
+                    <p class="gf-attr__note">The Master Catalog suggests {{ $suggestion }}.</p>
                 @endif
 
                 @if(isset($errors) && $errors->has('attributes.' . $key))

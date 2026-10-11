@@ -1,19 +1,19 @@
 <?php
 
-namespace Extensions\tiktok\Models;
+namespace Extensions\TikTok\Models;
 
 use Illuminate\Database\Eloquent\Model;
-use Extensions\tiktok\Models\Concerns\BelongsToTikTokStore;
+use Extensions\TikTok\Models\Concerns\BelongsToTikTokStore;
 
 class TikTokProductGroup extends Model
 {
     use BelongsToTikTokStore;
 
-    protected $table = 'tiktok_product_groups';
+    protected $table = 'ch_tiktok_product_groups';
 
     protected $fillable = [
         'watermark_template_id',
-        'tiktok_setting_id', 'name', 'tiktok_category_id',
+        'store_id', 'name', 'tiktok_category_id',
         'markup_percent', 'markup_fixed',
     ];
 

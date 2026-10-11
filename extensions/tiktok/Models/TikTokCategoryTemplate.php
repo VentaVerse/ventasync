@@ -1,12 +1,12 @@
 <?php
 
-namespace Extensions\tiktok\Models;
+namespace Extensions\TikTok\Models;
 
 use Illuminate\Database\Eloquent\Model;
 
 class TikTokCategoryTemplate extends Model
 {
-    protected $table = 'tiktok_category_templates';
+    protected $table = 'ch_tiktok_category_templates';
 
     protected $fillable = ['category_id', 'attributes', 'fetched_at'];
 

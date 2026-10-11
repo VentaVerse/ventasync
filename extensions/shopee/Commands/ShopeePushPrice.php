@@ -1,17 +1,17 @@
 <?php
 
-namespace Extensions\shopee\Commands;
+namespace Extensions\Shopee\Commands;
 
-use Extensions\shopee\Models\ShopeeListing;
-use Extensions\shopee\Models\ShopeeProductLink;
-use Extensions\shopee\Models\ShopeeSetting;
-use Extensions\shopee\Services\Shopee\ShopeeInheritedSettings;
-use Extensions\shopee\Services\Shopee\ShopeeStockPricePush;
+use Extensions\Shopee\Models\ShopeeListing;
+use Extensions\Shopee\Models\ShopeeListingLink;
+use Extensions\Shopee\Models\ShopeeStore;
+use Extensions\Shopee\Services\Shopee\ShopeeInheritedSettings;
+use Extensions\Shopee\Services\Shopee\ShopeeStockPricePush;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
-class ShopeePushPrice extends Command implements \App\Integrations\Contracts\SteppableAutomation
+class ShopeePushPrice extends Command implements \App\Channels\Contracts\SteppableAutomation
 {
     protected $signature = 'shopee:push-price';
 
@@ -19,7 +19,7 @@ class ShopeePushPrice extends Command implements \App\Integrations\Contracts\Ste
 
     public function handle(): int
     {
-        $stores = ShopeeSetting::query()->where('enabled', true)->orderBy('id')->get();
+        $stores = ShopeeStore::query()->where('enabled', true)->orderBy('id')->get();
         if ($stores->isEmpty()) {
             $this->error('No enabled Shopee store. Configure Shopee settings first.');
 
@@ -44,10 +44,10 @@ class ShopeePushPrice extends Command implements \App\Integrations\Contracts\Ste
         return $worst;
     }
 
-    private function pushStore(ShopeeSetting $store): int
+    private function pushStore(ShopeeStore $store): int
     {
         $setting = $store->decrypted();
-        $auth = ShopeeSetting::activeAuth($setting);
+        $auth = ShopeeStore::activeAuth($setting);
         if (! $auth['complete']) {
             $modeLabel = $auth['mode'] === 'sandbox' ? 'Sandbox' : 'Production';
             $this->error("Missing Shopee {$modeLabel} credentials/token for this store.");
@@ -55,22 +55,20 @@ class ShopeePushPrice extends Command implements \App\Integrations\Contracts\Ste
             return 1;
         }
 
-        $links = ShopeeProductLink::forStore($store)->get();
+        $links = ShopeeListingLink::forStore($store)->get();
         if ($links->isEmpty()) {
             $this->warn('No Shopee product links found.');
 
             return 0;
         }
-
-        $pfx = (string) config('catalog.prefix');
-        $enabledIds = DB::table($pfx . 'product')
+        $enabledIds = DB::table('products')
             ->whereIn('product_id', $links->pluck('product_id')->map(fn ($v) => (int) $v)->unique()->all())
             ->where('status', 1)
             ->pluck('product_id')->map(fn ($v) => (int) $v)->all();
         $skipped = $links->count() - ($links = $links->filter(fn ($l) => in_array((int) $l->product_id, $enabledIds, true))->values())->count();
 
         $this->info("Pushing prices for {$links->count()} link(s)...");
-        $results = app(ShopeeStockPricePush::class)->push('price', $auth, $links, $pfx, self::priceRule($enabledIds));
+        $results = app(ShopeeStockPricePush::class)->push('price', $auth, $links, self::priceRule($enabledIds));
 
         if ($results['err'] > 0) {
             Log::warning('Shopee push-price: ' . $results['err'] . ' model(s) failed', ['last_error' => $results['last_error']]);
@@ -97,11 +95,11 @@ class ShopeePushPrice extends Command implements \App\Integrations\Contracts\Ste
 
     public function automationUnits(\App\Models\ScheduledJob $job): array
     {
-        return ['label' => 'products', 'units' => \Extensions\shopee\Services\Shopee\ShopeePushSteps::units()];
+        return ['label' => 'products', 'units' => \Extensions\Shopee\Services\Shopee\ShopeePushSteps::units()];
     }
 
     public function automationStep(\App\Models\ScheduledJob $job, array $units): array
     {
-        return \Extensions\shopee\Services\Shopee\ShopeePushSteps::step('price', $units);
+        return \Extensions\Shopee\Services\Shopee\ShopeePushSteps::step('price', $units);
     }
 }

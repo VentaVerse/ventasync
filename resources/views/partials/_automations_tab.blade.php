@@ -1,15 +1,15 @@
 @php
     $hostForm = $form ?? null;
     $jobs = \App\Models\ScheduledJob::query()
-        ->where('integration', $integration)
+        ->where('extension', $extension)
         ->when($storeId ?? null, fn($q, $sid) => $q->where('store_id', $sid))
         ->orderBy('id')
         ->get();
 
-    $settingModel = match ($integration) {
-        'shopee' => \Extensions\shopee\Models\ShopeeSetting::class,
-        'lazada' => \Extensions\lazada\Models\LazadaSetting::class,
-        'tiktok' => \Extensions\tiktok\Models\TikTokSetting::class,
+    $settingModel = match ($extension) {
+        'shopee' => \Extensions\Shopee\Models\ShopeeStore::class,
+        'lazada' => \Extensions\Lazada\Models\LazadaStore::class,
+        'tiktok' => \Extensions\TikTok\Models\TikTokStore::class,
         default  => null,
     };
     $setting = ($settingModel && class_exists($settingModel)) ? $settingModel::query()->first() : null;
@@ -19,10 +19,10 @@
     $hasReturnsWindow = $setting !== null
         && \Illuminate\Support\Facades\Schema::hasColumn($setting->getTable(), 'sync_last_days_returns');
 
-    $reviewsJob = $jobs->firstWhere('command', "{$integration}:sync-reviews");
+    $reviewsJob = $jobs->firstWhere('command', "{$extension}:sync-reviews");
     $hasReviewsWindow = $reviewsJob !== null;
 
-    $payoutsJob = $jobs->firstWhere('command', "{$integration}:sync-payouts");
+    $payoutsJob = $jobs->firstWhere('command', "{$extension}:sync-payouts");
     $hasPayoutsWindow = $payoutsJob !== null;
 @endphp
 
@@ -32,7 +32,7 @@
               action="{{ route('automations.batch_update') }}"
               class="automations-batch-form">
             @csrf
-            <input type="hidden" name="integration" value="{{ $integration }}">
+            <input type="hidden" name="extension" value="{{ $extension }}">
         @endif
 
             @if(! $hostForm && ($hasOrdersWindow || $hasReturnsWindow || $hasReviewsWindow || $hasPayoutsWindow))
@@ -140,7 +140,7 @@
                                         <span class="badge badge-green">OK</span>
                                     @elseif($job->last_run_ok === false)
                                         <span class="badge badge-red">Failed</span>
-                                        @php($failedUrl = \App\Integrations\Support\PushFailureLink::for($job, $storeId ?? null))
+                                        @php($failedUrl = \App\Channels\Support\PushFailureLink::for($job, $storeId ?? null))
                                         @if($failedUrl)
                                             <x-ui.button size="sm" :href="$failedUrl" class="automation-failed-link">See which products failed</x-ui.button>
                                         @endif

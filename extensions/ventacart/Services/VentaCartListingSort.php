@@ -1,8 +1,8 @@
 <?php
 
-namespace Extensions\ventacart\Services;
+namespace Extensions\VentaCart\Services;
 
-use App\Integrations\Listings\ListingSort;
+use App\Channels\Listings\ListingSort;
 use App\Support\StoreKey;
 use Illuminate\Database\Query\Builder;
 
@@ -26,7 +26,7 @@ final class VentaCartListingSort
 
     public static function join(Builder $query, int $storeId): void
     {
-        ListingSort::joinStore($query, $storeId, ['table' => 'ventacart_listings', 'store' => 'ventacart_setting_id'], self::GROUP);
+        ListingSort::joinStore($query, $storeId, ['table' => 'ch_ventacart_listings', 'store' => 'store_id'], self::GROUP);
     }
 
     public static function joinGroup(Builder $query, int $storeId): void
@@ -34,5 +34,5 @@ final class VentaCartListingSort
         ListingSort::joinGroupMarkup($query, $storeId, self::GROUP);
     }
 
-    private const GROUP = ['pivot' => 'ventacart_product_group_products', 'table' => 'ventacart_product_groups', 'key' => 'ventacart_product_group_id', 'store' => 'ventacart_setting_id'];
+    private const GROUP = ['pivot' => 'ch_ventacart_product_group_products', 'table' => 'ch_ventacart_product_groups', 'key' => 'ventacart_product_group_id', 'store' => 'store_id'];
 }

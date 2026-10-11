@@ -148,8 +148,8 @@
   let cachedServerFiles = [];
   let cachedServerFolders = [];
 
-  function getManufacturerId() {
-    const el = document.getElementById('manufacturer_id');
+  function getBrandId() {
+    const el = document.getElementById('brand_id');
     const v = el ? String(el.value || '').trim() : '';
     const n = parseInt(v, 10);
     return Number.isFinite(n) ? n : 0;

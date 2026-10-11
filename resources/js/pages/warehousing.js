@@ -73,9 +73,9 @@ function productSearch(opts) {
         const seenGroups = {};
 
         items.forEach(function (item) {
-            if (groupAdd && item.has_options && item.option_group && !seenGroups[item.option_group]) {
-                const group = items.filter(function (v) { return v.option_group === item.option_group; });
-                seenGroups[item.option_group] = group;
+            if (groupAdd && item.has_variations && item.variation_group && !seenGroups[item.variation_group]) {
+                const group = items.filter(function (v) { return v.variation_group === item.variation_group; });
+                seenGroups[item.variation_group] = group;
 
                 const baseName = String(item.name || '').split(' · ')[0];
                 const all = document.createElement('button');
@@ -83,7 +83,7 @@ function productSearch(opts) {
                 all.className = 'wh-ac__item wh-ac__item--all';
                 const label = document.createElement('span');
                 label.className = 'wh-ac__name';
-                label.textContent = 'Add all ' + item.option_count + ' variations of ' + baseName;
+                label.textContent = 'Add all ' + item.variation_count + ' variations of ' + baseName;
                 all.appendChild(label);
                 all.addEventListener('mousedown', function (e) {
                     e.preventDefault();
@@ -94,7 +94,7 @@ function productSearch(opts) {
                 list.appendChild(all);
             }
 
-            list.appendChild(row(item, item.has_options ? 'wh-ac__item--child' : null));
+            list.appendChild(row(item, item.has_variations ? 'wh-ac__item--child' : null));
         });
 
         list.classList.add('is-open');
@@ -162,7 +162,7 @@ function lineList(opts) {
 
     function add(item) {
         const productId = Number(item.product_id);
-        const povId = Number(item.product_option_value_id || 0);
+        const povId = Number(item.product_variation_value_id || 0);
 
         const existing = find(productId, povId);
         if (existing) {
@@ -281,7 +281,7 @@ function initTransferForm() {
         build: function (line, i, item) {
             const name = cell(line, 'wh-line__name');
             hidden(name, 'items[' + i + '][product_id]', item.product_id);
-            hidden(name, 'items[' + i + '][product_option_value_id]', item.product_option_value_id || 0);
+            hidden(name, 'items[' + i + '][product_variation_value_id]', item.product_variation_value_id || 0);
             const b = document.createElement('b');
             b.textContent = item.name || '';
             name.appendChild(b);
@@ -353,7 +353,7 @@ function initTransferForm() {
                     .then(function (data) {
                         const found = data.find(function (d) {
                             return Number(d.product_id) === Number(pid)
-                                && Number(d.product_option_value_id) === Number(pov);
+                                && Number(d.product_variation_value_id) === Number(pov);
                         });
                         const available = found && found.available_qty !== null && found.available_qty !== undefined
                             ? found.available_qty
@@ -416,7 +416,7 @@ function initAdjustForm() {
         build: function (line, i, item) {
             const name = cell(line, 'wh-line__name');
             hidden(name, 'items[' + i + '][product_id]', item.product_id);
-            hidden(name, 'items[' + i + '][product_option_value_id]', item.product_option_value_id || 0);
+            hidden(name, 'items[' + i + '][product_variation_value_id]', item.product_variation_value_id || 0);
             const b = document.createElement('b');
             b.textContent = item.name || '';
             name.appendChild(b);
@@ -457,7 +457,7 @@ function initAdjustForm() {
         searchInput.disabled = !ready;
         searchInput.placeholder = ready
             ? 'Search by product name or SKU'
-            : 'Choose a location first';
+            : 'Choose a warehouse first';
     }
 
     if (warehouse) warehouse.addEventListener('change', syncSearchState);
@@ -497,7 +497,7 @@ document.addEventListener('submit', function (e) {
     if (isAdjust) {
         const warehouse = form.querySelector('[data-wh-warehouse]');
         if (warehouse && !warehouse.value) {
-            refuse('Choose the location you counted before saving.');
+            refuse('Choose the warehouse you counted before saving.');
             return;
         }
         if (lines.length === 0) {
@@ -514,7 +514,7 @@ document.addEventListener('submit', function (e) {
     const from = form.querySelector('[data-wh-from]');
     const to = form.querySelector('[data-wh-to]');
     if (from && to && from.value && from.value === to.value) {
-        refuse('Source and destination have to be different locations.');
+        refuse('Source and destination have to be different warehouses.');
         return;
     }
 
@@ -525,7 +525,7 @@ document.addEventListener('submit', function (e) {
     });
 
     if (over) {
-        refuse('One or more lines move more units than the source location holds. Completing that transfer would be refused.');
+        refuse('One or more lines move more units than the source warehouse holds. Completing that transfer would be refused.');
     }
 }, true);
 

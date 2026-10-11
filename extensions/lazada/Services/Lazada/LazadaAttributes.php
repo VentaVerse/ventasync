@@ -1,10 +1,10 @@
 <?php
 
-namespace Extensions\lazada\Services\Lazada;
+namespace Extensions\Lazada\Services\Lazada;
 
-use Extensions\lazada\Models\LazadaBrand;
-use Extensions\lazada\Models\LazadaCategoryTemplate;
-use Extensions\lazada\Models\LazadaSetting;
+use Extensions\Lazada\Models\LazadaBrand;
+use Extensions\Lazada\Models\LazadaCategoryTemplate;
+use Extensions\Lazada\Models\LazadaStore;
 
 class LazadaAttributes
 {
@@ -258,11 +258,11 @@ class LazadaAttributes
         return $out;
     }
 
-    public function getLazadaSalePropKeys(int $primaryCategoryId, object $setting, LazadaClient $client): array
+    public function getLazadaSalePropKeys(int $primaryCategoryId, object $store, LazadaClient $client): array
     {
-        $creds = LazadaSetting::activeCredentials($setting);
+        $creds = LazadaStore::activeCredentials($store);
 
-        if ($primaryCategoryId <= 0 || empty($creds['app_key']) || empty($creds['app_secret']) || empty($setting->region)) {
+        if ($primaryCategoryId <= 0 || empty($creds['app_key']) || empty($creds['app_secret']) || empty($store->region)) {
             return [];
         }
 
@@ -276,7 +276,7 @@ class LazadaAttributes
                 'primary_category_id' => (string) $primaryCategoryId,
             ];
             $params['sign'] = $client->sign($apiPath, $params, (string) $creds['app_secret']);
-            $result = $client->get((string) $setting->region, $apiPath, $params);
+            $result = $client->get((string) $store->region, $apiPath, $params);
 
             $body = $result['body'] ?? null;
             if (!is_array($body)) {
@@ -386,9 +386,9 @@ class LazadaAttributes
         return $labels;
     }
 
-    public function guessLazadaVariantKeysFromOptionName(string $optionName): array
+    public function guessLazadaVariantKeysFromVariationTypeName(string $variationTypeName): array
     {
-        $n = strtolower(trim($optionName));
+        $n = strtolower(trim($variationTypeName));
         if ($n === '') {
             return [];
         }
@@ -437,15 +437,15 @@ class LazadaAttributes
         return $s;
     }
 
-    public function suggestBrandFromManufacturer(?string $manufacturerName): array
+    public function suggestBrandFromBrand(?string $brandName): array
     {
-        $manufacturerName = trim((string)$manufacturerName);
-        if ($manufacturerName === '') {
+        $brandName = trim((string)$brandName);
+        if ($brandName === '') {
             return ['brand_id' => null, 'brand_name' => null];
         }
 
         $region = $this->region();
-        $needle = $this->normalizeName($manufacturerName);
+        $needle = $this->normalizeName($brandName);
 
         $all = LazadaBrand::query()
             ->where('region', $region)
@@ -487,7 +487,7 @@ class LazadaAttributes
 
     private function region(): string
     {
-        $setting = LazadaSetting::defaultStore();
-        return (string)($setting->region ?? '');
+        $store = LazadaStore::defaultStore();
+        return (string)($store->region ?? '');
     }
 }

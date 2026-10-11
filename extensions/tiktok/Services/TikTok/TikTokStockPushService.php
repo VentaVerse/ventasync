@@ -1,12 +1,12 @@
 <?php
 
-namespace Extensions\tiktok\Services\TikTok;
+namespace Extensions\TikTok\Services\TikTok;
 
 use Illuminate\Support\Facades\DB;
 
 class TikTokStockPushService
 {
-    public function resolve(iterable $pivots, string $pfx, ?\Closure $priceFor = null): array
+    public function resolve(iterable $pivots, ?\Closure $priceFor = null): array
     {
         $productIds = [];
         foreach ($pivots as $p) {
@@ -19,25 +19,25 @@ class TikTokStockPushService
             return [];
         }
 
-        $products = DB::table($pfx . 'product')
+        $products = DB::table('products')
             ->whereIn('product_id', $productIds)
             ->get(['product_id', 'price', 'quantity', 'status'])
             ->keyBy('product_id');
 
-        $combosBySku = DB::table('product_option_combinations')
+        $combosBySku = DB::table('product_variations')
             ->whereIn('product_id', $productIds)
             ->get(['product_id', 'sku', 'quantity', 'absolute_price'])
             ->groupBy('product_id')
             ->map(fn ($rows) => $rows->keyBy(fn ($r) => trim((string) $r->sku)));
 
-        $povs = DB::table($pfx . 'product_option_value')
+        $povs = DB::table('product_variation_values')
             ->whereIn('product_id', $productIds)
-            ->get(['product_id', 'option_value_id', 'sku', 'quantity', 'absolute_price', 'price', 'price_prefix'])
+            ->get(['product_id', 'variation_value_id', 'sku', 'quantity', 'absolute_price', 'price', 'price_prefix'])
             ->groupBy('product_id');
-        $povByOvId = $povs->map(fn ($rows) => $rows->keyBy(fn ($r) => (string) $r->option_value_id));
+        $povByOvId = $povs->map(fn ($rows) => $rows->keyBy(fn ($r) => (string) $r->variation_value_id));
         $povBySku = $povs->map(fn ($rows) => $rows->filter(fn ($r) => trim((string) $r->sku) !== '')->keyBy(fn ($r) => trim((string) $r->sku)));
 
-        $ownPrices = \Extensions\tiktok\Models\TikTokListing::ownPrices($productIds);
+        $ownPrices = \Extensions\TikTok\Models\TikTokListing::ownPrices($productIds);
         $varied = TikTokVariationPush::withVariations($productIds);
 
         $priceFor ??= fn (float $base, object $pivot) => $base;

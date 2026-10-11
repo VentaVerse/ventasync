@@ -3,12 +3,12 @@
 namespace Tests\Feature;
 
 use App\Extensions\ExtensionManager;
-use App\Integrations\Listings\StatusMenu;
+use App\Channels\Listings\StatusMenu;
 use App\Models\Admin\Permission;
 use App\Models\Admin\UserGroup;
 use App\Models\User;
-use Extensions\lazada\Models\LazadaProduct;
-use Extensions\lazada\Models\LazadaSetting;
+use Extensions\Lazada\Models\LazadaListing;
+use Extensions\Lazada\Models\LazadaStore;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
@@ -24,11 +24,11 @@ class ListingStatusMenuTest extends TestCase
         $manager = $this->app->make(ExtensionManager::class);
         $manager->install('lazada');
         $manager->enable('lazada');
-        $this->app->register(\Extensions\lazada\LazadaExtension::class);
+        $this->app->register(\Extensions\Lazada\LazadaExtension::class);
         $this->app['router']->getRoutes()->refreshNameLookups();
-        $this->artisan('permissions:sync-catalogue');
+        $this->artisan('permissions:sync-catalog');
 
-        LazadaSetting::query()->create([
+        LazadaStore::query()->create([
             'mode' => 'live', 'region' => 'ph',
             'app_key' => 'k', 'app_secret' => 's',
             'access_token' => 't', 'refresh_token' => 'r',
@@ -45,13 +45,12 @@ class ListingStatusMenuTest extends TestCase
 
     private function product(string $name, string $sku): int
     {
-        $pfx = (string) config('catalog.prefix');
-        $id = DB::table($pfx . 'product')->insertGetId([
+        $id = DB::table('products')->insertGetId([
             'model' => $sku, 'sku' => $sku, 'quantity' => 5, 'price' => 100, 'status' => 1, 'image' => '',
-            'weight' => 0.5, 'length' => 10, 'width' => 10, 'height' => 5, 'manufacturer_id' => 0,
+            'weight' => 0.5, 'length' => 10, 'width' => 10, 'height' => 5, 'brand_id' => 0,
             'date_added' => now(), 'date_modified' => now()->subMinute(), 'date_available' => now(),
         ]);
-        DB::table($pfx . 'product_description')->insert([
+        DB::table('product_descriptions')->insert([
             'product_id' => $id, 'language_id' => (int) config('catalog.default_language_id'),
             'name' => $name, 'description' => '', 'meta_title' => '', 'meta_description' => '', 'meta_keyword' => '', 'tag' => '',
         ]);
@@ -62,14 +61,14 @@ class ListingStatusMenuTest extends TestCase
     private function store(): array
     {
         $listedOk = $this->product('Listed and fine', 'MN-1');
-        LazadaProduct::query()->create(['product_id' => $listedOk, 'lazada_item_id' => '9001', 'live_status' => 'active', 'live_checked_at' => now()]);
+        LazadaListing::query()->create(['product_id' => $listedOk, 'lazada_item_id' => '9001', 'live_status' => 'active', 'live_checked_at' => now()]);
 
         $listedFailed = $this->product('Listed but failed', 'MN-2');
-        LazadaProduct::query()->create(['product_id' => $listedFailed, 'lazada_item_id' => '9002', 'live_status' => 'active', 'live_checked_at' => now(),
+        LazadaListing::query()->create(['product_id' => $listedFailed, 'lazada_item_id' => '9002', 'live_status' => 'active', 'live_checked_at' => now(),
             'last_push_error' => 'Lazada refused the update', 'last_push_failed_at' => now()]);
 
         $notListed = $this->product('Not on Lazada yet', 'MN-3');
-        LazadaProduct::query()->create(['product_id' => $notListed]);
+        LazadaListing::query()->create(['product_id' => $notListed]);
 
         return compact('listedOk', 'listedFailed', 'notListed');
     }
@@ -104,9 +103,8 @@ class ListingStatusMenuTest extends TestCase
     public function test_catalog_change_narrows_to_the_listings_showing_the_button(): void
     {
         $ids = $this->store();
-        $pfx = (string) config('catalog.prefix');
-        DB::table($pfx . 'product_description')->where('product_id', $ids['listedOk'])->update(['name' => 'Listed and fine, renamed']);
-        DB::table($pfx . 'product')->where('product_id', $ids['listedOk'])->update(['date_modified' => now()->addMinute()]);
+        DB::table('product_descriptions')->where('product_id', $ids['listedOk'])->update(['name' => 'Listed and fine, renamed']);
+        DB::table('products')->where('product_id', $ids['listedOk'])->update(['date_modified' => now()->addMinute()]);
 
         $this->actingAs($this->manager())->get(route('ext.lazada.products.index', ['change' => 1]))
             ->assertOk()->assertSee('compare=1', false)->assertDontSee('Listed but failed')->assertDontSee('Not on Lazada yet');
@@ -196,11 +194,11 @@ class ListingStatusMenuTest extends TestCase
     public function test_a_group_narrows_the_list_and_the_segment_splits_it(): void
     {
         $ids = $this->store();
-        $group = \Extensions\lazada\Models\LazadaProductGroup::create(['name' => 'Cables', 'lazada_category_id' => 4321]);
-        \Extensions\lazada\Models\LazadaProductGroupProduct::create([
+        $group = \Extensions\Lazada\Models\LazadaProductGroup::create(['name' => 'Cables', 'lazada_category_id' => 4321]);
+        \Extensions\Lazada\Models\LazadaProductGroupProduct::create([
             'lazada_product_group_id' => $group->id,
             'product_id' => $ids['listedOk'],
-            'lazada_product_id' => LazadaProduct::query()->where('product_id', $ids['listedOk'])->value('id'),
+            'lazada_listing_id' => LazadaListing::query()->where('product_id', $ids['listedOk'])->value('id'),
             'sync_status' => 'pending',
         ]);
         $user = $this->manager();
@@ -225,15 +223,15 @@ class ListingStatusMenuTest extends TestCase
     {
         $ids = $this->store();
         $pid = $ids['notListed'];
-        $groupA = \Extensions\lazada\Models\LazadaProductGroup::create(['name' => 'Fuzz', 'lazada_category_id' => 4321]);
-        $groupB = \Extensions\lazada\Models\LazadaProductGroup::create(['name' => 'Delay', 'lazada_category_id' => 4321]);
+        $groupA = \Extensions\Lazada\Models\LazadaProductGroup::create(['name' => 'Fuzz', 'lazada_category_id' => 4321]);
+        $groupB = \Extensions\Lazada\Models\LazadaProductGroup::create(['name' => 'Delay', 'lazada_category_id' => 4321]);
         $manager = $this->manager();
         $manager->userGroup->permissions()->attach(Permission::whereIn('key', ['manage_lazada/product_group', 'view_lazada/product_group'])->pluck('id')->all());
         $listingOnlyGroup = UserGroup::create(['name' => 'Listings without groups']);
         $listingOnlyGroup->permissions()->attach(Permission::whereIn('key', ['manage_lazada/product', 'view_lazada/product'])->pluck('id')->all());
         $listingOnly = User::factory()->create(['user_group_id' => $listingOnlyGroup->id]);
         $back = parse_url(route('ext.lazada.products.index'), PHP_URL_PATH);
-        $pivot = fn () => \Illuminate\Support\Facades\DB::table('lazada_product_group_products')->where('product_id', $pid)->pluck('lazada_product_group_id')->map(fn ($v) => (int) $v)->all();
+        $pivot = fn () => \Illuminate\Support\Facades\DB::table('ch_lazada_product_group_products')->where('product_id', $pid)->pluck('lazada_product_group_id')->map(fn ($v) => (int) $v)->all();
 
         $this->actingAs($listingOnly)->get(route('ext.lazada.products.index'))->assertOk()->assertDontSee('Move to group');
         $this->actingAs($listingOnly)->post(route('ext.lazada.product-groups.move'), ['ids' => [$pid], 'group' => $groupA->id, '_return' => $back])->assertRedirect()->assertSessionHas('error');
@@ -259,10 +257,10 @@ class ListingStatusMenuTest extends TestCase
     public function test_a_whole_group_sends_as_a_run_from_the_listings_page(): void
     {
         $ids = $this->store();
-        $group = \Extensions\lazada\Models\LazadaProductGroup::create(['name' => 'Fuzz']);
-        \Extensions\lazada\Models\LazadaProductGroupProduct::create([
+        $group = \Extensions\Lazada\Models\LazadaProductGroup::create(['name' => 'Fuzz']);
+        \Extensions\Lazada\Models\LazadaProductGroupProduct::create([
             'lazada_product_group_id' => $group->id, 'product_id' => $ids['notListed'],
-            'lazada_product_id' => LazadaProduct::query()->where('product_id', $ids['notListed'])->value('id'),
+            'lazada_listing_id' => LazadaListing::query()->where('product_id', $ids['notListed'])->value('id'),
         ]);
         $manager = $this->manager();
         $manager->userGroup->permissions()->attach(Permission::whereIn('key', ['manage_lazada/product_group', 'view_lazada/product_group'])->pluck('id')->all());

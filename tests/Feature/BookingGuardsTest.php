@@ -7,12 +7,12 @@ use App\Http\Middleware\OneBookingAtATime;
 use App\Models\Admin\Permission;
 use App\Models\Admin\UserGroup;
 use App\Models\User;
-use Extensions\lazada\Models\LazadaOrder;
-use Extensions\lazada\Models\LazadaSetting;
-use Extensions\shopee\Models\ShopeeOrder;
-use Extensions\shopee\Models\ShopeeSetting;
-use Extensions\tiktok\Models\TikTokOrder;
-use Extensions\tiktok\Models\TikTokSetting;
+use Extensions\Lazada\Models\LazadaOrder;
+use Extensions\Lazada\Models\LazadaStore;
+use Extensions\Shopee\Models\ShopeeOrder;
+use Extensions\Shopee\Models\ShopeeStore;
+use Extensions\TikTok\Models\TikTokOrder;
+use Extensions\TikTok\Models\TikTokStore;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
@@ -28,15 +28,15 @@ class BookingGuardsTest extends TestCase
         parent::setUp();
 
         $manager = $this->app->make(ExtensionManager::class);
-        foreach (['shopee' => \Extensions\shopee\ShopeeExtension::class,
-            'lazada' => \Extensions\lazada\LazadaExtension::class,
-            'tiktok' => \Extensions\tiktok\TiktokExtension::class] as $id => $provider) {
+        foreach (['shopee' => \Extensions\Shopee\ShopeeExtension::class,
+            'lazada' => \Extensions\Lazada\LazadaExtension::class,
+            'tiktok' => \Extensions\TikTok\TikTokExtension::class] as $id => $provider) {
             $manager->install($id);
             $manager->enable($id);
             $this->app->register($provider);
         }
         $this->app['router']->getRoutes()->refreshNameLookups();
-        $this->artisan('permissions:sync-catalogue');
+        $this->artisan('permissions:sync-catalog');
 
         Http::preventStrayRequests();
     }
@@ -52,11 +52,11 @@ class BookingGuardsTest extends TestCase
 
     private function shopeeOrder(string $status): array
     {
-        $store = ShopeeSetting::create([
+        $store = ShopeeStore::create([
             'mode' => 'live', 'store_name' => 'Main store', 'region' => 'ph',
             'partner_id' => 1001, 'partner_key' => encrypt('key'), 'shop_id' => 2002, 'access_token' => encrypt('token'),
         ]);
-        $order = ShopeeOrder::create(['shopee_setting_id' => $store->id, 'region' => 'ph', 'order_sn' => 'SN-GUARD-1', 'status' => $status, 'order_created_at' => now(), 'raw' => []]);
+        $order = ShopeeOrder::create(['store_id' => $store->id, 'region' => 'ph', 'order_sn' => 'SN-GUARD-1', 'status' => $status, 'order_created_at' => now(), 'raw' => []]);
 
         return [$store, $order];
     }
@@ -94,8 +94,8 @@ class BookingGuardsTest extends TestCase
 
     public function test_a_tiktok_order_already_shipped_is_not_sent_again(): void
     {
-        $store = TikTokSetting::create(['store_name' => 'Main store', 'mode' => 'production']);
-        $order = TikTokOrder::create(['tiktok_setting_id' => $store->id, 'order_id' => '770000000001', 'status' => 'AWAITING_COLLECTION', 'raw' => []]);
+        $store = TikTokStore::create(['store_name' => 'Main store', 'mode' => 'production']);
+        $order = TikTokOrder::create(['store_id' => $store->id, 'order_id' => '770000000001', 'status' => 'AWAITING_COLLECTION', 'raw' => []]);
 
         $this->actingAs($this->packer('tiktok'))
             ->post(route('ext.tiktok.orders.ship', ['store' => $store->id, 'id' => $order->id]))
@@ -105,11 +105,11 @@ class BookingGuardsTest extends TestCase
 
     public function test_a_lazada_order_already_ready_to_ship_is_not_sent_again(): void
     {
-        $store = LazadaSetting::create([
+        $store = LazadaStore::create([
             'mode' => 'live', 'store_name' => 'Main store', 'region' => 'ph',
             'app_key' => 'key', 'app_secret' => encrypt('secret'), 'access_token' => encrypt('token'),
         ]);
-        LazadaOrder::create(['lazada_setting_id' => $store->id, 'region' => 'ph', 'order_id' => '660000000001', 'status' => 'ready_to_ship', 'order_created_at' => now(), 'raw' => []]);
+        LazadaOrder::create(['store_id' => $store->id, 'region' => 'ph', 'order_id' => '660000000001', 'status' => 'ready_to_ship', 'order_created_at' => now(), 'raw' => []]);
 
         $this->actingAs($this->packer('lazada'))
             ->post(route('ext.lazada.orders.rts', ['store' => $store->id, 'orderId' => '660000000001']))

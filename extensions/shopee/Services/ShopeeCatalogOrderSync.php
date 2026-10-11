@@ -1,12 +1,12 @@
 <?php
 
-namespace Extensions\shopee\Services;
+namespace Extensions\Shopee\Services;
 
-use Extensions\shopee\Models\ShopeeOrder;
-use Extensions\shopee\Models\ShopeeOrderStatusMap;
+use Extensions\Shopee\Models\ShopeeOrder;
+use Extensions\Shopee\Models\ShopeeOrderStatusMap;
 use App\Models\Catalog\Order;
 use App\Models\Catalog\OrderHistory;
-use App\Models\Catalog\OrderOption;
+use App\Models\Catalog\OrderVariation;
 use App\Models\Catalog\OrderProduct;
 use App\Models\Catalog\OrderTotal;
 use App\Services\OrderStockService;
@@ -78,7 +78,7 @@ class ShopeeCatalogOrderSync
             }
 
             if (!$catalogOrder) {
-                $catalogOrder = Order::where('marketplace_source', 'shopee')
+                $catalogOrder = Order::where('channel', 'shopee')
                     ->where('marketplace_order_id', $orderSn)
                     ->first();
             }
@@ -91,8 +91,8 @@ class ShopeeCatalogOrderSync
                 $rate = (float) $catalogOrder->currency_value;
             }
 
-            $storeId = (int) $shopeeOrder->shopee_setting_id;
-            $storeName = mb_substr((string) (\Extensions\shopee\Models\ShopeeSetting::query()->find($storeId)?->store_name ?? ''), 0, 64);
+            $storeId = (int) $shopeeOrder->store_id;
+            $storeName = mb_substr((string) (\Extensions\Shopee\Models\ShopeeStore::query()->find($storeId)?->store_name ?? ''), 0, 64);
 
             $orderData = [
                 'invoice_no'            => 0,
@@ -158,7 +158,7 @@ class ShopeeCatalogOrderSync
                 'accept_language'       => '',
                 'courier_id'            => 0,
                 'tracking_number'       => $trackingNumber,
-                'marketplace_source'    => 'shopee',
+                'channel'    => 'shopee',
                 'marketplace_order_id'  => $orderSn,
                 'oe_import'             => 0,
             ];
@@ -179,7 +179,7 @@ class ShopeeCatalogOrderSync
             }
 
             OrderProduct::where('order_id', $catalogOrder->order_id)->delete();
-            OrderOption::where('order_id', $catalogOrder->order_id)->delete();
+            OrderVariation::where('order_id', $catalogOrder->order_id)->delete();
 
             $subTotal = 0;
             $shippingTotal = 0;
@@ -208,8 +208,6 @@ class ShopeeCatalogOrderSync
                 }
             }
 
-            $pfx = (string) config('catalog.prefix');
-
             foreach ($grouped as $item) {
                 $price = $item['price'];
                 $qty = $item['quantity'];
@@ -220,19 +218,19 @@ class ShopeeCatalogOrderSync
                 $lineTotalBase = \App\Services\OrderCurrencyService::toBase($lineTotal, $rate);
 
                 $resolvedProductId = 0;
-                $resolvedOptionValueId = 0;
+                $resolvedVariationValueId = 0;
                 $sellerSku = $item['sku'];
                 if ($sellerSku !== '') {
-                    $pov = DB::table($pfx . 'product_option_value')
+                    $pov = DB::table('product_variation_values')
                         ->where('sku', $sellerSku)
                         ->first();
                     if ($pov) {
                         $resolvedProductId = (int) $pov->product_id;
-                        $resolvedOptionValueId = (int) $pov->product_option_value_id;
+                        $resolvedVariationValueId = (int) $pov->product_variation_value_id;
                     }
 
                     if ($resolvedProductId === 0) {
-                        $prod = DB::table($pfx . 'product')
+                        $prod = DB::table('products')
                             ->where('sku', $sellerSku)
                             ->first(['product_id']);
                         if ($prod) {
@@ -241,14 +239,14 @@ class ShopeeCatalogOrderSync
                     }
                 }
 
-                if ($resolvedProductId > 0 && $resolvedOptionValueId === 0) {
+                if ($resolvedProductId > 0 && $resolvedVariationValueId === 0) {
                     $variation = trim($item['variation'] ?? '');
                     if ($variation !== '') {
-                        $resolvedOptionValueId = $this->resolveOptionByVariation($pfx, $resolvedProductId, $variation);
+                        $resolvedVariationValueId = $this->resolveOptionByVariation( $resolvedProductId, $variation);
                     }
                 }
 
-                $productCost = \App\Support\LineCost::resolve((int) $resolvedProductId, (int) $resolvedOptionValueId);
+                $productCost = \App\Support\LineCost::resolve((int) $resolvedProductId, (int) $resolvedVariationValueId);
 
                 $op = OrderProduct::create([
                     'order_id'      => $catalogOrder->order_id,
@@ -268,11 +266,11 @@ class ShopeeCatalogOrderSync
                 ]);
 
                 if ($item['variation'] && trim($item['variation']) !== '') {
-                    OrderOption::create([
+                    OrderVariation::create([
                         'order_id'                => $catalogOrder->order_id,
                         'order_product_id'        => $op->order_product_id,
-                        'product_option_id'       => 0,
-                        'product_option_value_id' => $resolvedOptionValueId,
+                        'product_variation_type_id'       => 0,
+                        'product_variation_value_id' => $resolvedVariationValueId,
                         'name'                    => 'Variation',
                         'value'                   => $item['variation'],
                         'type'                    => 'text',
@@ -299,7 +297,7 @@ class ShopeeCatalogOrderSync
             OrderTotal::where('order_id', $catalogOrder->order_id)->delete();
 
             $sortOrder = 1;
-            foreach (\Extensions\shopee\Services\ShopeeSaleLines::lines(is_array($orderIncome) ? $orderIncome : [], $subTotal, $shippingTotal) as $line) {
+            foreach (\Extensions\Shopee\Services\ShopeeSaleLines::lines(is_array($orderIncome) ? $orderIncome : [], $subTotal, $shippingTotal) as $line) {
                 OrderTotal::create([
                     'order_id'   => $catalogOrder->order_id,
                     'code'       => $line['code'],
@@ -337,7 +335,7 @@ class ShopeeCatalogOrderSync
         });
     }
 
-    private function resolveOptionByVariation(string $pfx, int $productId, string $variation): int
+    private function resolveOptionByVariation( int $productId, string $variation): int
     {
         $langId = (int) config('catalog.default_language_id');
 
@@ -358,15 +356,15 @@ class ShopeeCatalogOrderSync
             return 0;
         }
 
-        $match = DB::table($pfx . 'product_option_value as pov')
-            ->join($pfx . 'option_value_description as ovd', function ($j) use ($langId) {
-                $j->on('pov.option_value_id', '=', 'ovd.option_value_id')
+        $match = DB::table('product_variation_values as pov')
+            ->join('variation_value_descriptions as ovd', function ($j) use ($langId) {
+                $j->on('pov.variation_value_id', '=', 'ovd.variation_value_id')
                     ->where('ovd.language_id', '=', $langId);
             })
             ->where('pov.product_id', $productId)
             ->whereIn('ovd.name', $candidates)
-            ->first(['pov.product_option_value_id']);
+            ->first(['pov.product_variation_value_id']);
 
-        return $match ? (int) $match->product_option_value_id : 0;
+        return $match ? (int) $match->product_variation_value_id : 0;
     }
 }

@@ -6,11 +6,11 @@ use App\Extensions\ExtensionManager;
 use App\Models\Admin\Permission;
 use App\Models\Admin\UserGroup;
 use App\Models\User;
-use Extensions\ventacart\Models\VentaCartOrder;
-use Extensions\ventacart\Models\VentaCartSetting;
-use Extensions\ventacart\Services\VentaCart\VentaCartClient;
-use Extensions\ventacart\Services\VentaCart\VentaCartOrderSync;
-use Extensions\ventacart\VentaCartExtension;
+use Extensions\VentaCart\Models\VentaCartOrder;
+use Extensions\VentaCart\Models\VentaCartStore;
+use Extensions\VentaCart\Services\VentaCart\VentaCartClient;
+use Extensions\VentaCart\Services\VentaCart\VentaCartOrderSync;
+use Extensions\VentaCart\VentaCartExtension;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
@@ -83,9 +83,9 @@ class VentaCartFulfilmentTest extends TestCase
         return $this->userWith(['view_ventacart/order']);
     }
 
-    private function store(): VentaCartSetting
+    private function store(): VentaCartStore
     {
-        return VentaCartSetting::create([
+        return VentaCartStore::create([
             'store_name' => 'Gear Depot',
             'base_url' => self::BASE,
             'api_token' => 'ventacart-token-one',
@@ -93,10 +93,10 @@ class VentaCartFulfilmentTest extends TestCase
         ]);
     }
 
-    private function order(VentaCartSetting $store, string $status, array $extra = []): VentaCartOrder
+    private function order(VentaCartStore $store, string $status, array $extra = []): VentaCartOrder
     {
         return VentaCartOrder::create(array_merge([
-            'ventacart_setting_id' => $store->id,
+            'store_id' => $store->id,
             'ventacart_order_id' => 700001,
             'ventacart_order_number' => 700001,
             'status' => $status,
@@ -318,7 +318,7 @@ class VentaCartFulfilmentTest extends TestCase
         $store = $this->store();
         $toPack = $this->order($store, 'Order Processed');
         $booked = VentaCartOrder::create([
-            'ventacart_setting_id' => $store->id, 'ventacart_order_id' => 700002, 'ventacart_order_number' => 700002,
+            'store_id' => $store->id, 'ventacart_order_id' => 700002, 'ventacart_order_number' => 700002,
             'status' => 'Order Being Shipped', 'status_id' => 23, 'customer_name' => 'Shelf Buyer', 'total' => 10,
             'order_created_at' => now(), 'courier_provider' => 'spx', 'courier_tracking_number' => 'SPX0002',
         ]);
@@ -342,7 +342,7 @@ class VentaCartFulfilmentTest extends TestCase
 
         $this->assertStringContainsString(route('ext.ventacart.orders.awb', [$store->id, $booked->id]), $handover);
         $this->assertStringContainsString('btnVentaTracking', $handover);
-        $this->assertStringContainsString('data-busy="Cancelling the booking"', $handover);
+        $this->assertStringContainsString('data-busy="Canceling the booking"', $handover);
         $this->assertStringContainsString('SPX Express', $handover);
         $this->assertStringContainsString('SPX0002', $handover);
         $this->assertStringNotContainsString('btnVentaBook', $handover);

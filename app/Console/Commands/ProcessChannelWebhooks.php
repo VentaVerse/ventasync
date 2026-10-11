@@ -2,7 +2,7 @@
 
 namespace App\Console\Commands;
 
-use App\Integrations\IntegrationRegistry;
+use App\Channels\ChannelRegistry;
 use App\Models\ChannelWebhookEvent;
 use Illuminate\Console\Command;
 
@@ -12,7 +12,7 @@ class ProcessChannelWebhooks extends Command
 
     protected $description = 'Apply verified channel webhook deliveries to the ERP';
 
-    public function handle(IntegrationRegistry $registry): int
+    public function handle(ChannelRegistry $registry): int
     {
         $events = ChannelWebhookEvent::query()
             ->where('signature_ok', true)

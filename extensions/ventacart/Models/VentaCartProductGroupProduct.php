@@ -1,13 +1,13 @@
 <?php
 
-namespace Extensions\ventacart\Models;
+namespace Extensions\VentaCart\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class VentaCartProductGroupProduct extends Model
 {
-    protected $table = 'ventacart_product_group_products';
+    protected $table = 'ch_ventacart_product_group_products';
 
     protected $fillable = [
         'ventacart_product_group_id',

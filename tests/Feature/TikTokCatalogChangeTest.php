@@ -6,9 +6,9 @@ use App\Extensions\ExtensionManager;
 use App\Models\Admin\Permission;
 use App\Models\Admin\UserGroup;
 use App\Models\User;
-use Extensions\tiktok\Models\TikTokListing;
-use Extensions\tiktok\Models\TikTokSetting;
-use Extensions\tiktok\TiktokExtension;
+use Extensions\TikTok\Models\TikTokListing;
+use Extensions\TikTok\Models\TikTokStore;
+use Extensions\TikTok\TikTokExtension;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
@@ -26,11 +26,11 @@ class TikTokCatalogChangeTest extends TestCase
         $manager = $this->app->make(ExtensionManager::class);
         $manager->install('tiktok');
         $manager->enable('tiktok');
-        $this->app->register(TiktokExtension::class);
+        $this->app->register(TikTokExtension::class);
         $this->app['router']->getRoutes()->refreshNameLookups();
-        $this->artisan('permissions:sync-catalogue');
+        $this->artisan('permissions:sync-catalog');
 
-        TikTokSetting::create([
+        TikTokStore::create([
             'mode' => 'production', 'app_key' => 'k', 'app_secret' => 's',
             'access_token' => 't', 'refresh_token' => 'r', 'shop_cipher' => 'c', 'expires_at' => now()->addDays(3),
         ]);
@@ -48,14 +48,13 @@ class TikTokCatalogChangeTest extends TestCase
 
     private function product(string $name, string $description): int
     {
-        $pfx = (string) config('catalog.prefix');
-        $id = DB::table($pfx . 'product')->insertGetId([
+        $id = DB::table('products')->insertGetId([
             'model' => 'TCC', 'sku' => 'TCC-' . uniqid(), 'quantity' => 5, 'price' => 130,
             'status' => 1, 'image' => 'catalog/plug.jpg', 'weight' => 0.05, 'length' => 2, 'width' => 2, 'height' => 1,
-            'manufacturer_id' => 0,
+            'brand_id' => 0,
             'date_added' => now(), 'date_modified' => now()->subMinute(), 'date_available' => now(),
         ]);
-        DB::table($pfx . 'product_description')->insert([
+        DB::table('product_descriptions')->insert([
             'product_id' => $id, 'language_id' => (int) config('catalog.default_language_id'),
             'name' => $name, 'description' => $description,
             'meta_title' => '', 'meta_description' => '', 'meta_keyword' => '', 'tag' => '',
@@ -66,9 +65,8 @@ class TikTokCatalogChangeTest extends TestCase
 
     private function editCatalog(int $productId, array $words): void
     {
-        $pfx = (string) config('catalog.prefix');
-        DB::table($pfx . 'product_description')->where('product_id', $productId)->update($words);
-        DB::table($pfx . 'product')->where('product_id', $productId)->update(['date_modified' => now()->addMinute()]);
+        DB::table('product_descriptions')->where('product_id', $productId)->update($words);
+        DB::table('products')->where('product_id', $productId)->update(['date_modified' => now()->addMinute()]);
     }
 
     public function test_the_listing_page_and_the_table_show_a_catalog_change(): void
@@ -127,9 +125,7 @@ class TikTokCatalogChangeTest extends TestCase
             'catalog' => ['title' => 'Not allowed'],
         ])->assertRedirect(route('ext.tiktok.listings.edit', $pid) . '?back=' . urlencode('/channels'))
             ->assertSessionHas('status', 'Saved.');
-
-        $pfx = (string) config('catalog.prefix');
-        $this->assertSame('Plug v2', DB::table($pfx . 'product_description')->where('product_id', $pid)->value('name'), 'no catalog permission, no catalog write');
+        $this->assertSame('Plug v2', DB::table('product_descriptions')->where('product_id', $pid)->value('name'), 'no catalog permission, no catalog write');
 
         $listing = TikTokListing::query()->where('product_id', $pid)->first();
         $this->assertSame('Plug v2', $listing->title);

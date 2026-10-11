@@ -14,12 +14,12 @@
     };
 
 
-    $__productActions = app(\App\Integrations\IntegrationRegistry::class)
+    $__productActions = app(\App\Channels\ChannelRegistry::class)
         ->productActions((int) $product->product_id);
     $__user = auth()->user();
 
     $__inventoryBreakdown = null;
-    foreach (app(\App\Integrations\IntegrationRegistry::class)->productInventoryDetailContributors() as $__c) {
+    foreach (app(\App\Channels\ChannelRegistry::class)->productInventoryDetailContributors() as $__c) {
         $__line = $__c->inventoryBreakdownFor((int) $product->product_id);
         if ($__line !== null) { $__inventoryBreakdown = $__line; break; }
     }
@@ -27,7 +27,7 @@
 
 <form method="POST" action="{{ route('products.update', $product->product_id) }}" class="fm-page"
       data-product-form
-      data-manufacturer-store-url="{{ route('api.catalog.manufacturers.store') }}">
+      data-brand-store-url="{{ route('api.catalog.brands.store') }}">
     @csrf
     @method('PUT')
     <input type="hidden" name="_return" value="{{ $backUrl }}">
@@ -102,15 +102,15 @@
                 </div>
 
                 <div class="fm-fields">
-                    <x-ui.field label="Manufacturer" for="manufacturer_search" name="manufacturer_name"
+                    <x-ui.field label="Brand" for="brand_search" name="brand_name"
                                 hint="Type to search, then pick from the list. Used on marketplace listings."
                                 wide>
                         <div class="fm-ta">
-                        <x-ui.input id="manufacturer_search" name="manufacturer_name" autocomplete="off"
-                                    placeholder="Search manufacturers"
-                                    value="{{ old('manufacturer_name', $manufacturerName ?? '') }}" />
-                        <input type="hidden" name="manufacturer_id" id="manufacturer_id" value="{{ old('manufacturer_id', $product->manufacturer_id) }}">
-                        <div class="fm-ta__list" id="manufacturer_list"></div>
+                        <x-ui.input id="brand_search" name="brand_name" autocomplete="off"
+                                    placeholder="Search brands"
+                                    value="{{ old('brand_name', $brandName ?? '') }}" />
+                        <input type="hidden" name="brand_id" id="brand_id" value="{{ old('brand_id', $product->brand_id) }}">
+                        <div class="fm-ta__list" id="brand_list"></div>
                         </div>
                     </x-ui.field>
 
@@ -122,7 +122,7 @@
                     </x-ui.field>
 
                     <x-ui.field label="SKU" name="sku" :required="true"
-                                hint="How imports, stock pushes and link repair recognise this product.">
+                                hint="How imports, stock pushes and link repair recognize this product.">
                         <x-ui.input id="f-sku" name="sku" class="fm-input--num" value="{{ old('sku', $product->sku) }}" required />
                     </x-ui.field>
 
@@ -227,7 +227,7 @@
                 </div>
                 <p class="fm-section__note">With variations, this product's quantity is the total of its variation quantities. A variation can go negative if it is oversold. Every variation needs its own SKU.</p>
 
-                @include('catalog.products.partials.options_fields')
+                @include('catalog.products.partials.variations_fields')
             </section>
         </div>
 

@@ -265,7 +265,7 @@
           says: 'The channels hub is not one permission. It shows only the cards a person\u2019s '
               + 'own permissions already allow, so grant the channel itself instead.' },
         { words: ['automation', 'automations'],
-          says: 'Automations are gated per row, by the integration each one touches. '
+          says: 'Automations are gated per row, by the channel each one touches. '
               + 'Grant the channel and its automations come with it.' },
         { words: ['dashboard', 'home', 'search'],
           says: 'Everyone signed in gets this one. It has no permission to grant.' },

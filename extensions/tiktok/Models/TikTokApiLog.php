@@ -1,6 +1,6 @@
 <?php
 
-namespace Extensions\tiktok\Models;
+namespace Extensions\TikTok\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\QueryException;
@@ -9,7 +9,7 @@ use Illuminate\Support\Facades\Schema;
 
 class TikTokApiLog extends Model
 {
-    protected $table = 'tiktok_api_logs';
+    protected $table = 'ch_tiktok_api_logs';
 
     protected $fillable = [
         'pack',
@@ -34,23 +34,23 @@ class TikTokApiLog extends Model
     {
         try {
             $attributes['ok'] = \App\Support\MarketplaceVerdict::ok('tiktok', (bool) ($attributes['ok'] ?? true), $attributes['response_body'] ?? null);
-            $setting = TikTokSetting::defaultStore();
-            if (! \App\Support\ApiLogMode::shouldLog($setting?->api_log_mode, (bool) ($attributes['ok'] ?? true))) {
+            $store = TikTokStore::defaultStore();
+            if (! \App\Support\ApiLogMode::shouldLog($store?->api_log_mode, (bool) ($attributes['ok'] ?? true))) {
                 return;
             }
 
-            if (array_key_exists('pack', $attributes) && !Schema::hasColumn('tiktok_api_logs', 'pack')) {
+            if (array_key_exists('pack', $attributes) && !Schema::hasColumn('ch_tiktok_api_logs', 'pack')) {
                 unset($attributes['pack']);
             }
 
             self::query()->create($attributes);
         } catch (QueryException $e) {
-            Log::warning('Failed to write tiktok_api_logs record', [
+            Log::warning('Failed to write ch_tiktok_api_logs record', [
                 'error' => $e->getMessage(),
                 'keys' => array_keys($attributes),
             ]);
         } catch (\Throwable $e) {
-            Log::warning('Unexpected failure writing tiktok_api_logs record', [
+            Log::warning('Unexpected failure writing ch_tiktok_api_logs record', [
                 'error' => $e->getMessage(),
             ]);
         }

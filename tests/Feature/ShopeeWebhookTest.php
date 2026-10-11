@@ -3,7 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\ChannelWebhookEvent;
-use Extensions\shopee\Models\ShopeeSetting;
+use Extensions\Shopee\Models\ShopeeStore;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -18,7 +18,7 @@ class ShopeeWebhookTest extends TestCase
         $manager = $this->app->make(\App\Extensions\ExtensionManager::class);
         $manager->install('shopee');
         $manager->enable('shopee');
-        $this->app->register(\Extensions\shopee\ShopeeExtension::class);
+        $this->app->register(\Extensions\Shopee\ShopeeExtension::class);
         $this->app['router']->getRoutes()->refreshNameLookups();
     }
 
@@ -36,7 +36,7 @@ class ShopeeWebhookTest extends TestCase
 
     public function test_a_push_signed_with_the_push_partner_key_is_accepted(): void
     {
-        ShopeeSetting::create([
+        ShopeeStore::create([
             'mode' => 'live',
             'store_name' => 'Main store',
             'partner_key' => encrypt('api-key'),
@@ -51,7 +51,7 @@ class ShopeeWebhookTest extends TestCase
 
     public function test_the_sandbox_push_key_is_accepted_whatever_the_stores_mode(): void
     {
-        ShopeeSetting::create([
+        ShopeeStore::create([
             'mode' => 'live',
             'store_name' => 'Main store',
             'sandbox_push_partner_key' => encrypt('sandbox-push-key'),
@@ -62,7 +62,7 @@ class ShopeeWebhookTest extends TestCase
 
     public function test_a_push_signed_for_the_https_url_is_accepted_when_it_arrives_as_http(): void
     {
-        ShopeeSetting::create([
+        ShopeeStore::create([
             'mode' => 'live',
             'store_name' => 'Main store',
             'push_partner_key' => encrypt('push-key'),
@@ -75,11 +75,11 @@ class ShopeeWebhookTest extends TestCase
 
     public function test_the_push_keys_are_saved_encrypted_and_a_blank_field_keeps_them(): void
     {
-        $this->artisan('permissions:sync-catalogue');
+        $this->artisan('permissions:sync-catalog');
         $group = \App\Models\Admin\UserGroup::create(['name' => 'shopee settings']);
         $group->permissions()->attach(\App\Models\Admin\Permission::whereIn('key', ['view_shopee/settings', 'manage_shopee/settings'])->pluck('id')->all());
         $user = \App\Models\User::factory()->create(['user_group_id' => $group->id]);
-        $store = ShopeeSetting::create(['mode' => 'live', 'store_name' => 'Main store']);
+        $store = ShopeeStore::create(['mode' => 'live', 'store_name' => 'Main store']);
 
         $this->actingAs($user)
             ->post(route('ext.shopee.save', ['store' => $store->id]), ['env' => 'live', 'push_partner_key' => ' push-key '])

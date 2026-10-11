@@ -6,7 +6,7 @@ use App\Extensions\ExtensionManager;
 use App\Models\Admin\Permission;
 use App\Models\Admin\UserGroup;
 use App\Models\User;
-use Extensions\shopee\Models\ShopeeSetting;
+use Extensions\Shopee\Models\ShopeeStore;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
@@ -15,7 +15,7 @@ class CategoryPickerTest extends TestCase
 {
     use RefreshDatabase;
 
-    private ShopeeSetting $store;
+    private ShopeeStore $store;
 
     protected function setUp(): void
     {
@@ -24,11 +24,11 @@ class CategoryPickerTest extends TestCase
         $manager = $this->app->make(ExtensionManager::class);
         $manager->install('shopee');
         $manager->enable('shopee');
-        $this->app->register(\Extensions\shopee\ShopeeExtension::class);
+        $this->app->register(\Extensions\Shopee\ShopeeExtension::class);
         $this->app['router']->getRoutes()->refreshNameLookups();
-        $this->artisan('permissions:sync-catalogue');
+        $this->artisan('permissions:sync-catalog');
 
-        $this->store = ShopeeSetting::create(['mode' => 'live', 'store_name' => 'Main store']);
+        $this->store = ShopeeStore::create(['mode' => 'live', 'store_name' => 'Main store']);
 
         foreach ([
             [100, 0, 'Hobbies & Collections', 0],
@@ -37,7 +37,7 @@ class CategoryPickerTest extends TestCase
             [112, 110, 'Keyboards', 1],
             [200, 0, 'Beauty', 1],
         ] as [$id, $parent, $name, $leaf]) {
-            DB::table('shopee_categories')->insert([
+            DB::table('ch_shopee_categories')->insert([
                 'category_id' => $id, 'parent_id' => $parent, 'name' => $name, 'leaf' => $leaf, 'level' => 0,
             ]);
         }

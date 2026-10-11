@@ -13,10 +13,9 @@ class VariationRows
             return collect();
         }
 
-        $p = (string) config('catalog.prefix');
         $langId = (int) config('catalog.default_language_id');
 
-        $comboRows = DB::table('product_option_combinations as c')
+        $comboRows = DB::table('product_variations as c')
             ->whereIn('c.product_id', $productIds)
             ->orderBy('c.product_id')
             ->orderBy('c.sort_order')
@@ -25,35 +24,35 @@ class VariationRows
         $comboIds = $comboRows->pluck('id')->all();
         $pivotData = [];
         if (!empty($comboIds)) {
-            $pivots = DB::table('product_option_combination_values as cv')
-                ->join($p . 'product_option_value as pov', 'cv.product_option_value_id', '=', 'pov.product_option_value_id')
-                ->join($p . 'option_value_description as ovd', function ($j) use ($langId) {
-                    $j->on('pov.option_value_id', '=', 'ovd.option_value_id')
+            $pivots = DB::table('product_variation_parts as cv')
+                ->join('product_variation_values as pov', 'cv.product_variation_value_id', '=', 'pov.product_variation_value_id')
+                ->join('variation_value_descriptions as ovd', function ($j) use ($langId) {
+                    $j->on('pov.variation_value_id', '=', 'ovd.variation_value_id')
                       ->where('ovd.language_id', '=', $langId);
                 })
-                ->join($p . 'option_description as od', function ($j) use ($langId) {
-                    $j->on('pov.option_id', '=', 'od.option_id')
+                ->join('variation_type_descriptions as od', function ($j) use ($langId) {
+                    $j->on('pov.variation_type_id', '=', 'od.variation_type_id')
                       ->where('od.language_id', '=', $langId);
                 })
-                ->join($p . 'product_option as po', 'pov.product_option_id', '=', 'po.product_option_id')
-                ->whereIn('cv.combination_id', $comboIds)
-                ->orderBy('po.product_option_id')
-                ->get(['cv.combination_id', 'cv.product_option_value_id', 'ovd.name as value_name', 'od.name as option_name']);
+                ->join('product_variation_types as po', 'pov.product_variation_type_id', '=', 'po.product_variation_type_id')
+                ->whereIn('cv.product_variation_id', $comboIds)
+                ->orderBy('po.product_variation_type_id')
+                ->get(['cv.product_variation_id', 'cv.product_variation_value_id', 'ovd.name as value_name', 'od.name as variation_type_name']);
 
             foreach ($pivots as $pv) {
-                $pivotData[(int) $pv->combination_id][] = [
+                $pivotData[(int) $pv->product_variation_id][] = [
                     'value_name' => html_entity_decode((string) $pv->value_name, ENT_QUOTES | ENT_HTML5, 'UTF-8'),
-                    'option_name' => html_entity_decode((string) $pv->option_name, ENT_QUOTES | ENT_HTML5, 'UTF-8'),
-                    'option_value_id' => (int) $pv->product_option_value_id,
+                    'variation_type_name' => html_entity_decode((string) $pv->variation_type_name, ENT_QUOTES | ENT_HTML5, 'UTF-8'),
+                    'variation_value_id' => (int) $pv->product_variation_value_id,
                 ];
             }
         }
 
         foreach ($comboRows as $c) {
             $entries = $pivotData[(int) $c->id] ?? [];
-            $c->option_value_name = implode(' + ', array_map(fn ($e) => $e['value_name'], $entries));
-            $c->option_name = implode(' / ', array_unique(array_map(fn ($e) => $e['option_name'], $entries)));
-            $c->option_value_ids = array_map(fn ($e) => $e['option_value_id'], $entries);
+            $c->variation_value_name = implode(' + ', array_map(fn ($e) => $e['value_name'], $entries));
+            $c->variation_type_name = implode(' / ', array_unique(array_map(fn ($e) => $e['variation_type_name'], $entries)));
+            $c->variation_value_ids = array_map(fn ($e) => $e['variation_value_id'], $entries);
             $c->option_image = trim((string) ($c->image ?? '')) ?: null;
         }
 
@@ -64,25 +63,25 @@ class VariationRows
             $rows->keys()->all()
         ));
         if (!empty($missing)) {
-            $povRows = DB::table($p . 'product_option_value as pov')
-                ->join($p . 'option_description as od', function ($j) use ($langId) {
-                    $j->on('pov.option_id', '=', 'od.option_id')->where('od.language_id', '=', $langId);
+            $povRows = DB::table('product_variation_values as pov')
+                ->join('variation_type_descriptions as od', function ($j) use ($langId) {
+                    $j->on('pov.variation_type_id', '=', 'od.variation_type_id')->where('od.language_id', '=', $langId);
                 })
-                ->join($p . 'option_value_description as ovd', function ($j) use ($langId) {
-                    $j->on('pov.option_value_id', '=', 'ovd.option_value_id')->where('ovd.language_id', '=', $langId);
+                ->join('variation_value_descriptions as ovd', function ($j) use ($langId) {
+                    $j->on('pov.variation_value_id', '=', 'ovd.variation_value_id')->where('ovd.language_id', '=', $langId);
                 })
                 ->whereIn('pov.product_id', $missing)
                 ->orderBy('pov.product_id')
-                ->orderBy('pov.product_option_value_id')
+                ->orderBy('pov.product_variation_value_id')
                 ->get([
-                    'pov.product_id', 'pov.product_option_value_id', 'pov.sku', 'pov.quantity', 'pov.absolute_price',
-                    'od.name as raw_option_name', 'ovd.name as raw_value_name',
+                    'pov.product_id', 'pov.product_variation_value_id', 'pov.sku', 'pov.quantity', 'pov.absolute_price',
+                    'od.name as raw_variation_type_name', 'ovd.name as raw_value_name',
                 ]);
 
             foreach ($povRows as $r) {
-                $r->option_value_name = html_entity_decode((string) $r->raw_value_name, ENT_QUOTES | ENT_HTML5, 'UTF-8');
-                $r->option_name = html_entity_decode((string) $r->raw_option_name, ENT_QUOTES | ENT_HTML5, 'UTF-8');
-                $r->option_value_ids = [(int) $r->product_option_value_id];
+                $r->variation_value_name = html_entity_decode((string) $r->raw_value_name, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+                $r->variation_type_name = html_entity_decode((string) $r->raw_variation_type_name, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+                $r->variation_value_ids = [(int) $r->product_variation_value_id];
                 $r->option_image = null;
                 $r->status = 1;
             }
@@ -103,14 +102,14 @@ class VariationRows
         }
 
         $ids = array_map('intval', $productIds);
-        $off = \App\Integrations\Listings\ListingVariations::offOnStore($channel, $storeId, $ids);
-        $held = DB::table(\App\Integrations\Listings\ListingVariations::STORE_SKUS)
+        $off = \App\Channels\Listings\ListingVariations::offOnStore($channel, $storeId, $ids);
+        $held = DB::table(\App\Channels\Listings\ListingVariations::STORE_SKUS)
             ->where('channel', $channel)->where('store_id', $storeId)->whereIn('product_id', $ids)
             ->pluck('skus', 'product_id');
 
         return $rows->each(fn (Collection $list, $pid) => $list->each(function ($r) use ($off, $held, $pid) {
             $sku = strtolower(trim((string) ($r->sku ?? '')));
-            $r->sold_here = \App\Integrations\Listings\ListingVariations::allows($off, (int) $pid, $r->sku ?? null);
+            $r->sold_here = \App\Channels\Listings\ListingVariations::allows($off, (int) $pid, $r->sku ?? null);
             $r->missing_here = false;
             if ($r->sold_here && $sku !== '' && $held->has($pid)) {
                 $have = array_map(fn ($s) => strtolower(trim((string) $s)), (array) json_decode((string) $held->get($pid), true));

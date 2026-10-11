@@ -1,15 +1,15 @@
 <?php
 
-use Extensions\lazada\Controllers\LazadaDescriptionTemplateController;
-use Extensions\lazada\Controllers\LazadaWatermarkTemplateController;
-use Extensions\lazada\Controllers\LazadaSettingsController;
-use Extensions\lazada\Controllers\LazadaApiExplorerController;
-use Extensions\lazada\Controllers\LazadaProductController;
-use Extensions\lazada\Controllers\LazadaCategoryController;
-use Extensions\lazada\Controllers\LazadaCategoryAttributeController;
-use Extensions\lazada\Controllers\LazadaOrderController;
-use Extensions\lazada\Controllers\LazadaProductGroupController;
-use Extensions\lazada\Controllers\LazadaBrandController;
+use Extensions\Lazada\Controllers\LazadaDescriptionTemplateController;
+use Extensions\Lazada\Controllers\LazadaWatermarkTemplateController;
+use Extensions\Lazada\Controllers\LazadaSettingsController;
+use Extensions\Lazada\Controllers\LazadaApiExplorerController;
+use Extensions\Lazada\Controllers\LazadaProductController;
+use Extensions\Lazada\Controllers\LazadaCategoryController;
+use Extensions\Lazada\Controllers\LazadaCategoryAttributeController;
+use Extensions\Lazada\Controllers\LazadaOrderController;
+use Extensions\Lazada\Controllers\LazadaProductGroupController;
+use Extensions\Lazada\Controllers\LazadaBrandController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/lazada/callback', [LazadaSettingsController::class, 'callback'])->name('lazada.callback');
@@ -19,7 +19,7 @@ Route::middleware(['auth'])->group(function () {
         ->defaults('permission_tier', 'manage');
 });
 
-Route::middleware(['auth', \Extensions\lazada\Http\ResolveLazadaStore::class])
+Route::middleware(['auth', \Extensions\Lazada\Http\ResolveLazadaStore::class])
     ->prefix('channels')->where(['store' => '[0-9]+'])->group(function () {
 
     Route::group([], function () {
@@ -30,7 +30,7 @@ Route::middleware(['auth', \Extensions\lazada\Http\ResolveLazadaStore::class])
         Route::get('/lazada/{store}/products', [LazadaProductController::class, 'index'])->name('ext.lazada.products.index');
         Route::get('/lazada/{store}/products/import', [LazadaProductController::class, 'importPage'])->name('ext.lazada.products.import');
 
-        Route::get('/lazada/{store}/vouchers', [\Extensions\lazada\Controllers\LazadaVoucherController::class, 'index'])->name('ext.lazada.vouchers.index');
+        Route::get('/lazada/{store}/vouchers', [\Extensions\Lazada\Controllers\LazadaVoucherController::class, 'index'])->name('ext.lazada.vouchers.index');
         Route::get('/lazada/{store}/products/search-catalog', [LazadaProductController::class, 'searchCatalogProducts'])->name('ext.lazada.products.search_catalog');
         Route::get('/lazada/{store}/brands', [LazadaBrandController::class, 'index'])->name('ext.lazada.brands.index');
         Route::get('/lazada/{store}/brands/autocomplete', [LazadaBrandController::class, 'autocomplete'])->name('ext.lazada.brands.autocomplete');
@@ -140,8 +140,8 @@ Route::middleware(['auth', \Extensions\lazada\Http\ResolveLazadaStore::class])
         Route::post('/lazada/{store}/products/link-item', [LazadaProductController::class, 'linkItem'])->name('ext.lazada.products.link_item');
         Route::post('/lazada/{store}/products/add-to-store', [LazadaProductController::class, 'addToStoreBulk'])->name('ext.lazada.products.add_to_store_bulk');
         Route::post('/lazada/{store}/products/{productId}/add-to-store', [LazadaProductController::class, 'addToStore'])->whereNumber('productId')->name('ext.lazada.products.add_to_store');
-        Route::get('/lazada/{store}/products/catalogue-search', [LazadaProductController::class, 'catalogueSearch'])
-            ->name('ext.lazada.products.catalogue_search')
+        Route::get('/lazada/{store}/products/catalog-search', [LazadaProductController::class, 'catalogSearch'])
+            ->name('ext.lazada.products.catalog_search')
             ->defaults('permission_tier', 'view');
         Route::post('/lazada/{store}/products/{productId}/remove-from-store', [LazadaProductController::class, 'removeFromStore'])->whereNumber('productId')->name('ext.lazada.products.remove_from_store');
         Route::post('/lazada/{store}/listings/{productId}/toggle', [LazadaProductController::class, 'toggleListing'])->whereNumber('productId')->name('ext.lazada.listings.toggle');
@@ -149,8 +149,8 @@ Route::middleware(['auth', \Extensions\lazada\Http\ResolveLazadaStore::class])
         Route::post('/lazada/{store}/products/bulk/toggle', [LazadaProductController::class, 'bulkToggle'])->name('ext.lazada.products.bulk_toggle');
         Route::post('/lazada/{store}/products/refresh-status', [LazadaProductController::class, 'refreshStatus'])->name('ext.lazada.products.refresh_status');
 
-        Route::post('/lazada/{store}/vouchers', [\Extensions\lazada\Controllers\LazadaVoucherController::class, 'store'])->name('ext.lazada.vouchers.store');
-        Route::post('/lazada/{store}/vouchers/{voucherId}/deactivate', [\Extensions\lazada\Controllers\LazadaVoucherController::class, 'deactivate'])->where('voucherId', '[A-Za-z0-9_-]+')->name('ext.lazada.vouchers.deactivate');
+        Route::post('/lazada/{store}/vouchers', [\Extensions\Lazada\Controllers\LazadaVoucherController::class, 'store'])->name('ext.lazada.vouchers.store');
+        Route::post('/lazada/{store}/vouchers/{voucherId}/deactivate', [\Extensions\Lazada\Controllers\LazadaVoucherController::class, 'deactivate'])->where('voucherId', '[A-Za-z0-9_-]+')->name('ext.lazada.vouchers.deactivate');
         Route::post('/lazada/{store}/products/check', [LazadaProductController::class, 'checkAgainstLazada'])->name('ext.lazada.products.check');
         Route::post('/lazada/{store}/products/bulk/sync/quantity', [LazadaProductController::class, 'bulkSyncQuantity'])->name('ext.lazada.products.bulk_sync_quantity');
         Route::post('/lazada/{store}/products/bulk/sync/price', [LazadaProductController::class, 'bulkSyncPrice'])->name('ext.lazada.products.bulk_sync_price');
@@ -201,8 +201,8 @@ Route::middleware(['auth', \Extensions\lazada\Http\ResolveLazadaStore::class])
 
 });
 
-Route::middleware(['auth', \Extensions\lazada\Http\ResolveLazadaStore::class])->prefix('channels')->group(function () {
-    Route::get('/lazada/{store?}', [\Extensions\lazada\Controllers\LazadaDashboardController::class, 'show'])
+Route::middleware(['auth', \Extensions\Lazada\Http\ResolveLazadaStore::class])->prefix('channels')->group(function () {
+    Route::get('/lazada/{store?}', [\Extensions\Lazada\Controllers\LazadaDashboardController::class, 'show'])
         ->where('store', '[0-9]+')
         ->defaults('permission_denial', '404')
         ->name('ext.lazada.dashboard');
@@ -210,7 +210,7 @@ Route::middleware(['auth', \Extensions\lazada\Http\ResolveLazadaStore::class])->
 
 Route::middleware(['auth'])->prefix('channels')->group(function () {
     Route::get('/lazada/{legacyPath}', function (\Illuminate\Http\Request $request, string $legacyPath) {
-        $store = \Extensions\lazada\Models\LazadaSetting::query()->where('enabled', true)->orderBy('id')->value('id');
+        $store = \Extensions\Lazada\Models\LazadaStore::query()->where('enabled', true)->orderBy('id')->value('id');
         abort_unless($store !== null, 404);
         $qs = $request->getQueryString();
 

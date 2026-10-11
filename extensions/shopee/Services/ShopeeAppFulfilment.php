@@ -1,12 +1,12 @@
 <?php
 
-namespace Extensions\shopee\Services;
+namespace Extensions\Shopee\Services;
 
 use App\Support\Fulfilment\AppFulfilment;
 use App\Support\Fulfilment\Waybills;
-use Extensions\shopee\Controllers\ShopeeOrderController;
-use Extensions\shopee\Models\ShopeeOrder;
-use Extensions\shopee\Models\ShopeeSetting;
+use Extensions\Shopee\Controllers\ShopeeOrderController;
+use Extensions\Shopee\Models\ShopeeOrder;
+use Extensions\Shopee\Models\ShopeeStore;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -27,7 +27,7 @@ final class ShopeeAppFulfilment
             'PROCESSED' => ['to_handover', [], ['awb', 'tracking']],
             'SHIPPED', 'TO_CONFIRM_RECEIVE' => ['shipped', [], ['tracking']],
             'COMPLETED' => ['done', [], []],
-            'IN_CANCEL', 'CANCELLED' => ['cancelled', [], []],
+            'IN_CANCEL', 'CANCELLED' => ['canceled', [], []],
             default => ['other', [], []],
         };
 
@@ -37,7 +37,7 @@ final class ShopeeAppFulfilment
     public function handle(string $action, int $id, Request $request): Response
     {
         $order = ShopeeOrder::query()->find($id);
-        $store = $order ? ShopeeSetting::query()->find($order->shopee_setting_id) : null;
+        $store = $order ? ShopeeStore::query()->find($order->store_id) : null;
         if ($order === null || $store === null) {
             return response()->json(['error' => 'Order not found'], 404);
         }
@@ -88,7 +88,7 @@ final class ShopeeAppFulfilment
         ]);
     }
 
-    private function waybill(Response $answer, ShopeeSetting $store, string $sn): Response
+    private function waybill(Response $answer, ShopeeStore $store, string $sn): Response
     {
         $path = Waybills::path('shopee', (int) $store->id, $sn);
         if (is_file($path)) {
@@ -118,6 +118,6 @@ final class ShopeeAppFulfilment
 
     private function payload(int $id): ?array
     {
-        return app(\App\Integrations\IntegrationRegistry::class)->mobileProviderFor('shopee')?->mobileShowResponse($id);
+        return app(\App\Channels\ChannelRegistry::class)->mobileProviderFor('shopee')?->mobileShowResponse($id);
     }
 }

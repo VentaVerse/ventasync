@@ -1,49 +1,49 @@
 <?php
 
-namespace Extensions\lazada\Services\Lazada;
+namespace Extensions\Lazada\Services\Lazada;
 
-use Extensions\lazada\Models\LazadaSetting;
+use Extensions\Lazada\Models\LazadaStore;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 final class LazadaStoreDeleter
 {
     private const TABLES = [
-        'lazada_products',
-        'lazada_product_groups',
-        'lazada_reverse_orders',
-        'lazada_orders',
+        'ch_lazada_listings',
+        'ch_lazada_product_groups',
+        'ch_lazada_reverse_orders',
+        'ch_lazada_orders',
     ];
 
-    public function delete(LazadaSetting $store): array
+    public function delete(LazadaStore $store): array
     {
         return DB::transaction(function () use ($store) {
             $removed = [];
 
-            if (Schema::hasTable('lazada_products')) {
+            if (Schema::hasTable('ch_lazada_listings')) {
                 LazadaListingStates::on((int) $store->id)->clearErrors(
-                    DB::table('lazada_products')->where('lazada_setting_id', $store->id)->whereNotNull('product_id')
+                    DB::table('ch_lazada_listings')->where('store_id', $store->id)->whereNotNull('product_id')
                         ->distinct()->pluck('product_id')->map(fn ($v) => (int) $v)->all()
                 );
             }
 
-            if (Schema::hasTable('lazada_product_group_products')) {
-                $groupIds = DB::table('lazada_product_groups')->where('lazada_setting_id', $store->id)->pluck('id');
-                $removed['lazada_product_group_products'] = $groupIds->isEmpty() ? 0
-                    : DB::table('lazada_product_group_products')->whereIn('lazada_product_group_id', $groupIds)->delete();
+            if (Schema::hasTable('ch_lazada_product_group_products')) {
+                $groupIds = DB::table('ch_lazada_product_groups')->where('store_id', $store->id)->pluck('id');
+                $removed['ch_lazada_product_group_products'] = $groupIds->isEmpty() ? 0
+                    : DB::table('ch_lazada_product_group_products')->whereIn('lazada_product_group_id', $groupIds)->delete();
             }
 
             foreach (self::TABLES as $table) {
-                if (! Schema::hasTable($table) || ! Schema::hasColumn($table, 'lazada_setting_id')) {
+                if (! Schema::hasTable($table) || ! Schema::hasColumn($table, 'store_id')) {
                     continue;
                 }
-                $removed[$table] = DB::table($table)->where('lazada_setting_id', $store->id)->delete();
+                $removed[$table] = DB::table($table)->where('store_id', $store->id)->delete();
             }
 
             $removed['scheduled_jobs'] = DB::table('scheduled_jobs')
-                ->where('integration', 'lazada')->where('store_id', $store->id)->delete();
+                ->where('extension', 'lazada')->where('store_id', $store->id)->delete();
 
-            DB::table('lazada_settings')->where('id', $store->id)->delete();
+            DB::table('ch_lazada_stores')->where('id', $store->id)->delete();
 
             return $removed;
         });

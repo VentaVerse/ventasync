@@ -6,10 +6,10 @@ use App\Extensions\ExtensionManager;
 use App\Models\Admin\Permission;
 use App\Models\Admin\UserGroup;
 use App\Models\User;
-use Extensions\shopee\Models\ShopeeListing;
-use Extensions\shopee\Models\ShopeeProductLink;
-use Extensions\shopee\Models\ShopeeSetting;
-use Extensions\shopee\Services\Shopee\ShopeeClient;
+use Extensions\Shopee\Models\ShopeeListing;
+use Extensions\Shopee\Models\ShopeeListingLink;
+use Extensions\Shopee\Models\ShopeeStore;
+use Extensions\Shopee\Services\Shopee\ShopeeClient;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
@@ -26,11 +26,11 @@ class ShopeeItemImportTest extends TestCase
         $manager = $this->app->make(ExtensionManager::class);
         $manager->install('shopee');
         $manager->enable('shopee');
-        $this->app->register(\Extensions\shopee\ShopeeExtension::class);
+        $this->app->register(\Extensions\Shopee\ShopeeExtension::class);
         $this->app['router']->getRoutes()->refreshNameLookups();
-        $this->artisan('permissions:sync-catalogue');
+        $this->artisan('permissions:sync-catalog');
 
-        ShopeeSetting::create([
+        ShopeeStore::create([
             'mode' => 'production', 'store_name' => 'Main store',
             'partner_id' => 1, 'partner_key' => 'k', 'shop_id' => 2,
             'access_token' => 't', 'refresh_token' => 'r',
@@ -88,9 +88,7 @@ class ShopeeItemImportTest extends TestCase
         $r->assertSessionHas('status');
         $this->assertStringContainsString('Imported "Imported Overdrive Pedal"', session('status'));
         $this->assertStringContainsString('2 variations', session('status'));
-
-        $pfx = (string) config('catalog.prefix');
-        $product = DB::table($pfx . 'product')->where('sku', 'IMP-OD1')->first();
+        $product = DB::table('products')->where('sku', 'IMP-OD1')->first();
         $this->assertNotNull($product);
         $this->assertSame(1500.0, (float) $product->price);
         $this->assertSame(0.4, (float) $product->weight, 'the parcel arrives - the exact fields every push needs');
@@ -98,10 +96,10 @@ class ShopeeItemImportTest extends TestCase
         $this->assertSame(1, (int) $product->status, 'live on Shopee means live here - arriving disabled would misstate reality');
         $this->assertNotSame('', (string) $product->image, 'the main image was downloaded');
 
-        $name = DB::table($pfx . 'product_description')->where('product_id', $product->product_id)->value('name');
+        $name = DB::table('product_descriptions')->where('product_id', $product->product_id)->value('name');
         $this->assertSame('Imported Overdrive Pedal', $name);
 
-        $combos = DB::table('product_option_combinations')->where('product_id', $product->product_id)->get();
+        $combos = DB::table('product_variations')->where('product_id', $product->product_id)->get();
         $this->assertCount(2, $combos);
         $this->assertEqualsCanonicalizing(['IMP-OD1-9', 'IMP-OD1-18'], $combos->pluck('sku')->all());
 
@@ -109,23 +107,22 @@ class ShopeeItemImportTest extends TestCase
         $this->assertSame(101988, (int) $listing->shopee_category_id);
         $this->assertSame('Alloy', (string) data_get($listing->attribute_values, '1000'));
 
-        $this->assertSame(3, ShopeeProductLink::where('product_id', $product->product_id)->count());
+        $this->assertSame(3, ShopeeListingLink::where('product_id', $product->product_id)->count());
     }
 
     public function test_a_sku_collision_refuses_the_import_and_creates_nothing(): void
     {
-        $pfx = (string) config('catalog.prefix');
-        DB::table($pfx . 'product')->insert([
+        DB::table('products')->insert([
             'model' => 'HOLDER', 'sku' => 'IMP-OD1-9', 'quantity' => 1, 'price' => 10,
             'status' => 1, 'image' => '', 'weight' => 1, 'length' => 1, 'width' => 1, 'height' => 1,
-            'manufacturer_id' => 0, 'date_added' => now(), 'date_modified' => now(), 'date_available' => now(),
+            'brand_id' => 0, 'date_added' => now(), 'date_modified' => now(), 'date_available' => now(),
         ]);
         $r = $this->actingAs($this->manager())
             ->post(route('ext.shopee.products.import_one'), ['ref' => 990001]);
 
         $r->assertSessionHas('error');
         $this->assertStringContainsString('Not imported', session('error'));
-        $this->assertNull(DB::table($pfx . 'product')->where('sku', 'IMP-OD1')->first(),
+        $this->assertNull(DB::table('products')->where('sku', 'IMP-OD1')->first(),
             'a refused import must leave nothing half-created - the transaction rolls the product back');
     }
 
@@ -150,14 +147,13 @@ class ShopeeItemImportTest extends TestCase
     public function test_an_imported_item_is_ready_at_once(): void
     {
         $this->actingAs($this->manager())->post(route('ext.shopee.products.import_one'), ['ref' => 990001])->assertSessionHas('status');
-        $pfx = (string) config('catalog.prefix');
-        $pid = (int) DB::table($pfx . 'product')->where('sku', 'IMP-OD1')->value('product_id');
+        $pid = (int) DB::table('products')->where('sku', 'IMP-OD1')->value('product_id');
 
         $listing = ShopeeListing::where('product_id', $pid)->first();
         $this->assertSame([90001], $listing->logistic_ids, 'only the couriers the item ships with');
-        $this->assertTrue(\Extensions\shopee\Models\ShopeeCategoryTemplate::query()->where('category_id', 101988)->exists(), 'the sheet was read during the import');
+        $this->assertTrue(\Extensions\Shopee\Models\ShopeeCategoryTemplate::query()->where('category_id', 101988)->exists(), 'the sheet was read during the import');
 
-        $ready = app(\Extensions\shopee\Services\Shopee\ShopeeListingReadiness::class)->forProducts([$pid])[$pid];
+        $ready = app(\Extensions\Shopee\Services\Shopee\ShopeeListingReadiness::class)->forProducts([$pid])[$pid];
         $this->assertTrue($ready['ready'], 'not ready: ' . implode('; ', $ready['missing']));
     }
 }

@@ -1,0 +1,452 @@
+<?php
+
+namespace App\Channels;
+
+use App\Extensions\ExtensionManager;
+use App\Models\User;
+
+class ChannelRegistry
+{
+    protected array $providers = [];
+
+    public function register(ChannelProvider $provider): void
+    {
+        $this->providers[$provider->getId()] = $provider;
+    }
+
+    public function all(): array
+    {
+        return $this->providers;
+    }
+
+    public function visibleCards(?User $user): array
+    {
+        $cards = [];
+
+        foreach ($this->providers as $id => $provider) {
+            if (!$this->passesGates($id, $user)) {
+                continue;
+            }
+
+            foreach ($provider->channelCards() as $card) {
+                if (!$card instanceof ChannelCard) {
+                    continue;
+                }
+                if ($card->permission && (!$user || !$user->hasPermission($card->permission))) {
+                    continue;
+                }
+                $cards[] = $card;
+            }
+        }
+
+        return $this->sortByDisplayOrder($cards);
+    }
+
+    public function cardsForAuthorisedRequest(?User $user): array
+    {
+        $cards = [];
+
+        foreach ($this->providers as $id => $provider) {
+            if (!$this->passesGates($id, $user)) {
+                continue;
+            }
+
+            foreach ($provider->channelCards() as $card) {
+                if (!$card instanceof ChannelCard) {
+                    continue;
+                }
+                $cards[] = $card;
+            }
+        }
+
+        return $this->sortByDisplayOrder($cards);
+    }
+
+    protected function sortByDisplayOrder(array $cards): array
+    {
+        $priority = [
+            'lazada'    => 1,
+            'shopee'    => 2,
+            'tiktok'    => 3,
+            'shopify'   => 4,
+            'ventacart'     => 5,
+            'opencart'  => 6,
+            'pedallion' => 7,
+        ];
+        $rankFor = function ($id) use ($priority) {
+            $base = str_contains((string) $id, ':') ? strstr((string) $id, ':', true) : (string) $id;
+            return $priority[$base] ?? 999;
+        };
+
+        $indexed = [];
+        foreach ($cards as $i => $card) {
+            $indexed[] = [$rankFor($card->id), $i, $card];
+        }
+        usort($indexed, function ($a, $b) {
+            return $a[0] === $b[0] ? $a[1] <=> $b[1] : $a[0] <=> $b[0];
+        });
+        return array_map(fn($t) => $t[2], $indexed);
+    }
+
+    public function skuResolvers(): array
+    {
+        return $this->providersImplementing(\App\Channels\Contracts\SkuResolver::class);
+    }
+
+    public function skuSyncContributors(): array
+    {
+        return $this->providersImplementing(\App\Channels\Contracts\SkuSyncContributor::class);
+    }
+
+    public function credentialRevealer(string $channelId): ?\App\Channels\Contracts\CredentialRevealer
+    {
+        $provider = $this->providers[$channelId] ?? null;
+
+        return $provider instanceof \App\Channels\Contracts\CredentialRevealer
+            ? $provider
+            : null;
+    }
+
+    public function dashboardContributors(): array
+    {
+        return $this->providersImplementing(\App\Channels\Contracts\DashboardContributor::class);
+    }
+
+    public function orderImagesContributors(): array
+    {
+        return $this->providersImplementing(\App\Channels\Contracts\OrderImagesContributor::class);
+    }
+
+    public function orderFeesContributors(): array
+    {
+        return $this->providersImplementing(\App\Channels\Contracts\OrderFeesContributor::class);
+    }
+
+    public function marketplaceFeeSources(): array
+    {
+        return $this->providersImplementing(\App\Channels\Contracts\MarketplaceFeeSource::class);
+    }
+
+    public function saleLinesSources(): array
+    {
+        return $this->providersImplementing(\App\Channels\Contracts\SaleLinesSource::class);
+    }
+
+    public function mobileProviderFor(string $platform): ?\App\Channels\Contracts\MobileMarketplaceProvider
+    {
+        foreach ($this->providersImplementing(\App\Channels\Contracts\MobileMarketplaceProvider::class) as $provider) {
+            if ($provider->mobilePlatformSlug() === $platform) {
+                return $provider;
+            }
+        }
+        return null;
+    }
+
+    public function layoutBannerContributors(): array
+    {
+        return $this->providersImplementing(\App\Channels\Contracts\LayoutBannerContributor::class);
+    }
+
+    public function layoutBannerContributorsById(): array
+    {
+        $out = [];
+
+        foreach ($this->providers as $id => $provider) {
+            if ($provider instanceof \App\Channels\Contracts\LayoutBannerContributor
+                && $this->passesGates($id, null)) {
+                $out[$id] = $provider;
+            }
+        }
+
+        return $out;
+    }
+
+    public function productInventoryDetailContributors(): array
+    {
+        return $this->providersImplementing(\App\Channels\Contracts\ProductInventoryDetailContributor::class);
+    }
+
+    public function resolveRootRouteResponse(\Illuminate\Http\Request $request): mixed
+    {
+        foreach ($this->providersImplementing(\App\Channels\Contracts\RootRouteHandler::class) as $handler) {
+            $response = $handler->handleRootRoute($request);
+            if ($response !== null) {
+                return $response;
+            }
+        }
+        return null;
+    }
+
+    public function availableChannelOptions(): array
+    {
+        $options = [];
+        foreach ($this->providersImplementing(\App\Channels\Contracts\ChannelOptionsProvider::class) as $provider) {
+            foreach ($provider->availableSourceOptions() as $opt) {
+                if (is_array($opt) && isset($opt['value'], $opt['label'])) {
+                    $options[] = $opt;
+                }
+            }
+        }
+        return $options;
+    }
+
+    public function productActions(int $productId): array
+    {
+        $actions = [];
+        foreach ($this->providersImplementing(\App\Channels\Contracts\ProductActionContributor::class) as $provider) {
+            foreach ($provider->productActions($productId) as $action) {
+                if (is_array($action) && isset($action['label'], $action['url'])) {
+                    $actions[] = $action;
+                }
+            }
+        }
+        return $actions;
+    }
+
+    public function resolveChannelLabel(string $source): ?string
+    {
+        foreach ($this->providersImplementing(\App\Channels\Contracts\ChannelLabelResolver::class) as $resolver) {
+            $label = $resolver->resolveSourceLabel($source);
+            if ($label !== null) {
+                return $label;
+            }
+        }
+        return null;
+    }
+
+    public function resolveOrderRef(string $orderChannel, string $marketplaceOrderId): ?array
+    {
+        if ($orderChannel === '' || $marketplaceOrderId === '') {
+            return null;
+        }
+        foreach ($this->providersImplementing(\App\Channels\Contracts\MarketplaceOrderRefRenderer::class) as $renderer) {
+            $ref = $renderer->renderOrderRef($orderChannel, $marketplaceOrderId);
+            if ($ref !== null) {
+                return $ref;
+            }
+        }
+        return null;
+    }
+
+    protected function providersImplementing(string $contract): array
+    {
+        $matches = [];
+
+        foreach ($this->providers as $id => $provider) {
+            if (!$provider instanceof $contract) {
+                continue;
+            }
+            if (!$this->passesGates($id, null)) {
+                continue;
+            }
+            $matches[] = $provider;
+        }
+
+        return $matches;
+    }
+
+    public function visibleOrderTabs(?User $user): array
+    {
+        $tabs = [];
+
+        foreach ($this->providers as $id => $provider) {
+            if (!$this->passesGates($id, $user)) {
+                continue;
+            }
+
+            foreach ($provider->orderTabs() as $tab) {
+                if (!$tab instanceof OrderTab) {
+                    continue;
+                }
+                if ($tab->permission && (!$user || !$user->hasPermission($tab->permission))) {
+                    continue;
+                }
+                $tabs[] = $tab;
+            }
+        }
+
+        return $this->sortByDisplayOrder($tabs);
+    }
+
+    public function storeOptions(): array
+    {
+        $out = [['key' => \App\Support\StoreKey::MANUAL, 'label' => 'Manual orders', 'channel' => 'VentaSync', 'source' => '', 'store_id' => null]];
+
+        foreach ($this->providers as $id => $provider) {
+            if (! $provider instanceof \App\Channels\Contracts\StoreOptionsProvider || ! $this->passesGates($id, null)) {
+                continue;
+            }
+            foreach ($provider->availableStoreOptions() as $opt) {
+                unset($opt['permission']);
+                $out[] = $opt;
+            }
+        }
+
+        return $out;
+    }
+
+    public function unlistedStoreOptions(?User $user, ?string $from = null, ?string $to = null): array
+    {
+        $live = [];
+        $channels = [];
+        foreach ($this->storeOptions() as $opt) {
+            $live[$opt['key']] = true;
+            if ($opt['source'] !== '') {
+                $channels[strstr($opt['source'], ':', true) ?: $opt['source']] ??= $opt['channel'];
+            }
+        }
+
+        $query = \Illuminate\Support\Facades\DB::table('orders')
+            ->where('channel', '<>', '')
+            ->whereNotNull('channel')
+            ->groupByRaw("channel, store_id, DATE_FORMAT(date_added, '%Y-%m')")
+            ->selectRaw("channel, store_id, DATE_FORMAT(date_added, '%Y-%m') AS month, MAX(order_id) AS latest");
+        if ($from) {
+            $query->where('date_added', '>=', $from . ' 00:00:00');
+        }
+        if ($to) {
+            $query->where('date_added', '<=', $to . ' 23:59:59');
+        }
+
+        $rows = [];
+        foreach ($query->get() as $r) {
+            $id = $r->channel . '|' . $r->store_id;
+            $rows[$id] ??= (object) ['channel' => $r->channel, 'store_id' => $r->store_id, 'latest' => 0, 'months' => []];
+            $rows[$id]->latest = max($rows[$id]->latest, (int) $r->latest);
+            $rows[$id]->months[] = (string) $r->month;
+        }
+        $rows = collect(array_values($rows));
+
+        $names = $rows->isEmpty() ? collect() : \Illuminate\Support\Facades\DB::table('orders')
+            ->whereIn('order_id', $rows->pluck('latest'))->pluck('store_name', 'order_id');
+
+        $extensions = app(ExtensionManager::class);
+        $out = [];
+        foreach ($rows as $row) {
+            $source = (string) $row->channel;
+            $channelId = strstr($source, ':', true) ?: $source;
+            $storeId = str_contains($source, ':') ? null : (int) $row->store_id;
+            if ($storeId === 0) {
+                continue;
+            }
+            $key = \App\Support\StoreKey::of($source, (int) $row->store_id);
+            if (isset($live[$key]) || isset($out[$key])) {
+                continue;
+            }
+
+            $provider = $this->providers[$channelId] ?? null;
+            $on = $provider instanceof \App\Channels\Contracts\StoreOptionsProvider && $extensions->isEnabled($channelId);
+            if ($on) {
+                $channel = $channels[$channelId] ?? (string) ($extensions->getManifest($channelId)['name'] ?? \Illuminate\Support\Str::headline($channelId));
+            } else {
+                $manifest = $extensions->getManifest($channelId);
+                if ($manifest === null) {
+                    continue;
+                }
+                $channel = (string) ($manifest['name'] ?? \Illuminate\Support\Str::headline($channelId));
+            }
+            if ($user && ! $user->hasPermission($on ? 'view_' . $channelId . '/order' : 'view_sales/order')) {
+                continue;
+            }
+
+            $name = trim((string) ($names[$row->latest] ?? ''));
+            if (str_starts_with(mb_strtolower($name), mb_strtolower($channel) . ':')) {
+                $name = trim(mb_substr($name, mb_strlen($channel) + 1));
+            }
+
+            $out[$key] = [
+                'key' => $key,
+                'label' => $name !== '' ? $name : 'Store #' . ($storeId ?? substr($source, strlen($channelId) + 1)),
+                'channel' => $channel,
+                'source' => $source,
+                'store_id' => $storeId,
+                'deleted' => $on,
+                'channel_off' => ! $on,
+                'months' => array_values(array_unique($row->months)),
+            ];
+        }
+
+        $out = array_values($out);
+        usort($out, fn ($a, $b) => [$a['channel'], mb_strtolower($a['label'])] <=> [$b['channel'], mb_strtolower($b['label'])]);
+
+        return $out;
+    }
+
+    public function reportStoreOptions(?User $user, ?string $from = null, ?string $to = null, array $selected = []): array
+    {
+        $fromMonth = $from ? substr($from, 0, 7) : null;
+        $toMonth = $to ? substr($to, 0, 7) : null;
+        $selected = array_map('strval', $selected);
+
+        $unlisted = array_map(function (array $opt) use ($fromMonth, $toMonth, $selected) {
+            $sold = array_filter($opt['months'], fn (string $m) => ($fromMonth === null || $m >= $fromMonth) && ($toMonth === null || $m <= $toMonth));
+            $opt['in_period'] = $sold !== [] || in_array($opt['key'], $selected, true);
+
+            return $opt;
+        }, $this->unlistedStoreOptions($user));
+
+        return array_merge($this->visibleStoreOptions($user), $unlisted);
+    }
+
+    public function visibleStoreOptions(?User $user): array
+    {
+        $out = [];
+
+        if ($user && ($user->hasPermission('view_sales/order') || $user->hasPermission('manage_sales/order'))) {
+            $out[] = ['key' => \App\Support\StoreKey::MANUAL, 'label' => 'Manual orders', 'channel' => 'VentaSync', 'source' => '', 'store_id' => null];
+        }
+
+        foreach ($this->providers as $id => $provider) {
+            if (! $provider instanceof \App\Channels\Contracts\StoreOptionsProvider || ! $this->passesGates($id, $user)) {
+                continue;
+            }
+
+            foreach ($provider->availableStoreOptions() as $opt) {
+                if (($opt['permission'] ?? '') !== '' && (! $user || ! $user->hasPermission($opt['permission']))) {
+                    continue;
+                }
+                unset($opt['permission']);
+                $out[] = $opt;
+            }
+        }
+
+        return $out;
+    }
+
+    protected function passesGates(string $id, ?User $user): bool
+    {
+        if (str_starts_with($id, 'core:')) {
+            return true;
+        }
+
+        $baseId = str_contains($id, ':') ? strstr($id, ':', true) : $id;
+
+        return app(ExtensionManager::class)->isEnabled($baseId);
+    }
+
+    public function listingStateSources(): array
+    {
+        return $this->providersImplementing(\App\Channels\Contracts\ListingStateSource::class);
+    }
+
+    public function productRemovers(): array
+    {
+        return $this->providersImplementing(\App\Channels\Contracts\ProductRemover::class);
+    }
+
+    public function variationForgetters(): array
+    {
+        return $this->providersImplementing(\App\Channels\Contracts\VariationForgetter::class);
+    }
+
+    public function webhookReceiverFor(string $segment): ?\App\Channels\Contracts\WebhookReceiver
+    {
+        foreach ($this->providersImplementing(\App\Channels\Contracts\WebhookReceiver::class) as $receiver) {
+            if ($receiver->webhookChannel() === $segment) {
+                return $receiver;
+            }
+        }
+
+        return null;
+    }
+}

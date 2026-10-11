@@ -3,16 +3,16 @@
 namespace Tests\Feature;
 
 use App\Extensions\ExtensionManager;
-use App\Integrations\Listings\ListingVariations;
+use App\Channels\Listings\ListingVariations;
 use App\Models\Admin\Permission;
 use App\Models\Admin\UserGroup;
 use App\Models\User;
 use App\Services\Catalog\ProductDeleter;
-use Extensions\shopee\Models\ShopeeListing;
-use Extensions\shopee\Models\ShopeeProductLink;
-use Extensions\shopee\Models\ShopeeSetting;
-use Extensions\shopee\Services\Shopee\ShopeeClient;
-use Extensions\shopee\Services\Shopee\ShopeeVariationPush;
+use Extensions\Shopee\Models\ShopeeListing;
+use Extensions\Shopee\Models\ShopeeListingLink;
+use Extensions\Shopee\Models\ShopeeStore;
+use Extensions\Shopee\Services\Shopee\ShopeeClient;
+use Extensions\Shopee\Services\Shopee\ShopeeVariationPush;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
@@ -32,11 +32,11 @@ class ListingVariationsTest extends TestCase
         $manager = $this->app->make(ExtensionManager::class);
         $manager->install('shopee');
         $manager->enable('shopee');
-        $this->app->register(\Extensions\shopee\ShopeeExtension::class);
+        $this->app->register(\Extensions\Shopee\ShopeeExtension::class);
         $this->app['router']->getRoutes()->refreshNameLookups();
-        $this->artisan('permissions:sync-catalogue');
+        $this->artisan('permissions:sync-catalog');
 
-        ShopeeSetting::query()->create(['mode' => 'live', 'partner_id' => '1', 'partner_key' => 'k', 'shop_id' => '2', 'access_token' => 't', 'refresh_token' => 'r']);
+        ShopeeStore::query()->create(['mode' => 'live', 'partner_id' => '1', 'partner_key' => 'k', 'shop_id' => '2', 'access_token' => 't', 'refresh_token' => 'r']);
 
         $test = $this;
         $this->app->instance(ShopeeClient::class, new class($test) extends ShopeeClient {
@@ -66,19 +66,18 @@ class ListingVariationsTest extends TestCase
 
     private function storeId(): int
     {
-        return (int) ShopeeSetting::defaultStore()->id;
+        return (int) ShopeeStore::defaultStore()->id;
     }
 
     private function productWithCombinations(array $combos): int
     {
-        $pfx = (string) config('catalog.prefix');
-        $pid = DB::table($pfx . 'product')->insertGetId([
+        $pid = DB::table('products')->insertGetId([
             'model' => 'PAR', 'sku' => 'PAR', 'quantity' => 10, 'price' => 100,
             'status' => 1, 'image' => 'catalog/x.png', 'weight' => 1, 'length' => 1, 'width' => 1, 'height' => 1,
-            'manufacturer_id' => 0,
+            'brand_id' => 0,
             'date_added' => now(), 'date_modified' => now(), 'date_available' => now(),
         ]);
-        DB::table($pfx . 'product_description')->insert([
+        DB::table('product_descriptions')->insert([
             'product_id' => $pid, 'language_id' => (int) config('catalog.default_language_id'),
             'name' => 'Switchable product', 'description' => '',
             'meta_title' => '', 'meta_description' => '', 'meta_keyword' => '', 'tag' => '',
@@ -92,7 +91,7 @@ class ListingVariationsTest extends TestCase
 
     private function addCombination(int $pid, string $sku, float $price, int $status, int $sort): void
     {
-        DB::table('product_option_combinations')->insert([
+        DB::table('product_variations')->insert([
             'product_id' => $pid, 'sku' => $sku, 'status' => $status, 'quantity' => 5,
             'absolute_price' => $price, 'absolute_cost' => 0, 'cost_amount' => 0, 'cost_additional' => 0,
             'subtract' => 1, 'sort_order' => $sort, 'created_at' => now(), 'updated_at' => now(),
@@ -170,8 +169,8 @@ class ListingVariationsTest extends TestCase
     public function test_the_stock_push_sends_only_what_the_store_sells(): void
     {
         $pid = $this->productWithCombinations(['VAR-A' => [100, 1], 'VAR-B' => [100, 1]]);
-        ShopeeProductLink::create(['product_id' => $pid, 'shopee_item_id' => 900, 'shopee_model_id' => 1, 'sku' => 'VAR-A']);
-        ShopeeProductLink::create(['product_id' => $pid, 'shopee_item_id' => 900, 'shopee_model_id' => 2, 'sku' => 'VAR-B']);
+        ShopeeListingLink::create(['product_id' => $pid, 'shopee_item_id' => 900, 'shopee_model_id' => 1, 'sku' => 'VAR-A']);
+        ShopeeListingLink::create(['product_id' => $pid, 'shopee_item_id' => 900, 'shopee_model_id' => 2, 'sku' => 'VAR-B']);
         ListingVariations::save('shopee', $this->storeId(), $pid, ['VAR-A']);
 
         $this->actingAs($this->manager())
@@ -193,7 +192,7 @@ class ListingVariationsTest extends TestCase
         ListingVariations::forget($pid, ['VAR-B']);
         $this->assertSame(1, DB::table(ListingVariations::TABLE)->where('product_id', $pid)->count());
 
-        ProductDeleter::forgetOwnedRows((string) config('catalog.prefix'), $pid);
+        ProductDeleter::forgetOwnedRows($pid);
         $this->assertSame(0, DB::table(ListingVariations::TABLE)->where('product_id', $pid)->count());
     }
 }

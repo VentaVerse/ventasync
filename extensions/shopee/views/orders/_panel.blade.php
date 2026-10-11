@@ -195,7 +195,7 @@
                 <x-ui.hint>Fetch pulls the orders created between these dates. Update statuses uses the same two dates, so both are required.</x-ui.hint>
             </div>
         </form>
-        <x-channel.order-fetch integration="shopee" :store-id="\Extensions\shopee\Models\ShopeeSetting::defaultStore()?->id" form-id="formFetchShopeeOrders" channel-label="Shopee"
+        <x-channel.order-fetch channel="shopee" :store-id="\Extensions\Shopee\Models\ShopeeStore::defaultStore()?->id" form-id="formFetchShopeeOrders" channel-label="Shopee"
             :begin-url="route('ext.shopee.orders.fetch_run_begin')" :step-url="route('ext.shopee.orders.fetch_run_step', ['run' => 0])" :stop-url="route('ext.shopee.orders.fetch_run_stop', ['run' => 0])" :state-url="route('ext.shopee.orders.fetch_run_state', ['run' => 0])" />
         </div>
     </x-ui.foldout>

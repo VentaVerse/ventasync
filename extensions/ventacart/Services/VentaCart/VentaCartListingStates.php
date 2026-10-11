@@ -1,14 +1,14 @@
 <?php
 
-namespace Extensions\ventacart\Services\VentaCart;
+namespace Extensions\VentaCart\Services\VentaCart;
 
-use App\Integrations\Listings\ListingState;
-use App\Integrations\Listings\ListingVariations;
-use Extensions\ventacart\Models\VentaCartListing;
-use Extensions\ventacart\Models\VentaCartProductGroup;
-use Extensions\ventacart\Models\VentaCartProductGroupProduct;
-use Extensions\ventacart\Models\VentaCartProductLink;
-use Extensions\ventacart\Models\VentaCartSetting;
+use App\Channels\Listings\ListingState;
+use App\Channels\Listings\ListingVariations;
+use Extensions\VentaCart\Models\VentaCartListing;
+use Extensions\VentaCart\Models\VentaCartProductGroup;
+use Extensions\VentaCart\Models\VentaCartProductGroupProduct;
+use Extensions\VentaCart\Models\VentaCartListingLink;
+use Extensions\VentaCart\Models\VentaCartStore;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -25,15 +25,15 @@ class VentaCartListingStates
     public function summary(): array
     {
         return [
-            'attention' => $this->bucket('attention')->distinct()->count('ventacart_listings.product_id'),
+            'attention' => $this->bucket('attention')->distinct()->count('ch_ventacart_listings.product_id'),
             'drift' => count($this->catalogChanges()),
         ];
     }
 
     private function catalogChanges(): array
     {
-        return \App\Integrations\Listings\CatalogCopy::pending(
-            $this->bucket('drift')->get(), 'ventacart_listings', VentaCartListing::copyColumns()
+        return \App\Channels\Listings\CatalogCopy::pending(
+            $this->bucket('drift')->get(), 'ch_ventacart_listings', VentaCartListing::copyColumns()
         );
     }
 
@@ -44,22 +44,21 @@ class VentaCartListingStates
         }
 
         return $this->bucket($bucket)->distinct()
-            ->pluck('ventacart_listings.product_id')
+            ->pluck('ch_ventacart_listings.product_id')
             ->map(fn ($v) => (int) $v)->unique()->values()->all();
     }
 
     private function bucket(string $bucket): \Illuminate\Database\Eloquent\Builder
     {
-        $pfx = (string) config('catalog.prefix');
 
-        $mine = VentaCartListing::query()->where('ventacart_listings.ventacart_setting_id', $this->storeId);
+        $mine = VentaCartListing::query()->where('ch_ventacart_listings.store_id', $this->storeId);
 
         if ($bucket === 'drift') {
             return $mine
-                ->select('ventacart_listings.*')
-                ->join($pfx . 'product as p', 'p.product_id', '=', 'ventacart_listings.product_id')
-                ->where(fn ($q) => $q->whereNull('ventacart_listings.catalog_seen_at')
-                    ->orWhereColumn('p.date_modified', '>', 'ventacart_listings.catalog_seen_at'));
+                ->select('ch_ventacart_listings.*')
+                ->join('products as p', 'p.product_id', '=', 'ch_ventacart_listings.product_id')
+                ->where(fn ($q) => $q->whereNull('ch_ventacart_listings.catalog_seen_at')
+                    ->orWhereColumn('p.date_modified', '>', 'ch_ventacart_listings.catalog_seen_at'));
         }
 
         return $mine->where('live_status', VentaCartListing::STATUS_MISSING);
@@ -71,9 +70,9 @@ class VentaCartListingStates
         if ($productIds === []) {
             return [];
         }
-        $links =VentaCartProductLink::query()->where('ventacart_setting_id', $this->storeId)->whereIn('product_id', $productIds)->whereNotNull('ventacart_product_id')->get()->keyBy(fn ($l) => (int) $l->product_id);
-        $listings = VentaCartListing::query()->where('ventacart_setting_id', $this->storeId)->whereIn('product_id', $productIds)->get()->keyBy(fn ($l) => (int) $l->product_id);
-        $catalogChanges = \App\Integrations\Listings\CatalogCopy::pending($listings->values(), 'ventacart_listings', VentaCartListing::copyColumns());
+        $links =VentaCartListingLink::query()->where('store_id', $this->storeId)->whereIn('product_id', $productIds)->whereNotNull('ventacart_product_id')->get()->keyBy(fn ($l) => (int) $l->product_id);
+        $listings = VentaCartListing::query()->where('store_id', $this->storeId)->whereIn('product_id', $productIds)->get()->keyBy(fn ($l) => (int) $l->product_id);
+        $catalogChanges = \App\Channels\Listings\CatalogCopy::pending($listings->values(), 'ch_ventacart_listings', VentaCartListing::copyColumns());
         $attempts = $this->latestAttempts($productIds);
         $readiness = VentaCartListingReadiness::forProducts($productIds);
 
@@ -118,10 +117,10 @@ class VentaCartListingStates
         if ($productIds === []) {
             return [];
         }
-        $listings = VentaCartListing::query()->where('ventacart_setting_id', $this->storeId)->whereIn('product_id', $productIds)->get()->keyBy(fn ($l) => (int) $l->product_id);
+        $listings = VentaCartListing::query()->where('store_id', $this->storeId)->whereIn('product_id', $productIds)->get()->keyBy(fn ($l) => (int) $l->product_id);
         $attempts = $this->latestAttempts($productIds);
         $missing = ListingVariations::missing('ventacart', $this->storeId, $productIds);
-        $storeName = $missing !== [] ? (string) VentaCartSetting::query()->whereKey($this->storeId)->value('store_name') : '';
+        $storeName = $missing !== [] ? (string) VentaCartStore::query()->whereKey($this->storeId)->value('store_name') : '';
 
         $out = [];
         foreach ($productIds as $pid) {
@@ -133,7 +132,7 @@ class VentaCartListingStates
             }
             if ($a && in_array((string) $a->sync_status, ['error', 'failed'], true)) {
                 $found[] = [$a->last_pushed_at ? Carbon::parse($a->last_pushed_at) : Carbon::createFromTimestamp(0),
-                    trim((string) ($a->push_error ?? '')) ?: \App\Integrations\Push\PushLedger::NO_REASON];
+                    trim((string) ($a->push_error ?? '')) ?: \App\Channels\Push\PushLedger::NO_REASON];
             }
             usort($found, fn ($x, $y) => $y[0] <=> $x[0]);
             $out[$pid] = ListingVariations::withMissing($found === [] ? null : $found[0][1], isset($missing[$pid]) ? ListingVariations::missingMessage($storeName, $missing[$pid]) : null);
@@ -149,8 +148,8 @@ class VentaCartListingStates
 
             return;
         }
-        $text = trim($failure) !== '' ? trim($failure) : \App\Integrations\Push\PushLedger::NO_REASON;
-        VentaCartListing::query()->firstOrCreate(['ventacart_setting_id' => $this->storeId, 'product_id' => $productId])
+        $text = trim($failure) !== '' ? trim($failure) : \App\Channels\Push\PushLedger::NO_REASON;
+        VentaCartListing::query()->firstOrCreate(['store_id' => $this->storeId, 'product_id' => $productId])
             ->forceFill(['last_push_error' => Str::limit($text, 480), 'last_push_failed_at' => now()])
             ->save();
     }
@@ -161,15 +160,15 @@ class VentaCartListingStates
         if ($ids === []) {
             return;
         }
-        VentaCartListing::query()->where('ventacart_setting_id', $this->storeId)->whereIn('product_id', $ids)
+        VentaCartListing::query()->where('store_id', $this->storeId)->whereIn('product_id', $ids)
             ->where(fn ($q) => $q->whereNotNull('last_push_error')->orWhereNotNull('last_push_failed_at'))
             ->update(['last_push_error' => null, 'last_push_failed_at' => null]);
 
-        $groupIds = VentaCartProductGroup::query()->where('ventacart_setting_id', $this->storeId)->pluck('id')->all();
+        $groupIds = VentaCartProductGroup::query()->where('store_id', $this->storeId)->pluck('id')->all();
         if ($groupIds === []) {
             return;
         }
-        $linked = VentaCartProductLink::query()->where('ventacart_setting_id', $this->storeId)->whereIn('product_id', $ids)
+        $linked = VentaCartListingLink::query()->where('store_id', $this->storeId)->whereIn('product_id', $ids)
             ->whereNotNull('ventacart_product_id')->pluck('product_id')->map(fn ($v) => (int) $v)->unique()->values()->all();
         $rows = fn () => VentaCartProductGroupProduct::query()->whereIn('ventacart_product_group_id', $groupIds);
 
@@ -184,9 +183,9 @@ class VentaCartListingStates
 
     public function erroredProductIds(): array
     {
-        $groupIds = VentaCartProductGroup::query()->where('ventacart_setting_id', $this->storeId)->pluck('id')->all();
+        $groupIds = VentaCartProductGroup::query()->where('store_id', $this->storeId)->pluck('id')->all();
         $candidates = array_merge(
-            VentaCartListing::query()->where('ventacart_setting_id', $this->storeId)
+            VentaCartListing::query()->where('store_id', $this->storeId)
                 ->whereNotNull('last_push_error')->where('last_push_error', '!=', '')
                 ->pluck('product_id')->all(),
             $groupIds === [] ? [] : VentaCartProductGroupProduct::query()->whereIn('ventacart_product_group_id', $groupIds)
@@ -210,7 +209,7 @@ class VentaCartListingStates
 
     private function latestAttempts(array $productIds): \Illuminate\Support\Collection
     {
-        $groupIds = VentaCartProductGroup::query()->where('ventacart_setting_id', $this->storeId)->pluck('id')->all();
+        $groupIds = VentaCartProductGroup::query()->where('store_id', $this->storeId)->pluck('id')->all();
 
         return VentaCartProductGroupProduct::query()
             ->whereIn('ventacart_product_group_id', $groupIds ?: [0])

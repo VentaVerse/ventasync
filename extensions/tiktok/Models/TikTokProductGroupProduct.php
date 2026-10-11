@@ -1,12 +1,12 @@
 <?php
 
-namespace Extensions\tiktok\Models;
+namespace Extensions\TikTok\Models;
 
 use Illuminate\Database\Eloquent\Model;
 
 class TikTokProductGroupProduct extends Model
 {
-    protected $table = 'tiktok_product_group_products';
+    protected $table = 'ch_tiktok_product_group_products';
 
     public $timestamps = false;
 
@@ -24,20 +24,20 @@ class TikTokProductGroupProduct extends Model
         return $this->belongsTo(TikTokProductGroup::class, 'tiktok_product_group_id');
     }
 
-    public function scopeOnStore(\Illuminate\Database\Eloquent\Builder $query, TikTokSetting|int|null $store = null): \Illuminate\Database\Eloquent\Builder
+    public function scopeOnStore(\Illuminate\Database\Eloquent\Builder $query, TikTokStore|int|null $store = null): \Illuminate\Database\Eloquent\Builder
     {
         return $query->whereIn($query->qualifyColumn('tiktok_product_group_id'), self::storeGroups($store));
     }
 
-    public static function groupIdsOn(TikTokSetting|int|null $store = null): array
+    public static function groupIdsOn(TikTokStore|int|null $store = null): array
     {
         return self::storeGroups($store)->pluck('id')->map(fn ($v) => (int) $v)->all();
     }
 
-    private static function storeGroups(TikTokSetting|int|null $store): \Illuminate\Database\Query\Builder
+    private static function storeGroups(TikTokStore|int|null $store): \Illuminate\Database\Query\Builder
     {
-        $id = $store instanceof TikTokSetting ? $store->id : ($store ?? TikTokSetting::defaultStore()?->id);
+        $id = $store instanceof TikTokStore ? $store->id : ($store ?? TikTokStore::defaultStore()?->id);
 
-        return \Illuminate\Support\Facades\DB::table('tiktok_product_groups')->where('tiktok_setting_id', (int) $id)->select('id');
+        return \Illuminate\Support\Facades\DB::table('ch_tiktok_product_groups')->where('store_id', (int) $id)->select('id');
     }
 }

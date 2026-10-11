@@ -1,10 +1,10 @@
 <?php
 
-namespace Extensions\shopee\Services\Shopee;
+namespace Extensions\Shopee\Services\Shopee;
 
-use Extensions\shopee\Models\ShopeeApiLog;
-use Extensions\shopee\Models\ShopeeListing;
-use Extensions\shopee\Models\ShopeeProductLink;
+use Extensions\Shopee\Models\ShopeeApiLog;
+use Extensions\Shopee\Models\ShopeeListing;
+use Extensions\Shopee\Models\ShopeeListingLink;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
@@ -17,18 +17,18 @@ class ShopeeLinkCheck
     public function runNext(ShopeeClient $client, array $auth, int $storeId): ?array
     {
         return ($ids = $this->storeProductIds($storeId)) !== []
-            ? $this->run($client, $auth, \App\Integrations\Support\LinkCheckCursor::rotate('shopee:' . $storeId, $ids))
+            ? $this->run($client, $auth, \App\Channels\Support\LinkCheckCursor::rotate('shopee:' . $storeId, $ids))
             : null;
     }
 
     public function storeProductIds(int $storeId): array
     {
-        $listings = \Extensions\shopee\Models\ShopeeListing::query()
-            ->withoutGlobalScope('shopeeStore')->where('shopee_setting_id', $storeId)
+        $listings = \Extensions\Shopee\Models\ShopeeListing::query()
+            ->withoutGlobalScope('shopeeStore')->where('store_id', $storeId)
             ->pluck('product_id');
 
-        return \Extensions\shopee\Models\ShopeeProductLink::query()
-            ->withoutGlobalScope('shopeeStore')->where('shopee_setting_id', $storeId)
+        return \Extensions\Shopee\Models\ShopeeListingLink::query()
+            ->withoutGlobalScope('shopeeStore')->where('store_id', $storeId)
             ->whereNotNull('shopee_item_id')->pluck('product_id')
             ->merge($listings)
             ->map(fn ($v) => (int) $v)->filter()->unique()->sort()->values()->all();
@@ -39,15 +39,15 @@ class ShopeeLinkCheck
     private function ofThisStore(\Illuminate\Database\Eloquent\Builder $query): \Illuminate\Database\Eloquent\Builder
     {
         return $this->actingStore > 0
-            ? $query->withoutGlobalScope('shopeeStore')->where($query->qualifyColumn('shopee_setting_id'), $this->actingStore)
+            ? $query->withoutGlobalScope('shopeeStore')->where($query->qualifyColumn('store_id'), $this->actingStore)
             : $query;
     }
 
     private function myGroupIds(): ?array
     {
         return $this->actingStore > 0
-            ? \Extensions\shopee\Models\ShopeeProductGroup::query()->withoutGlobalScope('shopeeStore')
-                ->where('shopee_setting_id', $this->actingStore)->pluck('id')->map(fn ($v) => (int) $v)->all()
+            ? \Extensions\Shopee\Models\ShopeeProductGroup::query()->withoutGlobalScope('shopeeStore')
+                ->where('store_id', $this->actingStore)->pluck('id')->map(fn ($v) => (int) $v)->all()
             : null;
     }
 
@@ -60,7 +60,7 @@ class ShopeeLinkCheck
         $productIds = array_slice($productIds, 0, $limit);
 
         // get_item_base_info answers 50 at a time; one call per item overruns the web request time limit.
-        $knownItemIds = $this->ofThisStore(ShopeeProductLink::query())
+        $knownItemIds = $this->ofThisStore(ShopeeListingLink::query())
             ->whereIn('product_id', $productIds)
             ->whereNotNull('shopee_item_id')
             ->pluck('shopee_item_id')
@@ -107,13 +107,11 @@ class ShopeeLinkCheck
                 }
             }
         }
-
-        $pfx = (string) config('catalog.prefix');
         $verdicts = [];
         $problems = [];
 
         foreach ($productIds as $productId) {
-            $verdict = $this->reconcile($client, $auth, (int) $productId, $pfx);
+            $verdict = $this->reconcile($client, $auth, (int) $productId);
             $state = $verdict['state'];
             $verdicts[$state] = ($verdicts[$state] ?? 0) + 1;
 
@@ -124,7 +122,7 @@ class ShopeeLinkCheck
 
             ShopeeListing::query()->updateOrCreate(
                 $this->actingStore > 0
-                    ? ['product_id' => (int) $productId, 'shopee_setting_id' => $this->actingStore]
+                    ? ['product_id' => (int) $productId, 'store_id' => $this->actingStore]
                     : ['product_id' => (int) $productId],
                 ['last_checked_at' => now()]
             );
@@ -201,9 +199,9 @@ class ShopeeLinkCheck
         return ['tone' => $tone, 'summary' => $summary];
     }
 
-    private function shopeeCandidateSkus(int $productId, string $pfx): array
+    private function shopeeCandidateSkus(int $productId): array
     {
-        $product = DB::table($pfx.'product')->where('product_id', $productId)->first(['sku', 'model']);
+        $product = DB::table('products')->where('product_id', $productId)->first(['sku', 'model']);
 
         if (! $product) {
             return [];
@@ -217,12 +215,12 @@ class ShopeeLinkCheck
             }
         }
 
-        $optSkus = DB::table($pfx.'product_option_value')
+        $optSkus = DB::table('product_variation_values')
             ->where('product_id', $productId)
             ->whereNotNull('sku')->where('sku', '!=', '')
             ->pluck('sku')->map(fn ($v) => strtolower(trim((string) $v)))->all();
 
-        $comboSkus = DB::table('product_option_combinations')
+        $comboSkus = DB::table('product_variations')
             ->where('product_id', $productId)
             ->whereNotNull('sku')->where('sku', '!=', '')
             ->pluck('sku')->map(fn ($v) => strtolower(trim((string) $v)))->all();
@@ -402,11 +400,11 @@ class ShopeeLinkCheck
         return $out;
     }
 
-    public function reconcile(ShopeeClient $client, array $auth, int $productId, string $pfx): array
+    public function reconcile(ShopeeClient $client, array $auth, int $productId): array
     {
         $this->actingStore = (int) ($auth['store_id'] ?? 0);
 
-        $link = $this->ofThisStore(ShopeeProductLink::query())
+        $link = $this->ofThisStore(ShopeeListingLink::query())
             ->where('product_id', $productId)
             ->whereNotNull('shopee_item_id')
             ->first();
@@ -429,7 +427,7 @@ class ShopeeLinkCheck
             }
         }
 
-        $skus = $this->shopeeCandidateSkus($productId, $pfx);
+        $skus = $this->shopeeCandidateSkus($productId);
 
         if (empty($skus)) {
             return [
@@ -460,12 +458,12 @@ class ShopeeLinkCheck
 
             if ($knownId > 0) {
                 // Dropping a link is destructive: do it only on an answer about this shop, keyed by shop id.
-                \App\Integrations\Listings\DroppedLink::write(
+                \App\Channels\Listings\DroppedLink::write(
                     'Shopee', 'Shopee Product', $productId, $knownId,
                     (int) ($auth['shop_id'] ?? 0), $skus, count($index['skus'])
                 );
 
-                ShopeeProductLink::unlinkProduct($productId, (int) ($auth['store_id'] ?? 0));
+                ShopeeListingLink::unlinkProduct($productId, (int) ($auth['store_id'] ?? 0));
 
                 $this->writeProductStatus($productId, [
                     'sync_status' => 'pending',
@@ -481,13 +479,13 @@ class ShopeeLinkCheck
             return ['state' => 'new', 'item_id' => null, 'message' => null];
         }
 
-        $otherHolder = $this->ofThisStore(ShopeeProductLink::query())
+        $otherHolder = $this->ofThisStore(ShopeeListingLink::query())
             ->where('shopee_item_id', $found)
             ->where('product_id', '!=', $productId)
             ->value('product_id');
 
         if ($otherHolder) {
-            $held = "Shopee item {$found} is already linked to catalog product #{$otherHolder}. "
+            $held = "Shopee item {$found} is already linked to Master Catalog product #{$otherHolder}. "
                 .'Unlink that product first, then send this one again.';
             $this->recordFailure($productId, $held);
 
@@ -498,7 +496,7 @@ class ShopeeLinkCheck
             ];
         }
 
-        ShopeeProductLink::updateOrCreate(
+        ShopeeListingLink::updateOrCreate(
             ['product_id' => $productId, 'shopee_item_id' => $found, 'shopee_model_id' => null],
             ['sku' => $skus[0] ?? null]
         );
@@ -518,7 +516,7 @@ class ShopeeLinkCheck
     private function writeProductStatus(int $productId, array $attributes): void
     {
         \App\Support\ChannelProductStatus::write(
-            'shopee_product_group_products',
+            'ch_shopee_product_group_products',
             'shopee_product_group_id',
             $this->myGroupIds(),
             $productId,

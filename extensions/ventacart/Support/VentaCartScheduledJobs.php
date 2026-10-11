@@ -1,8 +1,8 @@
 <?php
 
-namespace Extensions\ventacart\Support;
+namespace Extensions\VentaCart\Support;
 
-use App\Integrations\Support\StoreScheduledJobs;
+use App\Channels\Support\StoreScheduledJobs;
 
 class VentaCartScheduledJobs
 {

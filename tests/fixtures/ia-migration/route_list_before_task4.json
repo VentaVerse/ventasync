@@ -261,6 +261,21 @@
     },
     {
         "method": "GET|HEAD",
+        "uri": "api/app/v1/purchasing/supplier-terms",
+        "name": null
+    },
+    {
+        "method": "PUT",
+        "uri": "api/app/v1/purchasing/supplier-terms",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/app/v1/purchasing/suppliers",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
         "uri": "api/app/v1/purchasing/vendor-terms",
         "name": null
     },
@@ -396,28 +411,28 @@
     },
     {
         "method": "GET|HEAD",
+        "uri": "api/catalog/brands",
+        "name": "api.catalog.brands"
+    },
+    {
+        "method": "POST",
+        "uri": "api/catalog/brands",
+        "name": "api.catalog.brands.store"
+    },
+    {
+        "method": "GET|HEAD",
         "uri": "api/catalog/categories",
         "name": "api.catalog.categories"
     },
     {
         "method": "GET|HEAD",
-        "uri": "api/catalog/manufacturers",
-        "name": "api.catalog.manufacturers"
-    },
-    {
-        "method": "POST",
-        "uri": "api/catalog/manufacturers",
-        "name": "api.catalog.manufacturers.store"
+        "uri": "api/catalog/variation-types",
+        "name": "api.catalog.variation_types"
     },
     {
         "method": "GET|HEAD",
-        "uri": "api/catalog/options",
-        "name": "api.catalog.options"
-    },
-    {
-        "method": "GET|HEAD",
-        "uri": "api/catalog/options/{optionId}/values",
-        "name": "api.catalog.option_values"
+        "uri": "api/catalog/variation-types/{variationTypeId}/values",
+        "name": "api.catalog.variation_values"
     },
     {
         "method": "GET|HEAD",
@@ -626,6 +641,21 @@
     },
     {
         "method": "GET|HEAD",
+        "uri": "api/purchasing/supplier-terms",
+        "name": null
+    },
+    {
+        "method": "PUT",
+        "uri": "api/purchasing/supplier-terms",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/purchasing/suppliers",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
         "uri": "api/purchasing/vendor-terms",
         "name": null
     },
@@ -787,6 +817,21 @@
     {
         "method": "GET|HEAD",
         "uri": "api/v1/purchasing/sell-through",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/v1/purchasing/supplier-terms",
+        "name": null
+    },
+    {
+        "method": "PUT",
+        "uri": "api/v1/purchasing/supplier-terms",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/v1/purchasing/suppliers",
         "name": null
     },
     {
@@ -1026,6 +1071,41 @@
     },
     {
         "method": "GET|HEAD",
+        "uri": "catalog/brands",
+        "name": "brands.index"
+    },
+    {
+        "method": "POST",
+        "uri": "catalog/brands",
+        "name": "brands.store"
+    },
+    {
+        "method": "POST",
+        "uri": "catalog/brands/bulk-delete",
+        "name": "brands.bulk_delete"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "catalog/brands/create",
+        "name": "brands.create"
+    },
+    {
+        "method": "DELETE",
+        "uri": "catalog/brands/{id}",
+        "name": "brands.destroy"
+    },
+    {
+        "method": "PUT",
+        "uri": "catalog/brands/{id}",
+        "name": "brands.update"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "catalog/brands/{id}/edit",
+        "name": "brands.edit"
+    },
+    {
+        "method": "GET|HEAD",
         "uri": "catalog/categories",
         "name": "categories.index"
     },
@@ -1061,38 +1141,8 @@
     },
     {
         "method": "GET|HEAD",
-        "uri": "catalog/manufacturers",
-        "name": "manufacturers.index"
-    },
-    {
-        "method": "POST",
-        "uri": "catalog/manufacturers",
-        "name": "manufacturers.store"
-    },
-    {
-        "method": "POST",
-        "uri": "catalog/manufacturers/bulk-delete",
-        "name": "manufacturers.bulk_delete"
-    },
-    {
-        "method": "GET|HEAD",
-        "uri": "catalog/manufacturers/create",
-        "name": "manufacturers.create"
-    },
-    {
-        "method": "DELETE",
-        "uri": "catalog/manufacturers/{id}",
-        "name": "manufacturers.destroy"
-    },
-    {
-        "method": "PUT",
-        "uri": "catalog/manufacturers/{id}",
-        "name": "manufacturers.update"
-    },
-    {
-        "method": "GET|HEAD",
-        "uri": "catalog/manufacturers/{id}/edit",
-        "name": "manufacturers.edit"
+        "uri": "catalog/manufacturers/{any?}",
+        "name": null
     },
     {
         "method": "GET|HEAD",
@@ -1187,12 +1237,7 @@
     {
         "method": "GET|HEAD",
         "uri": "catalog/products/{id}/options",
-        "name": "products.options.edit"
-    },
-    {
-        "method": "POST",
-        "uri": "catalog/products/{id}/options",
-        "name": "products.options.update"
+        "name": null
     },
     {
         "method": "GET|HEAD",
@@ -1203,6 +1248,26 @@
         "method": "GET|HEAD",
         "uri": "catalog/products/{id}/stock-history",
         "name": "products.stock_history"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "catalog/products/{id}/suppliers",
+        "name": "ext.purchasing.products.suppliers.manage"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "catalog/products/{id}/variations",
+        "name": "products.variations.edit"
+    },
+    {
+        "method": "POST",
+        "uri": "catalog/products/{id}/variations",
+        "name": "products.variations.update"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "catalog/products/{id}/vendors",
+        "name": null
     },
     {
         "method": "GET|HEAD",
@@ -1736,8 +1801,8 @@
     },
     {
         "method": "GET|HEAD",
-        "uri": "channels/lazada/{store}/products/catalogue-search",
-        "name": "ext.lazada.products.catalogue_search"
+        "uri": "channels/lazada/{store}/products/catalog-search",
+        "name": "ext.lazada.products.catalog_search"
     },
     {
         "method": "GET|HEAD",
@@ -2786,8 +2851,8 @@
     },
     {
         "method": "GET|HEAD",
-        "uri": "channels/shopee/{store}/products/catalogue-search",
-        "name": "ext.shopee.products.catalogue_search"
+        "uri": "channels/shopee/{store}/products/catalog-search",
+        "name": "ext.shopee.products.catalog_search"
     },
     {
         "method": "GET|HEAD",
@@ -3446,8 +3511,8 @@
     },
     {
         "method": "GET|HEAD",
-        "uri": "channels/tiktok/{store}/products/catalogue-search",
-        "name": "ext.tiktok.products.catalogue_search"
+        "uri": "channels/tiktok/{store}/products/catalog-search",
+        "name": "ext.tiktok.products.catalog_search"
     },
     {
         "method": "GET|HEAD",
@@ -4071,8 +4136,8 @@
     },
     {
         "method": "GET|HEAD",
-        "uri": "channels/ventacart/{store}/products/catalogue-search",
-        "name": "ext.ventacart.products.catalogue_search"
+        "uri": "channels/ventacart/{store}/products/catalog-search",
+        "name": "ext.ventacart.products.catalog_search"
     },
     {
         "method": "GET|HEAD",
@@ -4476,8 +4541,8 @@
     },
     {
         "method": "GET|HEAD",
-        "uri": "channels/woocommerce/{store}/products/catalogue-search",
-        "name": "ext.woocommerce.products.catalogue_search"
+        "uri": "channels/woocommerce/{store}/products/catalog-search",
+        "name": "ext.woocommerce.products.catalog_search"
     },
     {
         "method": "GET|HEAD",
@@ -4766,13 +4831,13 @@
     },
     {
         "method": "GET|HEAD",
-        "uri": "lookup/categories",
-        "name": "categories.lookup"
+        "uri": "lookup/brands",
+        "name": "brands.lookup"
     },
     {
         "method": "GET|HEAD",
-        "uri": "lookup/manufacturers",
-        "name": "manufacturers.lookup"
+        "uri": "lookup/categories",
+        "name": "categories.lookup"
     },
     {
         "method": "DELETE",
@@ -4886,33 +4951,38 @@
     },
     {
         "method": "DELETE",
-        "uri": "purchasing/api/products/{id}/vendors",
-        "name": "ext.purchasing.products.vendors.destroy_bulk"
+        "uri": "purchasing/api/products/{id}/suppliers",
+        "name": "ext.purchasing.products.suppliers.destroy_bulk"
     },
     {
         "method": "GET|HEAD",
-        "uri": "purchasing/api/products/{id}/vendors",
-        "name": "ext.purchasing.products.vendors.index"
+        "uri": "purchasing/api/products/{id}/suppliers",
+        "name": "ext.purchasing.products.suppliers.index"
     },
     {
         "method": "POST",
-        "uri": "purchasing/api/products/{id}/vendors",
-        "name": "ext.purchasing.products.vendors.store"
+        "uri": "purchasing/api/products/{id}/suppliers",
+        "name": "ext.purchasing.products.suppliers.store"
     },
     {
         "method": "POST",
-        "uri": "purchasing/api/products/{id}/vendors/bulk",
-        "name": "ext.purchasing.products.vendors.store_bulk"
+        "uri": "purchasing/api/products/{id}/suppliers/bulk",
+        "name": "ext.purchasing.products.suppliers.store_bulk"
     },
     {
         "method": "DELETE",
-        "uri": "purchasing/api/products/{productId}/vendors/{id}",
-        "name": "ext.purchasing.products.vendors.destroy"
+        "uri": "purchasing/api/products/{productId}/suppliers/{id}",
+        "name": "ext.purchasing.products.suppliers.destroy"
     },
     {
         "method": "PUT",
-        "uri": "purchasing/api/products/{productId}/vendors/{id}",
-        "name": "ext.purchasing.products.vendors.update"
+        "uri": "purchasing/api/products/{productId}/suppliers/{id}",
+        "name": "ext.purchasing.products.suppliers.update"
+    },
+    {
+        "method": "PUT",
+        "uri": "purchasing/api/products/{productId}/suppliers/{id}/description",
+        "name": "ext.purchasing.products.suppliers.update_description"
     },
     {
         "method": "GET|HEAD",
@@ -4921,13 +4991,8 @@
     },
     {
         "method": "GET|HEAD",
-        "uri": "purchasing/api/vendors",
-        "name": "ext.purchasing.api.vendors"
-    },
-    {
-        "method": "GET|HEAD",
-        "uri": "purchasing/products/{id}/vendors",
-        "name": "ext.purchasing.products.vendors.manage"
+        "uri": "purchasing/api/suppliers",
+        "name": "ext.purchasing.api.suppliers"
     },
     {
         "method": "GET|HEAD",
@@ -4975,6 +5040,11 @@
         "name": "ext.purchasing.purchase_orders.download_attachment"
     },
     {
+        "method": "PUT",
+        "uri": "purchasing/purchase-orders/{id}/charges",
+        "name": "ext.purchasing.purchase_orders.update_charges"
+    },
+    {
         "method": "POST",
         "uri": "purchasing/purchase-orders/{id}/duplicate",
         "name": "ext.purchasing.purchase_orders.duplicate"
@@ -4986,13 +5056,13 @@
     },
     {
         "method": "POST",
-        "uri": "purchasing/purchase-orders/{id}/email-test",
-        "name": "ext.purchasing.purchase_orders.email_test"
+        "uri": "purchasing/purchase-orders/{id}/email-supplier",
+        "name": "ext.purchasing.purchase_orders.email_supplier"
     },
     {
         "method": "POST",
-        "uri": "purchasing/purchase-orders/{id}/email-vendor",
-        "name": "ext.purchasing.purchase_orders.email_vendor"
+        "uri": "purchasing/purchase-orders/{id}/email-test",
+        "name": "ext.purchasing.purchase_orders.email_test"
     },
     {
         "method": "POST",
@@ -5046,38 +5116,43 @@
     },
     {
         "method": "GET|HEAD",
-        "uri": "purchasing/vendors",
-        "name": "ext.purchasing.vendors.index"
+        "uri": "purchasing/suppliers",
+        "name": "ext.purchasing.suppliers.index"
     },
     {
         "method": "POST",
-        "uri": "purchasing/vendors",
-        "name": "ext.purchasing.vendors.store"
+        "uri": "purchasing/suppliers",
+        "name": "ext.purchasing.suppliers.store"
     },
     {
         "method": "POST",
-        "uri": "purchasing/vendors/bulk-delete",
-        "name": "ext.purchasing.vendors.bulk_delete"
+        "uri": "purchasing/suppliers/bulk-delete",
+        "name": "ext.purchasing.suppliers.bulk_delete"
     },
     {
         "method": "GET|HEAD",
-        "uri": "purchasing/vendors/create",
-        "name": "ext.purchasing.vendors.create"
+        "uri": "purchasing/suppliers/create",
+        "name": "ext.purchasing.suppliers.create"
     },
     {
         "method": "DELETE",
-        "uri": "purchasing/vendors/{id}",
-        "name": "ext.purchasing.vendors.destroy"
+        "uri": "purchasing/suppliers/{id}",
+        "name": "ext.purchasing.suppliers.destroy"
     },
     {
         "method": "PUT",
-        "uri": "purchasing/vendors/{id}",
-        "name": "ext.purchasing.vendors.update"
+        "uri": "purchasing/suppliers/{id}",
+        "name": "ext.purchasing.suppliers.update"
     },
     {
         "method": "GET|HEAD",
-        "uri": "purchasing/vendors/{id}/edit",
-        "name": "ext.purchasing.vendors.edit"
+        "uri": "purchasing/suppliers/{id}/edit",
+        "name": "ext.purchasing.suppliers.edit"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "purchasing/vendors/{any?}",
+        "name": null
     },
     {
         "method": "GET|HEAD",
@@ -5726,33 +5801,8 @@
     },
     {
         "method": "GET|HEAD",
-        "uri": "warehousing/locations",
-        "name": "ext.warehousing.locations.index"
-    },
-    {
-        "method": "POST",
-        "uri": "warehousing/locations",
-        "name": "ext.warehousing.locations.store"
-    },
-    {
-        "method": "GET|HEAD",
-        "uri": "warehousing/locations/create",
-        "name": "ext.warehousing.locations.create"
-    },
-    {
-        "method": "DELETE",
-        "uri": "warehousing/locations/{id}",
-        "name": "ext.warehousing.locations.destroy"
-    },
-    {
-        "method": "PUT",
-        "uri": "warehousing/locations/{id}",
-        "name": "ext.warehousing.locations.update"
-    },
-    {
-        "method": "GET|HEAD",
-        "uri": "warehousing/locations/{id}/edit",
-        "name": "ext.warehousing.locations.edit"
+        "uri": "warehousing/locations/{any?}",
+        "name": null
     },
     {
         "method": "GET|HEAD",
@@ -5813,6 +5863,36 @@
         "method": "POST",
         "uri": "warehousing/transfers/{id}/void",
         "name": "ext.warehousing.transfers.void"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "warehousing/warehouses",
+        "name": "ext.warehousing.warehouses.index"
+    },
+    {
+        "method": "POST",
+        "uri": "warehousing/warehouses",
+        "name": "ext.warehousing.warehouses.store"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "warehousing/warehouses/create",
+        "name": "ext.warehousing.warehouses.create"
+    },
+    {
+        "method": "DELETE",
+        "uri": "warehousing/warehouses/{id}",
+        "name": "ext.warehousing.warehouses.destroy"
+    },
+    {
+        "method": "PUT",
+        "uri": "warehousing/warehouses/{id}",
+        "name": "ext.warehousing.warehouses.update"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "warehousing/warehouses/{id}/edit",
+        "name": "ext.warehousing.warehouses.edit"
     },
     {
         "method": "POST",

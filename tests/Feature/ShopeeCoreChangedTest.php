@@ -6,11 +6,11 @@ use App\Extensions\ExtensionManager;
 use App\Models\Admin\Permission;
 use App\Models\Admin\UserGroup;
 use App\Models\User;
-use Extensions\shopee\Models\ShopeeListing;
-use Extensions\shopee\Models\ShopeeProductGroup;
-use Extensions\shopee\Models\ShopeeProductLink;
-use Extensions\shopee\Models\ShopeeSetting;
-use Extensions\shopee\Services\Shopee\ShopeeClient;
+use Extensions\Shopee\Models\ShopeeListing;
+use Extensions\Shopee\Models\ShopeeProductGroup;
+use Extensions\Shopee\Models\ShopeeListingLink;
+use Extensions\Shopee\Models\ShopeeStore;
+use Extensions\Shopee\Services\Shopee\ShopeeClient;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
@@ -26,11 +26,11 @@ class ShopeeCoreChangedTest extends TestCase
         $manager = $this->app->make(ExtensionManager::class);
         $manager->install('shopee');
         $manager->enable('shopee');
-        $this->app->register(\Extensions\shopee\ShopeeExtension::class);
+        $this->app->register(\Extensions\Shopee\ShopeeExtension::class);
         $this->app['router']->getRoutes()->refreshNameLookups();
-        $this->artisan('permissions:sync-catalogue');
+        $this->artisan('permissions:sync-catalog');
 
-        ShopeeSetting::query()->create([
+        ShopeeStore::query()->create([
             'partner_id' => 1001, 'partner_key' => 'k', 'shop_id' => 2002,
             'access_token' => 't', 'refresh_token' => 'r', 'mode' => 'production',
         ]);
@@ -73,16 +73,15 @@ class ShopeeCoreChangedTest extends TestCase
 
     private function seedProduct(\DateTimeInterface $modifiedAt): int
     {
-        $pfx = (string) config('catalog.prefix');
         $langId = (int) config('catalog.default_language_id');
 
-        $productId = DB::table($pfx . 'product')->insertGetId([
+        $productId = DB::table('products')->insertGetId([
             'model' => 'CC-1', 'sku' => 'CC-SKU', 'quantity' => 5, 'price' => 300,
             'status' => 1, 'image' => 'catalog/x.png', 'weight' => 1, 'length' => 10, 'width' => 10, 'height' => 10,
-            'manufacturer_id' => 0,
+            'brand_id' => 0,
             'date_added' => now()->subDays(30), 'date_modified' => $modifiedAt, 'date_available' => now()->subDays(30),
         ]);
-        DB::table($pfx . 'product_description')->insert([
+        DB::table('product_descriptions')->insert([
             'product_id' => $productId, 'language_id' => $langId,
             'name' => 'Core changed product', 'description' => 'The catalog wording.',
             'meta_title' => '', 'meta_description' => '', 'meta_keyword' => '', 'tag' => '',
@@ -94,7 +93,7 @@ class ShopeeCoreChangedTest extends TestCase
     public function test_the_listing_page_no_longer_notes_a_catalog_change(): void
     {
         $productId = $this->seedProduct(now()->subHour());
-        ShopeeProductLink::query()->create([
+        ShopeeListingLink::query()->create([
             'product_id' => $productId, 'shopee_item_id' => 990077, 'sku' => 'CC-SKU',
         ]);
         ShopeeListing::query()->create([
@@ -113,7 +112,7 @@ class ShopeeCoreChangedTest extends TestCase
     public function test_no_note_when_the_push_is_newer_than_the_catalog(): void
     {
         $productId = $this->seedProduct(now()->subDays(3));
-        ShopeeProductLink::query()->create([
+        ShopeeListingLink::query()->create([
             'product_id' => $productId, 'shopee_item_id' => 990077, 'sku' => 'CC-SKU',
         ]);
         ShopeeListing::query()->create([
@@ -147,7 +146,7 @@ class ShopeeCoreChangedTest extends TestCase
     public function test_the_group_row_marks_a_catalog_change_since_the_push(): void
     {
         $productId = $this->seedProduct(now()->subHour());
-        ShopeeProductLink::query()->create([
+        ShopeeListingLink::query()->create([
             'product_id' => $productId, 'shopee_item_id' => 990077, 'sku' => 'CC-SKU',
         ]);
         ShopeeListing::query()->create([
@@ -158,7 +157,7 @@ class ShopeeCoreChangedTest extends TestCase
             'name' => 'Core watch group',
             'shopee_category_id' => 100013, 'logistic_ids' => [41003],
         ]);
-        DB::table('shopee_product_group_products')->insert([
+        DB::table('ch_shopee_product_group_products')->insert([
             'shopee_product_group_id' => $group->id, 'product_id' => $productId,
         ]);
 

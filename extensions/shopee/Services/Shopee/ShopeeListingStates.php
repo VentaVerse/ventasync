@@ -1,14 +1,14 @@
 <?php
 
-namespace Extensions\shopee\Services\Shopee;
+namespace Extensions\Shopee\Services\Shopee;
 
-use App\Integrations\Listings\ListingState;
-use App\Integrations\Listings\ListingVariations;
-use App\Integrations\Push\PushLedger;
-use Extensions\shopee\Models\ShopeeListing;
-use Extensions\shopee\Models\ShopeeProductGroup;
-use Extensions\shopee\Models\ShopeeProductLink;
-use Extensions\shopee\Models\ShopeeSetting;
+use App\Channels\Listings\ListingState;
+use App\Channels\Listings\ListingVariations;
+use App\Channels\Push\PushLedger;
+use Extensions\Shopee\Models\ShopeeListing;
+use Extensions\Shopee\Models\ShopeeProductGroup;
+use Extensions\Shopee\Models\ShopeeListingLink;
+use Extensions\Shopee\Models\ShopeeStore;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -21,9 +21,9 @@ class ShopeeListingStates
     {
     }
 
-    public function forStore(ShopeeSetting|int|null $store): static
+    public function forStore(ShopeeStore|int|null $store): static
     {
-        $id = $store instanceof ShopeeSetting ? (int) $store->id : (int) $store;
+        $id = $store instanceof ShopeeStore ? (int) $store->id : (int) $store;
         $copy = clone $this;
         $copy->storeId = $id > 0 ? $id : null;
 
@@ -32,7 +32,7 @@ class ShopeeListingStates
 
     private function storeId(): int
     {
-        return $this->storeId ?? (int) (ShopeeSetting::defaultStore()?->id ?? 0);
+        return $this->storeId ?? (int) (ShopeeStore::defaultStore()?->id ?? 0);
     }
 
     private function mine(string $model): \Illuminate\Database\Eloquent\Builder
@@ -41,7 +41,7 @@ class ShopeeListingStates
         $storeId = $this->storeId();
 
         return $storeId > 0
-            ? $query->withoutGlobalScope('shopeeStore')->where($query->qualifyColumn('shopee_setting_id'), $storeId)
+            ? $query->withoutGlobalScope('shopeeStore')->where($query->qualifyColumn('store_id'), $storeId)
             : $query;
     }
 
@@ -61,7 +61,7 @@ class ShopeeListingStates
         $reason = trim($failure) !== '' ? trim($failure) : PushLedger::NO_REASON;
         $listing = $this->mine(ShopeeListing::class)->firstOrCreate(
             ['product_id' => $productId],
-            ['shopee_setting_id' => $storeId]
+            ['store_id' => $storeId]
         );
         $listing->forceFill([
             'last_push_error' => Str::limit($reason, 477),
@@ -78,14 +78,14 @@ class ShopeeListingStates
         }
 
         $groupIds = ShopeeProductGroup::query()->withoutGlobalScope('shopeeStore')
-            ->where('shopee_setting_id', $storeId)->pluck('id')->map(fn ($v) => (int) $v)->all();
+            ->where('store_id', $storeId)->pluck('id')->map(fn ($v) => (int) $v)->all();
 
         foreach (array_chunk($productIds, 500) as $chunk) {
             $this->mine(ShopeeListing::class)->whereIn('product_id', $chunk)
                 ->where(fn ($q) => $q->whereNotNull('last_push_error')->orWhereNotNull('last_push_failed_at'))
                 ->update(['last_push_error' => null, 'last_push_failed_at' => null]);
 
-            $this->mine(ShopeeProductLink::class)->whereIn('product_id', $chunk)
+            $this->mine(ShopeeListingLink::class)->whereIn('product_id', $chunk)
                 ->where('last_sync_ok', false)
                 ->update(['last_sync_ok' => true, 'last_sync_error_code' => null, 'last_sync_error_message' => null]);
 
@@ -93,9 +93,9 @@ class ShopeeListingStates
                 continue;
             }
 
-            $linked = $this->mine(ShopeeProductLink::class)->whereIn('product_id', $chunk)
+            $linked = $this->mine(ShopeeListingLink::class)->whereIn('product_id', $chunk)
                 ->whereNotNull('shopee_item_id')->pluck('product_id')->map(fn ($v) => (int) $v)->unique()->values()->all();
-            $pivot = fn () => DB::table('shopee_product_group_products')
+            $pivot = fn () => DB::table('ch_shopee_product_group_products')
                 ->whereIn('shopee_product_group_id', $groupIds)
                 ->whereIn('product_id', $chunk);
 
@@ -119,7 +119,7 @@ class ShopeeListingStates
         $candidates = $this->mine(ShopeeListing::class)
             ->whereNotNull('last_push_error')->where('last_push_error', '!=', '')
             ->pluck('product_id')
-            ->merge($this->mine(ShopeeProductLink::class)->where('last_sync_ok', false)->pluck('product_id'))
+            ->merge($this->mine(ShopeeListingLink::class)->where('last_sync_ok', false)->pluck('product_id'))
             ->merge(ListingVariations::readProducts('shopee', $storeId))
             ->map(fn ($v) => (int) $v)->filter()->unique()->sort()->values()->all();
 
@@ -138,15 +138,15 @@ class ShopeeListingStates
     public function summary(): array
     {
         return [
-            'attention' => $this->bucket('attention')->distinct()->count('shopee_product_links.product_id'),
+            'attention' => $this->bucket('attention')->distinct()->count('ch_shopee_listing_links.product_id'),
             'drift' => count($this->catalogChanges()),
         ];
     }
 
     private function catalogChanges(): array
     {
-        return \App\Integrations\Listings\CatalogCopy::pending(
-            $this->bucket('drift')->get(), 'shopee_listings', ShopeeListing::copyColumns()
+        return \App\Channels\Listings\CatalogCopy::pending(
+            $this->bucket('drift')->get(), 'ch_shopee_listings', ShopeeListing::copyColumns()
         );
     }
 
@@ -157,23 +157,22 @@ class ShopeeListingStates
         }
 
         return $this->bucket($bucket)->distinct()
-            ->pluck('shopee_product_links.product_id')
+            ->pluck('ch_shopee_listing_links.product_id')
             ->map(fn ($v) => (int) $v)->unique()->values()->all();
     }
 
     private function bucket(string $bucket): \Illuminate\Database\Eloquent\Builder
     {
-        $pfx = (string) config('catalog.prefix');
 
         if ($bucket === 'drift') {
             return ShopeeListing::query()
-                ->select('shopee_listings.*')
-                ->join($pfx . 'product as p', 'p.product_id', '=', 'shopee_listings.product_id')
-                ->where(fn ($q) => $q->whereNull('shopee_listings.catalog_seen_at')
-                    ->orWhereColumn('p.date_modified', '>', 'shopee_listings.catalog_seen_at'));
+                ->select('ch_shopee_listings.*')
+                ->join('products as p', 'p.product_id', '=', 'ch_shopee_listings.product_id')
+                ->where(fn ($q) => $q->whereNull('ch_shopee_listings.catalog_seen_at')
+                    ->orWhereColumn('p.date_modified', '>', 'ch_shopee_listings.catalog_seen_at'));
         }
 
-        return ShopeeProductLink::query()
+        return ShopeeListingLink::query()
             ->whereIn('live_status', ['BANNED', 'SELLER_DELETE', 'SHOPEE_DELETE', 'MISSING']);
     }
 
@@ -186,7 +185,7 @@ class ShopeeListingStates
             return [];
         }
         $listings = $this->mine(ShopeeListing::class)->whereIn('product_id', $productIds)->get()->keyBy('product_id');
-        $links = $this->mine(ShopeeProductLink::class)->whereIn('product_id', $productIds)->get()->groupBy('product_id');
+        $links = $this->mine(ShopeeListingLink::class)->whereIn('product_id', $productIds)->get()->groupBy('product_id');
         $missing = ListingVariations::missing('shopee', $this->storeId(), $productIds);
 
         $out = [];
@@ -202,7 +201,7 @@ class ShopeeListingStates
                 ->sortByDesc('last_synced_at')->first();
             if ($failedSync) {
                 $found[] = [$failedSync->last_synced_at ? Carbon::parse($failedSync->last_synced_at) : Carbon::createFromTimestamp(0),
-                    trim((string) $failedSync->last_sync_error_message) ?: \App\Integrations\Push\PushLedger::NO_REASON];
+                    trim((string) $failedSync->last_sync_error_message) ?: \App\Channels\Push\PushLedger::NO_REASON];
             }
             usort($found, fn ($a, $b) => $b[0] <=> $a[0]);
             $out[$pid] = ListingVariations::withMissing(
@@ -219,16 +218,15 @@ class ShopeeListingStates
         if ($storeId <= 0 || $productId <= 0) {
             return;
         }
-        $pfx = (string) config('catalog.prefix');
         $variations = [];
-        foreach (PushLedger::erpVariationSkus([$productId], $pfx)[$productId] ?? [] as $sku) {
+        foreach (PushLedger::erpVariationSkus([$productId])[$productId] ?? [] as $sku) {
             $variations[strtolower(trim((string) $sku))] = true;
         }
         if ($variations === []) {
             return;
         }
 
-        $parent = DB::table($pfx . 'product')->where('product_id', $productId)->first(['sku', 'model']);
+        $parent = DB::table('products')->where('product_id', $productId)->first(['sku', 'model']);
         $own = [];
         foreach ([$parent->sku ?? '', $parent->model ?? ''] as $s) {
             $k = strtolower(trim((string) $s));
@@ -255,9 +253,7 @@ class ShopeeListingStates
             return [];
         }
 
-        $pfx = (string) config('catalog.prefix');
-
-        $links = ShopeeProductLink::query()
+        $links = ShopeeListingLink::query()
             ->whereIn('product_id', $productIds)
             ->get()
             ->groupBy('product_id');
@@ -267,7 +263,7 @@ class ShopeeListingStates
             ->get()
             ->keyBy('product_id');
 
-        $catalogChanges = \App\Integrations\Listings\CatalogCopy::pending($listings->values(), 'shopee_listings', ShopeeListing::copyColumns());
+        $catalogChanges = \App\Channels\Listings\CatalogCopy::pending($listings->values(), 'ch_shopee_listings', ShopeeListing::copyColumns());
 
         $readiness = $this->readiness->forProducts($productIds);
 

@@ -1,13 +1,13 @@
 <?php
 
-namespace Extensions\tiktok\Services\TikTok;
+namespace Extensions\TikTok\Services\TikTok;
 
-use App\Integrations\Listings\ListingState;
-use App\Integrations\Listings\ListingVariations;
-use App\Integrations\Push\PushLedger;
-use Extensions\tiktok\Models\TikTokListing;
-use Extensions\tiktok\Models\TikTokProductGroupProduct;
-use Extensions\tiktok\Models\TikTokSetting;
+use App\Channels\Listings\ListingState;
+use App\Channels\Listings\ListingVariations;
+use App\Channels\Push\PushLedger;
+use Extensions\TikTok\Models\TikTokListing;
+use Extensions\TikTok\Models\TikTokProductGroupProduct;
+use Extensions\TikTok\Models\TikTokStore;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -20,23 +20,23 @@ class TikTokListingStates
 
     private ?int $store = null;
 
-    public function forStore(TikTokSetting|int $store): static
+    public function forStore(TikTokStore|int $store): static
     {
         $pinned = clone $this;
-        $pinned->store = $store instanceof TikTokSetting ? (int) $store->id : (int) $store;
+        $pinned->store = $store instanceof TikTokStore ? (int) $store->id : (int) $store;
 
         return $pinned;
     }
 
     private function storeId(): int
     {
-        return $this->store ?? (int) (TikTokSetting::defaultStore()?->id ?? 0);
+        return $this->store ?? (int) (TikTokStore::defaultStore()?->id ?? 0);
     }
 
     private function listingsOnStore(): \Illuminate\Database\Eloquent\Builder
     {
         return TikTokListing::query()->withoutGlobalScope('tiktokStore')
-            ->where('tiktok_listings.tiktok_setting_id', $this->storeId());
+            ->where('ch_tiktok_listings.store_id', $this->storeId());
     }
 
     public function recordOutcome(int $productId, ?string $failure): void
@@ -56,7 +56,7 @@ class TikTokListingStates
         if ($this->listingsOnStore()->where('product_id', $productId)->exists()) {
             $this->listingsOnStore()->where('product_id', $productId)->update($values);
         } else {
-            (new TikTokListing())->forceFill(['tiktok_setting_id' => $storeId, 'product_id' => $productId] + $values)->save();
+            (new TikTokListing())->forceFill(['store_id' => $storeId, 'product_id' => $productId] + $values)->save();
         }
     }
 
@@ -118,15 +118,15 @@ class TikTokListingStates
     public function summary(): array
     {
         return [
-            'attention' => $this->bucket('attention')->distinct()->count('tiktok_listings.product_id'),
+            'attention' => $this->bucket('attention')->distinct()->count('ch_tiktok_listings.product_id'),
             'drift' => count($this->catalogChanges()),
         ];
     }
 
     private function catalogChanges(): array
     {
-        return \App\Integrations\Listings\CatalogCopy::pending(
-            $this->bucket('drift')->get(), 'tiktok_listings', TikTokListing::copyColumns()
+        return \App\Channels\Listings\CatalogCopy::pending(
+            $this->bucket('drift')->get(), 'ch_tiktok_listings', TikTokListing::copyColumns()
         );
     }
 
@@ -137,22 +137,21 @@ class TikTokListingStates
         }
 
         return $this->bucket($bucket)->distinct()
-            ->pluck('tiktok_listings.product_id')
+            ->pluck('ch_tiktok_listings.product_id')
             ->map(fn ($v) => (int) $v)->unique()->values()->all();
     }
 
     private function bucket(string $bucket): \Illuminate\Database\Eloquent\Builder
     {
-        $pfx = (string) config('catalog.prefix');
 
         $linked = TikTokListing::query()->whereNotNull('tiktok_product_id');
 
         if ($bucket === 'drift') {
             return TikTokListing::query()
-                ->select('tiktok_listings.*')
-                ->join($pfx . 'product as p', 'p.product_id', '=', 'tiktok_listings.product_id')
-                ->where(fn ($q) => $q->whereNull('tiktok_listings.catalog_seen_at')
-                    ->orWhereColumn('p.date_modified', '>', 'tiktok_listings.catalog_seen_at'));
+                ->select('ch_tiktok_listings.*')
+                ->join('products as p', 'p.product_id', '=', 'ch_tiktok_listings.product_id')
+                ->where(fn ($q) => $q->whereNull('ch_tiktok_listings.catalog_seen_at')
+                    ->orWhereColumn('p.date_modified', '>', 'ch_tiktok_listings.catalog_seen_at'));
         }
 
         return $linked->whereIn('live_status', self::ATTENTION_RAW);
@@ -178,7 +177,7 @@ class TikTokListingStates
             ->groupBy(fn ($p) => (int) $p->product_id)
             ->map(fn ($rows) => $rows->first());
 
-        $catalogChanges = \App\Integrations\Listings\CatalogCopy::pending($listings->values(), 'tiktok_listings', TikTokListing::copyColumns());
+        $catalogChanges = \App\Channels\Listings\CatalogCopy::pending($listings->values(), 'ch_tiktok_listings', TikTokListing::copyColumns());
 
         $readiness = $this->readiness->forProducts($productIds);
 
@@ -271,7 +270,7 @@ class TikTokListingStates
                 ->sortByDesc('last_pushed_at')->first();
             if ($failed) {
                 $found[] = [$failed->last_pushed_at ? Carbon::parse($failed->last_pushed_at) : Carbon::createFromTimestamp(0),
-                    trim((string) $failed->push_error) ?: \App\Integrations\Push\PushLedger::NO_REASON];
+                    trim((string) $failed->push_error) ?: \App\Channels\Push\PushLedger::NO_REASON];
             }
             usort($found, fn ($a, $b) => $b[0] <=> $a[0]);
             $linked = ($listing && !empty($listing->tiktok_product_id))
@@ -290,16 +289,15 @@ class TikTokListingStates
         if ($storeId <= 0 || $productId <= 0) {
             return;
         }
-        $pfx = (string) config('catalog.prefix');
         $variations = [];
-        foreach (PushLedger::erpVariationSkus([$productId], $pfx)[$productId] ?? [] as $sku) {
+        foreach (PushLedger::erpVariationSkus([$productId])[$productId] ?? [] as $sku) {
             $variations[strtolower(trim((string) $sku))] = true;
         }
         if ($variations === []) {
             return;
         }
 
-        $parent = DB::table($pfx . 'product')->where('product_id', $productId)->first(['sku', 'model']);
+        $parent = DB::table('products')->where('product_id', $productId)->first(['sku', 'model']);
         $own = ['__single__' => true];
         foreach ([$parent->sku ?? '', $parent->model ?? ''] as $s) {
             $k = strtolower(trim((string) $s));

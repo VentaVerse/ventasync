@@ -2,8 +2,8 @@
 
 namespace Tests\Feature;
 
-use Extensions\lazada\Models\LazadaReverseOrder;
-use Extensions\shopee\Models\ShopeeReturn;
+use Extensions\Lazada\Models\LazadaReverseOrder;
+use Extensions\Shopee\Models\ShopeeReturn;
 use Illuminate\Support\Facades\File;
 use Tests\TestCase;
 

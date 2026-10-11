@@ -25,11 +25,11 @@
                 <div class="cv__facts">
                     <span class="cv__fact">{{ $cvVideo['length'] ?? 'Length unknown' }}</span>
                     <span class="cv__fact">{{ $cvVideo['size'] }}</span>
-                    <span class="cv__fact cv__fact--from">{{ $cvVideo['own'] ? 'This store\'s own' : 'From the catalog' }}</span>
+                    <span class="cv__fact cv__fact--from">{{ $cvVideo['own'] ? 'This store\'s own' : 'From the Master Catalog' }}</span>
                 </div>
             </div>
         @else
-            <p class="cv__none" data-cv-none>No video on the catalog product.</p>
+            <p class="cv__none" data-cv-none>No video on the Master Catalog product.</p>
         @endif
 
         @if($canManage)
@@ -39,11 +39,11 @@
                        accept="video/mp4,video/quicktime" data-cv-input>
 
                 @if($cvVideo && $cvVideo['own'])
-                    <button type="button" class="cv__verb" data-cv-revert>Back to the catalog's</button>
+                    <button type="button" class="cv__verb" data-cv-revert>Back to the Master Catalog's</button>
                 @endif
 
                 @if($cvOff)
-                    <button type="button" class="cv__verb" data-cv-send>Send the catalog's video</button>
+                    <button type="button" class="cv__verb" data-cv-send>Send the Master Catalog video</button>
                 @elseif($cvVideo)
                     <button type="button" class="cv__verb" data-cv-drop>Send no video here</button>
                 @endif

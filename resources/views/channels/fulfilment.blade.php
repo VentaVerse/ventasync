@@ -53,7 +53,7 @@
 <div class="fh-scope"
      @if($fhOpen) style="--ch: {{ \App\Support\ChannelAccent::raw($fhOpen['accent']) }}; --ch-deep: {{ \App\Support\ChannelAccent::deep($fhOpen['accent']) }}; --ch-lift: {{ \App\Support\ChannelAccent::onDark($fhOpen['accent']) }};" @endif>
 
-@include('partials.integration-banners', ['bannerOnly' => $selectedChannel ?? null])
+@include('partials.channel-banners', ['bannerOnly' => $selectedChannel ?? null])
 
 <div class="fh-head">
     @if($selectedChannel)

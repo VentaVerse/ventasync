@@ -1,28 +1,27 @@
 <?php
 
-namespace Extensions\ventacart\Services\VentaCart;
+namespace Extensions\VentaCart\Services\VentaCart;
 
-use Extensions\ventacart\Models\VentaCartProductGroup;
-use Extensions\ventacart\Models\VentaCartSetting;
+use Extensions\VentaCart\Models\VentaCartProductGroup;
+use Extensions\VentaCart\Models\VentaCartStore;
 use Illuminate\Support\Facades\DB;
 
 class VentaCartLinkCheck
 {
-    public function runNext(VentaCartSetting $setting): ?array
+    public function runNext(VentaCartStore $store): ?array
     {
-        $linked = \Extensions\ventacart\Models\VentaCartProductLink::query()->where('ventacart_setting_id', $setting->id)
+        $linked = \Extensions\VentaCart\Models\VentaCartListingLink::query()->where('store_id', $store->id)
             ->orderBy('product_id')->pluck('product_id')->map(fn ($v) => (int) $v)->unique()->values()->all();
-        $linked = \App\Integrations\Support\LinkCheckCursor::rotate('ventacart:' . (int) $setting->id, $linked);
+        $linked = \App\Channels\Support\LinkCheckCursor::rotate('ventacart:' . (int) $store->id, $linked);
 
-        return $linked !== [] ? $this->run($setting, $linked) : null;
+        return $linked !== [] ? $this->run($store, $linked) : null;
     }
 
-    public function run(VentaCartSetting $setting, array $ids): array
+    public function run(VentaCartStore $store, array $ids): array
     {
-        $settingId = (int) $setting->id;
-        $storeName = $setting->store_name ?: 'Unnamed store';
-        $pfx = (string) config('catalog.prefix');
-        $push = VentaCartProductPush::for($setting);
+        $storeId = (int) $store->id;
+        $storeName = $store->store_name ?: 'Unnamed store';
+        $push = VentaCartProductPush::for($store);
 
         $verdicts = [];
         $clashes = [];
@@ -31,13 +30,12 @@ class VentaCartLinkCheck
         $skippedForSize = max(0, count($ids) - $limit);
         $ids = array_slice($ids, 0, $limit);
 
-        $storeName = $setting->store_name ?: 'Unnamed store';
-        $pfx = (string) config('catalog.prefix');
-        $client = new VentaCartClient($setting);
+        $storeName = $store->store_name ?: 'Unnamed store';
+        $client = new VentaCartClient($store);
 
         $verdicts = [];
         $clashes = [];
-        $states = VentaCartListingStates::for($settingId);
+        $states = VentaCartListingStates::for($storeId);
 
         foreach ($ids as $pid) {
             $verdict = $push->reconcileLink($pid);
@@ -50,7 +48,7 @@ class VentaCartLinkCheck
 
             if ($state === 'blocked') {
                 $clashes[] = "#{$pid}: {$verdict['message']}";
-                $this->writeProductStatus($settingId, $pid, [
+                $this->writeProductStatus($storeId, $pid, [
                     'sync_status' => 'error',
                     'push_error' => $verdict['message'],
                     'last_confirmed_at' => now(),
@@ -60,7 +58,7 @@ class VentaCartLinkCheck
             }
 
             if ($state === 'lost') {
-                $this->writeProductStatus($settingId, $pid, [
+                $this->writeProductStatus($storeId, $pid, [
                     'sync_status' => 'pending',
                     'push_error' => null,
                     'ventacart_sku' => null,
@@ -72,7 +70,7 @@ class VentaCartLinkCheck
             }
 
             if ($state === 'new') {
-                $this->writeProductStatus($settingId, $pid, [
+                $this->writeProductStatus($storeId, $pid, [
                     'sync_status' => 'pending',
                     'push_error' => null,
                     'last_confirmed_at' => now(),
@@ -80,7 +78,7 @@ class VentaCartLinkCheck
                 continue;
             }
 
-            $this->writeProductStatus($settingId, $pid, [
+            $this->writeProductStatus($storeId, $pid, [
                 'sync_status' => 'pushed',
                 'ventacart_sku' => $verdict['sku'],
                 'push_error' => null,
@@ -133,12 +131,12 @@ class VentaCartLinkCheck
         return ['tone' => $tone, 'summary' => $msg];
     }
 
-    private function writeProductStatus(int $settingId, int $productId, array $attributes): void
+    private function writeProductStatus(int $storeId, int $productId, array $attributes): void
     {
         \App\Support\ChannelProductStatus::write(
-            'ventacart_product_group_products',
+            'ch_ventacart_product_group_products',
             'ventacart_product_group_id',
-            VentaCartProductGroup::where('ventacart_setting_id', $settingId)->pluck('id')->all(),
+            VentaCartProductGroup::where('store_id', $storeId)->pluck('id')->all(),
             $productId,
             $attributes
         );

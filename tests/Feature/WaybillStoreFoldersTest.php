@@ -7,12 +7,12 @@ use App\Models\Admin\Permission;
 use App\Models\Admin\UserGroup;
 use App\Models\User;
 use App\Support\Fulfilment\Waybills;
-use Extensions\lazada\Models\LazadaOrder;
-use Extensions\lazada\Models\LazadaSetting;
-use Extensions\shopee\Models\ShopeeOrder;
-use Extensions\shopee\Models\ShopeeSetting;
-use Extensions\tiktok\Models\TikTokOrder;
-use Extensions\tiktok\Models\TikTokSetting;
+use Extensions\Lazada\Models\LazadaOrder;
+use Extensions\Lazada\Models\LazadaStore;
+use Extensions\Shopee\Models\ShopeeOrder;
+use Extensions\Shopee\Models\ShopeeStore;
+use Extensions\TikTok\Models\TikTokOrder;
+use Extensions\TikTok\Models\TikTokStore;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -33,9 +33,9 @@ class WaybillStoreFoldersTest extends TestCase
             $manager->install($id);
             $manager->enable($id);
         }
-        $this->app->register(\Extensions\shopee\ShopeeExtension::class);
-        $this->app->register(\Extensions\lazada\LazadaExtension::class);
-        $this->app->register(\Extensions\tiktok\TiktokExtension::class);
+        $this->app->register(\Extensions\Shopee\ShopeeExtension::class);
+        $this->app->register(\Extensions\Lazada\LazadaExtension::class);
+        $this->app->register(\Extensions\TikTok\TikTokExtension::class);
         $this->app['router']->getRoutes()->refreshNameLookups();
     }
 
@@ -72,8 +72,8 @@ class WaybillStoreFoldersTest extends TestCase
 
     public function test_shopee_serves_the_second_stores_waybill_from_its_folder(): void
     {
-        ShopeeSetting::create(['mode' => 'live', 'store_name' => 'Main store']);
-        $second = ShopeeSetting::create(['mode' => 'live', 'store_name' => 'Outlet']);
+        ShopeeStore::create(['mode' => 'live', 'store_name' => 'Main store']);
+        $second = ShopeeStore::create(['mode' => 'live', 'store_name' => 'Outlet']);
         $this->cache('shopee', $second->id, 'WAYBILLTEST01');
 
         $this->actingAs($this->user('shopee'))
@@ -84,8 +84,8 @@ class WaybillStoreFoldersTest extends TestCase
 
     public function test_lazada_serves_the_second_stores_waybill_from_its_folder(): void
     {
-        LazadaSetting::create(['mode' => 'live', 'store_name' => 'Main store']);
-        $second = LazadaSetting::create(['mode' => 'live', 'store_name' => 'Outlet']);
+        LazadaStore::create(['mode' => 'live', 'store_name' => 'Main store']);
+        $second = LazadaStore::create(['mode' => 'live', 'store_name' => 'Outlet']);
         $this->cache('lazada', $second->id, '990000000001');
 
         $this->actingAs($this->user('lazada'))
@@ -96,9 +96,9 @@ class WaybillStoreFoldersTest extends TestCase
 
     public function test_tiktok_serves_the_orders_own_stores_waybill(): void
     {
-        TikTokSetting::create(['store_name' => 'Main store', 'mode' => 'production']);
-        $second = TikTokSetting::create(['store_name' => 'Outlet', 'mode' => 'production']);
-        $order = TikTokOrder::create(['tiktok_setting_id' => $second->id, 'order_id' => '880000000001', 'status' => 'AWAITING_COLLECTION']);
+        TikTokStore::create(['store_name' => 'Main store', 'mode' => 'production']);
+        $second = TikTokStore::create(['store_name' => 'Outlet', 'mode' => 'production']);
+        $order = TikTokOrder::create(['store_id' => $second->id, 'order_id' => '880000000001', 'status' => 'AWAITING_COLLECTION']);
         $this->cache('tiktok', $second->id, '880000000001');
 
         $this->actingAs($this->user('tiktok'))

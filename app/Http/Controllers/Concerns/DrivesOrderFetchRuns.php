@@ -9,7 +9,7 @@ use Illuminate\Http\Request;
 
 trait DrivesOrderFetchRuns
 {
-    abstract protected function orderFetchIntegration(): string;
+    abstract protected function orderFetchChannel(): string;
 
     abstract protected function orderFetchStoreId(Request $request): ?int;
 
@@ -24,7 +24,7 @@ trait DrivesOrderFetchRuns
             'no_stock' => 'nullable',
         ]);
         $runner = app(OrderFetchRunner::class);
-        $run = $runner->begin($this->orderFetchIntegration(), $this->orderFetchStoreId($request), $data['date_from'], $data['date_to'], [
+        $run = $runner->begin($this->orderFetchChannel(), $this->orderFetchStoreId($request), $data['date_from'], $data['date_to'], [
             'status' => $data['status'] ?? null,
             'no_stock' => ! empty($data['no_stock']),
         ]);
@@ -64,7 +64,7 @@ trait DrivesOrderFetchRuns
 
         return OrderFetchRun::query()
             ->whereKey($id)
-            ->where('integration', $this->orderFetchIntegration())
+            ->where('channel', $this->orderFetchChannel())
             ->where(fn ($q) => $storeId === null ? $q->whereNull('store_id') : $q->where('store_id', $storeId))
             ->firstOrFail();
     }

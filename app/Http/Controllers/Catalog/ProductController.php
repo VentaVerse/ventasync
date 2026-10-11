@@ -3,7 +3,7 @@
 namespace App\Http\Controllers\Catalog;
 
 use App\Http\Controllers\Controller;
-use App\Models\Catalog\Manufacturer;
+use App\Models\Catalog\Brand;
 use App\Models\Catalog\Product;
 use App\Models\Catalog\ProductDescription;
 use App\Models\Catalog\ProductToCategory;
@@ -33,20 +33,20 @@ class ProductController extends Controller
         return true;
     }
 
-    private function totalOptionsQuantity($options): ?int
+    private function totalVariationsQuantity($variationTypes): ?int
     {
-        if (!is_array($options) || empty($options)) return null;
+        if (!is_array($variationTypes) || empty($variationTypes)) return null;
 
         $sum = 0;
         $hasAnyValue = false;
 
-        foreach ($options as $opt) {
-            if (!is_array($opt)) continue;
-            $values = $opt['values'] ?? [];
+        foreach ($variationTypes as $variationType) {
+            if (!is_array($variationType)) continue;
+            $values = $variationType['values'] ?? [];
             if (!is_array($values)) continue;
             foreach ($values as $v) {
                 if (!is_array($v)) continue;
-                if (empty($v['option_value_id'])) continue;
+                if (empty($v['variation_value_id'])) continue;
                 $hasAnyValue = true;
                 $sum += (int) ($v['quantity'] ?? 0);
             }
@@ -55,14 +55,14 @@ class ProductController extends Controller
         return $hasAnyValue ? $sum : null;
     }
 
-    private function totalAbsoluteOptionsQuantity(Request $request): ?int
+    private function totalAbsoluteVariationsQuantity(Request $request): ?int
     {
         return $this->variationWriter()->totalQuantity($request->input());
     }
 
-    private function resolveManufacturerId(?int $manufacturerId, ?string $manufacturerName): int
+    private function resolveBrandId(?int $brandId, ?string $brandName): int
     {
-        return app(\App\Services\Catalog\ProductCreator::class)->resolveManufacturerId($manufacturerId, $manufacturerName);
+        return app(\App\Services\Catalog\ProductCreator::class)->resolveBrandId($brandId, $brandName);
     }
 
     private function resolveCategoryId(?int $categoryId, ?string $categoryName): int
@@ -180,12 +180,7 @@ private function isWordStartMatch(string $haystack, string $term): bool
 
 public function index(Request $request)
 {
-    $p = config('catalog.prefix');
     $langId = (int) config('catalog.default_language_id');
-
-    
-
-        $pfx = config('catalog.prefix');
 $q = trim((string) $request->get('q', ''));
 
     $sort = (string) $request->get('sort', 'product_id');
@@ -209,12 +204,12 @@ $q = trim((string) $request->get('q', ''));
         $sort = 'product_id';
     }
 
-    $optQtySub = DB::table($p.'product_option_value as pov')
-        ->select('pov.product_id', DB::raw('SUM(pov.quantity) as options_quantity'))
+    $optQtySub = DB::table('product_variation_values as pov')
+        ->select('pov.product_id', DB::raw('SUM(pov.quantity) as variations_quantity'))
         ->groupBy('pov.product_id');
 
-    $query = DB::table($p.'product as p')
-        ->leftJoin($p.'product_description as pd', function ($j) use ($langId) {
+    $query = DB::table('products as p')
+        ->leftJoin('product_descriptions as pd', function ($j) use ($langId) {
             $j->on('p.product_id', '=', 'pd.product_id')
               ->where('pd.language_id', '=', $langId);
         })
@@ -227,7 +222,7 @@ $q = trim((string) $request->get('q', ''));
             'p.sku',
             'p.image',
             'p.quantity',
-            DB::raw('COALESCE(povsum.options_quantity, 0) as options_quantity'),
+            DB::raw('COALESCE(povsum.variations_quantity, 0) as variations_quantity'),
             'p.price',
             'p.status'
         );
@@ -238,7 +233,7 @@ $q = trim((string) $request->get('q', ''));
     }
 
 if ($q !== '') {
-    $nameIds = DB::table($p.'product_description as pd')
+    $nameIds = DB::table('product_descriptions as pd')
         ->where('pd.language_id', '=', $langId)
         ->where('pd.name', 'like', "%{$q}%")
         ->limit(800)
@@ -251,7 +246,7 @@ if ($q !== '') {
         }
     }
 
-    $skuMatched = DB::table($p.'product')
+    $skuMatched = DB::table('products')
         ->where(function ($w) use ($q) {
             $w->where('sku', 'like', "%{$q}%")
               ->orWhere('model', 'like', "%{$q}%");
@@ -261,7 +256,7 @@ if ($q !== '') {
         ->map(fn($v) => (int) $v)
         ->toArray();
 
-    $optSkuMatched = DB::table($p.'product_option_value')
+    $optSkuMatched = DB::table('product_variation_values')
         ->where('sku', 'like', "%{$q}%")
         ->limit(800)
         ->pluck('product_id')
@@ -286,9 +281,9 @@ if ($q !== '') {
     }
 
     $pageIds = $products->pluck('product_id')->map(fn($v) => (int)$v)->all();
-    $optionRowsByProduct = \App\Support\VariationRows::forProducts($pageIds);
+    $variationRowsByProduct = \App\Support\VariationRows::forProducts($pageIds);
     foreach ($products as $row) {
-        $row->option_rows = ($optionRowsByProduct->get((int) $row->product_id) ?? collect())->all();
+        $row->variation_rows = ($variationRowsByProduct->get((int) $row->product_id) ?? collect())->all();
     }
 
     $channelNote = app(\App\Services\Catalog\ProductDeleter::class)->notes($pageIds);
@@ -304,35 +299,34 @@ if ($q !== '') {
         }
 
         $productImages = [];
-$pfx = config('catalog.prefix');
         $langId = (int) config('catalog.default_language_id');
 
-        $existingOptions = collect();
+        $existingVariationTypes = collect();
         $existingCombinations = [];
 
         $currencies = \App\Models\Currency::where('status', 1)->orderBy('code')->get();
 
-        return view('catalog.products.create', compact('existingOptions', 'existingCombinations', 'currencies'));
+        return view('catalog.products.create', compact('existingVariationTypes', 'existingCombinations', 'currencies'));
     }
 
 
     
-    private function manufacturerSlugFromId(int $manufacturerId): string
+    private function brandSlugFromId(int $brandId): string
     {
-        $manufacturerId = (int) $manufacturerId;
-        if ($manufacturerId <= 0) {
-            return '_no_manufacturer_';
+        $brandId = (int) $brandId;
+        if ($brandId <= 0) {
+            return '_no_brand_';
         }
 
-        $m = \App\Models\Catalog\Manufacturer::query()
-            ->where('manufacturer_id', $manufacturerId)
+        $m = \App\Models\Catalog\Brand::query()
+            ->where('brand_id', $brandId)
             ->first(['name']);
         if (!$m) {
-            return '_no_manufacturer_';
+            return '_no_brand_';
         }
 
         $slug = Str::slug((string) $m->name);
-        return $slug !== '' ? $slug : '_no_manufacturer_';
+        return $slug !== '' ? $slug : '_no_brand_';
     }
 
     private function uniqueTargetPath(string $dir, string $filename): string
@@ -356,20 +350,18 @@ $pfx = config('catalog.prefix');
         }
     }
 
-    private function resolveManufacturerDir(int $manufacturerId): string
+    private function resolveBrandDir(int $brandId): string
     {
-        return app(\App\Services\Catalog\ProductCreator::class)->imageFolder($manufacturerId);
+        return app(\App\Services\Catalog\ProductCreator::class)->imageFolder($brandId);
     }
 
-    private function finalizeTempImages(string $token, string $manufacturerSlug, int $productId, array $items): array
+    private function finalizeTempImages(string $token, string $brandSlug, int $productId, array $items): array
     {
         $disk = Storage::disk('public');
         $token = preg_replace('/[^A-Za-z0-9_-]/', '', (string) $token);
         $tmpBase = 'tmp/product-images/' . ($token ?: 'default');
-
-        $pfx = config('catalog.prefix');
-        $mid = (int) DB::table($pfx . 'product')->where('product_id', $productId)->value('manufacturer_id');
-        $finalDir = $this->resolveManufacturerDir($mid);
+        $mid = (int) DB::table('products')->where('product_id', $productId)->value('brand_id');
+        $finalDir = $this->resolveBrandDir($mid);
         $disk->makeDirectory($finalDir);
 
         $out = [];
@@ -485,8 +477,8 @@ $pfx = config('catalog.prefix');
             'width'  => 'required|numeric|gt:0',
             'height' => 'required|numeric|gt:0',
             'status' => 'required|in:0,1',
-            'manufacturer_id' => 'nullable|integer',
-            'manufacturer_name' => 'nullable|string|max:255',
+            'brand_id' => 'nullable|integer',
+            'brand_name' => 'nullable|string|max:255',
             'category_ids' => 'nullable|array',
             'category_ids.*' => 'integer|min:1',
             'category_id' => 'nullable|integer',
@@ -497,23 +489,23 @@ $pfx = config('catalog.prefix');
             'video_name'  => ['nullable', 'string', 'max:255'],
             'video_ai'    => ['nullable', 'boolean'],
 
-            'options' => 'array',
-            'options.*.option_id' => 'required|integer|min:1',
-            'options.*.required' => 'nullable|in:0,1',
-            'options.*.values' => 'array',
-            'options.*.values.*.option_value_id' => 'required|integer|min:1',
-            'options.*.values.*.sku' => 'nullable|string|max:64',
-            'options.*.values.*.quantity' => 'nullable|integer',
-            'options.*.values.*.subtract' => 'nullable|in:0,1',
-            'options.*.values.*.price' => 'nullable|numeric',
-            'options.*.values.*.price_prefix' => 'nullable|in:+,-',
-            'options.*.values.*.weight' => 'nullable|numeric',
-            'options.*.values.*.weight_prefix' => 'nullable|in:+,-',
-            'options.*.values.*.cost_amount' => 'nullable|numeric',
-            'options.*.values.*.cost_percentage' => 'nullable|numeric',
-            'options.*.values.*.cost_additional' => 'nullable|numeric',
+            'variation_types' => 'array',
+            'variation_types.*.variation_type_id' => 'required|integer|min:1',
+            'variation_types.*.required' => 'nullable|in:0,1',
+            'variation_types.*.values' => 'array',
+            'variation_types.*.values.*.variation_value_id' => 'required|integer|min:1',
+            'variation_types.*.values.*.sku' => 'nullable|string|max:64',
+            'variation_types.*.values.*.quantity' => 'nullable|integer',
+            'variation_types.*.values.*.subtract' => 'nullable|in:0,1',
+            'variation_types.*.values.*.price' => 'nullable|numeric',
+            'variation_types.*.values.*.price_prefix' => 'nullable|in:+,-',
+            'variation_types.*.values.*.weight' => 'nullable|numeric',
+            'variation_types.*.values.*.weight_prefix' => 'nullable|in:+,-',
+            'variation_types.*.values.*.cost_amount' => 'nullable|numeric',
+            'variation_types.*.values.*.cost_percentage' => 'nullable|numeric',
+            'variation_types.*.values.*.cost_additional' => 'nullable|numeric',
         ], [
-            'sku.required' => 'A SKU is needed. Imports, stock pushes and link repair recognise this product by it.',
+            'sku.required' => 'A SKU is needed. Imports, stock pushes and link repair recognize this product by it.',
             'price.required' => 'A price above zero is needed - a listing pushed without one goes live at zero.',
             'price.gt' => 'The price must be more than zero - a listing pushed at zero sells at zero.',
             'weight.required' => 'A package weight is needed.',
@@ -526,9 +518,9 @@ $pfx = config('catalog.prefix');
             'height.gt' => 'Each package dimension must be more than zero.',
         ]);
 
-        $resolvedManufacturerId = $this->resolveManufacturerId(
-            (int) $request->input('manufacturer_id', 0),
-            (string) $request->input('manufacturer_name', '')
+        $resolvedBrandId = $this->resolveBrandId(
+            (int) $request->input('brand_id', 0),
+            (string) $request->input('brand_name', '')
         );
 
         $categoryIds = array_filter(array_map('intval', $request->input('category_ids', [])));
@@ -540,12 +532,12 @@ $pfx = config('catalog.prefix');
             if ($fallback > 0) $categoryIds = [$fallback];
         }
 
-        $forcedQty = $request->has('_options_format')
-            ? $this->totalAbsoluteOptionsQuantity($request)
-            : $this->totalOptionsQuantity($request->input('options', []));
+        $forcedQty = $request->has('_variations_format')
+            ? $this->totalAbsoluteVariationsQuantity($request)
+            : $this->totalVariationsQuantity($request->input('variation_types', []));
 
-        if ($request->has('_options_format')) {
-            $this->validateOptionSkus(0, $request);
+        if ($request->has('_variations_format')) {
+            $this->validateVariationSkus(0, $request);
         }
 
         app(\App\Services\Catalog\ProductCreator::class)->create(
@@ -564,15 +556,15 @@ $pfx = config('catalog.prefix');
                 'cost_amount' => (float) ($request->cost_amount ?? 0),
                 'cost_percentage' => (float) ($request->cost_percentage ?? 0),
                 'cost_additional' => (float) ($request->cost_additional ?? 0),
-                'manufacturer_id' => (int) ($resolvedManufacturerId ?? 0),
+                'brand_id' => (int) ($resolvedBrandId ?? 0),
                 'category_ids' => $categoryIds,
                 'description' => (string) $request->input('description', ''),
             ],
             variations: function (int $id) use ($request) {
-                if ($request->has('_options_format')) {
-                    $this->saveAbsoluteOptions($id, $request);
+                if ($request->has('_variations_format')) {
+                    $this->saveAbsoluteVariations($id, $request);
                 } else {
-                    $this->saveProductOptions($id, $request->input('options', []));
+                    $this->saveProductVariationTypes($id, $request->input('variation_types', []));
                 }
             },
             images: function (int $id) use ($request): array {
@@ -595,11 +587,10 @@ $pfx = config('catalog.prefix');
 
     public function salesHistory($id)
     {
-        $pfx = config('catalog.prefix');
         $langId = (int) config('catalog.default_language_id');
 
-        $product = DB::table($pfx . 'product as p')
-            ->leftJoin($pfx . 'product_description as pd', function ($j) use ($langId) {
+        $product = DB::table('products as p')
+            ->leftJoin('product_descriptions as pd', function ($j) use ($langId) {
                 $j->on('p.product_id', '=', 'pd.product_id')
                     ->where('pd.language_id', '=', $langId);
             })
@@ -611,15 +602,15 @@ $pfx = config('catalog.prefix');
 
         $product->name = html_entity_decode($product->name ?? '', ENT_QUOTES | ENT_HTML5, 'UTF-8');
 
-        $sales = DB::table($pfx . 'order_product as op')
-            ->join($pfx . 'order as o', 'o.order_id', '=', 'op.order_id')
+        $sales = DB::table('order_products as op')
+            ->join('orders as o', 'o.order_id', '=', 'op.order_id')
             ->where('op.product_id', (int) $id)
             ->where('o.order_status_id', '>', 0)
             ->select(
                 'op.order_product_id',
                 'o.order_id',
                 'o.date_added',
-                'o.marketplace_source',
+                'o.channel',
                 'op.name',
                 'op.quantity',
                 'op.price',
@@ -631,18 +622,18 @@ $pfx = config('catalog.prefix');
             ->withQueryString();
 
         $opIds = $sales->pluck('order_product_id')->all();
-        $optionsByOpId = [];
+        $variationsByOpId = [];
         if (!empty($opIds)) {
-            $options = DB::table($pfx . 'order_option')
+            $lineVariations = DB::table('order_variations')
                 ->whereIn('order_product_id', $opIds)
                 ->get(['order_product_id', 'name', 'value']);
-            foreach ($options as $opt) {
-                $optionsByOpId[(int) $opt->order_product_id][] = $opt;
+            foreach ($lineVariations as $variation) {
+                $variationsByOpId[(int) $variation->order_product_id][] = $variation;
             }
         }
 
         foreach ($sales as $s) {
-            $s->options = $optionsByOpId[(int) $s->order_product_id] ?? [];
+            $s->variations = $variationsByOpId[(int) $s->order_product_id] ?? [];
             $cost = (float) ($s->cost ?? 0) * (int) $s->quantity;
             $revenue = (float) $s->total;
             $profit = $revenue - $cost;
@@ -653,7 +644,7 @@ $pfx = config('catalog.prefix');
         }
 
         $sourceLabelsMap = [];
-        foreach (app(\App\Integrations\IntegrationRegistry::class)->availableMarketplaceSourceOptions() as $opt) {
+        foreach (app(\App\Channels\ChannelRegistry::class)->availableChannelOptions() as $opt) {
             $sourceLabelsMap[$opt['value']] = $opt;
         }
 
@@ -662,11 +653,10 @@ $pfx = config('catalog.prefix');
 
     public function stockHistory($id)
     {
-        $pfx = config('catalog.prefix');
         $langId = (int) config('catalog.default_language_id');
 
-        $product = DB::table($pfx . 'product as p')
-            ->leftJoin($pfx . 'product_description as pd', function ($j) use ($langId) {
+        $product = DB::table('products as p')
+            ->leftJoin('product_descriptions as pd', function ($j) use ($langId) {
                 $j->on('p.product_id', '=', 'pd.product_id')
                     ->where('pd.language_id', '=', $langId);
             })
@@ -678,13 +668,13 @@ $pfx = config('catalog.prefix');
 
         $product->name = html_entity_decode($product->name ?? '', ENT_QUOTES | ENT_HTML5, 'UTF-8');
 
-        $optionValueNames = DB::table($pfx . 'product_option_value as pov')
-            ->join($pfx . 'option_value_description as ovd', function ($j) use ($langId) {
-                $j->on('pov.option_value_id', '=', 'ovd.option_value_id')
+        $variationValueNames = DB::table('product_variation_values as pov')
+            ->join('variation_value_descriptions as ovd', function ($j) use ($langId) {
+                $j->on('pov.variation_value_id', '=', 'ovd.variation_value_id')
                     ->where('ovd.language_id', '=', $langId);
             })
             ->where('pov.product_id', (int) $id)
-            ->pluck('ovd.name', 'pov.product_option_value_id')
+            ->pluck('ovd.name', 'pov.product_variation_value_id')
             ->all();
 
         $history = DB::table('stock_history')
@@ -703,21 +693,20 @@ $pfx = config('catalog.prefix');
             ->where('quantity_change', '<', 0)
             ->sum('quantity_change');
 
-        return view('catalog.products.stock_history', compact('product', 'history', 'optionValueNames', 'totalAdded', 'totalDeducted'));
+        return view('catalog.products.stock_history', compact('product', 'history', 'variationValueNames', 'totalAdded', 'totalDeducted'));
     }
 
     public function edit($id)
     {
-        $pfx = config('catalog.prefix');
         $langId = (int) config('catalog.default_language_id');
 
-        $product = DB::table($pfx.'product as p')
-            ->leftJoin($pfx.'product_description as pd', function ($j) use ($langId) {
+        $product = DB::table('products as p')
+            ->leftJoin('product_descriptions as pd', function ($j) use ($langId) {
                 $j->on('p.product_id', '=', 'pd.product_id')
                   ->where('pd.language_id', '=', $langId);
             })
-            ->leftJoin($pfx.'manufacturer as m', 'p.manufacturer_id', '=', 'm.manufacturer_id')
-            ->select('p.*', 'pd.name as name', 'pd.description as description', 'm.name as manufacturer_name')
+            ->leftJoin('brands as m', 'p.brand_id', '=', 'm.brand_id')
+            ->select('p.*', 'pd.name as name', 'pd.description as description', 'm.name as brand_name')
             ->where('p.product_id', (int) $id)
             ->first();
 
@@ -731,7 +720,7 @@ $pfx = config('catalog.prefix');
         $product->description = DescriptionHtml::store($product->description ?? '');
 
 
-        $currentCategoryIds = DB::table($pfx.'product_to_category')
+        $currentCategoryIds = DB::table('product_categories')
             ->where('product_id', (int) $id)
             ->pluck('category_id')
             ->map(fn ($v) => (int) $v)
@@ -739,7 +728,7 @@ $pfx = config('catalog.prefix');
 
         $currentCategories = [];
         if (!empty($currentCategoryIds)) {
-            $currentCategories = DB::table($pfx.'category_description')
+            $currentCategories = DB::table('category_descriptions')
                 ->whereIn('category_id', $currentCategoryIds)
                 ->where('language_id', $langId)
                 ->get(['category_id', 'name'])
@@ -750,44 +739,44 @@ $pfx = config('catalog.prefix');
         $currentCategoryId = $currentCategoryIds[0] ?? 0;
         $categoryName = $currentCategories[0]['name'] ?? null;
 
-        $manufacturerName = $product->manufacturer_name ?? null;
+        $brandName = $product->brand_name ?? null;
 
-        $existingOptions = collect();
+        $existingVariationTypes = collect();
 
-            $existingOptions = DB::table($pfx.'product_option as po')
-                ->join($pfx.'option as o', 'po.option_id', '=', 'o.option_id')
-                ->join($pfx.'option_description as od', function ($j) use ($langId) {
-                    $j->on('po.option_id', '=', 'od.option_id')
+            $existingVariationTypes = DB::table('product_variation_types as po')
+                ->join('variation_types as o', 'po.variation_type_id', '=', 'o.variation_type_id')
+                ->join('variation_type_descriptions as od', function ($j) use ($langId) {
+                    $j->on('po.variation_type_id', '=', 'od.variation_type_id')
                       ->where('od.language_id', '=', $langId);
                 })
                 ->where('po.product_id', (int) $id)
                 ->orderBy('o.sort_order')
                 ->orderBy('od.name')
                 ->get([
-                    'po.product_option_id',
-                    'po.option_id',
+                    'po.product_variation_type_id',
+                    'po.variation_type_id',
                     'po.required',
                     'po.value',
                     'o.type',
                     'od.name',
                 ]);
 
-            $poIds = $existingOptions->pluck('product_option_id')->map(fn ($v) => (int)$v)->all();
+            $poIds = $existingVariationTypes->pluck('product_variation_type_id')->map(fn ($v) => (int)$v)->all();
 
             $existingValuesByPoId = [];
             if (!empty($poIds)) {
-                $rows = DB::table($pfx.'product_option_value as pov')
-                    ->join($pfx.'option_value_description as ovd', function ($j) use ($langId) {
-                        $j->on('pov.option_value_id', '=', 'ovd.option_value_id')
+                $rows = DB::table('product_variation_values as pov')
+                    ->join('variation_value_descriptions as ovd', function ($j) use ($langId) {
+                        $j->on('pov.variation_value_id', '=', 'ovd.variation_value_id')
                           ->where('ovd.language_id', '=', $langId);
                     })
-                    ->whereIn('pov.product_option_id', $poIds)
-                    ->orderBy('pov.product_option_value_id')
+                    ->whereIn('pov.product_variation_type_id', $poIds)
+                    ->orderBy('pov.product_variation_value_id')
                     ->get([
-                        'pov.product_option_value_id',
-                        'pov.product_option_id',
-                        'pov.option_value_id',
-                        'ovd.name as option_value_name',
+                        'pov.product_variation_value_id',
+                        'pov.product_variation_type_id',
+                        'pov.variation_value_id',
+                        'ovd.name as variation_value_name',
                         'pov.sku',
                         'pov.quantity',
                         'pov.subtract',
@@ -803,12 +792,12 @@ $pfx = config('catalog.prefix');
                     ]);
 
                 foreach ($rows as $r) {
-                    $r->option_value_name = html_entity_decode((string)$r->option_value_name, ENT_QUOTES | ENT_HTML5, 'UTF-8');
-                    $existingValuesByPoId[(int)$r->product_option_id][] = [
-                        'product_option_value_id' => (int)$r->product_option_value_id,
-                        'option_value_id' => (int)$r->option_value_id,
-                        'option_value_name' => $r->option_value_name,
-                        'name' => $r->option_value_name,
+                    $r->variation_value_name = html_entity_decode((string)$r->variation_value_name, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+                    $existingValuesByPoId[(int)$r->product_variation_type_id][] = [
+                        'product_variation_value_id' => (int)$r->product_variation_value_id,
+                        'variation_value_id' => (int)$r->variation_value_id,
+                        'variation_value_name' => $r->variation_value_name,
+                        'name' => $r->variation_value_name,
                         'quantity' => (int)$r->quantity,
                         'subtract' => (int)($r->subtract ?? 1),
                         'price_prefix' => (string)$r->price_prefix,
@@ -829,21 +818,21 @@ $pfx = config('catalog.prefix');
             $statusByPovId = [];
             $costAmountByPovId = [];
             $costAddByPovId = [];
-            $comboImages = DB::table('product_option_combinations as c')
-                ->join('product_option_combination_values as cv', 'cv.combination_id', '=', 'c.id')
+            $comboImages = DB::table('product_variations as c')
+                ->join('product_variation_parts as cv', 'cv.product_variation_id', '=', 'c.id')
                 ->where('c.product_id', (int) $id)
-                ->get(['cv.product_option_value_id', 'c.image', 'c.status', 'c.cost_amount', 'c.cost_additional']);
+                ->get(['cv.product_variation_value_id', 'c.image', 'c.status', 'c.cost_amount', 'c.cost_additional']);
 
             foreach ($comboImages as $row) {
-                $statusByPovId[(int) $row->product_option_value_id] ??= (int) ($row->status ?? 1);
-                $costAmountByPovId[(int) $row->product_option_value_id] ??= (float) ($row->cost_amount ?? 0);
-                $costAddByPovId[(int) $row->product_option_value_id] ??= (float) ($row->cost_additional ?? 0);
+                $statusByPovId[(int) $row->product_variation_value_id] ??= (int) ($row->status ?? 1);
+                $costAmountByPovId[(int) $row->product_variation_value_id] ??= (float) ($row->cost_amount ?? 0);
+                $costAddByPovId[(int) $row->product_variation_value_id] ??= (float) ($row->cost_additional ?? 0);
 
                 if (trim((string) ($row->image ?? '')) === '') {
                     continue;
                 }
 
-                $povId = (int) $row->product_option_value_id;
+                $povId = (int) $row->product_variation_value_id;
                 $imageByPovId[$povId] = isset($imageByPovId[$povId])
                     ? $imageByPovId[$povId]
                     : (string) $row->image;
@@ -851,7 +840,7 @@ $pfx = config('catalog.prefix');
 
             foreach ($existingValuesByPoId as $poId => $values) {
                 foreach ($values as $i => $value) {
-                    $povId = (int) $value['product_option_value_id'];
+                    $povId = (int) $value['product_variation_value_id'];
                     $existingValuesByPoId[$poId][$i]['image'] = $imageByPovId[$povId] ?? '';
                     $existingValuesByPoId[$poId][$i]['status'] = $statusByPovId[$povId] ?? 1;
                     $existingValuesByPoId[$poId][$i]['cost_amount'] = $costAmountByPovId[$povId]
@@ -861,30 +850,30 @@ $pfx = config('catalog.prefix');
                 }
             }
 
-            foreach ($existingOptions as $o) {
+            foreach ($existingVariationTypes as $o) {
                 $o->name = html_entity_decode((string)$o->name, ENT_QUOTES | ENT_HTML5, 'UTF-8');
-                $o->option_name = $o->name;
-                $o->values = $existingValuesByPoId[(int)$o->product_option_id] ?? [];
+                $o->variation_type_name = $o->name;
+                $o->values = $existingValuesByPoId[(int)$o->product_variation_type_id] ?? [];
             }
 
             $existingCombinations = [];
-            if ($existingOptions->count() > 1) {
-                $combos = DB::table('product_option_combinations as c')
+            if ($existingVariationTypes->count() > 1) {
+                $combos = DB::table('product_variations as c')
                     ->where('c.product_id', (int) $id)
                     ->orderBy('c.sort_order')
                     ->get();
 
                 foreach ($combos as $combo) {
-                    $pivotRows = DB::table('product_option_combination_values as cv')
-                        ->join($pfx.'product_option_value as pov', 'cv.product_option_value_id', '=', 'pov.product_option_value_id')
-                        ->join($pfx.'option_value_description as ovd', function ($j) use ($langId) {
-                            $j->on('pov.option_value_id', '=', 'ovd.option_value_id')
+                    $pivotRows = DB::table('product_variation_parts as cv')
+                        ->join('product_variation_values as pov', 'cv.product_variation_value_id', '=', 'pov.product_variation_value_id')
+                        ->join('variation_value_descriptions as ovd', function ($j) use ($langId) {
+                            $j->on('pov.variation_value_id', '=', 'ovd.variation_value_id')
                               ->where('ovd.language_id', '=', $langId);
                         })
-                        ->join($pfx.'product_option as po', 'pov.product_option_id', '=', 'po.product_option_id')
-                        ->where('cv.combination_id', $combo->id)
-                        ->orderBy('po.product_option_id')
-                        ->get(['ovd.name', 'po.product_option_id']);
+                        ->join('product_variation_types as po', 'pov.product_variation_type_id', '=', 'po.product_variation_type_id')
+                        ->where('cv.product_variation_id', $combo->id)
+                        ->orderBy('po.product_variation_type_id')
+                        ->get(['ovd.name', 'po.product_variation_type_id']);
 
                     $opt1Name = $pivotRows->first()->name ?? '';
                     $opt2Name = $pivotRows->count() > 1 ? $pivotRows->get(1)->name : '';
@@ -909,7 +898,7 @@ $pfx = config('catalog.prefix');
         if (!empty($product->image)) {
             $productImages[] = (string) $product->image;
         }
-        $additionalImgs = DB::table($pfx.'product_image')
+        $additionalImgs = DB::table('product_images')
             ->where('product_id', (int) $id)
             ->orderBy('sort_order')
             ->pluck('image')
@@ -934,12 +923,12 @@ $pfx = config('catalog.prefix');
 
         $productVideo = \App\Models\ProductVideo::query()->where('product_id', (int) $id)->first()?->summary();
 
-        return view('catalog.products.edit', compact('product', 'currentCategoryId', 'categoryName', 'currentCategories', 'manufacturerName', 'existingOptions', 'existingCombinations', 'productImages', 'productVideo', 'returnUrl', 'currencies', 'channelNote'));
+        return view('catalog.products.edit', compact('product', 'currentCategoryId', 'categoryName', 'currentCategories', 'brandName', 'existingVariationTypes', 'existingCombinations', 'productImages', 'productVideo', 'returnUrl', 'currencies', 'channelNote'));
     }
 
     public function update(Request $request, $id)
     {
-        $pfxProduct = config('catalog.prefix') . 'product';
+        $pfxProduct = 'products';
 
         $request->validate([
             'name' => 'required|string|max:255',
@@ -955,8 +944,8 @@ $pfx = config('catalog.prefix');
             'width'  => 'required|numeric|gt:0',
             'height' => 'required|numeric|gt:0',
             'status' => 'required|in:0,1',
-            'manufacturer_id' => 'nullable|integer',
-            'manufacturer_name' => 'nullable|string|max:255',
+            'brand_id' => 'nullable|integer',
+            'brand_name' => 'nullable|string|max:255',
             'category_ids' => 'nullable|array',
             'category_ids.*' => 'integer|min:1',
             'category_id' => 'nullable|integer',
@@ -967,23 +956,23 @@ $pfx = config('catalog.prefix');
             'video_name'  => ['nullable', 'string', 'max:255'],
             'video_ai'    => ['nullable', 'boolean'],
 
-            'options' => 'array',
-            'options.*.option_id' => 'required|integer|min:1',
-            'options.*.required' => 'nullable|in:0,1',
-            'options.*.values' => 'array',
-            'options.*.values.*.option_value_id' => 'required|integer|min:1',
-            'options.*.values.*.sku' => 'nullable|string|max:64',
-            'options.*.values.*.quantity' => 'nullable|integer',
-            'options.*.values.*.subtract' => 'nullable|in:0,1',
-            'options.*.values.*.price' => 'nullable|numeric',
-            'options.*.values.*.price_prefix' => 'nullable|in:+,-',
-            'options.*.values.*.weight' => 'nullable|numeric',
-            'options.*.values.*.weight_prefix' => 'nullable|in:+,-',
-            'options.*.values.*.cost_amount' => 'nullable|numeric',
-            'options.*.values.*.cost_percentage' => 'nullable|numeric',
-            'options.*.values.*.cost_additional' => 'nullable|numeric',
+            'variation_types' => 'array',
+            'variation_types.*.variation_type_id' => 'required|integer|min:1',
+            'variation_types.*.required' => 'nullable|in:0,1',
+            'variation_types.*.values' => 'array',
+            'variation_types.*.values.*.variation_value_id' => 'required|integer|min:1',
+            'variation_types.*.values.*.sku' => 'nullable|string|max:64',
+            'variation_types.*.values.*.quantity' => 'nullable|integer',
+            'variation_types.*.values.*.subtract' => 'nullable|in:0,1',
+            'variation_types.*.values.*.price' => 'nullable|numeric',
+            'variation_types.*.values.*.price_prefix' => 'nullable|in:+,-',
+            'variation_types.*.values.*.weight' => 'nullable|numeric',
+            'variation_types.*.values.*.weight_prefix' => 'nullable|in:+,-',
+            'variation_types.*.values.*.cost_amount' => 'nullable|numeric',
+            'variation_types.*.values.*.cost_percentage' => 'nullable|numeric',
+            'variation_types.*.values.*.cost_additional' => 'nullable|numeric',
         ], [
-            'sku.required' => 'A SKU is needed. Imports, stock pushes and link repair recognise this product by it.',
+            'sku.required' => 'A SKU is needed. Imports, stock pushes and link repair recognize this product by it.',
             'price.required' => 'A price above zero is needed - a listing pushed without one goes live at zero.',
             'price.gt' => 'The price must be more than zero - a listing pushed at zero sells at zero.',
             'weight.required' => 'A package weight is needed.',
@@ -996,13 +985,13 @@ $pfx = config('catalog.prefix');
             'height.gt' => 'Each package dimension must be more than zero.',
         ]);
 
-        if ($request->has('_options_format')) {
-            $this->validateOptionSkus((int) $id, $request);
+        if ($request->has('_variations_format')) {
+            $this->validateVariationSkus((int) $id, $request);
         }
 
         $langId = (int) config('catalog.default_language_id');
 
-        $resolvedManufacturerId = $this->resolveManufacturerId($request->manufacturer_id, $request->manufacturer_name);
+        $resolvedBrandId = $this->resolveBrandId($request->brand_id, $request->brand_name);
 
         $categoryIds = array_filter(array_map('intval', $request->input('category_ids', [])));
         if (empty($categoryIds)) {
@@ -1010,21 +999,19 @@ $pfx = config('catalog.prefix');
             if ($fallback > 0) $categoryIds = [$fallback];
         }
 
-        $pfx = config('catalog.prefix');
+        $forcedQty = $request->has('_variations_format')
+            ? $this->totalAbsoluteVariationsQuantity($request)
+            : $this->totalVariationsQuantity($request->input('variation_types', []));
 
-        $forcedQty = $request->has('_options_format')
-            ? $this->totalAbsoluteOptionsQuantity($request)
-            : $this->totalOptionsQuantity($request->input('options', []));
-
-        $skuChanges = ['product_sku' => null, 'option_skus' => []];
+        $skuChanges = ['product_sku' => null, 'variation_skus' => []];
         $originalAttrs = null;
         $updatedAttrs = null;
         $variationsBefore = \App\Services\VariationForgetService::snapshot((int) $id);
-        DB::transaction(function () use ($request, $id, $langId, $pfx, $resolvedManufacturerId, $categoryIds, $forcedQty, &$skuChanges, &$originalAttrs, &$updatedAttrs) {
+        DB::transaction(function () use ($request, $id, $langId, $resolvedBrandId, $categoryIds, $forcedQty, &$skuChanges, &$originalAttrs, &$updatedAttrs) {
             $p = Product::where('product_id', (int) $id)->firstOrFail();
             $originalAttrs = $p->getAttributes();
 
-            $oldManufacturerId = (int) ($p->manufacturer_id ?? 0);
+            $oldBrandId = (int) ($p->brand_id ?? 0);
 
             $oldProductSku = trim((string) $p->sku);
 
@@ -1044,7 +1031,7 @@ $pfx = config('catalog.prefix');
             $p->length = (float) ($request->input('length', $p->length ?? 0) ?? 0);
             $p->width  = (float) ($request->input('width',  $p->width  ?? 0) ?? 0);
             $p->height = (float) ($request->input('height', $p->height ?? 0) ?? 0);
-            $p->manufacturer_id = (int) ($resolvedManufacturerId ?? 0);
+            $p->brand_id = (int) ($resolvedBrandId ?? 0);
             $p->price = (float) $request->price;
             $p->cost_amount = (float) ($request->cost_amount ?? 0);
             $p->cost_percentage = (float) ($request->cost_percentage ?? 0);
@@ -1070,12 +1057,12 @@ $pfx = config('catalog.prefix');
 
 
 
-            $d = DB::table($pfx.'product_description')
+            $d = DB::table('product_descriptions')
                 ->where('product_id', (int) $id)
                 ->where('language_id', (int) $langId)
                 ->first();
 
-            DB::table($pfx.'product_description')->updateOrInsert(
+            DB::table('product_descriptions')->updateOrInsert(
                 [
                     'product_id' => (int) $id,
                     'language_id' => (int) $langId,
@@ -1090,7 +1077,7 @@ $pfx = config('catalog.prefix');
                 ]
             );
 
-            DB::table($pfx.'product_to_category')->where('product_id', (int) $id)->delete();
+            DB::table('product_categories')->where('product_id', (int) $id)->delete();
             foreach ($categoryIds as $catId) {
                 ProductToCategory::create([
                     'product_id' => (int) $id,
@@ -1098,11 +1085,11 @@ $pfx = config('catalog.prefix');
                 ]);
             }
 
-            if ($request->has('_options_format')) {
-                $this->saveAbsoluteOptions((int) $id, $request, $skuChanges);
+            if ($request->has('_variations_format')) {
+                $this->saveAbsoluteVariations((int) $id, $request, $skuChanges);
             } else {
-                $options = $request->input('options', []);
-                $this->saveProductOptions((int) $id, $options, $skuChanges);
+                $variationTypes = $request->input('variation_types', []);
+                $this->saveProductVariationTypes((int) $id, $variationTypes, $skuChanges);
             }
             if ($request->has('images_json')) {
                 $paths = $this->imagesFromRequest($request->input('images_json'));
@@ -1118,7 +1105,7 @@ $pfx = config('catalog.prefix');
         });
 
         $status = 'Saved';
-        if (!empty($skuChanges['product_sku']) || !empty($skuChanges['option_skus'])) {
+        if (!empty($skuChanges['product_sku']) || !empty($skuChanges['variation_skus'])) {
             $syncMessages = (new \App\Services\SkuSyncService())->syncSkuChanges((int) $id, $skuChanges);
             if (!empty($syncMessages)) {
                 $status .= ' | SKU synced: ' . implode(' | ', $syncMessages);
@@ -1129,7 +1116,7 @@ $pfx = config('catalog.prefix');
             $status .= ' | Forgotten on every channel: ' . implode(', ', $forgotten);
         }
         $changes = $originalAttrs && $updatedAttrs
-            ? ActivityLogger::diff($originalAttrs, $updatedAttrs, ['sku', 'price', 'quantity', 'status', 'model', 'manufacturer_id'])
+            ? ActivityLogger::diff($originalAttrs, $updatedAttrs, ['sku', 'price', 'quantity', 'status', 'model', 'brand_id'])
             : null;
         ActivityLogger::log('updated', 'Product', (int) $id, $request->name . ' (SKU: ' . ($request->sku ?? '') . ')', $changes);
 
@@ -1139,7 +1126,7 @@ $pfx = config('catalog.prefix');
             if ($oldQty !== $newQty) {
                 StockHistoryLogger::log(
                     productId: (int) $id,
-                    optionValueId: null,
+                    variationValueId: null,
                     orderId: null,
                     type: 'set',
                     qtyBefore: $oldQty,
@@ -1150,10 +1137,10 @@ $pfx = config('catalog.prefix');
             }
         }
 
-        if (class_exists(\Extensions\warehousing\Services\WarehouseStockService::class)) {
-            $defaultWh = \Extensions\warehousing\Services\WarehouseStockService::getDefaultWarehouse();
+        if (class_exists(\Extensions\Warehousing\Services\WarehouseStockService::class)) {
+            $defaultWh = \Extensions\Warehousing\Services\WarehouseStockService::getDefaultWarehouse();
             if ($defaultWh && isset($updatedAttrs['quantity'])) {
-                $inv = \Extensions\warehousing\Services\WarehouseStockService::getOrCreateInventory($defaultWh->id, (int) $id, 0);
+                $inv = \Extensions\Warehousing\Services\WarehouseStockService::getOrCreateInventory($defaultWh->id, (int) $id, 0);
                 $inv->update(['quantity' => (int) $updatedAttrs['quantity']]);
             }
         }
@@ -1178,7 +1165,6 @@ $pfx = config('catalog.prefix');
     {
         $skus = array_filter(array_map('trim', (array) $request->input('skus', [])));
         $excludeId = (int) $request->input('exclude_product_id', 0);
-        $p = (string) config('catalog.prefix');
 
         $taken = [];
         foreach ($skus as $sku) {
@@ -1186,13 +1172,13 @@ $pfx = config('catalog.prefix');
             $key = strtolower($sku);
             if (isset($taken[$key])) continue;
 
-            $pq = DB::table($p . 'product')->where('sku', $sku);
+            $pq = DB::table('products')->where('sku', $sku);
             if ($excludeId) $pq->where('product_id', '!=', $excludeId);
             if ($pq->exists()) { $taken[$key] = 'product'; continue; }
 
-            $oq = DB::table($p . 'product_option_value')->where('sku', $sku);
+            $oq = DB::table('product_variation_values')->where('sku', $sku);
             if ($excludeId) $oq->where('product_id', '!=', $excludeId);
-            if ($oq->exists()) { $taken[$key] = 'option_value'; continue; }
+            if ($oq->exists()) { $taken[$key] = 'variation_value'; continue; }
         }
 
         return response()->json(['taken' => (object) $taken]);
@@ -1216,8 +1202,6 @@ $pfx = config('catalog.prefix');
             return redirect()->route('products.index')->with('status', 'Invalid action.');
         }
 
-        $pfx = config('catalog.prefix');
-
         if ($action === 'delete') {
             $deleter = app(\App\Services\Catalog\ProductDeleter::class);
             $flash = $deleter->flash($deleter->delete($ids), count($ids));
@@ -1226,7 +1210,7 @@ $pfx = config('catalog.prefix');
         }
 
         $newStatus = $action === 'enable' ? 1 : 0;
-        DB::table($pfx.'product')->whereIn('product_id', $ids)->update(['status' => $newStatus]);
+        DB::table('products')->whereIn('product_id', $ids)->update(['status' => $newStatus]);
 
         return redirect()->route('products.index')->with('status', $newStatus === 1 ? 'Enabled selected products.' : 'Disabled selected products.');
     }
@@ -1238,31 +1222,30 @@ $pfx = config('catalog.prefix');
         return app(\App\Services\Catalog\VariationWriter::class);
     }
 
-    private function validateOptionSkus(int $productId, Request $request): void
+    private function validateVariationSkus(int $productId, Request $request): void
     {
         $this->variationWriter()->validateSkus($productId, $request->input());
     }
 
-    public function saveAbsoluteOptions(int $productId, Request $request, array &$skuChanges = []): void
+    public function saveAbsoluteVariations(int $productId, Request $request, array &$skuChanges = []): void
     {
         $this->variationWriter()->save($productId, $request->input(), $skuChanges);
     }
 
-    private function saveProductOptions(int $productId, array $options, array &$skuChanges = []): void
+    private function saveProductVariationTypes(int $productId, array $variationTypes, array &$skuChanges = []): void
     {
-        $p = config('catalog.prefix');
 
-        $options = array_values(array_filter($options ?? [], fn ($o) => is_array($o)));
+        $variationTypes = array_values(array_filter($variationTypes ?? [], fn ($o) => is_array($o)));
 
-        $parentSku = strtolower(trim((string) DB::table($p . 'product')->where('product_id', $productId)->value('sku')));
+        $parentSku = strtolower(trim((string) DB::table('products')->where('product_id', $productId)->value('sku')));
         $skuRule = new UniqueSku($productId);
         $errors = [];
         $seenSkus = [];
         if ($parentSku !== '') {
             $seenSkus[$parentSku] = true;
         }
-        foreach ($options as $oi => $opt) {
-            foreach (($opt['values'] ?? []) as $vi => $v) {
+        foreach ($variationTypes as $oi => $variationType) {
+            foreach (($variationType['values'] ?? []) as $vi => $v) {
                 $sku = trim((string) ($v['sku'] ?? ''));
                 if ($sku === '') continue;
                 $skuLower = strtolower($sku);
@@ -1271,83 +1254,83 @@ $pfx = config('catalog.prefix');
                     continue;
                 }
                 if (isset($seenSkus[$skuLower])) {
-                    $errors[] = "Duplicate SKU \"{$sku}\" within this product's options.";
+                    $errors[] = "Duplicate SKU \"{$sku}\" within this product's variations.";
                     continue;
                 }
                 $seenSkus[$skuLower] = true;
-                $skuRule->validate("options.{$oi}.values.{$vi}.sku", $sku, function (string $msg) use (&$errors) {
+                $skuRule->validate("variation_types.{$oi}.values.{$vi}.sku", $sku, function (string $msg) use (&$errors) {
                     $errors[] = $msg;
                 });
             }
         }
         if (!empty($errors)) {
-            throw \Illuminate\Validation\ValidationException::withMessages(['option_sku' => $errors]);
+            throw \Illuminate\Validation\ValidationException::withMessages(['variation_sku' => $errors]);
         }
 
-        $existingPo = DB::table($p.'product_option')
+        $existingPo = DB::table('product_variation_types')
             ->where('product_id', $productId)
             ->get()
-            ->keyBy('option_id');
+            ->keyBy('variation_type_id');
 
-        $existingPov = DB::table($p.'product_option_value')
+        $existingPov = DB::table('product_variation_values')
             ->where('product_id', $productId)
             ->get()
-            ->keyBy(fn ($r) => $r->option_id . ':' . $r->option_value_id);
+            ->keyBy(fn ($r) => $r->variation_type_id . ':' . $r->variation_value_id);
 
-        if (empty($options)) {
+        if (empty($variationTypes)) {
             if ($existingPov->isNotEmpty()) {
-                DB::table($p.'product_option_value')->where('product_id', $productId)->delete();
+                DB::table('product_variation_values')->where('product_id', $productId)->delete();
             }
             if ($existingPo->isNotEmpty()) {
-                DB::table($p.'product_option')->where('product_id', $productId)->delete();
+                DB::table('product_variation_types')->where('product_id', $productId)->delete();
             }
             return;
         }
 
         $supportedTypes = ['select', 'radio', 'checkbox', 'image'];
 
-        $optionIds = collect($options)->pluck('option_id')->map(fn ($v) => (int) $v)->unique()->values()->all();
+        $variationTypeIds = collect($variationTypes)->pluck('variation_type_id')->map(fn ($v) => (int) $v)->unique()->values()->all();
 
-        $types = DB::table($p.'option')
-            ->whereIn('option_id', $optionIds)
-            ->pluck('type', 'option_id');
+        $types = DB::table('variation_types')
+            ->whereIn('variation_type_id', $variationTypeIds)
+            ->pluck('type', 'variation_type_id');
 
-        foreach ($optionIds as $oid) {
+        foreach ($variationTypeIds as $oid) {
             if (!isset($types[$oid])) {
-                abort(422, 'Invalid option_id: '.$oid);
+                abort(422, 'Invalid variation_type_id: '.$oid);
             }
             if (!in_array((string) $types[$oid], $supportedTypes, true)) {
-                abort(422, 'Unsupported option type for option_id '.$oid);
+                abort(422, 'Unsupported variation type for variation_type_id '.$oid);
             }
         }
 
-        $seenPoOptionIds = [];
+        $seenPoVariationTypeIds = [];
         $seenPovKeys = [];
 
-        foreach ($options as $opt) {
-            $optionId = (int) ($opt['option_id'] ?? 0);
-            if ($optionId < 1) {
+        foreach ($variationTypes as $variationType) {
+            $variationTypeId = (int) ($variationType['variation_type_id'] ?? 0);
+            if ($variationTypeId < 1) {
                 continue;
             }
 
-            $required = (int) ($opt['required'] ?? 0);
-            $seenPoOptionIds[] = $optionId;
+            $required = (int) ($variationType['required'] ?? 0);
+            $seenPoVariationTypeIds[] = $variationTypeId;
 
-            if (isset($existingPo[$optionId])) {
-                $productOptionId = (int) $existingPo[$optionId]->product_option_id;
-                DB::table($p.'product_option')
-                    ->where('product_option_id', $productOptionId)
+            if (isset($existingPo[$variationTypeId])) {
+                $productVariationTypeId = (int) $existingPo[$variationTypeId]->product_variation_type_id;
+                DB::table('product_variation_types')
+                    ->where('product_variation_type_id', $productVariationTypeId)
                     ->update(['required' => $required]);
             } else {
-                $productOptionId = DB::table($p.'product_option')->insertGetId([
+                $productVariationTypeId = DB::table('product_variation_types')->insertGetId([
                     'product_id' => $productId,
-                    'option_id' => $optionId,
+                    'variation_type_id' => $variationTypeId,
                     'value' => '',
                     'required' => $required,
                 ]);
             }
 
-            $vals = $opt['values'] ?? [];
+            $vals = $variationType['values'] ?? [];
             if (!is_array($vals)) {
                 $vals = [];
             }
@@ -1356,12 +1339,12 @@ $pfx = config('catalog.prefix');
                 if (!is_array($v)) {
                     continue;
                 }
-                $ovId = (int) ($v['option_value_id'] ?? 0);
+                $ovId = (int) ($v['variation_value_id'] ?? 0);
                 if ($ovId < 1) {
                     continue;
                 }
 
-                $key = $optionId . ':' . $ovId;
+                $key = $variationTypeId . ':' . $ovId;
                 $seenPovKeys[] = $key;
 
                 $optPrice   = (float) ($v['price'] ?? 0);
@@ -1389,7 +1372,7 @@ $pfx = config('catalog.prefix');
                     if ($oldOvQty !== $newOvQty) {
                         StockHistoryLogger::log(
                             productId: $productId,
-                            optionValueId: (int) $existingPov[$key]->product_option_value_id,
+                            variationValueId: (int) $existingPov[$key]->product_variation_value_id,
                             orderId: null,
                             type: 'set',
                             qtyBefore: $oldOvQty,
@@ -1402,31 +1385,31 @@ $pfx = config('catalog.prefix');
                     $oldSku = trim((string) ($existingPov[$key]->sku ?? ''));
                     $newSku = $data['sku'];
                     if ($oldSku !== '' && $newSku !== $oldSku) {
-                        DB::table('shopee_product_links')
+                        DB::table('ch_shopee_listing_links')
                             ->where('product_id', $productId)
                             ->where('sku', $oldSku)
                             ->update(['sku' => $newSku]);
 
-                        DB::table('lazada_product_variants')
-                            ->whereIn('lazada_product_id', function ($q) use ($productId) {
-                                $q->select('id')->from('lazada_products')->where('product_id', $productId);
+                        DB::table('ch_lazada_listing_variations')
+                            ->whereIn('lazada_listing_id', function ($q) use ($productId) {
+                                $q->select('id')->from('ch_lazada_listings')->where('product_id', $productId);
                             })
                             ->where('seller_sku', $oldSku)
                             ->update(['seller_sku' => $newSku]);
 
-                        $povId = (int) $existingPov[$key]->product_option_value_id;
-                        $skuChanges['option_skus'][$povId] = ['old' => $oldSku, 'new' => $newSku];
+                        $povId = (int) $existingPov[$key]->product_variation_value_id;
+                        $skuChanges['variation_skus'][$povId] = ['old' => $oldSku, 'new' => $newSku];
                     }
 
-                    DB::table($p.'product_option_value')
-                        ->where('product_option_value_id', $existingPov[$key]->product_option_value_id)
-                        ->update(array_merge($data, ['product_option_id' => $productOptionId]));
+                    DB::table('product_variation_values')
+                        ->where('product_variation_value_id', $existingPov[$key]->product_variation_value_id)
+                        ->update(array_merge($data, ['product_variation_type_id' => $productVariationTypeId]));
                 } else {
-                    DB::table($p.'product_option_value')->insert(array_merge($data, [
-                        'product_option_id' => $productOptionId,
+                    DB::table('product_variation_values')->insert(array_merge($data, [
+                        'product_variation_type_id' => $productVariationTypeId,
                         'product_id' => $productId,
-                        'option_id' => $optionId,
-                        'option_value_id' => $ovId,
+                        'variation_type_id' => $variationTypeId,
+                        'variation_value_id' => $ovId,
                         'points' => 0,
                         'points_prefix' => '+',
                     ]));
@@ -1437,29 +1420,29 @@ $pfx = config('catalog.prefix');
         $deletedPovIds = [];
         foreach ($existingPov as $key => $row) {
             if (!in_array($key, $seenPovKeys, true)) {
-                $deletedPovIds[] = (int) $row->product_option_value_id;
-                DB::table($p.'product_option_value')->where('product_option_value_id', $row->product_option_value_id)->delete();
+                $deletedPovIds[] = (int) $row->product_variation_value_id;
+                DB::table('product_variation_values')->where('product_variation_value_id', $row->product_variation_value_id)->delete();
             }
         }
 
         foreach ($existingPo as $optId => $row) {
-            if (!in_array((int) $optId, $seenPoOptionIds, true)) {
-                $groupPovIds = DB::table($p.'product_option_value')
-                    ->where('product_option_id', $row->product_option_id)
-                    ->pluck('product_option_value_id')
+            if (!in_array((int) $optId, $seenPoVariationTypeIds, true)) {
+                $groupPovIds = DB::table('product_variation_values')
+                    ->where('product_variation_type_id', $row->product_variation_type_id)
+                    ->pluck('product_variation_value_id')
                     ->map(fn ($v) => (int) $v)
                     ->all();
                 $deletedPovIds = array_merge($deletedPovIds, $groupPovIds);
 
-                DB::table($p.'product_option_value')->where('product_option_id', $row->product_option_id)->delete();
-                DB::table($p.'product_option')->where('product_option_id', $row->product_option_id)->delete();
+                DB::table('product_variation_values')->where('product_variation_type_id', $row->product_variation_type_id)->delete();
+                DB::table('product_variation_types')->where('product_variation_type_id', $row->product_variation_type_id)->delete();
             }
         }
 
         if (!empty($deletedPovIds)) {
-            DB::table('lazada_product_variants')
-                ->whereIn('product_option_value_id', $deletedPovIds)
-                ->update(['product_option_value_id' => null]);
+            DB::table('ch_lazada_listing_variations')
+                ->whereIn('product_variation_value_id', $deletedPovIds)
+                ->update(['product_variation_value_id' => null]);
         }
     }
 

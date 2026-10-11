@@ -2,7 +2,7 @@
 
 @foreach($rows as $vr)
     @php
-        $vrName = trim((string) ($vr->option_value_name ?? ''));
+        $vrName = trim((string) ($vr->variation_value_name ?? ''));
         $vrSku = trim((string) ($vr->sku ?? ''));
         $vrQty = $vr->quantity ?? null;
         $vrPrice = (float) ($vr->absolute_price ?? 0);

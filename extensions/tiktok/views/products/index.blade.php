@@ -1,6 +1,6 @@
 @extends('layouts.channel')
-@section('breadcrumb', 'Listings')
-@section('title', 'TikTok Shop Listings')
+@section('breadcrumb', 'Products')
+@section('title', 'TikTok Shop Products')
 
 @section('content')
 @php
@@ -12,7 +12,7 @@
         || $tiktokTab !== 'all'
         || ($failedFlag ?? false)
         || ($changeFlag ?? false)
-        || $manufacturerFilter !== 'all'
+        || $brandFilter !== 'all'
         || $groupFilter !== 'all'
         || $erpStatus !== 'all';
     $toggleDir = fn (string $col) => $sort !== $col ? 'asc' : ($dir === 'asc' ? 'desc' : 'asc');
@@ -33,12 +33,12 @@
 
 <div class="x-list-head">
     <div>
-        <h1 class="x-page-title">Listings</h1>
+        <h1 class="x-page-title">Products</h1>
         <p class="x-page-sub">
             @if($hasFilters)
                 {{ number_format($products->total()) }} {{ $products->total() === 1 ? 'product matches' : 'products match' }}@if($statusMenu['label'] ?? null): {{ $statusMenu['label'] }}@endif
             @else
-                {{ number_format($catalogueTotal ?? $products->total()) }} {{ ($catalogueTotal ?? $products->total()) === 1 ? 'product' : 'products' }} on this store
+                {{ number_format($catalogTotal ?? $products->total()) }} {{ ($catalogTotal ?? $products->total()) === 1 ? 'product' : 'products' }} on this store
                 &middot; {{ number_format($listedTotal ?? 0) }} on TikTok Shop
             @endif
         </p>
@@ -58,7 +58,7 @@
     </div>
 @elseif(($liveCounts ?? null) !== null)
     @php
-        $tabDefs = \Extensions\tiktok\Services\TikTok\TikTokLiveListing::TABS;
+        $tabDefs = \Extensions\TikTok\Services\TikTok\TikTokLiveListing::TABS;
         $tabQuery = request()->except('page', 'tiktok_tab');
     @endphp
     <div class="x-segment-bar">
@@ -69,7 +69,7 @@
                        class="x-segment__item {{ $tiktokTab === 'all' ? 'is-active' : '' }}"
                        @if($tiktokTab === 'all') aria-current="true" @endif>
                         <span>All</span>
-                        <span class="x-segment__count">{{ number_format((int) ($catalogueTotal ?? $products->total())) }}</span>
+                        <span class="x-segment__count">{{ number_format((int) ($catalogTotal ?? $products->total())) }}</span>
                     </a>
                     @foreach($tabDefs as $tabKey => [$tabLabel, $tabStatus])
                         @continue($tabKey === 'all')
@@ -149,24 +149,24 @@
     @endif
     <x-ui.input type="search" name="q" class="x-filters__search" value="{{ $q }}" placeholder="Name, model or SKU" aria-label="Search listings" />
     <div class="x-select-wrap x-filters__select">
-        <select name="manufacturer" class="x-input" data-autosubmit aria-label="Filter by manufacturer">
-            <option value="all">All manufacturers</option>
-            @foreach($allManufacturers as $mId => $mName)
-                <option value="{{ $mId }}" @selected($manufacturerFilter === (string) $mId)>{{ $mName }}</option>
+        <select name="brand" class="x-input" data-autosubmit aria-label="Filter by brand">
+            <option value="all">All brands</option>
+            @foreach($allBrands as $mId => $mName)
+                <option value="{{ $mId }}" @selected($brandFilter === (string) $mId)>{{ $mName }}</option>
             @endforeach
         </select>
         <x-ui.icon name="chevron-down" size="14" class="x-select-wrap__chevron" />
     </div>
     <div class="x-select-wrap x-filters__select x-filters__select--narrow">
-        <select name="erp_status" class="x-input" data-autosubmit aria-label="Filter by catalog status">
-            <option value="all" @selected($erpStatus === 'all')>Any catalog status</option>
+        <select name="erp_status" class="x-input" data-autosubmit aria-label="Filter by Master Catalog status">
+            <option value="all" @selected($erpStatus === 'all')>Any Master Catalog status</option>
             <option value="enabled" @selected($erpStatus === 'enabled')>Enabled</option>
             <option value="disabled" @selected($erpStatus === 'disabled')>Disabled</option>
         </select>
         <x-ui.icon name="chevron-down" size="14" class="x-select-wrap__chevron" />
     </div>
-    @if(!empty($orderOptions))
-        @include('partials.listing-sort', ['options' => $orderOptions, 'chosen' => $order])
+    @if(!empty($orderVariations))
+        @include('partials.listing-sort', ['options' => $orderVariations, 'chosen' => $order])
     @endif
 
     <x-ui.button type="submit" variant="secondary">Search</x-ui.button>
@@ -251,13 +251,13 @@
 
     @php
 
-        $marks = new \App\Integrations\Listings\ListingMarks(
+        $marks = new \App\Channels\Listings\ListingMarks(
 
-            'tiktok', \App\Integrations\Listings\ListingStore::id('tiktok'),
+            'tiktok', \App\Channels\Listings\ListingStore::id('tiktok'),
 
             $products->pluck('product_id')->map(fn ($v) => (int) $v)->all(),
 
-            'tiktok_listings', 'tiktok_setting_id', 'tiktok_product_groups', 'tiktok_product_group_products', 'tiktok_product_group_id', 'tiktok_setting_id'
+            'ch_tiktok_listings', 'store_id', 'ch_tiktok_product_groups', 'ch_tiktok_product_group_products', 'tiktok_product_group_id', 'store_id'
 
         );
 
@@ -272,7 +272,7 @@
             $listed = (bool) $ttId;
             $attempt = $lastAttempts->get($pid);
             $pGroups = $groupsByProductId->get($pid, []);
-            $optRows = $optionRowsByProductId->get($pid);
+            $optRows = $variationRowsByProductId->get($pid);
             $img = trim((string) ($p->image ?? ''));
             $thumbSrc = $marks->thumb((int) $p->product_id, $img) ?? '';
             $rowLiveStatus = null;
@@ -280,7 +280,7 @@
                 $rowLiveStatus = $liveStatuses[(string) $ttId] ?? null;
             }
             $rowState = ($listingStates ?? [])[$pid] ?? null;
-            $stateClass = \App\Integrations\Listings\ListingState::class;
+            $stateClass = \App\Channels\Listings\ListingState::class;
             $attemptFailed = $attempt && $attempt->sync_status === 'error';
             $pName = (string) ($rowTitles[(int) $pid] ?? $p->name);
             $rowLabel = $pName !== '' ? $pName : (string) ($p->sku ?: 'product ' . $pid);
@@ -308,7 +308,7 @@
                             @if($listed)
                                 <span class="co-item__sku lsm-chanid">TikTok {{ $ttId }}</span>
                             @endif
-                            @if($p->manufacturer_name)<span>{{ $p->manufacturer_name }}</span>@endif
+                            @if($p->brand_name)<span>{{ $p->brand_name }}</span>@endif
                             @if(($groupFilter ?? 'all') === 'all' && count($pGroups) > 0)
                                 <a class="co-item__var" href="{{ route('ext.tiktok.products.index', array_merge(request()->except(['page', 'sync_status', 'group']), ['group' => $pGroups[0]['id']])) }}">Product group: {{ $pGroups[0]['name'] }}</a>
                             @endif
@@ -401,17 +401,17 @@
 @if($canManage)
     <x-channel.add-panel
         id="tiktok-add-panel"
-        :search-url="route('ext.tiktok.products.catalogue_search')"
+        :search-url="route('ext.tiktok.products.catalog_search')"
         :add-url="route('ext.tiktok.products.add_to_store', ['productId' => '__PID__'])"
-        :groups="\App\Integrations\Listings\StatusMenu::groupChoices($statusMenu ?? [])"
-        :group="\App\Integrations\Listings\StatusMenu::chosenGroup($statusMenu ?? [])"
+        :groups="\App\Channels\Listings\StatusMenu::groupChoices($statusMenu ?? [])"
+        :group="\App\Channels\Listings\StatusMenu::chosenGroup($statusMenu ?? [])"
         sub="Search your Master Catalog. Each product you add joins this store's list, ready to configure and push to TikTok Shop."
         toggle-label="Show products already on this store"
         in-label="On this store"
         scope="this store"
         empty-default="Every enabled product is already on this store."
-        empty-all="Your catalogue has no enabled products."
-        list-label="Catalogue products"
+        empty-all="Your Master Catalog has no enabled products."
+        list-label="Master Catalog products"
         :full-url="route('ext.tiktok.products.index', ['list' => 'add'])" />
 @endif
 

@@ -54,7 +54,6 @@ class ImportProductCosts extends Command
             return 1;
         }
 
-        $pfx = (string) config('catalog.prefix');
         $updated = 0;
         $skipped = 0;
         $notFound = 0;
@@ -80,9 +79,9 @@ class ImportProductCosts extends Command
             }
 
             if ($lookupBy === 'sku') {
-                $product = DB::table($pfx . 'product')->where('sku', $identifier)->first();
+                $product = DB::table('products')->where('sku', $identifier)->first();
             } else {
-                $product = DB::table($pfx . 'product')->where('product_id', (int) $identifier)->first();
+                $product = DB::table('products')->where('product_id', (int) $identifier)->first();
             }
 
             if (!$product) {
@@ -92,7 +91,7 @@ class ImportProductCosts extends Command
             }
 
             if (!$dryRun) {
-                DB::table($pfx . 'product')
+                DB::table('products')
                     ->where('product_id', $product->product_id)
                     ->update(['cost' => $cost]);
             }

@@ -1,13 +1,13 @@
 <?php
 
-namespace Extensions\tiktok\Services\TikTok;
+namespace Extensions\TikTok\Services\TikTok;
 
 use App\Models\Catalog\Order;
 use App\Models\Catalog\OrderHistory;
-use Extensions\tiktok\Models\TikTokApiLog;
-use Extensions\tiktok\Models\TikTokOrderStatusMap;
-use Extensions\tiktok\Models\TikTokReturn;
-use Extensions\tiktok\Models\TikTokSetting;
+use Extensions\TikTok\Models\TikTokApiLog;
+use Extensions\TikTok\Models\TikTokOrderStatusMap;
+use Extensions\TikTok\Models\TikTokReturn;
+use Extensions\TikTok\Models\TikTokStore;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -102,8 +102,8 @@ class TikTokReturnSync
 
             $statusId = (int) ($returnMap[(string) ($ro['return_status'] ?? '')] ?? 0);
             $catalogOrderId = $payload['order_id']
-                ? (int) (DB::table('tiktok_orders')->where('order_id', $payload['order_id'])
-                    ->when(app()->bound('tiktok.route-store'), fn ($q) => $q->where('tiktok_setting_id', app('tiktok.route-store')->id))
+                ? (int) (DB::table('ch_tiktok_orders')->where('order_id', $payload['order_id'])
+                    ->when(app()->bound('tiktok.route-store'), fn ($q) => $q->where('store_id', app('tiktok.route-store')->id))
                     ->value('catalog_order_id') ?? 0)
                 : 0;
             if ($statusId > 0 && $catalogOrderId > 0) {
@@ -129,7 +129,7 @@ class TikTokReturnSync
         return ['ok' => true, 'saved' => $saved, 'updated' => $updated, 'statused' => $statused, 'failure' => $failure, 'message' => $message];
     }
 
-    public static function credsFrom(?TikTokSetting $s): ?array
+    public static function credsFrom(?TikTokStore $s): ?array
     {
         if (!$s) {
             return null;

@@ -205,17 +205,17 @@
             <div class="fm-card">
                 <div class="fm-card__head"><h2 class="fm-card__title">Watermark</h2></div>
                 <div class="fm-card__body">
-                    @include('partials.watermark-pick', ['selected' => old('watermark_template_id', $group->watermark_template_id ?? null), 'integration' => 'shopee', 'canManage' => $canManageShopee])
+                    @include('partials.watermark-pick', ['selected' => old('watermark_template_id', $group->watermark_template_id ?? null), 'channel' => 'shopee', 'canManage' => $canManageShopee])
                 </div>
             </div>
 
             <div class="fm-card">
                 <div class="fm-card__head"><h2 class="fm-card__title">Price markup</h2></div>
                 <div class="fm-card__body">
-                    <p class="fm-section__note">The percentage is added to the catalog price first, then the fixed amount on top. Leave both empty to push the catalog price as it is.</p>
+                    <p class="fm-section__note">The percentage is added to the Master Catalog price first, then the fixed amount on top. Leave both empty to push the Master Catalog price as it is.</p>
 
                     <x-ui.field label="Percentage of price" for="pg-markup-percent" name="markup_percent"
-                                hint="5 means the pushed price is 5% above the catalog price.">
+                                hint="5 means the pushed price is 5% above the Master Catalog price.">
                         <div class="cs-inline">
                             <x-ui.input id="pg-markup-percent" name="markup_percent" type="number" step="0.01" min="0"
                                         class="fm-input--num cs-days"

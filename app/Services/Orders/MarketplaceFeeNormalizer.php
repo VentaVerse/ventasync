@@ -2,8 +2,8 @@
 
 namespace App\Services\Orders;
 
-use App\Integrations\Contracts\MarketplaceFeeSource;
-use App\Integrations\IntegrationRegistry;
+use App\Channels\Contracts\MarketplaceFeeSource;
+use App\Channels\ChannelRegistry;
 use Illuminate\Support\Facades\DB;
 
 // Replace the order's fee rows, never add to them (syncs re-run); amounts are stored negative.
@@ -17,7 +17,7 @@ class MarketplaceFeeNormalizer
         'voucher' => ['marketplace_voucher', 'Vouchers', 95],
     ];
 
-    public function __construct(private readonly IntegrationRegistry $registry) {}
+    public function __construct(private readonly ChannelRegistry $registry) {}
 
     public function forOrder(int $coreOrderId): bool
     {
@@ -35,11 +35,10 @@ class MarketplaceFeeNormalizer
 
     public function write(int $coreOrderId, array $buckets): void
     {
-        $pfx = (string) config('catalog.prefix');
         $codes = array_map(fn ($c) => $c[0], self::CODES);
 
-        DB::transaction(function () use ($pfx, $codes, $coreOrderId, $buckets) {
-            DB::table($pfx . 'order_total')
+        DB::transaction(function () use ( $codes, $coreOrderId, $buckets) {
+            DB::table('order_totals')
                 ->where('order_id', $coreOrderId)
                 ->whereIn('code', $codes)
                 ->delete();
@@ -60,7 +59,7 @@ class MarketplaceFeeNormalizer
             }
 
             if ($rows !== []) {
-                DB::table($pfx . 'order_total')->insert($rows);
+                DB::table('order_totals')->insert($rows);
             }
         });
     }

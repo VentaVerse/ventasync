@@ -1,6 +1,6 @@
 <?php
 
-namespace Extensions\opencart\Commands;
+namespace Extensions\OpenCart\Commands;
 
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
@@ -27,14 +27,13 @@ class OpenCartReclassifyOrders extends Command
     public function handle(): int
     {
         $dryRun = $this->option('dry-run');
-        $pfx = (string) config('catalog.prefix');
-        $table = $pfx . 'order';
+        $table = 'orders';
 
         $this->info($dryRun ? 'DRY RUN: no changes will be made.' : 'Reclassifying opencart orders...');
         $this->newLine();
 
         $before = DB::table($table)
-            ->where('marketplace_source', 'like', 'opencart:%')
+            ->where('channel', 'like', 'opencart:%')
             ->count();
         $this->line("OpenCart orders before: <comment>{$before}</comment>");
         $this->newLine();
@@ -42,33 +41,33 @@ class OpenCartReclassifyOrders extends Command
         DB::beginTransaction();
 
         $count1 = DB::table($table)
-            ->where('marketplace_source', 'like', 'opencart:%')
+            ->where('channel', 'like', 'opencart:%')
             ->where(function ($q) {
                 $q->where('shipping_method', 'like', '%LazadaShipping%')
                   ->orWhere('shipping_method', 'Lazada Shipping');
             })
-            ->update(['marketplace_source' => 'lazada']);
+            ->update(['channel' => 'lazada']);
 
         $this->line("Rule 1: shipping_method contains 'Lazada': <info>{$count1}</info> → lazada");
 
         $count2 = DB::table($table)
-            ->where('marketplace_source', 'like', 'opencart:%')
+            ->where('channel', 'like', 'opencart:%')
             ->where('payment_method', 'Shopee Payment')
-            ->update(['marketplace_source' => 'shopee']);
+            ->update(['channel' => 'shopee']);
 
         $this->line("Rule 2: payment_method = 'Shopee Payment': <info>{$count2}</info> → shopee");
 
         $count3 = DB::table($table)
-            ->where('marketplace_source', 'like', 'opencart:%')
+            ->where('channel', 'like', 'opencart:%')
             ->whereIn('payment_method', $this->lazadaPaymentMethods)
-            ->update(['marketplace_source' => 'lazada']);
+            ->update(['channel' => 'lazada']);
 
         $this->line("Rule 3: Lazada payment codes (COD, GCASH_PP, etc.): <info>{$count3}</info> → lazada");
 
         $count4 = DB::table($table)
-            ->where('marketplace_source', 'like', 'opencart:%')
+            ->where('channel', 'like', 'opencart:%')
             ->whereIn('shipping_method', ['SPX Express', 'Shopee Xpress', 'Ninja Van'])
-            ->update(['marketplace_source' => 'shopee']);
+            ->update(['channel' => 'shopee']);
 
         $this->line("Rule 4: Shopee couriers (SPX, Shopee Xpress): <info>{$count4}</info> → shopee");
 
@@ -78,14 +77,14 @@ class OpenCartReclassifyOrders extends Command
         $this->info("Total: {$totalLazada} → lazada, {$totalShopee} → shopee");
 
         $remaining = DB::table($table)
-            ->where('marketplace_source', 'like', 'opencart:%')
+            ->where('channel', 'like', 'opencart:%')
             ->count();
         $this->line("Remaining as opencart: <comment>{$remaining}</comment>");
 
         $this->newLine();
         $this->info('Remaining opencart orders, top payment/shipping combos:');
         $leftover = DB::table($table)
-            ->where('marketplace_source', 'like', 'opencart:%')
+            ->where('channel', 'like', 'opencart:%')
             ->select(DB::raw('payment_method, shipping_method, COUNT(*) as cnt'))
             ->groupBy('payment_method', 'shipping_method')
             ->orderByDesc('cnt')

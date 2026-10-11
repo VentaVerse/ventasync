@@ -1,10 +1,10 @@
 <?php
 
-namespace Extensions\ventacart\Controllers;
+namespace Extensions\VentaCart\Controllers;
 
 class VentaCartWatermarkTemplateController extends \App\Http\Controllers\Channels\WatermarkTemplateController
 {
-    protected function integration(): string
+    protected function channel(): string
     {
         return 'ventacart';
     }

@@ -1,22 +1,22 @@
 <?php
 
-namespace Extensions\opencart\Commands;
+namespace Extensions\OpenCart\Commands;
 
-use Extensions\opencart\Models\OpenCartSetting;
-use Extensions\opencart\Services\OpenCart\OpenCartClient;
-use Extensions\opencart\Services\OpenCart\OpenCartProductSync;
+use Extensions\OpenCart\Models\OpenCartStore;
+use Extensions\OpenCart\Services\OpenCart\OpenCartClient;
+use Extensions\OpenCart\Services\OpenCart\OpenCartProductSync;
 use Illuminate\Console\Command;
 
-class OpenCartPushPrice extends Command implements \App\Integrations\Contracts\SteppableAutomation
+class OpenCartPushPrice extends Command implements \App\Channels\Contracts\SteppableAutomation
 {
     protected $signature = 'opencart:push-price
-        {--store= : Store ID (opencart_settings.id). Omit to push to all enabled stores}';
+        {--store= : Store ID (ch_opencart_stores.id). Omit to push to all enabled stores}';
 
     protected $description = 'Push product prices from the ERP to OpenCart stores';
 
     public function handle(): int
     {
-        $stores = OpenCartSetting::query()->where('enabled', true);
+        $stores = OpenCartStore::query()->where('enabled', true);
         if ($this->option('store')) {
             $stores->where('id', (int) $this->option('store'));
         }
@@ -27,17 +27,17 @@ class OpenCartPushPrice extends Command implements \App\Integrations\Contracts\S
             return 1;
         }
 
-        foreach ($stores as $setting) {
+        foreach ($stores as $store) {
             $this->newLine();
-            $this->info("=== Pushing prices to: {$setting->store_name} (#{$setting->id}) ===");
+            $this->info("=== Pushing prices to: {$store->store_name} (#{$store->id}) ===");
             try {
-                $client = new OpenCartClient($setting);
+                $client = new OpenCartClient($store);
                 $ping = $client->ping();
                 if (! $ping['ok']) {
                     $this->error('Cannot connect: ' . json_encode($ping['body']));
                     continue;
                 }
-                $log = (new OpenCartProductSync($client, $setting))->pushPrices();
+                $log = (new OpenCartProductSync($client, $store))->pushPrices();
                 $this->info("  Status: {$log->status}");
                 $this->info("  Updated: {$log->records_updated}, Failed: {$log->records_failed}");
                 if ($log->error_message) {
@@ -56,11 +56,11 @@ class OpenCartPushPrice extends Command implements \App\Integrations\Contracts\S
 
     public function automationUnits(\App\Models\ScheduledJob $job): array
     {
-        return ['label' => 'products', 'units' => \Extensions\opencart\Services\OpenCart\OpenCartPushSteps::units($job)];
+        return ['label' => 'products', 'units' => \Extensions\OpenCart\Services\OpenCart\OpenCartPushSteps::units($job)];
     }
 
     public function automationStep(\App\Models\ScheduledJob $job, array $units): array
     {
-        return \Extensions\opencart\Services\OpenCart\OpenCartPushSteps::step('price', $units);
+        return \Extensions\OpenCart\Services\OpenCart\OpenCartPushSteps::step('price', $units);
     }
 }

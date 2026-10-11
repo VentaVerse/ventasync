@@ -1,6 +1,6 @@
 <?php
 
-namespace Extensions\tiktok\Services\TikTok;
+namespace Extensions\TikTok\Services\TikTok;
 
 use Illuminate\Support\Facades\DB;
 
@@ -10,7 +10,6 @@ class TikTokVariationPush
 
     public function skus(object $erp, \Closure $priceFor, ?string $warehouseId, ?\Closure $uploadUri = null, ?array $existing = null): array
     {
-        $pfx = (string) config('catalog.prefix');
         $langId = (int) config('catalog.default_language_id');
         $productId = (int) $erp->product_id;
         $basePrice = (float) ($erp->price ?? 0);
@@ -24,39 +23,39 @@ class TikTokVariationPush
         };
         $money = fn (float $amount) => ['amount' => (string) round($amount), 'currency' => 'PHP'];
 
-        $combos = DB::table('product_option_combinations')
+        $combos = DB::table('product_variations')
             ->where('product_id', $productId)
             ->orderBy('sort_order')
             ->get(['id', 'sku', 'quantity', 'absolute_price', 'image', 'status']);
 
-        $hidden = \App\Integrations\Listings\ListingVariations::hidden('tiktok', (int) (\Extensions\tiktok\Models\TikTokSetting::defaultStore()?->id ?? 0), [$productId]);
+        $hidden = \App\Channels\Listings\ListingVariations::hidden('tiktok', (int) (\Extensions\TikTok\Models\TikTokStore::defaultStore()?->id ?? 0), [$productId]);
         if ($combos->isNotEmpty()) {
-            $combos = $combos->filter(fn ($c) => \App\Integrations\Listings\ListingVariations::allows($hidden, $productId, $c->sku))->values();
+            $combos = $combos->filter(fn ($c) => \App\Channels\Listings\ListingVariations::allows($hidden, $productId, $c->sku))->values();
             if ($combos->isEmpty()) {
-                return ['skus' => [], 'kind' => 'combos', 'keys' => [], 'refused' => \App\Integrations\Listings\ListingVariations::noneSoldMessage('TikTok Shop')];
+                return ['skus' => [], 'kind' => 'combos', 'keys' => [], 'refused' => \App\Channels\Listings\ListingVariations::noneSoldMessage('TikTok Shop')];
             }
         }
 
         if ($combos->isNotEmpty()) {
-            $values = DB::table('product_option_combination_values as cv')
-                ->join($pfx . 'product_option_value as pov', 'cv.product_option_value_id', '=', 'pov.product_option_value_id')
-                ->join($pfx . 'option_value_description as ovd', function ($j) use ($langId) {
-                    $j->on('pov.option_value_id', '=', 'ovd.option_value_id')->where('ovd.language_id', '=', $langId);
+            $values = DB::table('product_variation_parts as cv')
+                ->join('product_variation_values as pov', 'cv.product_variation_value_id', '=', 'pov.product_variation_value_id')
+                ->join('variation_value_descriptions as ovd', function ($j) use ($langId) {
+                    $j->on('pov.variation_value_id', '=', 'ovd.variation_value_id')->where('ovd.language_id', '=', $langId);
                 })
-                ->join($pfx . 'option_description as od', function ($j) use ($langId) {
-                    $j->on('pov.option_id', '=', 'od.option_id')->where('od.language_id', '=', $langId);
+                ->join('variation_type_descriptions as od', function ($j) use ($langId) {
+                    $j->on('pov.variation_type_id', '=', 'od.variation_type_id')->where('od.language_id', '=', $langId);
                 })
-                ->whereIn('cv.combination_id', $combos->pluck('id')->all())
-                ->orderBy('pov.product_option_id')
-                ->orderBy('pov.product_option_value_id')
-                ->get(['cv.combination_id', 'pov.product_option_id', 'ovd.name as value_name', 'od.name as option_name']);
+                ->whereIn('cv.product_variation_id', $combos->pluck('id')->all())
+                ->orderBy('pov.product_variation_type_id')
+                ->orderBy('pov.product_variation_value_id')
+                ->get(['cv.product_variation_id', 'pov.product_variation_type_id', 'ovd.name as value_name', 'od.name as variation_type_name']);
 
             $axes = [];
             $comboAxes = [];
             foreach ($values as $v) {
-                $axisId = (int) $v->product_option_id;
-                $axes[$axisId] ??= html_entity_decode((string) $v->option_name, ENT_QUOTES | ENT_HTML5, 'UTF-8') ?: 'Variation';
-                $comboAxes[(int) $v->combination_id][$axisId] = html_entity_decode((string) $v->value_name, ENT_QUOTES | ENT_HTML5, 'UTF-8') ?: 'Unnamed';
+                $axisId = (int) $v->product_variation_type_id;
+                $axes[$axisId] ??= html_entity_decode((string) $v->variation_type_name, ENT_QUOTES | ENT_HTML5, 'UTF-8') ?: 'Variation';
+                $comboAxes[(int) $v->product_variation_id][$axisId] = html_entity_decode((string) $v->value_name, ENT_QUOTES | ENT_HTML5, 'UTF-8') ?: 'Unnamed';
             }
             if (count($axes) > self::MAX_AXES) {
                 return ['skus' => [], 'kind' => 'combos', 'keys' => [],
@@ -95,26 +94,26 @@ class TikTokVariationPush
             return ['skus' => $skus, 'kind' => 'combos', 'keys' => $keys, 'refused' => null];
         }
 
-        $optionValues = $this->optionValues($pfx, $langId, $productId);
-        if (!empty($optionValues)) {
-            $optionValues = array_values(array_filter($optionValues, fn ($ov) => \App\Integrations\Listings\ListingVariations::allows($hidden, $productId, $ov->sku)));
-            if ($optionValues === []) {
-                return ['skus' => [], 'kind' => 'pov', 'keys' => [], 'refused' => \App\Integrations\Listings\ListingVariations::noneSoldMessage('TikTok Shop')];
+        $variationValues = $this->variationValues( $langId, $productId);
+        if (!empty($variationValues)) {
+            $variationValues = array_values(array_filter($variationValues, fn ($ov) => \App\Channels\Listings\ListingVariations::allows($hidden, $productId, $ov->sku)));
+            if ($variationValues === []) {
+                return ['skus' => [], 'kind' => 'pov', 'keys' => [], 'refused' => \App\Channels\Listings\ListingVariations::noneSoldMessage('TikTok Shop')];
             }
         }
-        if (!empty($optionValues)) {
+        if (!empty($variationValues)) {
             $skus = [];
             $keys = [];
-            $axisName = $optionValues[0]->option_name;
-            foreach ($optionValues as $ov) {
-                $sellerSku = trim((string) $ov->sku) !== '' ? trim((string) $ov->sku) : ($erp->sku . '-' . $ov->option_value_id);
+            $axisName = $variationValues[0]->variation_type_name;
+            foreach ($variationValues as $ov) {
+                $sellerSku = trim((string) $ov->sku) !== '' ? trim((string) $ov->sku) : ($erp->sku . '-' . $ov->variation_value_id);
                 $sku = [
                     'seller_sku' => $sellerSku,
                     'sales_attributes' => [['name' => $axisName, 'value_name' => $ov->value_name]],
-                    'price' => $money($priceFor($this->optionPrice($basePrice, $ov))),
+                    'price' => $money($priceFor($this->variationPrice($basePrice, $ov))),
                     'inventory' => $inventory((int) $ov->quantity),
                 ];
-                $id = $existing[$sellerSku] ?? $existing[(string) $ov->option_value_id] ?? $existing[(int) $ov->option_value_id] ?? null;
+                $id = $existing[$sellerSku] ?? $existing[(string) $ov->variation_value_id] ?? $existing[(int) $ov->variation_value_id] ?? null;
                 if ($id) {
                     $sku['id'] = (string) $id;
                 }
@@ -126,7 +125,7 @@ class TikTokVariationPush
         }
 
         $sellerSku = $erp->sku ?: ($erp->model ?: (string) $productId);
-        $startPrice = \Extensions\tiktok\Models\TikTokListing::ownPrices([$productId])[$productId] ?? $basePrice;
+        $startPrice = \Extensions\TikTok\Models\TikTokListing::ownPrices([$productId])[$productId] ?? $basePrice;
         $sku = [
             'seller_sku' => $sellerSku,
             'price' => $money($priceFor($startPrice)),
@@ -182,11 +181,10 @@ class TikTokVariationPush
         if ($productIds === []) {
             return [];
         }
-        $pfx = (string) config('catalog.prefix');
-        $combos = DB::table('product_option_combinations')->whereIn('product_id', $productIds)->distinct()->pluck('product_id');
-        $values = DB::table($pfx . 'product_option_value as pov')
-            ->join($pfx . 'product_option as po', 'po.product_option_id', '=', 'pov.product_option_id')
-            ->join($pfx . 'option as o', 'o.option_id', '=', 'po.option_id')
+        $combos = DB::table('product_variations')->whereIn('product_id', $productIds)->distinct()->pluck('product_id');
+        $values = DB::table('product_variation_values as pov')
+            ->join('product_variation_types as po', 'po.product_variation_type_id', '=', 'pov.product_variation_type_id')
+            ->join('variation_types as o', 'o.variation_type_id', '=', 'po.variation_type_id')
             ->whereIn('pov.product_id', $productIds)
             ->whereIn('o.type', ['select', 'radio'])
             ->distinct()->pluck('pov.product_id');
@@ -194,30 +192,30 @@ class TikTokVariationPush
         return array_fill_keys($combos->merge($values)->map(fn ($v) => (int) $v)->unique()->values()->all(), true);
     }
 
-    public function optionValues(string $pfx, int $langId, int $productId): array
+    public function variationValues( int $langId, int $productId): array
     {
-        return DB::table($pfx . 'product_option_value as pov')
-            ->join($pfx . 'product_option as po', 'po.product_option_id', '=', 'pov.product_option_id')
-            ->join($pfx . 'option as o', 'o.option_id', '=', 'po.option_id')
-            ->join($pfx . 'option_description as od', function ($j) use ($langId) {
-                $j->on('od.option_id', '=', 'o.option_id')->where('od.language_id', '=', $langId);
+        return DB::table('product_variation_values as pov')
+            ->join('product_variation_types as po', 'po.product_variation_type_id', '=', 'pov.product_variation_type_id')
+            ->join('variation_types as o', 'o.variation_type_id', '=', 'po.variation_type_id')
+            ->join('variation_type_descriptions as od', function ($j) use ($langId) {
+                $j->on('od.variation_type_id', '=', 'o.variation_type_id')->where('od.language_id', '=', $langId);
             })
-            ->join($pfx . 'option_value_description as ovd', function ($j) use ($langId) {
-                $j->on('ovd.option_value_id', '=', 'pov.option_value_id')->where('ovd.language_id', '=', $langId);
+            ->join('variation_value_descriptions as ovd', function ($j) use ($langId) {
+                $j->on('ovd.variation_value_id', '=', 'pov.variation_value_id')->where('ovd.language_id', '=', $langId);
             })
             ->where('pov.product_id', $productId)
             ->whereIn('o.type', ['select', 'radio'])
-            ->orderBy('po.product_option_id')
-            ->orderBy('pov.product_option_value_id')
+            ->orderBy('po.product_variation_type_id')
+            ->orderBy('pov.product_variation_value_id')
             ->get([
-                'pov.product_option_value_id', 'pov.option_value_id', 'pov.sku', 'pov.quantity',
+                'pov.product_variation_value_id', 'pov.variation_value_id', 'pov.sku', 'pov.quantity',
                 'pov.price', 'pov.price_prefix', 'pov.absolute_price',
-                'ovd.name as value_name', 'od.name as option_name',
+                'ovd.name as value_name', 'od.name as variation_type_name',
             ])
             ->all();
     }
 
-    public function optionPrice(float $basePrice, object $ov): float
+    public function variationPrice(float $basePrice, object $ov): float
     {
         if ((float) ($ov->absolute_price ?? 0) > 0) {
             return (float) $ov->absolute_price;

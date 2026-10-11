@@ -1,10 +1,10 @@
 <?php
 
-namespace Extensions\tiktok\Controllers;
+namespace Extensions\TikTok\Controllers;
 
 class TikTokDescriptionTemplateController extends \App\Http\Controllers\Channels\DescriptionTemplateController
 {
-    protected function integration(): string
+    protected function channel(): string
     {
         return 'tiktok';
     }

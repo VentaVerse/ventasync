@@ -1,11 +1,11 @@
 <?php
 
-namespace Extensions\lazada\Services;
+namespace Extensions\Lazada\Services;
 
 use App\Support\Fulfilment\AppFulfilment;
-use Extensions\lazada\Controllers\LazadaOrderController;
-use Extensions\lazada\Models\LazadaOrder;
-use Extensions\lazada\Models\LazadaSetting;
+use Extensions\Lazada\Controllers\LazadaOrderController;
+use Extensions\Lazada\Models\LazadaOrder;
+use Extensions\Lazada\Models\LazadaStore;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -28,7 +28,7 @@ final class LazadaAppFulfilment
             'ready_to_ship' => ['to_handover', [], ['awb', 'tracking']],
             'shipped' => ['shipped', [], ['tracking']],
             'delivered' => ['done', [], []],
-            'canceled', 'cancelled' => ['cancelled', [], []],
+            'canceled', 'cancelled' => ['canceled', [], []],
             default => ['other', [], []],
         };
 
@@ -38,7 +38,7 @@ final class LazadaAppFulfilment
     public function handle(string $action, int $id, Request $request): Response
     {
         $order = LazadaOrder::query()->find($id);
-        $store = $order ? LazadaSetting::query()->find($order->lazada_setting_id) : null;
+        $store = $order ? LazadaStore::query()->find($order->store_id) : null;
         if ($order === null || $store === null) {
             return response()->json(['error' => 'Order not found'], 404);
         }
@@ -60,7 +60,7 @@ final class LazadaAppFulfilment
     {
         return AppFulfilment::answer(
             AppFulfilment::webOutcome($answer, 'lazada_orders_last_result'),
-            app(\App\Integrations\IntegrationRegistry::class)->mobileProviderFor('lazada')?->mobileShowResponse($id),
+            app(\App\Channels\ChannelRegistry::class)->mobileProviderFor('lazada')?->mobileShowResponse($id),
         );
     }
 

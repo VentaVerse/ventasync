@@ -2,7 +2,7 @@
 
 namespace Tests\Feature;
 
-use App\Integrations\Contracts\CredentialRevealer;
+use App\Channels\Contracts\CredentialRevealer;
 use App\Support\Credentials;
 use Illuminate\Support\Facades\Crypt;
 use Tests\TestCase;
@@ -111,7 +111,7 @@ class CredentialFieldContractTest extends TestCase
 
         $this->assertStringContainsString('x-ref="toggle"',
             file_get_contents(base_path('resources/views/components/ui/credential.blade.php')),
-            'The control is not addressable, so the blur guard cannot recognise it.');
+            'The control is not addressable, so the blur guard cannot recognize it.');
     }
 
     public function test_an_edited_field_cannot_be_clobbered_by_revealing_again(): void

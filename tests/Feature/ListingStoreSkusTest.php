@@ -2,7 +2,7 @@
 
 namespace Tests\Feature;
 
-use App\Integrations\Listings\ListingVariations;
+use App\Channels\Listings\ListingVariations;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
@@ -13,13 +13,12 @@ class ListingStoreSkusTest extends TestCase
 
     private function product(): int
     {
-        $pfx = (string) config('catalog.prefix');
-        $pid = (int) DB::table($pfx . 'product')->insertGetId([
+        $pid = (int) DB::table('products')->insertGetId([
             'model' => 'EXL110', 'sku' => 'EXL110', 'quantity' => 9, 'price' => 420, 'status' => 1, 'image' => '',
             'date_added' => now(), 'date_modified' => now(), 'date_available' => now(),
         ]);
         foreach ([['EXL110-1046', 1], ['EXL110-0942', 2], ['EXL110-1149', 3]] as [$sku, $sort]) {
-            DB::table('product_option_combinations')->insert([
+            DB::table('product_variations')->insert([
                 'product_id' => $pid, 'sku' => $sku, 'quantity' => 3, 'absolute_price' => 420, 'status' => 1, 'sort_order' => $sort,
             ]);
         }
@@ -46,7 +45,7 @@ class ListingStoreSkusTest extends TestCase
         $this->assertSame([], ListingVariations::missing('shopee', 5, [$pid]), 'switched off for this store');
 
         DB::table(ListingVariations::TABLE)->delete();
-        DB::table('product_option_combinations')->where('sku', 'EXL110-1149')->update(['status' => 0]);
+        DB::table('product_variations')->where('sku', 'EXL110-1149')->update(['status' => 0]);
         $this->assertSame([], ListingVariations::missing('shopee', 5, [$pid]), 'switched off in the catalog');
     }
 

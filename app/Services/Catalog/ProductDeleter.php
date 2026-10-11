@@ -2,14 +2,14 @@
 
 namespace App\Services\Catalog;
 
-use App\Integrations\Contracts\ProductRemover;
-use App\Integrations\IntegrationRegistry;
+use App\Channels\Contracts\ProductRemover;
+use App\Channels\ChannelRegistry;
 use App\Services\ActivityLogger;
 use Illuminate\Support\Facades\DB;
 
 final class ProductDeleter
 {
-    public function __construct(private readonly IntegrationRegistry $registry) {}
+    public function __construct(private readonly ChannelRegistry $registry) {}
 
     public function presence(array $productIds): array
     {
@@ -55,28 +55,27 @@ final class ProductDeleter
         return $out;
     }
 
-    public const OWNED_TABLES = ['product_option_value', 'product_option', 'product_image', 'product_special', 'product_vendors'];
+    public const OWNED_TABLES = ['product_variation_values', 'product_variation_types', 'product_images', 'product_specials', 'product_suppliers'];
 
-    public static function forgetOwnedRows(string $pfx, int $productId): void
+    public static function forgetOwnedRows( int $productId): void
     {
-        $comboIds = DB::table('product_option_combinations')->where('product_id', $productId)->pluck('id')->all();
+        $comboIds = DB::table('product_variations')->where('product_id', $productId)->pluck('id')->all();
         if ($comboIds !== []) {
-            DB::table('product_option_combination_values')->whereIn('combination_id', $comboIds)->delete();
-            DB::table('product_option_combinations')->whereIn('id', $comboIds)->delete();
+            DB::table('product_variation_parts')->whereIn('product_variation_id', $comboIds)->delete();
+            DB::table('product_variations')->whereIn('id', $comboIds)->delete();
         }
         foreach (self::OWNED_TABLES as $table) {
-            if (\Illuminate\Support\Facades\Schema::hasTable($pfx . $table)) {
-                DB::table($pfx . $table)->where('product_id', $productId)->delete();
+            if (\Illuminate\Support\Facades\Schema::hasTable($table)) {
+                DB::table($table)->where('product_id', $productId)->delete();
             }
         }
-        \App\Integrations\Listings\ListingVariations::forgetProducts([$productId]);
+        \App\Channels\Listings\ListingVariations::forgetProducts([$productId]);
     }
 
     public function delete(array $productIds): array
     {
-        $pfx = (string) config('catalog.prefix');
         $productIds = array_values(array_unique(array_filter(array_map('intval', $productIds), fn ($v) => $v > 0)));
-        $names = DB::table($pfx . 'product_description')
+        $names = DB::table('product_descriptions')
             ->whereIn('product_id', $productIds)
             ->where('language_id', (int) config('catalog.default_language_id'))
             ->pluck('name', 'product_id')
@@ -86,19 +85,19 @@ final class ProductDeleter
         $result = ['deleted' => [], 'stays' => [], 'names' => $names];
 
         foreach ($productIds as $id) {
-            $stays = DB::transaction(function () use ($id, $pfx) {
+            $stays = DB::transaction(function () use ($id) {
                 $stays = [];
                 foreach ($this->removers() as $remover) {
                     array_push($stays, ...$remover->removeProduct($id));
                 }
 
-                self::forgetOwnedRows($pfx, $id);
-                DB::table($pfx . 'product_to_category')->where('product_id', $id)->delete();
-                DB::table($pfx . 'product_description')->where('product_id', $id)->delete();
-                DB::table($pfx . 'product')->where('product_id', $id)->delete();
+                self::forgetOwnedRows( $id);
+                DB::table('product_categories')->where('product_id', $id)->delete();
+                DB::table('product_descriptions')->where('product_id', $id)->delete();
+                DB::table('products')->where('product_id', $id)->delete();
 
-                if (class_exists(\Extensions\warehousing\Models\WarehouseInventory::class)) {
-                    \Extensions\warehousing\Models\WarehouseInventory::where('product_id', $id)->delete();
+                if (class_exists(\Extensions\Warehousing\Models\WarehouseInventory::class)) {
+                    \Extensions\Warehousing\Models\WarehouseInventory::where('product_id', $id)->delete();
                 }
 
                 return $stays;

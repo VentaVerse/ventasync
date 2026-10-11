@@ -6,6 +6,8 @@ use Illuminate\Database\Eloquent\Model;
 
 class ChannelWebhookEvent extends Model
 {
+    protected $table = 'ch_channel_webhook_events';
+
     public $timestamps = false;
 
     protected $fillable = [

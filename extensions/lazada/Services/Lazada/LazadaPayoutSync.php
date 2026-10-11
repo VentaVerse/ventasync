@@ -1,11 +1,11 @@
 <?php
 
-namespace Extensions\lazada\Services\Lazada;
+namespace Extensions\Lazada\Services\Lazada;
 
 use App\Support\PayoutStatus;
 use Carbon\Carbon;
-use Extensions\lazada\Models\LazadaOrder;
-use Extensions\lazada\Models\LazadaSetting;
+use Extensions\Lazada\Models\LazadaOrder;
+use Extensions\Lazada\Models\LazadaStore;
 
 class LazadaPayoutSync
 {
@@ -33,8 +33,8 @@ class LazadaPayoutSync
     {
         return [
             'channel' => 'lazada',
-            'table' => 'lazada_orders',
-            'store_column' => 'lazada_setting_id',
+            'table' => 'ch_lazada_orders',
+            'store_column' => 'store_id',
             'id_column' => 'order_id',
             'payable' => self::PAYABLE_STATUSES,
             'order_route' => 'ext.lazada.orders.show',
@@ -43,18 +43,18 @@ class LazadaPayoutSync
         ];
     }
 
-    public function sync(LazadaSetting $store, int $days, ?callable $say = null, bool $recheck = false): array
+    public function sync(LazadaStore $store, int $days, ?callable $say = null, bool $recheck = false): array
     {
         $say ??= static function (string $line): void {};
         $out = ['ok' => true, 'message' => '', 'waiting' => 0, 'requests' => 0, 'paid' => 0, 'releasing' => 0, 'no_payout' => 0];
 
         $setting = $store->decrypted();
-        $creds = LazadaSetting::activeCredentials($setting);
+        $creds = LazadaStore::activeCredentials($setting);
         if (empty($creds['complete']) || ! $setting->region) {
             return ['ok' => false, 'message' => 'This store is not connected to Lazada.'] + $out;
         }
 
-        $payable = LazadaOrder::query()->where('lazada_setting_id', $store->id)->whereIn('status', self::PAYABLE_STATUSES);
+        $payable = LazadaOrder::query()->where('store_id', $store->id)->whereIn('status', self::PAYABLE_STATUSES);
 
         $out['paid'] += $this->checkOldOrders($store, $setting, $creds, $days, $out['requests']);
         $out['no_payout'] = PayoutStatus::retireOlderThan($payable, $days);
@@ -129,10 +129,10 @@ class LazadaPayoutSync
         return $out;
     }
 
-    private function checkOldOrders(LazadaSetting $store, object $setting, array $creds, int $days, int &$requests): int
+    private function checkOldOrders(LazadaStore $store, object $setting, array $creds, int $days, int &$requests): int
     {
         $old = LazadaOrder::query()
-            ->where('lazada_setting_id', $store->id)
+            ->where('store_id', $store->id)
             ->whereIn('status', self::PAYABLE_STATUSES)
             ->where('order_created_at', '<', now()->subDays($days))
             ->where(fn ($q) => $q->whereNull('payout_status')->orWhere('payout_status', '!=', PayoutStatus::PAID))
@@ -174,7 +174,7 @@ class LazadaPayoutSync
         return $paid;
     }
 
-    private function linesForOrder(object $setting, array $creds, string $orderId, Carbon $from, Carbon $to): array|string
+    private function linesForOrder(object $store, array $creds, string $orderId, Carbon $from, Carbon $to): array|string
     {
         $params = [
             'app_key' => (string) $creds['app_key'],
@@ -188,7 +188,7 @@ class LazadaPayoutSync
             'offset' => '0',
         ];
         $params['sign'] = $this->client->sign(self::PATH, $params, (string) $creds['app_secret']);
-        $result = $this->client->get((string) $setting->region, self::PATH, $params);
+        $result = $this->client->get((string) $store->region, self::PATH, $params);
 
         $body = is_array($result['body'] ?? null) ? $result['body'] : [];
         if (empty($result['ok']) || (string) ($body['code'] ?? '0') !== '0') {
@@ -202,7 +202,7 @@ class LazadaPayoutSync
         return is_array($data) ? array_values(array_filter($data, 'is_array')) : [];
     }
 
-    private function creditsBetween(object $setting, array $creds, Carbon $from, Carbon $to, int $offset): array|string
+    private function creditsBetween(object $store, array $creds, Carbon $from, Carbon $to, int $offset): array|string
     {
         $params = [
             'app_key' => (string) $creds['app_key'],
@@ -216,7 +216,7 @@ class LazadaPayoutSync
             'offset' => (string) $offset,
         ];
         $params['sign'] = $this->client->sign(self::PATH, $params, (string) $creds['app_secret']);
-        $result = $this->client->get((string) $setting->region, self::PATH, $params);
+        $result = $this->client->get((string) $store->region, self::PATH, $params);
 
         $body = is_array($result['body'] ?? null) ? $result['body'] : [];
         if (empty($result['ok']) || (string) ($body['code'] ?? '0') !== '0') {

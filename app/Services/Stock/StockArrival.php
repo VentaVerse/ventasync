@@ -8,9 +8,9 @@ use RuntimeException;
 
 final class StockArrival
 {
-    private const WAREHOUSES = \Extensions\warehousing\Services\WarehouseStockService::class;
+    private const WAREHOUSES = \Extensions\Warehousing\Services\WarehouseStockService::class;
 
-    public function locations(): array
+    public function warehouses(): array
     {
         if (! class_exists(self::WAREHOUSES) || ! \Illuminate\Support\Facades\Schema::hasTable('warehouses')) {
             return [];
@@ -28,19 +28,18 @@ final class StockArrival
             throw new RuntimeException('Nothing to add.');
         }
 
-        $pfx = (string) config('catalog.prefix');
 
-        if ($variationId !== null && DB::table($pfx . 'product_option')->where('product_id', $productId)->count() > 1) {
+        if ($variationId !== null && DB::table('product_variation_types')->where('product_id', $productId)->count() > 1) {
             throw new RuntimeException('it names one value of a product with two variation types, not a combination, so there is no single variation to add it to');
         }
 
-        $before = (int) DB::table($pfx . 'product')->where('product_id', $productId)->value('quantity');
-        $locations = $this->locations();
+        $before = (int) DB::table('products')->where('product_id', $productId)->value('quantity');
+        $warehouses = $this->warehouses();
 
-        if ($locations !== []) {
+        if ($warehouses !== []) {
             $warehouse = $warehouseId === null
-                ? ($locations[0]['default'] ? $locations[0] : null)
-                : collect($locations)->firstWhere('id', $warehouseId);
+                ? ($warehouses[0]['default'] ? $warehouses[0] : null)
+                : collect($warehouses)->firstWhere('id', $warehouseId);
             if ($warehouse === null) {
                 throw new RuntimeException($warehouseId === null ? 'there is no default warehouse; name one' : "there is no warehouse {$warehouseId}");
             }
@@ -52,12 +51,12 @@ final class StockArrival
                 'warehouse' => $warehouse['name'],
                 'for_sale' => $warehouse['sellable'],
                 'before' => $before,
-                'after' => (int) DB::table($pfx . 'product')->where('product_id', $productId)->value('quantity'),
+                'after' => (int) DB::table('products')->where('product_id', $productId)->value('quantity'),
             ];
         }
 
         $sku = $variationId !== null
-            ? (string) DB::table($pfx . 'product_option_value')->where('product_option_value_id', $variationId)->value('sku')
+            ? (string) DB::table('product_variation_values')->where('product_variation_value_id', $variationId)->value('sku')
             : null;
         if ($variationId !== null && $sku === '') {
             throw new RuntimeException('the variation has no SKU to add stock by');
@@ -68,7 +67,7 @@ final class StockArrival
             'warehouse' => null,
             'for_sale' => true,
             'before' => $before,
-            'after' => (int) ($result['product_after'] ?? $result['after'] ?? DB::table($pfx . 'product')->where('product_id', $productId)->value('quantity')),
+            'after' => (int) ($result['product_after'] ?? $result['after'] ?? DB::table('products')->where('product_id', $productId)->value('quantity')),
         ];
     }
 }

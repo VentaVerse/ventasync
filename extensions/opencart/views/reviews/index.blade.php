@@ -30,7 +30,7 @@
 
             <x-ui.menu label="Review actions">
                 <button type="button" class="x-menu__item x-menu__item--danger"
-                        data-confirm="Delete every review stored here? This removes all {{ number_format($platformCounts['all'] ?? 0) }} of them from VentaSync. Reviews already pushed to OpenCart stay there. This cannot be undone."
+                        data-confirm="Delete every review stored here? This removes all {{ number_format($channelCounts['all'] ?? 0) }} of them from VentaSync. Reviews already pushed to OpenCart stay there. This cannot be undone."
                         data-confirm-submit="rv-delete-all">Delete every review</button>
             </x-ui.menu>
         </div>
@@ -52,9 +52,9 @@
                 <x-ui.input type="date" id="rv-to" name="date_to" value="{{ old('date_to') }}" required />
             </div>
             <div class="rv-fetch__field">
-                <label class="rv-fetch__label" for="rv-platform">Channel</label>
+                <label class="rv-fetch__label" for="rv-channel">Channel</label>
                 <div class="x-select-wrap">
-                    <select id="rv-platform" name="platform" class="x-input">
+                    <select id="rv-channel" name="channel" class="x-input">
                         <option value="all">Shopee and Lazada</option>
                         <option value="shopee">Shopee only</option>
                         <option value="lazada">Lazada only</option>
@@ -73,12 +73,12 @@
 
     <div class="x-segment-bar">
         <div class="x-segment">
-            @foreach($platforms as $key => $definition)
-                <a class="x-segment__item @if($platform === $key) is-active @endif"
-                   href="{{ route('ext.opencart.reviews.index', array_merge(request()->except('platform', 'page'), ['platform' => $key])) }}">
+            @foreach($channels as $key => $definition)
+                <a class="x-segment__item @if($channel === $key) is-active @endif"
+                   href="{{ route('ext.opencart.reviews.index', array_merge(request()->except('channel', 'page'), ['channel' => $key])) }}">
                     {{ $definition['label'] }}
-                    @if(($platformCounts[$key] ?? 0) > 0)
-                        <span class="x-segment__count">{{ number_format($platformCounts[$key]) }}</span>
+                    @if(($channelCounts[$key] ?? 0) > 0)
+                        <span class="x-segment__count">{{ number_format($channelCounts[$key]) }}</span>
                     @endif
                 </a>
             @endforeach
@@ -86,7 +86,7 @@
     </div>
 
     <form method="GET" action="{{ route('ext.opencart.reviews.index') }}" class="x-filters">
-        <input type="hidden" name="platform" value="{{ $platform }}">
+        <input type="hidden" name="channel" value="{{ $channel }}">
 
         <label class="x-sr" for="rv-q">Search</label>
         <x-ui.input type="search" id="rv-q" name="q" value="{{ $q }}"
@@ -136,7 +136,7 @@
         <x-ui.button type="submit">Search</x-ui.button>
 
         @if($hasFilters)
-            <a class="x-filters__reset" href="{{ route('ext.opencart.reviews.index', ['platform' => $platform]) }}">Clear</a>
+            <a class="x-filters__reset" href="{{ route('ext.opencart.reviews.index', ['channel' => $channel]) }}">Clear</a>
         @endif
     </form>
 
@@ -194,7 +194,7 @@
                             @if($canPush)
                                 <input type="checkbox" class="rv-check" data-review-check
                                        name="ids[]" value="{{ $review->id }}" form="rv-bulk-form"
-                                       aria-label="Select review {{ $review->platform_review_id }}">
+                                       aria-label="Select review {{ $review->channel_review_id }}">
                             @endif
                         </td>
                     @endif
@@ -205,7 +205,7 @@
                         </a>
                     </td>
                     <td class="rv-col-plat" data-label="Channel">
-                        <x-ui.badge :tone="$review->platform">{{ Str::headline($review->platform) }}</x-ui.badge>
+                        <x-ui.badge :tone="$review->channel">{{ Str::headline($review->channel) }}</x-ui.badge>
                     </td>
                     <td class="x-cell-strong" data-label="Product">{{ $review->product_name ?? 'Not matched to a product' }}</td>
                     <td class="rv-col-rate" data-label="Rating">
@@ -239,7 +239,7 @@
                     </td>
                     <td class="x-td-actions">
                         @if($canManage && $canPush)
-                            <x-ui.menu label="Actions for review {{ $review->platform_review_id }}">
+                            <x-ui.menu label="Actions for review {{ $review->channel_review_id }}">
                                 <a class="x-menu__item" href="{{ route('ext.opencart.reviews.show', $review->id) }}">Open</a>
                                 <div class="x-menu__sep"></div>
                                 <button type="submit" class="x-menu__item" form="rv-push-{{ $review->id }}">

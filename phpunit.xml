@@ -27,7 +27,6 @@
         <!-- Tests wipe this database on every run: its name must end in _test. -->
         <env name="DB_CONNECTION" value="mysql"/>
         <env name="DB_DATABASE" value="ventasync_test"/>
-        <env name="DB_TABLE_PREFIX" value=""/>
         <env name="MAIL_MAILER" value="array"/>
         <env name="QUEUE_CONNECTION" value="sync"/>
         <env name="SESSION_DRIVER" value="array"/>

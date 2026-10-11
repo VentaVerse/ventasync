@@ -1,12 +1,12 @@
 <?php
 
-namespace Extensions\shopee\Services;
+namespace Extensions\Shopee\Services;
 
 use Illuminate\Support\Facades\DB;
 
 class ShopeeStockPushService
 {
-    public function resolve(iterable $links, string $pfx): array
+    public function resolve(iterable $links): array
     {
         $productIds = [];
         foreach ($links as $l) {
@@ -20,12 +20,12 @@ class ShopeeStockPushService
             return [];
         }
 
-        $products = DB::table($pfx . 'product')
+        $products = DB::table('products')
             ->whereIn('product_id', $productIds)
             ->get(['product_id', 'price', 'quantity', 'status'])
             ->keyBy('product_id');
 
-        $comboBySku = DB::table('product_option_combinations')
+        $comboBySku = DB::table('product_variations')
             ->whereIn('product_id', $productIds)
             ->whereNotNull('sku')
             ->where('sku', '!=', '')
@@ -35,7 +35,7 @@ class ShopeeStockPushService
                 return $rows->keyBy(fn ($r) => trim((string) $r->sku));
             });
 
-        $povBySku = DB::table($pfx . 'product_option_value')
+        $povBySku = DB::table('product_variation_values')
             ->whereIn('product_id', $productIds)
             ->whereNotNull('sku')
             ->where('sku', '!=', '')

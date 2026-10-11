@@ -1,7 +1,7 @@
 @extends('layouts.channel')
-@section('breadcrumb', 'Listings')
+@section('breadcrumb', 'Products')
 
-@section('title', 'Lazada Listings')
+@section('title', 'Lazada Products')
 
 @section('content')
 @php
@@ -10,7 +10,7 @@
 
     $q = (string) ($q ?? '');
     $syncStatus = (string) ($syncStatus ?? 'all');
-    $manufacturerFilter = (string) ($manufacturerFilter ?? 'all');
+    $brandFilter = (string) ($brandFilter ?? 'all');
     $groupFilter = (string) ($groupFilter ?? 'all');
     $erpStatus = (string) ($erpStatus ?? 'all');
     $sort = (string) ($sort ?? 'id');
@@ -21,7 +21,7 @@
         || ($lazadaTab ?? 'all') !== 'all'
         || ($failedFlag ?? false)
         || ($changeFlag ?? false)
-        || $manufacturerFilter !== 'all'
+        || $brandFilter !== 'all'
         || $groupFilter !== 'all'
         || $erpStatus !== 'all';
 
@@ -47,12 +47,12 @@
 
 <div class="x-list-head">
     <div>
-        <h1 class="x-page-title">Listings</h1>
+        <h1 class="x-page-title">Products</h1>
         <p class="x-page-sub">
             @if($hasFilters)
                 {{ number_format($paginator->total()) }} {{ $paginator->total() === 1 ? 'product matches' : 'products match' }}@if($statusMenu['label'] ?? null): {{ $statusMenu['label'] }}@endif
             @else
-                {{ number_format($catalogueTotal) }} {{ $catalogueTotal === 1 ? 'product' : 'products' }} on this store
+                {{ number_format($catalogTotal) }} {{ $catalogTotal === 1 ? 'product' : 'products' }} on this store
                 &middot; {{ number_format($listedTotal) }} live on Lazada
             @endif
         </p>
@@ -90,7 +90,7 @@
                        class="x-segment__item {{ ($lazadaTab ?? 'all') === 'all' ? 'is-active' : '' }}"
                        @if(($lazadaTab ?? 'all') === 'all') aria-current="true" @endif>
                         <span>All</span>
-                        <span class="x-segment__count">{{ number_format((int) ($catalogueTotal ?? $paginator->total())) }}</span>
+                        <span class="x-segment__count">{{ number_format((int) ($catalogTotal ?? $paginator->total())) }}</span>
                     </a>
                     @foreach($liveTabDefs as $tabKey => $tabLabel)
                         @php $isActive = ($lazadaTab ?? 'all') === $tabKey; @endphp
@@ -172,10 +172,10 @@
                 value="{{ $q }}" placeholder="Name, model, SKU or Lazada ID" aria-label="Search listings" />
 
     <div class="x-select-wrap x-filters__select">
-        <select name="manufacturer" class="x-input" data-autosubmit aria-label="Filter by manufacturer">
-            <option value="all">All manufacturers</option>
-            @foreach(($allManufacturers ?? collect()) as $mId => $mName)
-                <option value="{{ $mId }}" @selected($manufacturerFilter === (string) $mId)>{{ $mName }}</option>
+        <select name="brand" class="x-input" data-autosubmit aria-label="Filter by brand">
+            <option value="all">All brands</option>
+            @foreach(($allBrands ?? collect()) as $mId => $mName)
+                <option value="{{ $mId }}" @selected($brandFilter === (string) $mId)>{{ $mName }}</option>
             @endforeach
         </select>
         <x-ui.icon name="chevron-down" size="14" class="x-select-wrap__chevron" />
@@ -183,16 +183,16 @@
 
 
     <div class="x-select-wrap x-filters__select x-filters__select--narrow">
-        <select name="erp_status" class="x-input" data-autosubmit aria-label="Filter by catalog status">
-            <option value="all" @selected($erpStatus === 'all')>Any catalog status</option>
+        <select name="erp_status" class="x-input" data-autosubmit aria-label="Filter by Master Catalog status">
+            <option value="all" @selected($erpStatus === 'all')>Any Master Catalog status</option>
             <option value="enabled" @selected($erpStatus === 'enabled')>Enabled</option>
             <option value="disabled" @selected($erpStatus === 'disabled')>Disabled</option>
         </select>
         <x-ui.icon name="chevron-down" size="14" class="x-select-wrap__chevron" />
     </div>
 
-    @if(!empty($orderOptions))
-        @include('partials.listing-sort', ['options' => $orderOptions, 'chosen' => $order])
+    @if(!empty($orderVariations))
+        @include('partials.listing-sort', ['options' => $orderVariations, 'chosen' => $order])
     @endif
 
     <x-ui.button type="submit" variant="secondary">Search</x-ui.button>
@@ -316,14 +316,14 @@
             $pid = (int) $row->product_id;
             $listing = $row->listing_id ? $listingsById->get((int) $row->listing_id) : null;
             $rowState = $listingStates[$pid] ?? null;
-            $stateClass = \App\Integrations\Listings\ListingState::class;
+            $stateClass = \App\Channels\Listings\ListingState::class;
 
             $thumbSrc = $productThumbsById->get($pid);
             $pName = (string) ($rowTitles[(int) $row->product_id] ?? $row->name ?? '');
             $pSku = (string) ($row->sku ?? '');
             $pQty = (int) ($row->quantity ?? 0);
             $pStatus = (int) ($row->status ?? 0);
-            $pMfg = (string) ($row->manufacturer_name ?? '');
+            $pMfg = (string) ($row->brand_name ?? '');
 
             $isDeleted = !is_null($row->lazada_deleted_at);
             $hasItemId = !is_null($row->lazada_item_id) && (string) $row->lazada_item_id !== '';
@@ -332,7 +332,7 @@
             $hasSyncInfo = !is_null($row->last_synced_at) || !is_null($row->last_sync_ok);
             $syncFailed = $hasSyncInfo && !is_null($row->last_sync_ok) && !$row->last_sync_ok;
 
-            $optRows = isset($optionRowsByProductId) ? $optionRowsByProductId->get($pid) : null;
+            $optRows = isset($variationRowsByProductId) ? $variationRowsByProductId->get($pid) : null;
             $variationCount = $optRows ? count($optRows) : 0;
 
             $editUrl = route('ext.lazada.products.edit', ['productId' => $pid, 'back' => request()->getRequestUri()]);

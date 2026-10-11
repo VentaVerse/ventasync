@@ -29,7 +29,7 @@ class Navigation
                  'keywords' => ['sku', 'variation', 'stock', 'price']],
                 ['label' => 'Categories', 'route' => 'categories.index',
                  'keywords' => ['taxonomy', 'group']],
-                ['label' => 'Manufacturers', 'route' => 'manufacturers.index',
+                ['label' => 'Brands', 'route' => 'brands.index',
                  'keywords' => ['brand', 'supplier']],
                 ['label' => 'Reviews', 'route' => 'ext.opencart.reviews.index',
                  'keywords' => ['rating', 'feedback', 'comment']],
@@ -38,16 +38,16 @@ class Navigation
             ['label' => 'Purchasing', 'icon' => 'truck', 'items' => [
                 ['label' => 'Purchase Orders', 'route' => 'ext.purchasing.purchase_orders.index',
                  'keywords' => ['po', 'buy', 'restock', 'inbound']],
-                ['label' => 'Vendors', 'route' => 'ext.purchasing.vendors.index',
-                 'keywords' => ['supplier', 'seller', 'source']],
+                ['label' => 'Suppliers', 'route' => 'ext.purchasing.suppliers.index',
+                 'keywords' => ['supplier', 'vendor', 'seller', 'source']],
             ]],
 
             ['label' => 'Warehousing', 'icon' => 'archive', 'items' => [
                 ['label' => 'Transfers', 'route' => 'ext.warehousing.transfers.index',
-                 'keywords' => ['move', 'stock transfer', 'location']],
+                 'keywords' => ['move', 'stock transfer', 'warehouse']],
                 ['label' => 'Inventory', 'route' => 'ext.warehousing.inventory.index',
                  'keywords' => ['stock', 'quantity', 'count', 'adjust']],
-                ['label' => 'Locations', 'route' => 'ext.warehousing.locations.index',
+                ['label' => 'Warehouses', 'route' => 'ext.warehousing.warehouses.index',
                  'keywords' => ['warehouse', 'branch', 'store']],
             ]],
 
@@ -133,7 +133,7 @@ class Navigation
     {
         try {
             $user = auth()->user();
-            foreach (app(\App\Integrations\IntegrationRegistry::class)->visibleCards($user) as $card) {
+            foreach (app(\App\Channels\ChannelRegistry::class)->visibleCards($user) as $card) {
                 $add = $card->addStore ?? null;
                 if ($add && (! $add->permission || ($user && $user->hasPermission($add->permission)))) {
                     return true;
@@ -153,7 +153,7 @@ class Navigation
         ];
 
         try {
-            $registry = app(\App\Integrations\IntegrationRegistry::class);
+            $registry = app(\App\Channels\ChannelRegistry::class);
             $workspace = app(ChannelWorkspace::class);
             $user = auth()->user();
 
@@ -389,7 +389,7 @@ class Navigation
         }
 
         [$class] = explode('@', $action);
-        $catalog = app(\App\Services\PermissionCatalogue::class);
+        $catalog = app(\App\Services\PermissionCatalog::class);
         $key = $catalog->keyForController($class);
 
         if ($key === null) {

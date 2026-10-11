@@ -1,11 +1,11 @@
 <?php
 
-namespace Extensions\tiktok\Services;
+namespace Extensions\TikTok\Services;
 
 use App\Support\Fulfilment\CourierTally;
 use App\Support\FulfilmentSteps;
-use Extensions\tiktok\Models\TikTokOrder;
-use Extensions\tiktok\Models\TikTokSetting;
+use Extensions\TikTok\Models\TikTokOrder;
+use Extensions\TikTok\Models\TikTokStore;
 use Illuminate\Http\Request;
 
 class TikTokOrdersPanel
@@ -21,12 +21,12 @@ class TikTokOrdersPanel
 
     public function build(Request $request, ?int $storeId = null): array
     {
-        $setting = $storeId !== null
-            ? TikTokSetting::query()->find($storeId)
-            : TikTokSetting::defaultStore();
-        if ($storeId !== null && $setting !== null) {
-            app()->instance('tiktok.route-store', $setting);
-            \Illuminate\Support\Facades\URL::defaults(['store' => (int) $setting->id]);
+        $store = $storeId !== null
+            ? TikTokStore::query()->find($storeId)
+            : TikTokStore::defaultStore();
+        if ($storeId !== null && $store !== null) {
+            app()->instance('tiktok.route-store', $store);
+            \Illuminate\Support\Facades\URL::defaults(['store' => (int) $store->id]);
         }
 
         $filters = $request->validate([
@@ -65,7 +65,7 @@ class TikTokOrdersPanel
             'IN_TRANSIT'   => 'shipping',
             'DELIVERED'    => 'delivered',
             'COMPLETED'    => 'completed',
-            'CANCELLED'    => 'cancelled',
+            'CANCELLED'    => 'canceled',
         ]);
 
         $defaultDir = ($tab === 'TO_SHIP') ? 'asc' : 'desc';

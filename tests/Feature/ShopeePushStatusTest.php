@@ -56,7 +56,7 @@ class ShopeePushStatusTest extends TestCase
     {
         $this->assertMatchesRegularExpression(
             "/'shopee_item_id' => null,(?:.*\n)*?\s*'sync_status' => 'unlinked',/",
-            $this->source('extensions/shopee/Models/ShopeeProductLink.php'),
+            $this->source('extensions/shopee/Models/ShopeeListingLink.php'),
             'Unlinking leaves the item id on the pivot, so a dead id keeps being displayed '
             .'against a product that is no longer linked.'
         );

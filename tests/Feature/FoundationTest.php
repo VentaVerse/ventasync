@@ -134,8 +134,8 @@ class FoundationTest extends TestCase
     public function test_no_query_prefixes_a_table_this_application_owns(): void
     {
         $ownTables = [
-            'product_option_combinations',
-            'product_option_combination_values',
+            'product_variations',
+            'product_variation_parts',
         ];
 
         $offenders = [];
@@ -428,12 +428,12 @@ class FoundationTest extends TestCase
             $paper,
             $ink,
             'ChannelAccent::LIGHT_INK_ON_ACCENT and --bl-paper have drifted apart. '
-            ."deep() would then guarantee contrast against a colour the UI never paints.\n"
+            ."deep() would then guarantee contrast against a color the UI never paints.\n"
             .'--bl-paper is '.$m[1].'; the constant is rgb('.implode(', ', $ink).').'
         );
     }
 
-    public function test_the_alert_clearance_is_measured_against_the_alert_colour(): void
+    public function test_the_alert_clearance_is_measured_against_the_alert_color(): void
     {
         $css = File::get(resource_path('css/blotter.css'));
 
@@ -450,12 +450,12 @@ class FoundationTest extends TestCase
             $alert,
             'ChannelAccent::ALERT and --bl-bad have drifted apart, so the guard '
             ."that keeps a primary button from looking destructive is measuring\n"
-            .'against a colour the UI does not paint. --bl-bad is '.$m[1]
+            .'against a color the UI does not paint. --bl-bad is '.$m[1]
             .'; the constant is rgb('.implode(', ', $alert).').'
         );
     }
 
-    public function test_only_a_channel_that_reads_as_the_alert_colour_gives_up_its_own(): void
+    public function test_only_a_channel_that_reads_as_the_alert_color_gives_up_its_own(): void
     {
         $this->assertSame(
             '#0b1228',
@@ -467,7 +467,7 @@ class FoundationTest extends TestCase
             $this->assertSame(
                 \App\Support\ChannelAccent::deep($hex),
                 \App\Support\ChannelAccent::cta($hex),
-                $name.' is nowhere near the alert colour and must keep its own on the primary button'
+                $name.' is nowhere near the alert color and must keep its own on the primary button'
             );
         }
     }
@@ -523,7 +523,7 @@ class FoundationTest extends TestCase
         return (max($l1, $l2) + 0.05) / (min($l1, $l2) + 0.05);
     }
 
-    public function test_no_focus_ring_takes_a_channel_colour(): void
+    public function test_no_focus_ring_takes_a_channel_color(): void
     {
         $offenders = [];
 

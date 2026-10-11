@@ -1,12 +1,12 @@
 <?php
 
-namespace Extensions\shopee\Services\Shopee;
+namespace Extensions\Shopee\Services\Shopee;
 
-use App\Integrations\Listings\ListingVariations;
-use App\Integrations\Push\PushLedger;
-use Extensions\shopee\Models\ShopeeApiLog;
-use Extensions\shopee\Models\ShopeeItemCache;
-use Extensions\shopee\Models\ShopeeProductLink;
+use App\Channels\Listings\ListingVariations;
+use App\Channels\Push\PushLedger;
+use Extensions\Shopee\Models\ShopeeApiLog;
+use Extensions\Shopee\Models\ShopeeItemCache;
+use Extensions\Shopee\Models\ShopeeListingLink;
 use Illuminate\Support\Facades\DB;
 
 final class ShopeeVariationSwitches
@@ -17,7 +17,7 @@ final class ShopeeVariationSwitches
 
     public function readFor(ShopeeClient $client, array $auth, int $itemId, int $productId): ?array
     {
-        if (! DB::table('product_option_combinations')->where('product_id', $productId)->exists()) {
+        if (! DB::table('product_variations')->where('product_id', $productId)->exists()) {
             return null;
         }
 
@@ -113,7 +113,7 @@ final class ShopeeVariationSwitches
         }
 
         $catalog = [];
-        foreach (PushLedger::erpVariationSkus([$productId], (string) config('catalog.prefix'))[$productId] ?? [] as $sku) {
+        foreach (PushLedger::erpVariationSkus([$productId])[$productId] ?? [] as $sku) {
             $catalog[$this->key($sku)] = true;
         }
         $held = [];
@@ -213,7 +213,7 @@ final class ShopeeVariationSwitches
     private function remember(array $auth, int $productId, int $itemId, array $models, array $gone, array $addedSkus): void
     {
         if ($gone !== []) {
-            ShopeeProductLink::query()->where('product_id', $productId)->where('shopee_item_id', $itemId)
+            ShopeeListingLink::query()->where('product_id', $productId)->where('shopee_item_id', $itemId)
                 ->whereIn('shopee_model_id', $gone)->delete();
             ShopeeItemCache::query()->where('shopee_item_id', $itemId)->whereIn('shopee_model_id', $gone)->delete();
         }
@@ -227,11 +227,10 @@ final class ShopeeVariationSwitches
         ShopeeListingStates::rememberHeld($this->storeId($auth), $productId, array_merge($held, $addedSkus));
 
         if ($addedSkus !== []) {
-            $pfx = (string) config('catalog.prefix');
-            $skus = DB::table($pfx . 'product_option_value')
+            $skus = DB::table('product_variation_values')
                 ->where('product_id', $productId)->whereNotNull('sku')->where('sku', '!=', '')
                 ->pluck('sku')->map(fn ($v) => strtolower(trim((string) $v)))
-                ->merge(DB::table('product_option_combinations')
+                ->merge(DB::table('product_variations')
                     ->where('product_id', $productId)->whereNotNull('sku')->where('sku', '!=', '')
                     ->pluck('sku')->map(fn ($v) => strtolower(trim((string) $v))))
                 ->unique()->values()->all();
@@ -267,7 +266,7 @@ final class ShopeeVariationSwitches
             if ($sku === '') {
                 continue;
             }
-            $name = trim((string) ($row->option_value_name ?? ''));
+            $name = trim((string) ($row->variation_value_name ?? ''));
             $out[$this->key($sku)] = $name !== '' ? $name . ' (' . $sku . ')' : $sku;
         }
 
@@ -283,7 +282,7 @@ final class ShopeeVariationSwitches
 
     private function storeId(array $auth): int
     {
-        return (int) ($auth['store_id'] ?? 0) ?: (int) (\Extensions\shopee\Models\ShopeeSetting::defaultStore()?->id ?? 0);
+        return (int) ($auth['store_id'] ?? 0) ?: (int) (\Extensions\Shopee\Models\ShopeeStore::defaultStore()?->id ?? 0);
     }
 
     private function key(mixed $sku): string

@@ -221,7 +221,7 @@
     text-transform: uppercase;
     color: var(--bl-ink-3);
 }
-.of-detail__options { max-height: 200px; overflow-y: auto; }
+.of-detail__variations { max-height: 200px; overflow-y: auto; }
 .of-detail__foot {
     display: flex;
     align-items: flex-end;

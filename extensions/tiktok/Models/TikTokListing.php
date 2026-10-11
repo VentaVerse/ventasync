@@ -1,19 +1,19 @@
 <?php
 
-namespace Extensions\tiktok\Models;
+namespace Extensions\TikTok\Models;
 
 use Illuminate\Database\Eloquent\Model;
-use Extensions\tiktok\Models\Concerns\BelongsToTikTokStore;
+use Extensions\TikTok\Models\Concerns\BelongsToTikTokStore;
 
 class TikTokListing extends Model
 {
-    use BelongsToTikTokStore, \App\Integrations\Listings\KeepsItsOwnCopy;
+    use BelongsToTikTokStore, \App\Channels\Listings\KeepsItsOwnCopy;
 
-    protected $table = 'tiktok_listings';
+    protected $table = 'ch_tiktok_listings';
 
     protected $fillable = [
                 'image_off', 'video_path', 'video_off',
-'tiktok_setting_id', 'product_id',
+'store_id', 'product_id',
         'description_prefix_id', 'description_suffix_id', 'watermark_template_id', 'watermark_all_images',
         'tiktok_product_id', 'tiktok_sku_id',
         'tiktok_category_id', 'brand_id', 'brand_name', 'attribute_values', 'image_order',
@@ -106,10 +106,10 @@ class TikTokListing extends Model
         );
 
         if ($answered && $skuIds !== null && $skuIds !== '') {
-            \Extensions\tiktok\Services\TikTok\TikTokListingStates::rememberHeld(
-                (int) ($row->tiktok_setting_id ?? 0),
+            \Extensions\TikTok\Services\TikTok\TikTokListingStates::rememberHeld(
+                (int) ($row->store_id ?? 0),
                 $productId,
-                array_keys(\Extensions\tiktok\Services\TikTok\TikTokVariationPush::existingIds($skuIds))
+                array_keys(\Extensions\TikTok\Services\TikTok\TikTokVariationPush::existingIds($skuIds))
             );
         }
     }

@@ -1,18 +1,18 @@
 <?php
 
-namespace Extensions\tiktok\Services\TikTok;
+namespace Extensions\TikTok\Services\TikTok;
 
-use Extensions\tiktok\Commands\TikTokPushPrice;
-use Extensions\tiktok\Models\TikTokProductGroup;
-use Extensions\tiktok\Models\TikTokProductGroupProduct;
-use Extensions\tiktok\Models\TikTokSetting;
+use Extensions\TikTok\Commands\TikTokPushPrice;
+use Extensions\TikTok\Models\TikTokProductGroup;
+use Extensions\TikTok\Models\TikTokProductGroupProduct;
+use Extensions\TikTok\Models\TikTokStore;
 
 final class TikTokPushSteps
 {
     public static function units(): array
     {
         $units = [];
-        foreach (TikTokSetting::enabledStores() as $store) {
+        foreach (TikTokStore::enabledStores() as $store) {
             app()->instance('tiktok.route-store', $store);
             try {
                 $pids = TikTokProductGroupProduct::query()
@@ -32,7 +32,6 @@ final class TikTokPushSteps
 
     public static function step(string $kind, array $units): array
     {
-        $pfx = (string) config('catalog.prefix');
         $byStore = [];
         foreach ($units as $u) {
             [$sid, $pid] = array_pad(explode(':', (string) $u, 2), 2, 0);
@@ -42,7 +41,7 @@ final class TikTokPushSteps
         $failed = 0;
         $notes = [];
         foreach ($byStore as $storeId => $pids) {
-            $raw = TikTokSetting::query()->find($storeId);
+            $raw = TikTokStore::query()->find($storeId);
             if (! $raw) {
                 $failed += count($pids);
                 continue;
@@ -64,7 +63,7 @@ final class TikTokPushSteps
                 $pivots = TikTokProductGroupProduct::query()
                     ->whereIn('tiktok_product_group_id', TikTokProductGroup::query()->select('id'))
                     ->whereIn('product_id', $pids)->whereNotNull('tiktok_product_id')->where('tiktok_product_id', '!=', '')->get();
-                $results = app(TikTokStockPricePush::class)->push($kind, $c, $pivots, $pfx, $kind === 'price' ? TikTokPushPrice::priceRule($pivots) : null);
+                $results = app(TikTokStockPricePush::class)->push($kind, $c, $pivots, $kind === 'price' ? TikTokPushPrice::priceRule($pivots) : null);
                 TikTokStockPricePush::recordOutcomes($kind, $results['outcomes'], $raw);
                 foreach ($pids as $pid) {
                     $outcome = $results['outcomes'][$pid] ?? null;

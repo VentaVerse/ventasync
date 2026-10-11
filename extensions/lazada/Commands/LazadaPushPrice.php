@@ -1,16 +1,16 @@
 <?php
 
-namespace Extensions\lazada\Commands;
+namespace Extensions\Lazada\Commands;
 
-use Extensions\lazada\Models\LazadaProduct;
-use Extensions\lazada\Models\LazadaSetting;
-use Extensions\lazada\Services\Lazada\LazadaInheritedSettings;
-use Extensions\lazada\Services\Lazada\LazadaPushPayload;
-use Extensions\lazada\Services\Lazada\LazadaStockPricePush;
+use Extensions\Lazada\Models\LazadaListing;
+use Extensions\Lazada\Models\LazadaStore;
+use Extensions\Lazada\Services\Lazada\LazadaInheritedSettings;
+use Extensions\Lazada\Services\Lazada\LazadaPushPayload;
+use Extensions\Lazada\Services\Lazada\LazadaStockPricePush;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Log;
 
-class LazadaPushPrice extends Command implements \App\Integrations\Contracts\SteppableAutomation
+class LazadaPushPrice extends Command implements \App\Channels\Contracts\SteppableAutomation
 {
     protected $signature = 'lazada:push-price';
 
@@ -18,7 +18,7 @@ class LazadaPushPrice extends Command implements \App\Integrations\Contracts\Ste
 
     public function handle(): int
     {
-        $stores = LazadaSetting::enabledStores();
+        $stores = LazadaStore::enabledStores();
         if ($stores->isEmpty()) {
             $this->error('No enabled Lazada store. Configure Lazada settings first.');
 
@@ -43,17 +43,17 @@ class LazadaPushPrice extends Command implements \App\Integrations\Contracts\Ste
         return $worst;
     }
 
-    private function handleStore(LazadaSetting $store): int
+    private function handleStore(LazadaStore $store): int
     {
         $setting = $store->decrypted();
-        $creds = LazadaSetting::activeCredentials($setting);
+        $creds = LazadaStore::activeCredentials($setting);
         if (! $setting || ! $setting->region || ! $creds['app_key'] || ! $creds['app_secret'] || ! $creds['access_token']) {
             $this->error('Missing Lazada credentials/token. Configure Lazada settings first.');
 
             return 1;
         }
 
-        $listings = LazadaProduct::query()
+        $listings = LazadaListing::query()
             ->where('product_id', '>', 0)
             ->whereNotNull('lazada_item_id')
             ->where('lazada_item_id', '!=', '')
@@ -64,10 +64,8 @@ class LazadaPushPrice extends Command implements \App\Integrations\Contracts\Ste
 
             return 0;
         }
-
-        $pfx = (string) config('catalog.prefix');
         $this->info("Pushing prices for {$listings->count()} listing(s)...");
-        $results = app(LazadaStockPricePush::class)->push('price', $setting, $creds, $listings, $pfx, self::priceRule($listings));
+        $results = app(LazadaStockPricePush::class)->push('price', $setting, $creds, $listings, self::priceRule($listings));
 
         if ($results['err'] > 0) {
             Log::warning('Lazada push-price: ' . $results['err'] . ' listing(s) failed', ['last_error' => $results['last_error']]);
@@ -102,11 +100,11 @@ class LazadaPushPrice extends Command implements \App\Integrations\Contracts\Ste
 
     public function automationUnits(\App\Models\ScheduledJob $job): array
     {
-        return ['label' => 'products', 'units' => \Extensions\lazada\Services\Lazada\LazadaPushSteps::units()];
+        return ['label' => 'products', 'units' => \Extensions\Lazada\Services\Lazada\LazadaPushSteps::units()];
     }
 
     public function automationStep(\App\Models\ScheduledJob $job, array $units): array
     {
-        return \Extensions\lazada\Services\Lazada\LazadaPushSteps::step('price', $units);
+        return \Extensions\Lazada\Services\Lazada\LazadaPushSteps::step('price', $units);
     }
 }

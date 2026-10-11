@@ -1,15 +1,15 @@
 <?php
 
-namespace Extensions\ventacart\Models;
+namespace Extensions\VentaCart\Models;
 
 use Illuminate\Database\Eloquent\Model;
 
 class VentaCartCategory extends Model
 {
-    protected $table = 'ventacart_categories';
+    protected $table = 'ch_ventacart_categories';
 
     protected $fillable = [
-        'ventacart_setting_id',
+        'store_id',
         'ventacart_category_id',
         'name',
         'slug',

@@ -1,9 +1,9 @@
 <?php
 
-namespace Extensions\tiktok\Commands;
+namespace Extensions\TikTok\Commands;
 
-use Extensions\tiktok\Models\TikTokSetting;
-use Extensions\tiktok\Services\TikTok\TikTokLiveListing;
+use Extensions\TikTok\Models\TikTokStore;
+use Extensions\TikTok\Services\TikTok\TikTokLiveListing;
 use Illuminate\Console\Command;
 
 class TikTokRefreshListingStatus extends Command
@@ -14,7 +14,7 @@ class TikTokRefreshListingStatus extends Command
 
     public function handle(TikTokLiveListing $live): int
     {
-        $stores = \Extensions\tiktok\Models\TikTokSetting::enabledStores();
+        $stores = \Extensions\TikTok\Models\TikTokStore::enabledStores();
         if ($stores->isEmpty()) { $this->error('No enabled TikTok store. Configure TikTok settings first.'); return 1; }
         $worst = 0;
         foreach ($stores as $store) {
@@ -33,9 +33,9 @@ class TikTokRefreshListingStatus extends Command
         return $worst;
     }
 
-    private function handleStore(TikTokLiveListing $live, \Extensions\tiktok\Models\TikTokSetting $store): int
+    private function handleStore(TikTokLiveListing $live, \Extensions\TikTok\Models\TikTokStore $store): int
     {
-        $c = TikTokSetting::credentials();
+        $c = TikTokStore::credentials();
         if (!$c) {
             $this->error('Missing TikTok credentials. Configure TikTok settings first.');
             return self::FAILURE;
@@ -48,8 +48,8 @@ class TikTokRefreshListingStatus extends Command
         }
 
 
-        $checked = app(\Extensions\tiktok\Services\TikTok\TikTokLinkCheck::class)->runNext($c, (int) $store->id);
-        $sheets = app(\Extensions\tiktok\Services\TikTok\TikTokSheetReads::class)->readMissing($c, app(\Extensions\tiktok\Services\TikTok\TikTokClient::class));
+        $checked = app(\Extensions\TikTok\Services\TikTok\TikTokLinkCheck::class)->runNext($c, (int) $store->id);
+        $sheets = app(\Extensions\TikTok\Services\TikTok\TikTokSheetReads::class)->readMissing($c, app(\Extensions\TikTok\Services\TikTok\TikTokClient::class));
 
         $this->info(sprintf(
             'Refreshed %d listing(s): %s.%s%s',

@@ -1,16 +1,16 @@
 <?php
 
-namespace Extensions\shopee\Commands;
+namespace Extensions\Shopee\Commands;
 
-use Extensions\shopee\Models\ShopeeApiLog;
-use Extensions\shopee\Models\ShopeeProductLink;
-use Extensions\shopee\Models\ShopeeSetting;
-use Extensions\shopee\Services\Shopee\ShopeeClient;
+use Extensions\Shopee\Models\ShopeeApiLog;
+use Extensions\Shopee\Models\ShopeeListingLink;
+use Extensions\Shopee\Models\ShopeeStore;
+use Extensions\Shopee\Services\Shopee\ShopeeClient;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
-class ShopeePushStock extends Command implements \App\Integrations\Contracts\SteppableAutomation
+class ShopeePushStock extends Command implements \App\Channels\Contracts\SteppableAutomation
 {
     protected $signature = 'shopee:push-stock';
 
@@ -18,7 +18,7 @@ class ShopeePushStock extends Command implements \App\Integrations\Contracts\Ste
 
     public function handle(ShopeeClient $client): int
     {
-        $stores = ShopeeSetting::query()->where('enabled', true)->orderBy('id')->get();
+        $stores = ShopeeStore::query()->where('enabled', true)->orderBy('id')->get();
         if ($stores->isEmpty()) {
             $this->error('No enabled Shopee store. Configure Shopee settings first.');
             return 1;
@@ -40,17 +40,17 @@ class ShopeePushStock extends Command implements \App\Integrations\Contracts\Ste
         return $worst;
     }
 
-    private function pushStore(ShopeeSetting $store): int
+    private function pushStore(ShopeeStore $store): int
     {
         $setting = $store->decrypted();
-        $auth = ShopeeSetting::activeAuth($setting);
+        $auth = ShopeeStore::activeAuth($setting);
         if (!$auth['complete']) {
             $modeLabel = $auth['mode'] === 'sandbox' ? 'Sandbox' : 'Production';
             $this->error("Missing Shopee {$modeLabel} credentials/token for this store.");
             return 1;
         }
 
-        $links = ShopeeProductLink::forStore($store)->get();
+        $links = ShopeeListingLink::forStore($store)->get();
 
         if ($links->isEmpty()) {
             $this->warn('No Shopee product links found.');
@@ -59,16 +59,14 @@ class ShopeePushStock extends Command implements \App\Integrations\Contracts\Ste
 
         $this->info("Pushing stock for {$links->count()} link(s)...");
 
-        $pfx = (string) config('catalog.prefix');
-
-        $enabledIds = DB::table($pfx . 'product')
+        $enabledIds = DB::table('products')
             ->whereIn('product_id', $links->pluck('product_id')->map(fn ($v) => (int) $v)->unique()->all())
             ->where('status', 1)
             ->pluck('product_id')->map(fn ($v) => (int) $v)->all();
         $totalSkipped = $links->count() - ($links = $links->filter(fn ($l) => in_array((int) $l->product_id, $enabledIds, true))->values())->count();
 
-        $results = app(\Extensions\shopee\Services\Shopee\ShopeeStockPricePush::class)
-            ->push('stock', $auth, $links, $pfx);
+        $results = app(\Extensions\Shopee\Services\Shopee\ShopeeStockPricePush::class)
+            ->push('stock', $auth, $links);
 
         $totalOk = $results['ok'];
         $totalErr = $results['err'];
@@ -76,7 +74,7 @@ class ShopeePushStock extends Command implements \App\Integrations\Contracts\Ste
             Log::warning('Shopee push-stock: ' . $totalErr . ' model(s) failed', ['last_error' => $results['last_error']]);
         }
 
-        $ledger = \Extensions\shopee\Services\Shopee\ShopeeStockPricePush::ledgerClause($results);
+        $ledger = \Extensions\Shopee\Services\Shopee\ShopeeStockPricePush::ledgerClause($results);
         $this->info("Done. Success: {$totalOk}, Failed: {$totalErr}, Skipped: {$totalSkipped}." . $ledger);
 
         $store->forceFill(['last_stock_push_at' => now()])->save();
@@ -87,11 +85,11 @@ class ShopeePushStock extends Command implements \App\Integrations\Contracts\Ste
 
     public function automationUnits(\App\Models\ScheduledJob $job): array
     {
-        return ['label' => 'products', 'units' => \Extensions\shopee\Services\Shopee\ShopeePushSteps::units()];
+        return ['label' => 'products', 'units' => \Extensions\Shopee\Services\Shopee\ShopeePushSteps::units()];
     }
 
     public function automationStep(\App\Models\ScheduledJob $job, array $units): array
     {
-        return \Extensions\shopee\Services\Shopee\ShopeePushSteps::step('stock', $units);
+        return \Extensions\Shopee\Services\Shopee\ShopeePushSteps::step('stock', $units);
     }
 }

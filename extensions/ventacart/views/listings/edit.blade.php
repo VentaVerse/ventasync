@@ -11,9 +11,9 @@
     $onStore = $link && $link->ventacart_product_id;
 
     $statusWords = [
-        \Extensions\ventacart\Models\VentaCartListing::STATUS_ACTIVE => ['Active', 'success'],
-        \Extensions\ventacart\Models\VentaCartListing::STATUS_INACTIVE => ['Unlisted', 'warning'],
-        \Extensions\ventacart\Models\VentaCartListing::STATUS_MISSING => ['Not on the store', 'neutral'],
+        \Extensions\VentaCart\Models\VentaCartListing::STATUS_ACTIVE => ['Active', 'success'],
+        \Extensions\VentaCart\Models\VentaCartListing::STATUS_INACTIVE => ['Unlisted', 'warning'],
+        \Extensions\VentaCart\Models\VentaCartListing::STATUS_MISSING => ['Not on the store', 'neutral'],
     ];
     [$statusLabel, $statusTone] = $live && $live['status'] ? ($statusWords[$live['status']] ?? [ucfirst($live['status']), 'neutral']) : ['Unknown', 'neutral'];
 
@@ -35,7 +35,7 @@
     <div class="fm-head">
         <div class="fm-head__main">
             <a class="fm-back" href="{{ \App\Support\BackTo::safe(request('back'), route('ext.ventacart.listings.index', $setting->id)) }}" data-guard-leave>
-                <x-ui.icon name="chevron-left" size="14" /> Listings
+                <x-ui.icon name="chevron-left" size="14" /> Products
             </a>
             <h1 class="fm-title">{{ ($product->name ?? '') !== '' ? $product->name : 'Product ' . $product->product_id }}</h1>
             <div class="fm-stamps">
@@ -84,7 +84,7 @@
     <x-channel.listing-strip :channel="$storeName" :health="false" :linked="(bool) $onStore">
         @if($canManage && $setting->enabled && ($onStore || !$noSku))
             <x-slot:verbs>
-                @if($found && $live['status'] === \Extensions\ventacart\Models\VentaCartListing::STATUS_ACTIVE)
+                @if($found && $live['status'] === \Extensions\VentaCart\Models\VentaCartListing::STATUS_ACTIVE)
                     <form method="POST" action="{{ route('ext.ventacart.listings.toggle', [$setting->id, $product->product_id]) }}"
                           data-guard-stale data-confirm="Unlist this product on {{ $storeName }}? Buyers stop seeing it. It can be relisted at any time."
                           data-confirm-verb="Unlist" data-busy="Unlisting on {{ $storeName }}">
@@ -92,7 +92,7 @@
                         <input type="hidden" name="action" value="unlist">
                         <x-ui.button type="submit" size="sm">Unlist on {{ $storeName }}</x-ui.button>
                     </form>
-                @elseif($found && $live['status'] === \Extensions\ventacart\Models\VentaCartListing::STATUS_INACTIVE)
+                @elseif($found && $live['status'] === \Extensions\VentaCart\Models\VentaCartListing::STATUS_INACTIVE)
                     <form method="POST" action="{{ route('ext.ventacart.listings.toggle', [$setting->id, $product->product_id]) }}"
                           data-guard-stale data-confirm="Relist this product on {{ $storeName }}? Buyers see it again at once."
                           data-confirm-tone="primary" data-confirm-verb="Relist" data-busy="Relisting on {{ $storeName }}">
@@ -127,7 +127,7 @@
                     <div class="fm-section__head"><h2 class="fm-section__title">Content on this store</h2></div>
                     <div class="fm-fields">
                         <x-ui.field label="Name" for="vl-name" name="name" wide>
-                            <x-ui.input id="vl-name" name="name" :value="old('name', \App\Integrations\Listings\ListingContent::editable($listing->name ?? null, (string) $product->name))" maxlength="255" :disabled="!$canManage" />
+                            <x-ui.input id="vl-name" name="name" :value="old('name', \App\Channels\Listings\ListingContent::editable($listing->name ?? null, (string) $product->name))" maxlength="255" :disabled="!$canManage" />
                         </x-ui.field>
                         @include('partials.channel-description-pick', [
                             'id' => 'vl-prefix', 'label' => 'Prefix description', 'name' => 'description_prefix_id',
@@ -136,7 +136,7 @@
                         ])
                         @include('partials.channel-description-compose', [
                             'id' => 'vl-description', 'label' => 'Description', 'name' => 'description',
-                            'value' => old('description', \App\Integrations\Listings\ListingContent::editable($listing->description ?? null, (string) $coreDescription)),
+                            'value' => old('description', \App\Channels\Listings\ListingContent::editable($listing->description ?? null, (string) $coreDescription)),
                             'rich' => true, 'disabled' => !$canManage, 'rows' => 6, 'maxlength' => null,
                             'prefixFor' => 'vl-prefix', 'suffixFor' => 'vl-suffix',
                             'prefix' => $listing->description_prefix_id ?? null, 'suffix' => $listing->description_suffix_id ?? null,
@@ -182,7 +182,7 @@
                     'productId' => (int) $product->product_id,
                     'uploadUrl' => route('products.video.upload'),
                     'canManage' => $canManage,
-                ] + \App\Integrations\Listings\ListingVideo::cardData((int) $product->product_id, $listing ?? null))
+                ] + \App\Channels\Listings\ListingVideo::cardData((int) $product->product_id, $listing ?? null))
 
                 @include('partials.listing-variations-card', [
                     'title' => 'Variations on ' . $storeName, 'storeName' => $storeName, 'canManage' => $canManage,
@@ -195,7 +195,7 @@
                 <section class="fm-section" id="vl-only">
                     <div class="fm-section__head"><h2 class="fm-section__title">Only on {{ $storeName }}</h2></div>
                     <div class="fm-sub">
-                        <h3 class="fm-sub__title">Search engines <x-ui.hint label="About the meta fields">What search engines show for the product's page on the store. Empty fields follow the catalogue's.</x-ui.hint></h3>
+                        <h3 class="fm-sub__title">Search engines <x-ui.hint label="About the meta fields">What search engines show for the product's page on the store. Empty fields follow the Master Catalog's.</x-ui.hint></h3>
                         <div class="fm-fields">
                             <x-ui.field label="Meta title" for="vl-meta-title" name="meta_title" wide>
                                 <x-ui.input id="vl-meta-title" name="meta_title" :value="old('meta_title', $listing->meta_title ?? '')" :placeholder="$product->meta_title ?? $product->name" maxlength="255" :disabled="!$canManage" />

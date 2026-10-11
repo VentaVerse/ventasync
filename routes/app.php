@@ -7,7 +7,7 @@ use App\Http\Controllers\Api\MarketplaceConfigController;
 use App\Http\Controllers\Api\OrderController as ApiOrderController;
 use App\Http\Controllers\Api\MarketplaceOrderController as ApiMarketplaceOrderController;
 use App\Http\Controllers\Api\ProductController as ApiProductController;
-use Extensions\ventacart\Controllers\Api\VentaCartOrderApiController;
+use Extensions\VentaCart\Controllers\Api\VentaCartOrderApiController;
 use App\Support\AppDoor;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;

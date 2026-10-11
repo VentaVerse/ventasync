@@ -1,10 +1,10 @@
 <?php
 
-namespace Extensions\lazada\Services\Lazada;
+namespace Extensions\Lazada\Services\Lazada;
 
-use App\Integrations\Listings\ListingVariations;
+use App\Channels\Listings\ListingVariations;
 use App\Support\VariationRows;
-use Extensions\lazada\Models\LazadaApiLog;
+use Extensions\Lazada\Models\LazadaApiLog;
 
 final class LazadaVariationSwitch
 {
@@ -55,7 +55,7 @@ final class LazadaVariationSwitch
         return $out;
     }
 
-    public function switchOff(object $setting, array $creds, string $itemId, array $off): array
+    public function switchOff(object $store, array $creds, string $itemId, array $off): array
     {
         $done = [];
         $refused = [];
@@ -78,7 +78,7 @@ final class LazadaVariationSwitch
             $params['sign'] = $this->client->sign($apiPath, $params, (string) $creds['app_secret']);
 
             try {
-                $result = $this->client->post((string) $setting->region, $apiPath, $params);
+                $result = $this->client->post((string) $store->region, $apiPath, $params);
             } catch (\Throwable $e) {
                 $refused[$sku['seller_sku']] = \App\Support\TransportError::plain($e, 'Lazada');
 
@@ -147,7 +147,7 @@ final class LazadaVariationSwitch
         $names = [];
         foreach (VariationRows::forProducts([$productId])->get($productId) ?? [] as $row) {
             $k = self::key($row->sku ?? '');
-            $name = trim((string) ($row->option_value_name ?? ''));
+            $name = trim((string) ($row->variation_value_name ?? ''));
             if ($k !== '' && $name !== '') {
                 $names[$k] = $name;
             }

@@ -580,9 +580,9 @@
 
 .cs-packs { display: flex; flex-wrap: wrap; gap: var(--bl-space-2); }
 
-.cs-colour { display: flex; align-items: center; gap: var(--bl-space-2); }
+.cs-color { display: flex; align-items: center; gap: var(--bl-space-2); }
 
-.cs-colour__swatch {
+.cs-color__swatch {
     flex: none;
     width: var(--bl-control-h);
     height: var(--bl-control-h);
@@ -593,14 +593,14 @@
     cursor: pointer;
 }
 
-.cs-colour__swatch:disabled { cursor: not-allowed; opacity: .6; }
+.cs-color__swatch:disabled { cursor: not-allowed; opacity: .6; }
 
-.cs-colour__swatch::-webkit-color-swatch-wrapper { padding: 0; }
-.cs-colour__swatch::-webkit-color-swatch { border: 0; border-radius: 2px; }
-.cs-colour__swatch::-moz-color-swatch { border: 0; border-radius: 2px; }
+.cs-color__swatch::-webkit-color-swatch-wrapper { padding: 0; }
+.cs-color__swatch::-webkit-color-swatch { border: 0; border-radius: 2px; }
+.cs-color__swatch::-moz-color-swatch { border: 0; border-radius: 2px; }
 
-.cs-colour__hex,
-.fm-field .cs-colour__hex { width: 104px; flex: none; }
+.cs-color__hex,
+.fm-field .cs-color__hex { width: 104px; flex: none; }
 
 .cs-crons { display: flex; flex-direction: column; gap: var(--bl-space-4); }
 
@@ -712,7 +712,7 @@
 
     .cs-lock__row .fm-field { flex: 1 1 100%; }
 
-    .cs-colour__hex { flex: 1 1 auto; width: auto; }
+    .cs-color__hex { flex: 1 1 auto; width: auto; }
 
     .cs-page .x-table td.cs-col-count,
     .cs-page .x-table td.cs-col-ms,

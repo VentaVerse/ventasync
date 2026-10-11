@@ -1,9 +1,9 @@
 <?php
 
-namespace Extensions\ventacart\Services\VentaCart;
+namespace Extensions\VentaCart\Services\VentaCart;
 
-use Extensions\ventacart\Models\VentaCartProductLink;
-use Extensions\ventacart\Models\VentaCartSetting;
+use Extensions\VentaCart\Models\VentaCartListingLink;
+use Extensions\VentaCart\Models\VentaCartStore;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -11,13 +11,13 @@ use Illuminate\Support\Str;
 
 class VentaCartItemImport
 {
-    public function import(VentaCartSetting $setting, string $importSku): array
+    public function import(VentaCartStore $store, string $importSku): array
     {
         if ($refused = \App\Plans\Quota::importRefusal()) {
             return $refused;
         }
 
-        $client = new VentaCartClient($setting);
+        $client = new VentaCartClient($store);
 
         $answer = $client->getProduct($importSku);
         if (! ($answer['ok'] ?? false)) {
@@ -34,8 +34,6 @@ class VentaCartItemImport
         if ($vAnswer['ok'] ?? false) {
             $variants = array_values((array) ($vAnswer['body']['data'] ?? $vAnswer['body'] ?? []));
         }
-
-        $pfx = (string) config('catalog.prefix');
         $langId = (int) config('catalog.default_language_id');
 
         $name = trim((string) ($item['name'] ?? '')) ?: ('VentaCart item ' . $importSku);
@@ -43,8 +41,8 @@ class VentaCartItemImport
         $ventaCartId = (int) ($item['id'] ?? 0);
 
         try {
-            $productId = DB::transaction(function () use ($pfx, $langId, $item, $variants, $name, $sku, $ventaCartId, $setting) {
-                $productId = DB::table($pfx . 'product')->insertGetId([
+            $productId = DB::transaction(function () use ( $langId, $item, $variants, $name, $sku, $ventaCartId, $store) {
+                $productId = DB::table('products')->insertGetId([
                     'model' => $sku,
                     'sku' => $sku,
                     'quantity' => (int) ($item['quantity'] ?? 0),
@@ -53,11 +51,11 @@ class VentaCartItemImport
                     'image' => '',
                     'weight' => (float) ($item['weight'] ?? 0),
                     'length' => 0, 'width' => 0, 'height' => 0,
-                    'manufacturer_id' => 0,
+                    'brand_id' => 0,
                     'date_added' => now(), 'date_modified' => now(), 'date_available' => now(),
                 ]);
 
-                DB::table($pfx . 'product_description')->insert([
+                DB::table('product_descriptions')->insert([
                     'product_id' => $productId,
                     'language_id' => $langId,
                     'name' => Str::limit($name, 250, ''),
@@ -72,9 +70,9 @@ class VentaCartItemImport
                 );
                 $paths = $this->downloadImages($urls, $sku);
                 if ($paths !== []) {
-                    DB::table($pfx . 'product')->where('product_id', $productId)->update(['image' => $paths[0]]);
+                    DB::table('products')->where('product_id', $productId)->update(['image' => $paths[0]]);
                     foreach (array_slice($paths, 1) as $i => $path) {
-                        DB::table($pfx . 'product_image')->insert([
+                        DB::table('product_images')->insert([
                             'product_id' => $productId, 'image' => $path, 'sort_order' => $i,
                         ]);
                     }
@@ -84,8 +82,8 @@ class VentaCartItemImport
                     $this->writeVariations($productId, $sku, $variants);
                 }
 
-                VentaCartProductLink::updateOrCreate(
-                    ['ventacart_setting_id' => $setting->id, 'product_id' => $productId],
+                VentaCartListingLink::updateOrCreate(
+                    ['store_id' => $store->id, 'product_id' => $productId],
                     ['ventacart_product_id' => $ventaCartId ?: null, 'sku' => $sku]
                 );
 
@@ -101,9 +99,9 @@ class VentaCartItemImport
         return [
             'ok' => true,
             'product_id' => $productId,
-            'message' => "Imported \"{$name}\" as catalog product #{$productId}"
+            'message' => "Imported \"{$name}\" as Master Catalog product #{$productId}"
                 . ($variants !== [] ? ' with ' . count($variants) . ' variations' : '')
-                . ', linked to ' . ($setting->store_name ?: 'VentaCart') . '.' . (\App\Support\Catalog\SkuFallback::note($minted) !== '' ? ' ' . \App\Support\Catalog\SkuFallback::note($minted) : ''),
+                . ', linked to ' . ($store->store_name ?: 'VentaCart') . '.' . (\App\Support\Catalog\SkuFallback::note($minted) !== '' ? ' ' . \App\Support\Catalog\SkuFallback::note($minted) : ''),
         ];
     }
 
@@ -123,9 +121,9 @@ class VentaCartItemImport
         }
 
         app(\App\Http\Controllers\Catalog\ProductController::class)
-            ->saveAbsoluteOptions($productId, Request::create('/', 'POST', [
+            ->saveAbsoluteVariations($productId, Request::create('/', 'POST', [
                 'sku' => $parentSku,
-                'option_name' => 'Variation',
+                'variation_type_name' => 'Variation',
                 'values' => $values,
             ]));
     }

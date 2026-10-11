@@ -1,10 +1,10 @@
 <?php
 
-namespace Extensions\tiktok\Commands;
+namespace Extensions\TikTok\Commands;
 
-use Extensions\tiktok\Models\TikTokSetting;
-use Extensions\tiktok\Services\TikTok\TikTokPayoutSync;
-use Extensions\tiktok\Services\TikTok\TikTokReturnSync;
+use Extensions\TikTok\Models\TikTokStore;
+use Extensions\TikTok\Services\TikTok\TikTokPayoutSync;
+use Extensions\TikTok\Services\TikTok\TikTokReturnSync;
 use Illuminate\Console\Command;
 
 class TikTokBackfillPayouts extends Command
@@ -16,7 +16,7 @@ class TikTokBackfillPayouts extends Command
 
     public function handle(TikTokPayoutSync $payouts): int
     {
-        $stores = TikTokSetting::enabledStores();
+        $stores = TikTokStore::enabledStores();
         if ($this->option('store') !== null) {
             $stores = $stores->where('id', (int) $this->option('store'))->values();
         }

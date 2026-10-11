@@ -30,10 +30,10 @@
     $basePrice = isset($productRow->price) ? (float) $productRow->price : null;
 
     $hasVariations = ($variants ?? collect())->count() > 0;
-    $pushPrice = \Extensions\lazada\Services\Lazada\LazadaPushPayload::computeFinalPrice(
+    $pushPrice = \Extensions\Lazada\Services\Lazada\LazadaPushPayload::computeFinalPrice(
         $hasVariations
             ? (float) $basePrice
-            : \Extensions\lazada\Services\Lazada\LazadaPushPayload::startingPrice($listing, (float) $basePrice),
+            : \Extensions\Lazada\Services\Lazada\LazadaPushPayload::startingPrice($listing, (float) $basePrice),
         is_numeric($effectiveFixed) ? (float) $effectiveFixed : null,
         is_numeric($effectivePercent) ? (float) $effectivePercent : null
     );
@@ -77,7 +77,7 @@
     <div class="fm-head">
         <div class="fm-head__main">
             <a class="fm-back" href="{{ \App\Support\BackTo::safe(request('back'), route('ext.lazada.products.index')) }}" data-guard-leave>
-                <x-ui.icon name="chevron-left" size="14" /> Listings
+                <x-ui.icon name="chevron-left" size="14" /> Products
             </a>
             <h1 class="fm-title">{{ $mode === 'create' ? 'New Lazada listing' : ($productName !== '' ? $productName : 'Listing ' . $listing->id) }}</h1>
             <div class="fm-stamps">
@@ -87,7 +87,7 @@
                 </span>
                 @if($mode === 'edit' && $listing->product_id)
                     <span class="fm-stamp">
-                        <span class="fm-stamp__k">Catalog product</span>
+                        <span class="fm-stamp__k">Master Catalog product</span>
                         <a class="fm-stamp__v" href="{{ route('products.edit', $listing->product_id) }}">{{ $listing->product_id }}</a>
                     </span>
                 @endif
@@ -220,13 +220,13 @@
 
                     <div class="fm-fields" data-catalog-picker
                          data-search-url="{{ route('ext.lazada.products.search_catalog') }}">
-                        <x-ui.field label="Catalog product" for="lz-search" name="product_id" :required="true" wide
+                        <x-ui.field label="Master Catalog product" for="lz-search" name="product_id" :required="true" wide
                                     hint="Type at least two characters, then pick one from the list. Every Lazada payload is built from this product.">
                             <div class="fm-ta">
                                 <x-ui.input id="lz-search" type="search" autocomplete="off"
                                             data-unmatched-search
                                             placeholder="Search by name, model or SKU" />
-                                <div class="fm-ta__list" data-unmatched-results role="listbox" aria-label="Catalog matches"></div>
+                                <div class="fm-ta__list" data-unmatched-results role="listbox" aria-label="Master Catalog matches"></div>
                             </div>
                             <input type="hidden" name="product_id" data-unmatched-id value="{{ old('product_id', $listing->product_id) }}">
                         </x-ui.field>
@@ -242,7 +242,7 @@
                     <div class="fm-fields">
                         <x-ui.field label="Title" for="lz-item-name" name="item_name" wide>
                             <x-ui.input id="lz-item-name" name="item_name" maxlength="255"
-                                        :value="old('item_name', \App\Integrations\Listings\ListingContent::editable($listing->item_name ?? null, (string) $productName))" />
+                                        :value="old('item_name', \App\Channels\Listings\ListingContent::editable($listing->item_name ?? null, (string) $productName))" />
                         </x-ui.field>
                         @include('partials.channel-description-pick', [
                             'id' => 'lz-prefix', 'label' => 'Prefix description', 'name' => 'description_prefix_id',
@@ -251,7 +251,7 @@
                         ])
                         @include('partials.channel-description-compose', [
                             'id' => 'lz-description', 'label' => 'Description', 'name' => 'description',
-                            'value' => old('description', \App\Integrations\Listings\ListingContent::editable($listing->description ?? null, (string) $coreDescription)),
+                            'value' => old('description', \App\Channels\Listings\ListingContent::editable($listing->description ?? null, (string) $coreDescription)),
                             'rich' => true, 'disabled' => false, 'rows' => 6, 'maxlength' => 20000,
                             'prefixFor' => 'lz-prefix', 'suffixFor' => 'lz-suffix',
                             'prefix' => $listing->description_prefix_id ?? null, 'suffix' => $listing->description_suffix_id ?? null,
@@ -317,9 +317,9 @@
                         </x-ui.field>
                     </div>
 
-                    @if(!empty($productRow?->manufacturer_name))
+                    @if(!empty($productRow?->brand_name))
                         <p class="fm-section__note">
-                            This product's manufacturer is <strong>{{ $productRow->manufacturer_name }}</strong>.
+                            This product's brand is <strong>{{ $productRow->brand_name }}</strong>.
                             @if(!empty($brandSuggestion['brand_id']))
                                 The closest Lazada brand is <strong>{{ $brandSuggestion['brand_name'] }}</strong> ({{ $brandSuggestion['brand_id'] }}).
                             @else
@@ -377,7 +377,7 @@
                         'productId' => (int) $listing->product_id,
                         'uploadUrl' => route('products.video.upload'),
                         'canManage' => true,
-                    ] + \App\Integrations\Listings\ListingVideo::cardData((int) $listing->product_id, $listing ?? null))
+                    ] + \App\Channels\Listings\ListingVideo::cardData((int) $listing->product_id, $listing ?? null))
 
                     @include('partials.listing-variations-card', [
                         'title' => 'Variations on Lazada', 'storeName' => 'Lazada', 'canManage' => true,
@@ -401,26 +401,26 @@
                                         <thead>
                                             <tr>
                                                 <th scope="col" class="fm-vcol-name">Variation</th>
-                                                <th scope="col" class="fm-vcol-sku">Catalog SKU</th>
-                                                <th scope="col" class="fm-vcol-price fm-vcol-num">Catalog price</th>
-                                                <th scope="col" class="fm-vcol-qty fm-vcol-num">Catalog stock</th>
+                                                <th scope="col" class="fm-vcol-sku">Master Catalog SKU</th>
+                                                <th scope="col" class="fm-vcol-price fm-vcol-num">Master Catalog price</th>
+                                                <th scope="col" class="fm-vcol-qty fm-vcol-num">Master Catalog stock</th>
                                                 <th scope="col" class="fm-vcol-price fm-vcol-num">Lazada price</th>
                                             </tr>
                                         </thead>
                                         <tbody>
                                             @foreach($variants as $variant)
                                                 @php
-                                                    $variantId = (string) $variant->product_option_value_id;
+                                                    $variantId = (string) $variant->product_variation_value_id;
                                                     $mapped = $variantMap[$variantId] ?? null;
-                                                    $variantLabel = trim((string) ($variant->option_name ?? '')) !== ''
-                                                        ? ((string) $variant->option_name) . ': ' . ((string) ($variant->option_value_name ?? ''))
+                                                    $variantLabel = trim((string) ($variant->variation_type_name ?? '')) !== ''
+                                                        ? ((string) $variant->variation_type_name) . ': ' . ((string) ($variant->variation_value_name ?? ''))
                                                         : 'Variation ' . $variantId;
                                                 @endphp
                                                 <tr>
                                                     <td class="fm-vcol-name" data-label="Variation">{{ $variantLabel }}</td>
-                                                    <td class="fm-vcol-sku" data-label="Catalog SKU"><span class="x-num">{{ $variant->sku ?: 'None' }}</span></td>
-                                                    <td class="fm-vcol-price fm-num" data-label="Catalog price">{{ number_format((float) ($variant->absolute_price ?? 0), 2) }}</td>
-                                                    <td class="fm-vcol-qty fm-num" data-label="Catalog stock">{{ $variant->quantity }}</td>
+                                                    <td class="fm-vcol-sku" data-label="Master Catalog SKU"><span class="x-num">{{ $variant->sku ?: 'None' }}</span></td>
+                                                    <td class="fm-vcol-price fm-num" data-label="Master Catalog price">{{ number_format((float) ($variant->absolute_price ?? 0), 2) }}</td>
+                                                    <td class="fm-vcol-qty fm-num" data-label="Master Catalog stock">{{ $variant->quantity }}</td>
                                                     <td class="fm-vcol-price fm-vcol-num" data-label="Lazada price">
                                                         <input class="x-input fm-num" name="variants[{{ $variantId }}][price]"
                                                                type="number" step="0.01" min="0"
@@ -483,7 +483,7 @@
 @if(!empty($catalogChange))
     @include('partials.catalog-change-panel', [
         'listing' => $listing,
-        'storeLabel' => \App\Support\StoreLabel::of('Lazada', \Extensions\lazada\Models\LazadaSetting::query()->find($listing->lazada_setting_id)?->store_name),
+        'storeLabel' => \App\Support\StoreLabel::of('Lazada', \Extensions\Lazada\Models\LazadaStore::query()->find($listing->store_id)?->store_name),
         'saveUrl' => route('ext.lazada.products.catalog_change_save', $listing->product_id),
         'ignoreUrl' => route('ext.lazada.products.catalog_change_ignore', $listing->product_id),
         'back' => request()->boolean('compare') ? \App\Support\BackTo::safe(request('back'), request()->getRequestUri()) : request()->getRequestUri(),

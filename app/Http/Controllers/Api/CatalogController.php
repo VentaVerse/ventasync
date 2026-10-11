@@ -4,7 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
-use App\Models\Catalog\Manufacturer;
+use App\Models\Catalog\Brand;
 use Illuminate\Support\Facades\DB;
 
 class CatalogController extends Controller
@@ -18,24 +18,24 @@ class CatalogController extends Controller
         return (bool) preg_match('/(^|[^a-z0-9])' . preg_quote($t, '/') . '/i', $h);
     }
 
-    public function manufacturers(Request $request)
+    public function brands(Request $request)
     {
         $term = trim((string) $request->query('term',''));
         if ($term === '') {
             return response()->json([]);
         }
 
-        $rows = Manufacturer::query()
+        $rows = Brand::query()
             ->where('name', 'like', '%'.$term.'%')
             ->orderBy('name')
             ->limit(80)
-            ->get(['manufacturer_id','name']);
+            ->get(['brand_id','name']);
 
         $out = [];
         foreach ($rows as $r) {
             if ($this->isWordStartMatch((string)$r->name, $term)) {
                 $out[] = [
-                    'manufacturer_id' => (int) $r->manufacturer_id,
+                    'brand_id' => (int) $r->brand_id,
                     'name' => html_entity_decode((string)$r->name, ENT_QUOTES | ENT_HTML5, 'UTF-8'),
                 ];
             }
@@ -51,12 +51,10 @@ class CatalogController extends Controller
         if ($term === '') {
             return response()->json([]);
         }
-
-        $p = config('catalog.prefix');
         $lang = (int) config('catalog.default_language_id');
 
-        $tableCat = $p.'category_description';
-        $tablePath = $p.'category_path';
+        $tableCat = 'category_descriptions';
+        $tablePath = 'category_paths';
 
         $rows = DB::table($tablePath.' as cp')
             ->join($tableCat.' as cd1', function($j) use ($lang){
@@ -107,30 +105,28 @@ class CatalogController extends Controller
         return response()->json($out);
     }
 
-    public function options(Request $request)
+    public function variationTypes(Request $request)
     {
         $term = trim((string) $request->query('term',''));
         if ($term === '') {
             return response()->json([]);
         }
-
-        $p = config('catalog.prefix');
         $lang = (int) config('catalog.default_language_id');
 
-        $rows = DB::table($p.'option as o')
-            ->join($p.'option_description as od', function($j) use ($lang){
-                $j->on('o.option_id','=','od.option_id')->where('od.language_id','=',$lang);
+        $rows = DB::table('variation_types as o')
+            ->join('variation_type_descriptions as od', function($j) use ($lang){
+                $j->on('o.variation_type_id','=','od.variation_type_id')->where('od.language_id','=',$lang);
             })
             ->where('od.name','like','%'.$term.'%')
             ->orderBy('od.name')
             ->limit(120)
-            ->get(['o.option_id','o.type','od.name']);
+            ->get(['o.variation_type_id','o.type','od.name']);
 
         $out = [];
         foreach ($rows as $r) {
             if ($this->isWordStartMatch((string)$r->name, $term)) {
                 $out[] = [
-                    'option_id' => (int) $r->option_id,
+                    'variation_type_id' => (int) $r->variation_type_id,
                     'type' => (string) $r->type,
                     'name' => html_entity_decode((string)$r->name, ENT_QUOTES | ENT_HTML5, 'UTF-8'),
                 ];
@@ -141,28 +137,27 @@ class CatalogController extends Controller
         return response()->json($out);
     }
 
-    public function optionValues(Request $request, int $optionId)
+    public function variationValues(Request $request, int $variationTypeId)
     {
         $term = trim((string) $request->query('term',''));
-        $p = config('catalog.prefix');
         $lang = (int) config('catalog.default_language_id');
 
-        $q = DB::table($p.'option_value_description as ovd')
-            ->where('ovd.option_id', $optionId)
+        $q = DB::table('variation_value_descriptions as ovd')
+            ->where('ovd.variation_type_id', $variationTypeId)
             ->where('ovd.language_id', $lang);
 
         if ($term !== '') {
             $q->where('ovd.name','like','%'.$term.'%');
         }
 
-        $rows = $q->orderBy('ovd.name')->limit(200)->get(['ovd.option_value_id','ovd.name']);
+        $rows = $q->orderBy('ovd.name')->limit(200)->get(['ovd.variation_value_id','ovd.name']);
 
         $out = [];
         foreach ($rows as $r) {
             $name = (string)$r->name;
             if ($term === '' || $this->isWordStartMatch($name, $term)) {
                 $out[] = [
-                    'option_value_id' => (int) $r->option_value_id,
+                    'variation_value_id' => (int) $r->variation_value_id,
                     'name' => html_entity_decode($name, ENT_QUOTES | ENT_HTML5, 'UTF-8'),
                 ];
             }

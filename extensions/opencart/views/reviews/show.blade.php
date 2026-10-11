@@ -1,6 +1,6 @@
 @extends('layouts.blotter')
-@section('title', 'Review ' . $review->platform_review_id)
-@section('breadcrumb', $review->platform_review_id)
+@section('title', 'Review ' . $review->channel_review_id)
+@section('breadcrumb', $review->channel_review_id)
 
 @section('content')
 @php
@@ -67,7 +67,7 @@
     <div class="od-stamps">
         <span class="od-stamp">
             <span class="od-stamp__k">Channel</span>
-            <span class="od-stamp__v">{{ Str::headline($review->platform) }}</span>
+            <span class="od-stamp__v">{{ Str::headline($review->channel) }}</span>
         </span>
         <span class="od-stamp">
             <span class="od-stamp__k">Reviewed</span>
@@ -162,10 +162,10 @@
                         <span class="od-fact__k">State</span>
                         <span class="od-fact__v">{{ ChannelStatusTone::labelFor('opencart.reviews', $review->oc_sync_status) }}</span>
                     </div>
-                    @if($review->opencart_setting_id)
+                    @if($review->store_id)
                         <div class="od-fact">
                             <span class="od-fact__k">Store</span>
-                            <span class="od-fact__v od-fact__v--mono">{{ $review->opencart_setting_id }}</span>
+                            <span class="od-fact__v od-fact__v--mono">{{ $review->store_id }}</span>
                         </div>
                     @endif
                     @if($review->oc_review_id)
@@ -196,10 +196,10 @@
                         <span class="od-fact__k">State</span>
                         <span class="od-fact__v">{{ ChannelStatusTone::labelFor('opencart.reviews', $ventaCartStatus) }}</span>
                     </div>
-                    @if($review->ventacart_setting_id)
+                    @if($review->store_id)
                         <div class="od-fact">
                             <span class="od-fact__k">Store</span>
-                            <span class="od-fact__v od-fact__v--mono">{{ $review->ventacart_setting_id }}</span>
+                            <span class="od-fact__v od-fact__v--mono">{{ $review->store_id }}</span>
                         </div>
                     @endif
                     @if($review->ventacart_review_id)
@@ -231,10 +231,10 @@
                         <span class="od-fact__k">State</span>
                         <span class="od-fact__v">{{ ChannelStatusTone::labelFor('opencart.reviews', $wcStatus) }}</span>
                     </div>
-                    @if($review->woocommerce_setting_id)
+                    @if($review->store_id)
                         <div class="od-fact">
                             <span class="od-fact__k">Store</span>
-                            <span class="od-fact__v od-fact__v--mono">{{ $review->woocommerce_setting_id }}</span>
+                            <span class="od-fact__v od-fact__v--mono">{{ $review->store_id }}</span>
                         </div>
                     @endif
                     @if($review->woocommerce_review_id)
@@ -264,23 +264,23 @@
                 <div class="od-card__body od-card__body--tight">
                     <div class="od-fact">
                         <span class="od-fact__k">Review</span>
-                        <span class="od-fact__v od-fact__v--mono">{{ $review->platform_review_id }}</span>
+                        <span class="od-fact__v od-fact__v--mono">{{ $review->channel_review_id }}</span>
                     </div>
-                    @if($review->platform_item_id)
+                    @if($review->channel_item_id)
                         <div class="od-fact">
                             <span class="od-fact__k">Listing</span>
-                            <span class="od-fact__v od-fact__v--mono">{{ $review->platform_item_id }}</span>
+                            <span class="od-fact__v od-fact__v--mono">{{ $review->channel_item_id }}</span>
                         </div>
                     @endif
-                    @if($review->platform_order_id)
+                    @if($review->channel_order_id)
                         <div class="od-fact">
                             <span class="od-fact__k">Order</span>
-                            <span class="od-fact__v od-fact__v--mono">{{ $review->platform_order_id }}</span>
+                            <span class="od-fact__v od-fact__v--mono">{{ $review->channel_order_id }}</span>
                         </div>
                     @endif
                     @if($review->product_id)
                         <div class="od-fact">
-                            <span class="od-fact__k">Catalog product</span>
+                            <span class="od-fact__k">Master Catalog product</span>
                             <span class="od-fact__v od-fact__v--mono">{{ $review->product_id }}</span>
                         </div>
                     @endif

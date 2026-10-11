@@ -1,17 +1,17 @@
 <?php
 
-namespace Extensions\opencart\Commands;
+namespace Extensions\OpenCart\Commands;
 
-use Extensions\opencart\Models\OpenCartSetting;
-use Extensions\opencart\Services\OpenCart\OpenCartClient;
-use Extensions\opencart\Services\OpenCart\OpenCartProductSync;
+use Extensions\OpenCart\Models\OpenCartStore;
+use Extensions\OpenCart\Services\OpenCart\OpenCartClient;
+use Extensions\OpenCart\Services\OpenCart\OpenCartProductSync;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 
 class OpenCartPush extends Command
 {
     protected $signature = 'opencart:push
-        {--store= : Store ID (opencart_settings.id). Omit to push to all enabled stores}
+        {--store= : Store ID (ch_opencart_stores.id). Omit to push to all enabled stores}
         {--product-ids= : Comma-separated product IDs to push}
         {--since= : Push products modified since this datetime (Y-m-d H:i:s)}
         {--all : Push all products}';
@@ -23,7 +23,7 @@ class OpenCartPush extends Command
         $storeId = $this->option('store');
 
         if ($storeId) {
-            $settings = OpenCartSetting::where('id', (int) $storeId)
+            $settings = OpenCartStore::where('id', (int) $storeId)
                 ->where('enabled', true)
                 ->get();
 
@@ -32,7 +32,7 @@ class OpenCartPush extends Command
                 return 1;
             }
         } else {
-            $settings = OpenCartSetting::where('enabled', true)->get();
+            $settings = OpenCartStore::where('enabled', true)->get();
 
             if ($settings->isEmpty()) {
                 $this->error('No enabled OpenCart stores configured.');
@@ -48,12 +48,12 @@ class OpenCartPush extends Command
             return 0;
         }
 
-        foreach ($settings as $setting) {
+        foreach ($settings as $store) {
             $this->newLine();
-            $this->info("=== Pushing to: {$setting->store_name} (#{$setting->id}) ===");
+            $this->info("=== Pushing to: {$store->store_name} (#{$store->id}) ===");
             $this->info("Products: " . count($ids));
 
-            $client = new OpenCartClient($setting);
+            $client = new OpenCartClient($store);
 
             $ping = $client->ping();
             if (!$ping['ok']) {
@@ -61,7 +61,7 @@ class OpenCartPush extends Command
                 continue;
             }
 
-            $sync = new OpenCartProductSync($client, $setting);
+            $sync = new OpenCartProductSync($client, $store);
             $result = $sync->push($ids);
 
             $this->info("  Updated: {$result['updated']}, Created: {$result['created']}, Failed: {$result['failed']}");
@@ -85,11 +85,10 @@ class OpenCartPush extends Command
 
     private function resolveProductIds(): ?array
     {
-        $pfx = (string) config('catalog.prefix');
 
         if ($this->option('product-ids')) {
             $requestedIds = array_map('intval', explode(',', $this->option('product-ids')));
-            return DB::table($pfx . 'product')
+            return DB::table('products')
                 ->whereIn('product_id', $requestedIds)
                 ->where('status', 1)
                 ->pluck('product_id')
@@ -97,7 +96,7 @@ class OpenCartPush extends Command
         }
 
         if ($this->option('since')) {
-            return DB::table($pfx . 'product')
+            return DB::table('products')
                 ->where('date_modified', '>=', $this->option('since'))
                 ->where('status', 1)
                 ->pluck('product_id')
@@ -105,7 +104,7 @@ class OpenCartPush extends Command
         }
 
         if ($this->option('all')) {
-            return DB::table($pfx . 'product')
+            return DB::table('products')
                 ->where('status', 1)
                 ->pluck('product_id')
                 ->toArray();

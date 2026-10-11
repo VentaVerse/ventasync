@@ -5,8 +5,8 @@ namespace Tests\Feature;
 use App\Models\Admin\Permission;
 use App\Models\User;
 use App\Models\Admin\UserGroup;
-use Extensions\shopee\Models\ShopeeOrder;
-use Extensions\shopee\Models\ShopeeOrderProduct;
+use Extensions\Shopee\Models\ShopeeOrder;
+use Extensions\Shopee\Models\ShopeeOrderProduct;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -18,7 +18,7 @@ class OrderPrintListsTest extends TestCase
     {
         parent::setUp();
 
-        \Extensions\shopee\Models\ShopeeSetting::create(['mode' => 'live', 'store_name' => 'Main store']);
+        \Extensions\Shopee\Models\ShopeeStore::create(['mode' => 'live', 'store_name' => 'Main store']);
 
         $manager = $this->app->make(\App\Extensions\ExtensionManager::class);
 
@@ -27,8 +27,8 @@ class OrderPrintListsTest extends TestCase
             $manager->enable($extension);
         }
 
-        $this->app->register(\Extensions\shopee\ShopeeExtension::class);
-        $this->app->register(\Extensions\lazada\LazadaExtension::class);
+        $this->app->register(\Extensions\Shopee\ShopeeExtension::class);
+        $this->app->register(\Extensions\Lazada\LazadaExtension::class);
 
         $this->app['router']->getRoutes()->refreshNameLookups();
     }

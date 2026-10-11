@@ -1,11 +1,11 @@
 <?php
 
-namespace Extensions\tiktok\Services;
+namespace Extensions\TikTok\Services;
 
 use App\Support\Fulfilment\AppFulfilment;
-use Extensions\tiktok\Controllers\TikTokOrderController;
-use Extensions\tiktok\Models\TikTokOrder;
-use Extensions\tiktok\Models\TikTokSetting;
+use Extensions\TikTok\Controllers\TikTokOrderController;
+use Extensions\TikTok\Models\TikTokOrder;
+use Extensions\TikTok\Models\TikTokStore;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -25,7 +25,7 @@ final class TikTokAppFulfilment
             'AWAITING_COLLECTION' => ['to_handover', [], ['awb', 'tracking']],
             'IN_TRANSIT' => ['shipped', [], ['tracking']],
             'DELIVERED', 'COMPLETED' => ['done', [], []],
-            'CANCELLED' => ['cancelled', [], []],
+            'CANCELLED' => ['canceled', [], []],
             default => ['other', [], []],
         };
 
@@ -35,7 +35,7 @@ final class TikTokAppFulfilment
     public function handle(string $action, int $id, Request $request): Response
     {
         $order = TikTokOrder::query()->find($id);
-        $store = $order ? TikTokSetting::query()->find($order->tiktok_setting_id) : null;
+        $store = $order ? TikTokStore::query()->find($order->store_id) : null;
         if ($order === null || $store === null) {
             return response()->json(['error' => 'Order not found'], 404);
         }
@@ -46,7 +46,7 @@ final class TikTokAppFulfilment
         return match ($action) {
             'ship' => AppFulfilment::answer(
                 AppFulfilment::webOutcome(app()->call([$web, 'shipOrder'], ['request' => $request, 'id' => $id]), 'tiktok_orders_last_result'),
-                app(\App\Integrations\IntegrationRegistry::class)->mobileProviderFor('tiktok')?->mobileShowResponse($id),
+                app(\App\Channels\ChannelRegistry::class)->mobileProviderFor('tiktok')?->mobileShowResponse($id),
             ),
             'awb' => $this->waybill(app()->call([$web, 'awbPdf'], ['request' => $request, 'id' => $id]), (string) $order->order_id),
             'tracking' => $this->tracking(app()->call([$web, 'tracking'], ['id' => $id])),

@@ -53,8 +53,8 @@
                 value="{{ $q }}" placeholder="Name, model or SKU" aria-label="Search products in this product group" />
 
     <div class="x-select-wrap x-filters__select x-filters__select--narrow">
-        <select name="erp_status" class="x-input" data-autosubmit aria-label="Filter by catalog status">
-            <option value="all" @selected($erpStatus === 'all')>Any catalog status</option>
+        <select name="erp_status" class="x-input" data-autosubmit aria-label="Filter by Master Catalog status">
+            <option value="all" @selected($erpStatus === 'all')>Any Master Catalog status</option>
             <option value="enabled" @selected($erpStatus === 'enabled')>Enabled</option>
             <option value="disabled" @selected($erpStatus === 'disabled')>Disabled</option>
         </select>
@@ -71,8 +71,8 @@
         <x-ui.icon name="chevron-down" size="14" class="x-select-wrap__chevron" />
     </div>
 
-    @if(!empty($orderOptions))
-        @include('partials.listing-sort', ['options' => $orderOptions, 'chosen' => $order])
+    @if(!empty($orderVariations))
+        @include('partials.listing-sort', ['options' => $orderVariations, 'chosen' => $order])
     @endif
 
     <x-ui.button type="submit" variant="secondary">Search</x-ui.button>
@@ -93,7 +93,7 @@
             ['action' => route('ext.ventacart.listings.bulk_toggle', $setting->id), 'field' => 'product_ids[]', 'verb' => 'relist', 'codes' => 'inactive', 'label' => 'Relist :n on ' . $storeName, 'button' => 'Relist on ' . $storeName, 'fields' => ['action' => 'relist'], 'confirm' => "Relist the selected products on {$storeName}? Buyers see them again at once."],
         ],
         'delete' => ['action' => route('ext.ventacart.product-groups.bulk-delete-from-ventacart', [$setting->id, $group->id]), 'label' => 'Delete from ' . $storeName, 'fields' => $gf, 'confirm' => "Delete the selected products from {$storeName}? They are removed at the storefront and this cannot be undone."],
-        'remove' => ['action' => route('ext.ventacart.product-groups.mass-remove', [$setting->id, $group->id]), 'label' => 'Remove from product group', 'fields' => $gf, 'confirm' => "Take the selected products out of this product group? Nothing is deleted from the catalog, and nothing already live on {$storeName} is touched."],
+        'remove' => ['action' => route('ext.ventacart.product-groups.mass-remove', [$setting->id, $group->id]), 'label' => 'Remove from product group', 'fields' => $gf, 'confirm' => "Take the selected products out of this product group? Nothing is deleted from the Master Catalog, and nothing already live on {$storeName} is touched."],
     ];
 @endphp
 @include('partials.channel-bulk-bar', ['bulk' => $bulk])
@@ -102,8 +102,8 @@
 @if($products->count() === 0)
     <x-ui.empty title="{{ $hasFilters ? 'Nothing matches those filters' : 'No products in this product group' }}"
                 :description="$hasFilters
-                    ? 'Try clearing the search, or widening the catalog and push filters.'
-                    : 'Edit the product group to pick products from the catalog, or add them one at a time below.'">
+                    ? 'Try clearing the search, or widening the Master Catalog and push filters.'
+                    : 'Edit the product group to pick products from the Master Catalog, or add them one at a time below.'">
         @if($canManageVenta && !$hasFilters)
         <x-slot:action>
             <x-ui.button variant="primary" :href="route('ext.ventacart.product-groups.edit', [$setting->id, $group->id])">Edit product group</x-ui.button>
@@ -129,7 +129,7 @@
             <th scope="col" class="cc-col-qty x-td-num">Stock</th>
             <th scope="col" class="cc-col-price x-td-num">Price</th>
             <th scope="col" class="cc-col-chanid">VentaCart ID</th>
-            <th scope="col" class="cc-col-stat">Catalog</th>
+            <th scope="col" class="cc-col-stat">Master Catalog</th>
             <th scope="col" class="cc-col-sync">Push</th>
             <th scope="col" class="x-td-actions"><span class="x-sr">Actions</span></th>
         </tr>
@@ -150,7 +150,7 @@
                 : null;
 
 
-            $optRows = isset($optionRowsByProductId) ? $optionRowsByProductId->get($p->product_id) : null;
+            $optRows = isset($variationRowsByProductId) ? $variationRowsByProductId->get($p->product_id) : null;
             $variationCount = $optRows ? count($optRows) : 0;
 
             $pName = (string) ($rowTitles[(int) $p->product_id] ?? html_entity_decode((string) ($p->name ?? ''), ENT_QUOTES | ENT_HTML5, 'UTF-8'));
@@ -158,8 +158,8 @@
             $isManual = in_array((int) $p->product_id, $manualIds, true);
 
             $metaParts = [$pSku !== '' ? $pSku : 'No SKU'];
-            if (!empty($p->manufacturer_name)) {
-                $metaParts[] = (string) $p->manufacturer_name;
+            if (!empty($p->brand_name)) {
+                $metaParts[] = (string) $p->brand_name;
             }
             $metaParts[] = $isManual ? 'added by hand' : 'matched by the product group filter';
             $meta = implode(' / ', $metaParts);
@@ -250,9 +250,9 @@
                         $menu['link'] = ['action' => route('ext.ventacart.product-groups.link', [$setting->id, $group->id, $p->product_id]), 'fields' => ['_return' => $returnTo]];
                     } else {
                         $menu['update'] = ['action' => route('ext.ventacart.product-groups.push', [$setting->id, $group->id]), 'label' => 'Send to ' . $storeName, 'fields' => $gf];
-                        if ($gRow?->state === \App\Integrations\Listings\ListingState::LIVE) {
+                        if ($gRow?->state === \App\Channels\Listings\ListingState::LIVE) {
                             $menu['switch'] = ['action' => route('ext.ventacart.listings.toggle', [$setting->id, $p->product_id]), 'label' => 'Unlist on ' . $storeName, 'fields' => ['action' => 'unlist'], 'confirm' => "Unlist {$pName} on {$storeName}? Buyers stop seeing it. It can be relisted at any time.", 'verb' => 'Unlist'];
-                        } elseif ($gRow?->state === \App\Integrations\Listings\ListingState::INACTIVE) {
+                        } elseif ($gRow?->state === \App\Channels\Listings\ListingState::INACTIVE) {
                             $menu['switch'] = ['action' => route('ext.ventacart.listings.toggle', [$setting->id, $p->product_id]), 'label' => 'Relist on ' . $storeName, 'fields' => ['action' => 'relist'], 'confirm' => "Relist {$pName} on {$storeName}? Buyers see it again at once.", 'verb' => 'Relist', 'tone' => 'primary'];
                         }
                         $menu['check'] = ['action' => route('ext.ventacart.product-groups.check', [$setting->id, $group->id]), 'label' => 'Check against ' . $storeName, 'fields' => $gf];
@@ -260,7 +260,7 @@
                         $menu['delete'] = ['action' => route('ext.ventacart.product-groups.deleteFromVenta', [$setting->id, $group->id, $p->product_id]), 'fields' => ['_return' => $returnTo], 'confirm' => "Delete {$pName} from {$storeName}? It is removed at the storefront and this cannot be undone."];
                     }
                     if ($isManual) {
-                        $menu['remove'] = ['action' => route('ext.ventacart.product-groups.removeProduct', [$setting->id, $group->id, $p->product_id]), 'fields' => ['_return' => $returnTo], 'label' => 'Remove from product group', 'verb' => 'Remove', 'tone' => 'primary', 'confirm' => "Take {$pName} out of this product group? Nothing is deleted from the catalog, and nothing on {$storeName} is touched."];
+                        $menu['remove'] = ['action' => route('ext.ventacart.product-groups.removeProduct', [$setting->id, $group->id, $p->product_id]), 'fields' => ['_return' => $returnTo], 'label' => 'Remove from product group', 'verb' => 'Remove', 'tone' => 'primary', 'confirm' => "Take {$pName} out of this product group? Nothing is deleted from the Master Catalog, and nothing on {$storeName} is touched."];
                     }
                 @endphp
                 @include('partials.channel-row-menu', ['menu' => $menu])
@@ -293,7 +293,7 @@
     </form>
 
     <div class="cc-link">
-        <x-ui.input type="search" placeholder="Product name or SKU" aria-label="Search the catalog to add a product"
+        <x-ui.input type="search" placeholder="Product name or SKU" aria-label="Search the Master Catalog to add a product"
                     data-manual-search />
         <x-ui.button type="button" data-manual-search-go>Search</x-ui.button>
         <x-ui.button type="submit" variant="primary" form="ventacart-add-products" data-manual-add disabled>Add selected</x-ui.button>

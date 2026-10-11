@@ -10,17 +10,15 @@ class NormalizeOrderCurrencyTest extends TestCase
 {
     use RefreshDatabase;
 
-    private string $p;
 
     protected function setUp(): void
     {
         parent::setUp();
-        $this->p = (string) config('catalog.prefix');
     }
 
     private function makeOrder(int $id, string $code, float $cv, float $total): void
     {
-        DB::table($this->p.'order')->insert([
+        DB::table('orders')->insert([
             'order_id' => $id, 'currency_code' => $code, 'currency_value' => $cv,
             'total' => $total, 'order_status_id' => 1, 'date_added' => '2021-04-19 00:00:00',
             'date_modified' => '2021-04-19 00:00:00',
@@ -48,7 +46,7 @@ class NormalizeOrderCurrencyTest extends TestCase
 
     private function makeLine(int $orderId, int $lineId, float $price, float $total): void
     {
-        DB::table($this->p.'order_product')->insert([
+        DB::table('order_products')->insert([
             'order_product_id' => $lineId, 'order_id' => $orderId, 'product_id' => 1,
             'name' => 'Test Product', 'model' => 'TP-1', 'quantity' => 2,
             'price' => $price, 'total' => $total, 'cost' => 0, 'tax' => 0, 'reward' => 0,
@@ -62,7 +60,7 @@ class NormalizeOrderCurrencyTest extends TestCase
 
         $this->artisan('orders:currency-normalize --dry-run')->assertExitCode(0);
 
-        $order = DB::table($this->p.'order')->where('order_id', 8827)->first();
+        $order = DB::table('orders')->where('order_id', 8827)->first();
         $this->assertNull($order->foreign_total);
         $this->assertEquals(0.02100927, (float) $order->currency_value);
     }
@@ -74,12 +72,12 @@ class NormalizeOrderCurrencyTest extends TestCase
 
         $this->artisan('orders:currency-normalize --execute')->assertExitCode(0);
 
-        $order = DB::table($this->p.'order')->where('order_id', 8827)->first();
+        $order = DB::table('orders')->where('order_id', 8827)->first();
         $this->assertEquals(6602.08, (float) $order->total, 'authoritative total must not move');
         $this->assertEquals(138.7049, (float) $order->foreign_total);
         $this->assertEquals(47.59803649, (float) $order->currency_value);
 
-        $line = DB::table($this->p.'order_product')->where('order_product_id', 1)->first();
+        $line = DB::table('order_products')->where('order_product_id', 1)->first();
         $this->assertEquals(2790.00, (float) $line->price, 'line price must not move');
         $this->assertEquals(58.6159, (float) $line->foreign_price);
         $this->assertEquals(117.2317, (float) $line->foreign_total);
@@ -92,7 +90,7 @@ class NormalizeOrderCurrencyTest extends TestCase
 
         $this->artisan('orders:currency-normalize --execute')->assertExitCode(0);
 
-        $order = DB::table($this->p.'order')->where('order_id', 100)->first();
+        $order = DB::table('orders')->where('order_id', 100)->first();
         $this->assertEquals(1000.00, (float) $order->total);
         $this->assertNull($order->foreign_total);
     }
@@ -104,7 +102,7 @@ class NormalizeOrderCurrencyTest extends TestCase
 
         $this->artisan('orders:currency-normalize --execute')->assertExitCode(0);
 
-        $order = DB::table($this->p.'order')->where('order_id', 44294)->first();
+        $order = DB::table('orders')->where('order_id', 44294)->first();
         $this->assertEquals(5000.00, (float) $order->total, 'lost-rate order must not be guessed at');
         $this->assertNull($order->foreign_total);
         $this->assertEquals(1.0, (float) $order->currency_value);
@@ -121,12 +119,12 @@ class NormalizeOrderCurrencyTest extends TestCase
         $this->artisan('orders:currency-normalize --execute')
             ->assertExitCode(0);
 
-        $bad = DB::table($this->p.'order')->where('order_id', 70001)->first();
+        $bad = DB::table('orders')->where('order_id', 70001)->first();
         $this->assertNull($bad->foreign_total);
         $this->assertEquals(-5.0, (float) $bad->currency_value);
         $this->assertEquals(1000.00, (float) $bad->total);
 
-        $good = DB::table($this->p.'order')->where('order_id', 8827)->first();
+        $good = DB::table('orders')->where('order_id', 8827)->first();
         $this->assertEquals(6602.08, (float) $good->total, 'authoritative total must not move');
         $this->assertEquals(138.7049, (float) $good->foreign_total);
         $this->assertEquals(47.59803649, (float) $good->currency_value);
@@ -140,7 +138,7 @@ class NormalizeOrderCurrencyTest extends TestCase
         $this->artisan('orders:currency-normalize --execute')->assertExitCode(0);
         $this->artisan('orders:currency-normalize --execute')->assertExitCode(0);
 
-        $order = DB::table($this->p.'order')->where('order_id', 8827)->first();
+        $order = DB::table('orders')->where('order_id', 8827)->first();
         $this->assertEquals(6602.08, (float) $order->total);
         $this->assertEquals(47.59803649, (float) $order->currency_value, 'must not double-invert');
     }

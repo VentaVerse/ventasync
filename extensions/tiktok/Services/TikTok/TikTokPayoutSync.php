@@ -1,11 +1,11 @@
 <?php
 
-namespace Extensions\tiktok\Services\TikTok;
+namespace Extensions\TikTok\Services\TikTok;
 
 use App\Support\PayoutStatus;
-use Extensions\tiktok\Models\TikTokApiLog;
-use Extensions\tiktok\Models\TikTokOrder;
-use Extensions\tiktok\Models\TikTokSetting;
+use Extensions\TikTok\Models\TikTokApiLog;
+use Extensions\TikTok\Models\TikTokOrder;
+use Extensions\TikTok\Models\TikTokStore;
 
 class TikTokPayoutSync
 {
@@ -33,8 +33,8 @@ class TikTokPayoutSync
     {
         return [
             'channel' => 'tiktok',
-            'table' => 'tiktok_orders',
-            'store_column' => 'tiktok_setting_id',
+            'table' => 'ch_tiktok_orders',
+            'store_column' => 'store_id',
             'id_column' => 'order_id',
             'payable' => self::PAYABLE_STATUSES,
             'order_route' => 'ext.tiktok.orders.show',
@@ -43,13 +43,13 @@ class TikTokPayoutSync
         ];
     }
 
-    public function sync(TikTokSetting $store, array $creds, ?int $sinceTs = null, ?callable $say = null): array
+    public function sync(TikTokStore $store, array $creds, ?int $sinceTs = null, ?callable $say = null): array
     {
         $say ??= static function (string $line): void {};
         $out = ['ok' => true, 'message' => '', 'waiting' => 0, 'statements' => 0, 'paid' => 0, 'releasing' => 0, 'failed' => 0];
 
         $waiting = TikTokOrder::query()
-            ->where('tiktok_setting_id', $store->id)
+            ->where('store_id', $store->id)
             ->whereIn('status', self::PAYABLE_STATUSES)
             ->when($sinceTs !== null, fn ($q) => $q->where('order_created_at', '>=', date('Y-m-d H:i:s', $sinceTs)))
             ->where(fn ($q) => $q->whereNull('payout_status')->orWhere('payout_status', '!=', self::PAID))
@@ -122,7 +122,7 @@ class TikTokPayoutSync
                 default => ['payout_status' => self::RELEASING, 'paid_at' => null],
             };
 
-            TikTokOrder::query()->whereKey($order->id)->where('tiktok_setting_id', $store->id)->update($values);
+            TikTokOrder::query()->whereKey($order->id)->where('store_id', $store->id)->update($values);
 
             match ($values['payout_status']) {
                 self::PAID => $out['paid']++,

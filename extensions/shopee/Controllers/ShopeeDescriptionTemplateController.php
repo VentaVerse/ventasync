@@ -1,10 +1,10 @@
 <?php
 
-namespace Extensions\shopee\Controllers;
+namespace Extensions\Shopee\Controllers;
 
 class ShopeeDescriptionTemplateController extends \App\Http\Controllers\Channels\DescriptionTemplateController
 {
-    protected function integration(): string
+    protected function channel(): string
     {
         return 'shopee';
     }

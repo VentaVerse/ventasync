@@ -1,8 +1,8 @@
 <?php
 
-namespace Extensions\ventacart\Services\VentaCart;
+namespace Extensions\VentaCart\Services\VentaCart;
 
-use App\Integrations\Listings\CatalogGaps;
+use App\Channels\Listings\CatalogGaps;
 
 final class VentaCartListingReadiness
 {

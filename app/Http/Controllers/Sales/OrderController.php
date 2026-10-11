@@ -8,7 +8,7 @@ use App\Models\Catalog\OrderHistory;
 use App\Models\Catalog\OrderProduct;
 use App\Models\Catalog\OrderStatus;
 use App\Models\Catalog\Product;
-use App\Integrations\IntegrationRegistry;
+use App\Channels\ChannelRegistry;
 use App\Models\OrderPayment;
 use App\Services\ActivityLogger;
 use App\Services\OrderCurrencyService;
@@ -61,9 +61,9 @@ class OrderController extends Controller
             })
             ->when($source !== '', function ($query) use ($source) {
                 if ($source === 'manual') {
-                    $query->where('marketplace_source', '');
+                    $query->where('channel', '');
                 } else {
-                    $query->where('marketplace_source', $source);
+                    $query->where('channel', $source);
                 }
             })
             ->orderBy($sort, $dir)
@@ -75,8 +75,8 @@ class OrderController extends Controller
 
         $statuses = OrderStatus::orderBy('order_status_id')->get();
 
-        $sourceOptions = app(\App\Integrations\IntegrationRegistry::class)
-            ->availableMarketplaceSourceOptions();
+        $sourceOptions = app(\App\Channels\ChannelRegistry::class)
+            ->availableChannelOptions();
         $sourceLabelsMap = [];
         foreach ($sourceOptions as $opt) {
             $sourceLabelsMap[$opt['value']] = $opt;
@@ -204,7 +204,6 @@ class OrderController extends Controller
 
             $products = $request->input('products', []);
             if (!empty($products)) {
-                $pfx = (string) config('catalog.prefix');
                 $orderTotal = 0;
                 $orderForeignTotal = 0;
 
@@ -221,7 +220,7 @@ class OrderController extends Controller
                     $orderTotal += $lineTotal;
                     $orderForeignTotal += $foreignTotal;
 
-                    $orderProductId = DB::table($pfx . 'order_product')->insertGetId([
+                    $orderProductId = DB::table('order_products')->insertGetId([
                         'order_id'      => $order->order_id,
                         'product_id'    => (int) ($p['product_id'] ?? 0),
                         'name'          => $p['name'] ?? '',
@@ -236,19 +235,19 @@ class OrderController extends Controller
                         'cost'          => $cost,
                     ]);
 
-                    $povId = (int) ($p['option_value_id'] ?? 0);
+                    $povId = (int) ($p['variation_value_id'] ?? 0);
                     if ($povId > 0 && $orderProductId) {
-                        $pov = DB::table($pfx . 'product_option_value')
-                            ->where('product_option_value_id', $povId)
-                            ->first(['product_option_id', 'option_value_id']);
+                        $pov = DB::table('product_variation_values')
+                            ->where('product_variation_value_id', $povId)
+                            ->first(['product_variation_type_id', 'variation_value_id']);
 
-                        DB::table($pfx . 'order_option')->insert([
+                        DB::table('order_variations')->insert([
                             'order_id'                 => $order->order_id,
                             'order_product_id'         => $orderProductId,
-                            'product_option_id'        => $pov->product_option_id ?? 0,
-                            'product_option_value_id'  => $povId,
-                            'name'                     => $p['option_name'] ?? '',
-                            'value'                    => $p['option_value'] ?? '',
+                            'product_variation_type_id'        => $pov->product_variation_type_id ?? 0,
+                            'product_variation_value_id'  => $povId,
+                            'name'                     => $p['variation_type_name'] ?? '',
+                            'value'                    => $p['variation_value'] ?? '',
                             'type'                     => 'select',
                         ]);
                     }
@@ -259,14 +258,14 @@ class OrderController extends Controller
                     'foreign_total' => $isDefault ? null : round($orderForeignTotal, 4),
                 ]);
 
-                DB::table($pfx . 'order_total')->insert([
+                DB::table('order_totals')->insert([
                     'order_id'   => $order->order_id,
                     'code'       => 'sub_total',
                     'title'      => 'Sub-Total',
                     'value'      => $orderTotal,
                     'sort_order' => 1,
                 ]);
-                DB::table($pfx . 'order_total')->insert([
+                DB::table('order_totals')->insert([
                     'order_id'   => $order->order_id,
                     'code'       => 'total',
                     'title'      => 'Total',
@@ -284,7 +283,6 @@ class OrderController extends Controller
 
     public function searchProducts(Request $request)
     {
-        $pfx = (string) config('catalog.prefix');
         $langId = (int) config('catalog.default_language_id');
         $q = trim((string) $request->input('q'));
 
@@ -292,8 +290,8 @@ class OrderController extends Controller
             return response()->json(['items' => []]);
         }
 
-        $rows = DB::table($pfx . 'product as p')
-            ->join($pfx . 'product_description as pd', function ($j) use ($langId) {
+        $rows = DB::table('products as p')
+            ->join('product_descriptions as pd', function ($j) use ($langId) {
                 $j->on('p.product_id', '=', 'pd.product_id')
                     ->where('pd.language_id', '=', $langId);
             })
@@ -309,10 +307,10 @@ class OrderController extends Controller
 
         $productIds = $rows->pluck('product_id')->toArray();
         $combinationsByProduct = [];
-        $optionsByProduct = [];
+        $variationValuesByProduct = [];
 
         if (!empty($productIds)) {
-            $combos = DB::table('product_option_combinations as poc')
+            $combos = DB::table('product_variations as poc')
                 ->whereIn('poc.product_id', $productIds)
                 ->select('poc.id', 'poc.product_id', 'poc.sku', 'poc.quantity', 'poc.absolute_price', 'poc.absolute_cost', 'poc.cost_amount')
                 ->orderBy('poc.sort_order')
@@ -320,77 +318,77 @@ class OrderController extends Controller
 
             if ($combos->isNotEmpty()) {
                 $comboIds = $combos->pluck('id')->toArray();
-                $comboValues = DB::table('product_option_combination_values as pocv')
-                    ->join($pfx . 'product_option_value as pov', 'pocv.product_option_value_id', '=', 'pov.product_option_value_id')
-                    ->join($pfx . 'option_value_description as ovd', function ($j) use ($langId) {
-                        $j->on('pov.option_value_id', '=', 'ovd.option_value_id')
+                $comboValues = DB::table('product_variation_parts as pocv')
+                    ->join('product_variation_values as pov', 'pocv.product_variation_value_id', '=', 'pov.product_variation_value_id')
+                    ->join('variation_value_descriptions as ovd', function ($j) use ($langId) {
+                        $j->on('pov.variation_value_id', '=', 'ovd.variation_value_id')
                             ->where('ovd.language_id', '=', $langId);
                     })
-                    ->whereIn('pocv.combination_id', $comboIds)
-                    ->select('pocv.combination_id', 'ovd.name as value_name')
+                    ->whereIn('pocv.product_variation_id', $comboIds)
+                    ->select('pocv.product_variation_id', 'ovd.name as value_name')
                     ->get()
-                    ->groupBy('combination_id');
+                    ->groupBy('product_variation_id');
 
-                $comboPovMap = DB::table('product_option_combination_values')
-                    ->whereIn('combination_id', $comboIds)
-                    ->get(['combination_id', 'product_option_value_id'])
-                    ->groupBy('combination_id');
+                $comboPovMap = DB::table('product_variation_parts')
+                    ->whereIn('product_variation_id', $comboIds)
+                    ->get(['product_variation_id', 'product_variation_value_id'])
+                    ->groupBy('product_variation_id');
 
                 foreach ($combos as $c) {
                     $valueNames = ($comboValues->get($c->id) ?? collect())->pluck('value_name')->implode(' / ');
-                    $povIds = ($comboPovMap->get($c->id) ?? collect())->pluck('product_option_value_id')->toArray();
+                    $povIds = ($comboPovMap->get($c->id) ?? collect())->pluck('product_variation_value_id')->toArray();
                     $combinationsByProduct[$c->product_id][] = (object) [
-                        'combination_id'          => $c->id,
-                        'product_option_value_id' => $povIds[0] ?? null,
+                        'product_variation_id'          => $c->id,
+                        'product_variation_value_id' => $povIds[0] ?? null,
                         'product_id'              => $c->product_id,
-                        'option_sku'              => $c->sku,
-                        'option_qty'              => (int) $c->quantity,
+                        'variation_sku'              => $c->sku,
+                        'variation_qty'              => (int) $c->quantity,
                         'absolute_price'          => (float) $c->absolute_price,
                         'absolute_cost'           => LineCost::ownCombinationCost($c) ?? 0.0,
-                        'option_price'            => 0,
+                        'variation_price'            => 0,
                         'price_prefix'            => '+',
-                        'option_cost'             => 0,
+                        'variation_cost'             => 0,
                         'cost_prefix'             => '+',
                         'value_name'              => $valueNames,
-                        'option_name'             => 'Option',
+                        'variation_type_name'             => 'Variation',
                         'is_combination'          => true,
                     ];
                 }
             }
 
-            $optRows = DB::table($pfx . 'product_option_value as pov')
-                ->join($pfx . 'option_value_description as ovd', function ($j) use ($langId) {
-                    $j->on('pov.option_value_id', '=', 'ovd.option_value_id')
+            $optRows = DB::table('product_variation_values as pov')
+                ->join('variation_value_descriptions as ovd', function ($j) use ($langId) {
+                    $j->on('pov.variation_value_id', '=', 'ovd.variation_value_id')
                         ->where('ovd.language_id', '=', $langId);
                 })
-                ->join($pfx . 'option_description as od', function ($j) use ($langId) {
-                    $j->on('pov.option_id', '=', 'od.option_id')
+                ->join('variation_type_descriptions as od', function ($j) use ($langId) {
+                    $j->on('pov.variation_type_id', '=', 'od.variation_type_id')
                         ->where('od.language_id', '=', $langId);
                 })
                 ->whereIn('pov.product_id', $productIds)
                 ->select(
-                    'pov.product_option_value_id', 'pov.product_id',
-                    'pov.sku as option_sku', 'pov.quantity as option_qty',
-                    'pov.price as option_price', 'pov.price_prefix',
-                    'pov.cost as option_cost', 'pov.cost_prefix',
+                    'pov.product_variation_value_id', 'pov.product_id',
+                    'pov.sku as variation_sku', 'pov.quantity as variation_qty',
+                    'pov.price as variation_price', 'pov.price_prefix',
+                    'pov.cost as variation_cost', 'pov.cost_prefix',
                     'pov.absolute_price', 'pov.absolute_cost',
                     'pov.cost_amount', 'pov.cost_percentage', 'pov.cost_additional',
-                    'ovd.name as value_name', 'od.name as option_name'
+                    'ovd.name as value_name', 'od.name as variation_type_name'
                 )
-                ->orderBy('pov.product_option_value_id')
+                ->orderBy('pov.product_variation_value_id')
                 ->get();
 
             foreach ($optRows as $o) {
                 $o->is_combination = false;
                 $o->absolute_cost = LineCost::ownCost($o) ?? 0.0;
                 unset($o->cost_amount, $o->cost_percentage, $o->cost_additional);
-                $optionsByProduct[$o->product_id][] = $o;
+                $variationValuesByProduct[$o->product_id][] = $o;
             }
         }
 
-        $items = $rows->map(function ($p) use ($combinationsByProduct, $optionsByProduct) {
-            $p->options = $combinationsByProduct[$p->product_id]
-                ?? $optionsByProduct[$p->product_id]
+        $items = $rows->map(function ($p) use ($combinationsByProduct, $variationValuesByProduct) {
+            $p->variations = $combinationsByProduct[$p->product_id]
+                ?? $variationValuesByProduct[$p->product_id]
                 ?? [];
             return $p;
         });
@@ -405,7 +403,7 @@ class OrderController extends Controller
         $history = OrderHistory::where('order_id', (int) $id)
             ->orderByDesc('date_added')
             ->get();
-        $products = $order->products()->with('options')->get();
+        $products = $order->products()->with('variations')->get();
         $orderTotals = $order->totals()->orderBy('sort_order')->get();
 
         $catalogProducts = self::resolveOrderCatalogProducts($products);
@@ -493,7 +491,7 @@ class OrderController extends Controller
         $history = OrderHistory::where('order_id', (int) $id)
             ->orderByDesc('date_added')
             ->get();
-        $products = $order->products()->with('options')->get();
+        $products = $order->products()->with('variations')->get();
         $orderTotals = $order->totals()->orderBy('sort_order')->get();
 
         // Pass price and cost as stored (default currency); the page converts them, pre-converting breaks currency switching.
@@ -571,19 +569,18 @@ class OrderController extends Controller
         if ($request->has('products')) {
             $stockBefore = OrderStockService::snapshot($order);
             $products = $request->input('products', []);
-            $pfx = (string) config('catalog.prefix');
 
-            $existingProductIds = DB::table($pfx . 'order_product')
+            $existingProductIds = DB::table('order_products')
                 ->where('order_id', $order->order_id)
                 ->pluck('order_product_id')
                 ->toArray();
 
             if (!empty($existingProductIds)) {
-                DB::table($pfx . 'order_option')
+                DB::table('order_variations')
                     ->whereIn('order_product_id', $existingProductIds)
                     ->delete();
             }
-            DB::table($pfx . 'order_product')
+            DB::table('order_products')
                 ->where('order_id', $order->order_id)
                 ->delete();
 
@@ -603,7 +600,7 @@ class OrderController extends Controller
                     $orderTotal += $lineTotal;
                     $orderForeignTotal += $foreignTotal;
 
-                    $orderProductId = DB::table($pfx . 'order_product')->insertGetId([
+                    $orderProductId = DB::table('order_products')->insertGetId([
                         'order_id'      => $order->order_id,
                         'product_id'    => (int) ($p['product_id'] ?? 0),
                         'name'          => $p['name'] ?? '',
@@ -618,14 +615,14 @@ class OrderController extends Controller
                         'cost'          => $cost,
                     ]);
 
-                    if (!empty($p['option_value_id'])) {
-                        DB::table($pfx . 'order_option')->insert([
+                    if (!empty($p['variation_value_id'])) {
+                        DB::table('order_variations')->insert([
                             'order_id'                  => $order->order_id,
                             'order_product_id'          => $orderProductId,
-                            'product_option_id'         => 0,
-                            'product_option_value_id'   => (int) $p['option_value_id'],
-                            'name'                      => $p['option_name'] ?? '',
-                            'value'                     => $p['option_value'] ?? '',
+                            'product_variation_type_id'         => 0,
+                            'product_variation_value_id'   => (int) $p['variation_value_id'],
+                            'name'                      => $p['variation_type_name'] ?? '',
+                            'value'                     => $p['variation_value'] ?? '',
                             'type'                      => 'select',
                         ]);
                     }
@@ -636,15 +633,15 @@ class OrderController extends Controller
                     'foreign_total' => $isDefault ? null : round($orderForeignTotal, 4),
                 ]);
 
-                DB::table($pfx . 'order_total')->where('order_id', $order->order_id)->delete();
-                DB::table($pfx . 'order_total')->insert([
+                DB::table('order_totals')->where('order_id', $order->order_id)->delete();
+                DB::table('order_totals')->insert([
                     'order_id'   => $order->order_id,
                     'code'       => 'sub_total',
                     'title'      => 'Sub-Total',
                     'value'      => $orderTotal,
                     'sort_order' => 1,
                 ]);
-                DB::table($pfx . 'order_total')->insert([
+                DB::table('order_totals')->insert([
                     'order_id'   => $order->order_id,
                     'code'       => 'total',
                     'title'      => 'Total',
@@ -684,9 +681,7 @@ class OrderController extends Controller
             'cost'             => 'required|numeric|min:0',
         ]);
 
-        $pfx = (string) config('catalog.prefix');
-
-        $updated = DB::table($pfx . 'order_product')
+        $updated = DB::table('order_products')
             ->where('order_id', (int) $id)
             ->where('order_product_id', (int) $request->order_product_id)
             ->update(['cost' => (float) $request->cost]);
@@ -765,10 +760,9 @@ class OrderController extends Controller
 
     public function backfillCosts($id)
     {
-        $pfx = (string) config('catalog.prefix');
         $order = Order::where('order_id', (int) $id)->firstOrFail();
 
-        $products = DB::table($pfx . 'order_product')
+        $products = DB::table('order_products')
             ->where('order_id', $order->order_id)
             ->where(function ($q) {
                 $q->whereNull('cost')->orWhere('cost', 0);
@@ -778,15 +772,15 @@ class OrderController extends Controller
         $updated = 0;
 
         foreach ($products as $op) {
-            $optionValueId = (int) (DB::table($pfx . 'order_option')
+            $variationValueId = (int) (DB::table('order_variations')
                 ->where('order_product_id', $op->order_product_id)
-                ->where('product_option_value_id', '>', 0)
-                ->orderBy('order_option_id')
-                ->value('product_option_value_id') ?? 0);
-            $catalogCost = LineCost::resolve((int) $op->product_id, $optionValueId);
+                ->where('product_variation_value_id', '>', 0)
+                ->orderBy('order_variation_id')
+                ->value('product_variation_value_id') ?? 0);
+            $catalogCost = LineCost::resolve((int) $op->product_id, $variationValueId);
 
             if ($catalogCost && $catalogCost > 0) {
-                DB::table($pfx . 'order_product')
+                DB::table('order_products')
                     ->where('order_product_id', $op->order_product_id)
                     ->update(['cost' => $catalogCost]);
                 $updated++;
@@ -800,7 +794,7 @@ class OrderController extends Controller
     public function destroy($id)
     {
         $orderId = (int) $id;
-        $order = Order::with('products.options')->where('order_id', $orderId)->first();
+        $order = Order::with('products.variations')->where('order_id', $orderId)->first();
 
         if ($order) {
             $currentStatusId = (int) $order->order_status_id;
@@ -830,7 +824,7 @@ class OrderController extends Controller
             return redirect()->route('orders.index')->with('status', 'No items selected.');
         }
 
-        $orders = Order::with('products.options')->whereIn('order_id', $ids)->get();
+        $orders = Order::with('products.variations')->whereIn('order_id', $ids)->get();
         foreach ($orders as $order) {
             $currentStatusId = (int) $order->order_status_id;
             if ($currentStatusId > 0) {
@@ -865,7 +859,7 @@ class OrderController extends Controller
         }
 
         if ($skusToResolve) {
-            $resolvers = app(IntegrationRegistry::class)->skuResolvers();
+            $resolvers = app(ChannelRegistry::class)->skuResolvers();
             foreach ($skusToResolve as $opId => $sku) {
                 foreach ($resolvers as $resolver) {
                     $resolved = $resolver->resolveCatalogProduct($sku);
@@ -938,7 +932,7 @@ class OrderController extends Controller
         }
 
         $merged = [];
-        foreach (app(IntegrationRegistry::class)->orderImagesContributors() as $contributor) {
+        foreach (app(ChannelRegistry::class)->orderImagesContributors() as $contributor) {
             $merged += $contributor->imagesForCatalogOrders($catalogOrderIds);
         }
         return $merged;

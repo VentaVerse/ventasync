@@ -7,17 +7,17 @@
     $canManageOrders = auth()->user()?->hasPermission('manage_sales/order') ?? false;
     $canManagePayments = auth()->user()?->hasPermission('manage_sales/order_payment') ?? false;
 
-    $registry = app(\App\Integrations\IntegrationRegistry::class);
+    $registry = app(\App\Channels\ChannelRegistry::class);
 
-    $src = trim((string) $order->marketplace_source);
+    $src = trim((string) $order->channel);
     $chanKey = $src === '' ? '' : strtok($src, ':');
     $chanTone = $src === '' ? 'neutral' : $chanKey;
     $chanLabel = $src === ''
         ? 'Manual'
-        : ($registry->resolveMarketplaceSourceLabel($src) ?: ucfirst($chanKey));
+        : ($registry->resolveChannelLabel($src) ?: ucfirst($chanKey));
 
     $orderRef = $order->marketplace_order_id
-        ? $registry->resolveOrderRef((string) $order->marketplace_source, (string) $order->marketplace_order_id)
+        ? $registry->resolveOrderRef((string) $order->channel, (string) $order->marketplace_order_id)
         : null;
 
     $refUrl = $orderRef['url'] ?? null;
@@ -381,8 +381,8 @@
                                     @if(trim((string) $p->model) !== '')
                                         <span class="co-item__sku">{{ $p->model }}</span>
                                     @endif
-                                    @foreach($p->options as $opt)
-                                        <span class="co-item__var">{{ $opt->name }}: {{ $opt->value }}</span>
+                                    @foreach($p->variations as $variation)
+                                        <span class="co-item__var">{{ $variation->name }}: {{ $variation->value }}</span>
                                     @endforeach
                                 </div>
                             </div>

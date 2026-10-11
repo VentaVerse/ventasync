@@ -7,8 +7,8 @@ use App\Models\Admin\Permission;
 use App\Models\Admin\UserGroup;
 use App\Models\User;
 use App\Support\CatalogVariations;
-use Extensions\shopee\Models\ShopeeOrder;
-use Extensions\shopee\ShopeeExtension;
+use Extensions\Shopee\Models\ShopeeOrder;
+use Extensions\Shopee\ShopeeExtension;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\Facades\DB;
@@ -22,16 +22,16 @@ class FulfilmentPolishTest extends TestCase
     {
         parent::setUp();
 
-        \Extensions\shopee\Models\ShopeeSetting::create(['mode' => 'live', 'store_name' => 'Main store']);
+        \Extensions\Shopee\Models\ShopeeStore::create(['mode' => 'live', 'store_name' => 'Main store']);
 
         $manager = $this->app->make(ExtensionManager::class);
         $manager->install('shopee');
         $manager->enable('shopee');
         $this->app->register(ShopeeExtension::class);
         $this->app['router']->getRoutes()->refreshNameLookups();
-        $this->artisan('permissions:sync-catalogue');
+        $this->artisan('permissions:sync-catalog');
 
-        DB::table('shopee_settings')->insert([
+        DB::table('ch_shopee_stores')->insert([
             'partner_id' => 1, 'partner_key' => encrypt('k'), 'shop_id' => 2,
             'access_token' => encrypt('t'), 'refresh_token' => encrypt('r'), 'mode' => 'production',
             'expires_at' => now()->addHours(2), 'refresh_expires_at' => now()->addDays(25),
@@ -41,33 +41,32 @@ class FulfilmentPolishTest extends TestCase
 
     public function test_a_combination_sku_resolves_to_every_axis_it_sits_on(): void
     {
-        $pfx = (string) config('catalog.prefix');
         $langId = (int) config('catalog.default_language_id');
-        $productId = DB::table($pfx . 'product')->insertGetId([
+        $productId = DB::table('products')->insertGetId([
             'model' => 'GP200', 'sku' => 'GP200', 'quantity' => 1, 'price' => 100, 'status' => 1, 'image' => '',
-            'weight' => 1, 'length' => 1, 'width' => 1, 'height' => 1, 'manufacturer_id' => 0,
+            'weight' => 1, 'length' => 1, 'width' => 1, 'height' => 1, 'brand_id' => 0,
             'date_added' => now(), 'date_modified' => now(), 'date_available' => now(),
         ]);
         $povIds = [];
         foreach (['Color/Finish' => 'Red', 'Size' => 'M'] as $axis => $value) {
-            $optionId = (int) DB::table($pfx . 'option')->insertGetId(['type' => 'select', 'sort_order' => 0]);
-            DB::table($pfx . 'option_description')->insert(['option_id' => $optionId, 'language_id' => $langId, 'name' => $axis]);
-            $productOptionId = (int) DB::table($pfx . 'product_option')->insertGetId(['product_id' => $productId, 'option_id' => $optionId, 'value' => '', 'required' => 0]);
-            $valueId = (int) DB::table($pfx . 'option_value')->insertGetId(['option_id' => $optionId, 'image' => '', 'sort_order' => 0]);
-            DB::table($pfx . 'option_value_description')->insert(['option_value_id' => $valueId, 'language_id' => $langId, 'option_id' => $optionId, 'name' => $value]);
-            $povIds[] = (int) DB::table($pfx . 'product_option_value')->insertGetId([
-                'product_option_id' => $productOptionId, 'product_id' => $productId, 'option_id' => $optionId, 'option_value_id' => $valueId,
+            $variationTypeId = (int) DB::table('variation_types')->insertGetId(['type' => 'select', 'sort_order' => 0]);
+            DB::table('variation_type_descriptions')->insert(['variation_type_id' => $variationTypeId, 'language_id' => $langId, 'name' => $axis]);
+            $productVariationTypeId = (int) DB::table('product_variation_types')->insertGetId(['product_id' => $productId, 'variation_type_id' => $variationTypeId, 'value' => '', 'required' => 0]);
+            $valueId = (int) DB::table('variation_values')->insertGetId(['variation_type_id' => $variationTypeId, 'image' => '', 'sort_order' => 0]);
+            DB::table('variation_value_descriptions')->insert(['variation_value_id' => $valueId, 'language_id' => $langId, 'variation_type_id' => $variationTypeId, 'name' => $value]);
+            $povIds[] = (int) DB::table('product_variation_values')->insertGetId([
+                'product_variation_type_id' => $productVariationTypeId, 'product_id' => $productId, 'variation_type_id' => $variationTypeId, 'variation_value_id' => $valueId,
                 'sku' => $axis === 'Size' ? 'GP200-SIZE-M' : '', 'quantity' => 1, 'subtract' => 1, 'price' => 0, 'price_prefix' => '+',
                 'points' => 0, 'points_prefix' => '+', 'weight' => 0, 'weight_prefix' => '+',
                 'cost' => 0, 'cost_amount' => 0, 'cost_percentage' => 0, 'cost_additional' => 0, 'absolute_cost' => 0, 'cost_prefix' => '+', 'absolute_price' => 0,
             ]);
         }
-        $comboId = (int) DB::table('product_option_combinations')->insertGetId([
+        $comboId = (int) DB::table('product_variations')->insertGetId([
             'product_id' => $productId, 'sku' => 'GP200-RED-M', 'quantity' => 1, 'absolute_price' => 100, 'image' => null, 'status' => 1, 'sort_order' => 1,
             'created_at' => now(), 'updated_at' => now(),
         ]);
         foreach ($povIds as $povId) {
-            DB::table('product_option_combination_values')->insert(['combination_id' => $comboId, 'product_option_value_id' => $povId]);
+            DB::table('product_variation_parts')->insert(['product_variation_id' => $comboId, 'product_variation_value_id' => $povId]);
         }
 
         $this->assertSame(
@@ -101,7 +100,7 @@ class FulfilmentPolishTest extends TestCase
             $rows[] = ['sku' => 'ONE-' . $i, 'name' => 'One ' . $i, 'quantity' => 1, 'price' => 10];
         }
         foreach ($rows as $r) {
-            DB::table('shopee_order_products')->insert($r + ['shopee_order_id' => $order->id, 'created_at' => now(), 'updated_at' => now()]);
+            DB::table('ch_shopee_order_products')->insert($r + ['shopee_order_id' => $order->id, 'created_at' => now(), 'updated_at' => now()]);
         }
 
         $group = UserGroup::create(['name' => 'Polish operators 3']);
@@ -126,7 +125,7 @@ class FulfilmentPolishTest extends TestCase
     {
         $order = ShopeeOrder::create(['region' => 'ph', 'order_sn' => 'TOP-THREE', 'status' => 'READY_TO_SHIP', 'order_created_at' => now(), 'raw' => []]);
         foreach (['A', 'B', 'C'] as $k) {
-            DB::table('shopee_order_products')->insert(['shopee_order_id' => $order->id, 'sku' => 'FEW-' . $k, 'name' => 'Few ' . $k, 'quantity' => 1, 'price' => 10, 'created_at' => now(), 'updated_at' => now()]);
+            DB::table('ch_shopee_order_products')->insert(['shopee_order_id' => $order->id, 'sku' => 'FEW-' . $k, 'name' => 'Few ' . $k, 'quantity' => 1, 'price' => 10, 'created_at' => now(), 'updated_at' => now()]);
         }
         $group = UserGroup::create(['name' => 'Polish operators 4']);
         $group->permissions()->attach(Permission::whereIn('key', ['view_shopee/dashboard', 'view_shopee/order'])->pluck('id')->all());
@@ -148,11 +147,11 @@ class FulfilmentPolishTest extends TestCase
         $group->permissions()->attach(Permission::whereIn('key', ['view_shopee/dashboard', 'view_shopee/order'])->pluck('id')->all());
         $user = User::factory()->create(['user_group_id' => $group->id]);
 
-        $html = $this->actingAs($user)->get('/channels/fulfilment?channel=shopee:' . \Extensions\shopee\Models\ShopeeSetting::query()->value('id') . '&tab=PENDING')->assertOk()->getContent();
+        $html = $this->actingAs($user)->get('/channels/fulfilment?channel=shopee:' . \Extensions\Shopee\Models\ShopeeStore::query()->value('id') . '&tab=PENDING')->assertOk()->getContent();
         $this->assertStringContainsString('Ship-by time, soonest first', $html);
         $this->assertLessThan(strpos($html, 'SB-SOON'), strpos($html, 'SB-LATE'));
 
-        $sorted = $this->actingAs($user)->get('/channels/fulfilment?channel=shopee:' . \Extensions\shopee\Models\ShopeeSetting::query()->value('id') . '&tab=PENDING&sort=ship_by_asc')->assertOk()->getContent();
+        $sorted = $this->actingAs($user)->get('/channels/fulfilment?channel=shopee:' . \Extensions\Shopee\Models\ShopeeStore::query()->value('id') . '&tab=PENDING&sort=ship_by_asc')->assertOk()->getContent();
         $this->assertLessThan(strpos($sorted, 'SB-LATE'), strpos($sorted, 'SB-SOON'), 'soonest deadline first when asked');
     }
 

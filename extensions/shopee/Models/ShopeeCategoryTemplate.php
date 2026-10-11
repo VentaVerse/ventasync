@@ -1,12 +1,12 @@
 <?php
 
-namespace Extensions\shopee\Models;
+namespace Extensions\Shopee\Models;
 
 use Illuminate\Database\Eloquent\Model;
 
 class ShopeeCategoryTemplate extends Model
 {
-    protected $table = 'shopee_category_templates';
+    protected $table = 'ch_shopee_category_templates';
 
     protected $fillable = ['category_id', 'region', 'attributes', 'fetched_at'];
 

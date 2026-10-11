@@ -1,11 +1,11 @@
 <?php
 
-namespace Extensions\opencart\Controllers;
+namespace Extensions\OpenCart\Controllers;
 
-use Extensions\opencart\Models\MarketplaceReview;
-use Extensions\opencart\Models\OpenCartProductLink;
-use Extensions\opencart\Models\OpenCartSetting;
-use Extensions\opencart\Services\OpenCart\OpenCartClient;
+use Extensions\OpenCart\Models\MarketplaceReview;
+use Extensions\OpenCart\Models\OpenCartListingLink;
+use Extensions\OpenCart\Models\OpenCartStore;
+use Extensions\OpenCart\Services\OpenCart\OpenCartClient;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -13,7 +13,7 @@ use Illuminate\Support\Facades\Process;
 
 class ReviewController extends Controller
 {
-    private const PLATFORMS = [
+    private const CHANNELS = [
         'all'    => ['label' => 'All'],
         'shopee' => ['label' => 'Shopee'],
         'lazada' => ['label' => 'Lazada'],
@@ -21,7 +21,7 @@ class ReviewController extends Controller
 
     public function index(Request $request)
     {
-        $platform   = trim((string) $request->get('platform', 'all'));
+        $channel   = trim((string) $request->get('channel', 'all'));
         $rating     = (int) $request->get('rating', 0);
         $syncStatus = trim((string) $request->get('sync_status', ''));
         $hasMedia   = trim((string) $request->get('has_media', ''));
@@ -29,84 +29,81 @@ class ReviewController extends Controller
         $dateFrom   = trim((string) $request->get('date_from', ''));
         $dateTo     = trim((string) $request->get('date_to', ''));
 
-        $prefix = config('catalog.prefix');
-
         $query = MarketplaceReview::query()
-            ->leftJoin($prefix . 'product_description as pd', function ($join) use ($prefix) {
-                $join->on('marketplace_reviews.product_id', '=', 'pd.product_id')
+            ->leftJoin('product_descriptions as pd', function ($join)  {
+                $join->on('ch_marketplace_reviews.product_id', '=', 'pd.product_id')
                      ->where('pd.language_id', '=', config('catalog.default_language_id', 1));
             })
-            ->select('marketplace_reviews.*', 'pd.name as product_name')
-            ->orderByDesc('marketplace_reviews.reviewed_at');
+            ->select('ch_marketplace_reviews.*', 'pd.name as product_name')
+            ->orderByDesc('ch_marketplace_reviews.reviewed_at');
 
-        if ($platform !== 'all' && isset(self::PLATFORMS[$platform])) {
-            $query->where('marketplace_reviews.platform', $platform);
+        if ($channel !== 'all' && isset(self::CHANNELS[$channel])) {
+            $query->where('ch_marketplace_reviews.channel', $channel);
         }
 
         if ($rating > 0 && $rating <= 5) {
-            $query->where('marketplace_reviews.rating', $rating);
+            $query->where('ch_marketplace_reviews.rating', $rating);
         }
 
         if ($syncStatus !== '') {
-            $query->where('marketplace_reviews.oc_sync_status', $syncStatus);
+            $query->where('ch_marketplace_reviews.oc_sync_status', $syncStatus);
         }
 
         if ($q !== '') {
             $query->where(function ($w) use ($q) {
-                $w->where('marketplace_reviews.author', 'like', '%' . $q . '%')
-                  ->orWhere('marketplace_reviews.comment', 'like', '%' . $q . '%')
+                $w->where('ch_marketplace_reviews.author', 'like', '%' . $q . '%')
+                  ->orWhere('ch_marketplace_reviews.comment', 'like', '%' . $q . '%')
                   ->orWhere('pd.name', 'like', '%' . $q . '%');
             });
         }
 
         if ($dateFrom !== '') {
-            $query->where('marketplace_reviews.reviewed_at', '>=', $dateFrom . ' 00:00:00');
+            $query->where('ch_marketplace_reviews.reviewed_at', '>=', $dateFrom . ' 00:00:00');
         }
 
         if ($dateTo !== '') {
-            $query->where('marketplace_reviews.reviewed_at', '<=', $dateTo . ' 23:59:59');
+            $query->where('ch_marketplace_reviews.reviewed_at', '<=', $dateTo . ' 23:59:59');
         }
 
         if ($hasMedia === 'photos') {
-            $query->whereNotNull('marketplace_reviews.images');
+            $query->whereNotNull('ch_marketplace_reviews.images');
         } elseif ($hasMedia === 'videos') {
-            $query->whereNotNull('marketplace_reviews.videos');
+            $query->whereNotNull('ch_marketplace_reviews.videos');
         } elseif ($hasMedia === 'any') {
             $query->where(function ($w) {
-                $w->whereNotNull('marketplace_reviews.images')
-                  ->orWhereNotNull('marketplace_reviews.videos');
+                $w->whereNotNull('ch_marketplace_reviews.images')
+                  ->orWhereNotNull('ch_marketplace_reviews.videos');
             });
         }
 
         $reviews = $query->paginate(50)->withQueryString();
 
-        $platformCounts = [];
-        $platformCounts['all'] = MarketplaceReview::count();
-        $platformCounts['shopee'] = MarketplaceReview::where('platform', 'shopee')->count();
-        $platformCounts['lazada'] = MarketplaceReview::where('platform', 'lazada')->count();
+        $channelCounts = [];
+        $channelCounts['all'] = MarketplaceReview::count();
+        $channelCounts['shopee'] = MarketplaceReview::where('channel', 'shopee')->count();
+        $channelCounts['lazada'] = MarketplaceReview::where('channel', 'lazada')->count();
 
         $avgRating = MarketplaceReview::avg('rating');
         $pendingCount = MarketplaceReview::where('oc_sync_status', 'pending')->count();
 
-        $platforms = self::PLATFORMS;
+        $channels = self::CHANNELS;
 
         return view('ext-opencart::reviews.index', compact(
-            'reviews', 'platform', 'rating', 'syncStatus', 'hasMedia', 'q', 'dateFrom', 'dateTo',
-            'platforms', 'platformCounts', 'avgRating', 'pendingCount'
+            'reviews', 'channel', 'rating', 'syncStatus', 'hasMedia', 'q', 'dateFrom', 'dateTo',
+            'channels', 'channelCounts', 'avgRating', 'pendingCount'
         ));
     }
 
     public function show($id)
     {
-        $prefix = config('catalog.prefix');
 
         $review = MarketplaceReview::query()
-            ->leftJoin($prefix . 'product_description as pd', function ($join) {
-                $join->on('marketplace_reviews.product_id', '=', 'pd.product_id')
+            ->leftJoin('product_descriptions as pd', function ($join) {
+                $join->on('ch_marketplace_reviews.product_id', '=', 'pd.product_id')
                      ->where('pd.language_id', '=', config('catalog.default_language_id', 1));
             })
-            ->select('marketplace_reviews.*', 'pd.name as product_name')
-            ->where('marketplace_reviews.id', $id)
+            ->select('ch_marketplace_reviews.*', 'pd.name as product_name')
+            ->where('ch_marketplace_reviews.id', $id)
             ->firstOrFail();
 
         return view('ext-opencart::reviews.show', compact('review'));
@@ -124,7 +121,7 @@ class ReviewController extends Controller
             return redirect()->back()->with('error', 'Review has no mapped product.');
         }
 
-        $link = OpenCartProductLink::query()
+        $link = OpenCartListingLink::query()
             ->where('product_id', $review->product_id)
             ->first();
 
@@ -132,13 +129,13 @@ class ReviewController extends Controller
             return redirect()->back()->with('error', 'Product not linked to any OpenCart store.');
         }
 
-        $setting = OpenCartSetting::find($link->opencart_setting_id);
-        if (!$setting || !$setting->enabled) {
+        $store = OpenCartStore::find($link->store_id);
+        if (!$store || !$store->enabled) {
             return redirect()->back()->with('error', 'OpenCart store not found or disabled.');
         }
 
-        $client = new OpenCartClient($setting);
-        $autoApprove = (bool) ($setting->review_auto_approve ?? true);
+        $client = new OpenCartClient($store);
+        $autoApprove = (bool) ($store->review_auto_approve ?? true);
 
         $res = $client->createReview([
             'product_id'         => $link->oc_product_id,
@@ -147,14 +144,14 @@ class ReviewController extends Controller
             'rating'             => $review->rating,
             'status'             => $autoApprove ? 1 : 0,
             'date_added'         => $review->reviewed_at?->format('Y-m-d H:i:s') ?? now()->format('Y-m-d H:i:s'),
-            'platform'           => $review->platform,
-            'platform_review_id' => $review->platform_review_id,
+            'platform'           => $review->channel,
+            'platform_review_id' => $review->channel_review_id,
         ]);
 
         if ($res['ok'] ?? false) {
             $review->update([
                 'oc_sync_status'      => 'pushed',
-                'opencart_setting_id' => $setting->id,
+                'opencart_store_id' => $store->id,
                 'oc_review_id'        => $res['body']['data']['review_id'] ?? null,
                 'oc_pushed_at'        => now(),
                 'oc_push_error'       => null,
@@ -165,7 +162,7 @@ class ReviewController extends Controller
         $error = $res['body']['error'] ?? 'Unknown error';
         $review->update([
             'oc_sync_status'      => 'error',
-            'opencart_setting_id' => $setting->id,
+            'opencart_store_id' => $store->id,
             'oc_push_error'       => substr($error, 0, 500),
         ]);
 
@@ -201,20 +198,20 @@ class ReviewController extends Controller
         $pushed = 0;
         $errors = 0;
 
-        $stores = OpenCartSetting::where('enabled', true)->get()->keyBy('id');
-        $linkMap = OpenCartProductLink::query()
-            ->pluck('oc_product_id', DB::raw("CONCAT(opencart_setting_id, '-', product_id)"))
+        $stores = OpenCartStore::where('enabled', true)->get()->keyBy('id');
+        $linkMap = OpenCartListingLink::query()
+            ->pluck('oc_product_id', DB::raw("CONCAT(store_id, '-', product_id)"))
             ->all();
 
         foreach ($reviews as $review) {
             $pushed_this = false;
-            foreach ($stores as $setting) {
-                $key = $setting->id . '-' . $review->product_id;
+            foreach ($stores as $store) {
+                $key = $store->id . '-' . $review->product_id;
                 $ocProductId = $linkMap[$key] ?? null;
                 if (!$ocProductId) continue;
 
-                $client = new OpenCartClient($setting);
-                $autoApprove = (bool) ($setting->review_auto_approve ?? true);
+                $client = new OpenCartClient($store);
+                $autoApprove = (bool) ($store->review_auto_approve ?? true);
 
                 $res = $client->createReview([
                     'product_id'         => $ocProductId,
@@ -223,14 +220,14 @@ class ReviewController extends Controller
                     'rating'             => $review->rating,
                     'status'             => $autoApprove ? 1 : 0,
                     'date_added'         => $review->reviewed_at?->format('Y-m-d H:i:s') ?? now()->format('Y-m-d H:i:s'),
-                    'platform'           => $review->platform,
-                    'platform_review_id' => $review->platform_review_id,
+                    'platform'           => $review->channel,
+                    'platform_review_id' => $review->channel_review_id,
                 ]);
 
                 if ($res['ok'] ?? false) {
                     $review->update([
                         'oc_sync_status'      => 'pushed',
-                        'opencart_setting_id' => $setting->id,
+                        'opencart_store_id' => $store->id,
                         'oc_review_id'        => $res['body']['data']['review_id'] ?? null,
                         'oc_pushed_at'        => now(),
                         'oc_push_error'       => null,
@@ -258,34 +255,34 @@ class ReviewController extends Controller
         $data = $request->validate([
             'date_from' => 'required|date',
             'date_to'   => 'required|date|after_or_equal:date_from',
-            'platform'  => 'nullable|string|in:all,shopee,lazada',
+            'channel'  => 'nullable|string|in:all,shopee,lazada',
         ]);
 
         $from = $data['date_from'];
-        $platform = $data['platform'] ?? 'all';
+        $channel = $data['channel'] ?? 'all';
         $daysBack = max(1, (int) abs(now()->diffInDays(\Carbon\Carbon::parse($from))) + 1);
 
         $php = PHP_BINARY ?: '/usr/bin/php';
         $artisan = base_path('artisan');
         $launched = [];
 
-        if ($platform === 'all' || $platform === 'shopee') {
-            \Extensions\shopee\Models\ShopeeSetting::query()->update(['last_review_sync_at' => $from . ' 00:00:00']);
+        if ($channel === 'all' || $channel === 'shopee') {
+            \Extensions\Shopee\Models\ShopeeStore::query()->update(['last_review_sync_at' => $from . ' 00:00:00']);
             Process::start([$php, $artisan, 'shopee:sync-reviews', '--days=' . $daysBack]);
             $launched[] = 'Shopee';
         }
 
-        if ($platform === 'all' || $platform === 'lazada') {
-            \Extensions\lazada\Models\LazadaSetting::query()->update(['last_review_sync_at' => $from . ' 00:00:00']);
+        if ($channel === 'all' || $channel === 'lazada') {
+            \Extensions\Lazada\Models\LazadaStore::query()->update(['last_review_sync_at' => $from . ' 00:00:00']);
             Process::start([$php, $artisan, 'lazada:sync-reviews', '--days=' . $daysBack, '--limit=100']);
             $launched[] = 'Lazada';
         }
 
-        $platformLabel = implode(' + ', $launched);
+        $channelLabel = implode(' + ', $launched);
 
         return redirect()->route('ext.opencart.reviews.index')->with('review_result', [
             'ok'      => true,
-            'message' => "Fetching reviews in background ({$platformLabel}). Refresh the page in a few minutes to see results.",
+            'message' => "Fetching reviews in background ({$channelLabel}). Refresh the page in a few minutes to see results.",
         ]);
     }
 
@@ -317,8 +314,8 @@ class ReviewController extends Controller
         $count = MarketplaceReview::count();
         MarketplaceReview::query()->truncate();
 
-        \Extensions\shopee\Models\ShopeeSetting::query()->update(['last_review_sync_at' => null]);
-        \Extensions\lazada\Models\LazadaSetting::query()->update(['last_review_sync_at' => null]);
+        \Extensions\Shopee\Models\ShopeeStore::query()->update(['last_review_sync_at' => null]);
+        \Extensions\Lazada\Models\LazadaStore::query()->update(['last_review_sync_at' => null]);
 
         return redirect()->route('ext.opencart.reviews.index')->with('review_result', [
             'ok'      => true,

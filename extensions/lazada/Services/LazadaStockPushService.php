@@ -1,15 +1,15 @@
 <?php
 
-namespace Extensions\lazada\Services;
+namespace Extensions\Lazada\Services;
 
-use Extensions\lazada\Models\LazadaProduct;
+use Extensions\Lazada\Models\LazadaListing;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
 // Combination rows take precedence; product_option_value is used only when none exist.
 class LazadaStockPushService
 {
-    public function buildPushItems(LazadaProduct $listing, object $product, string $pfx): array
+    public function buildPushItems(LazadaListing $listing, object $product): array
     {
         $lazadaVariants = $listing->variants;
         if ($lazadaVariants->isEmpty()) {
@@ -24,7 +24,7 @@ class LazadaStockPushService
         $erpQtyByPov   = [];
         $erpPriceByPov = [];
 
-        $combos = DB::table('product_option_combinations')
+        $combos = DB::table('product_variations')
             ->where('product_id', $productId)
             ->get(['id', 'sku', 'quantity', 'absolute_price']);
 
@@ -37,12 +37,12 @@ class LazadaStockPushService
                 }
             }
         } else {
-            $povRows = DB::table($pfx . 'product_option_value')
+            $povRows = DB::table('product_variation_values')
                 ->where('product_id', $productId)
-                ->get(['product_option_value_id', 'sku', 'quantity', 'absolute_price']);
+                ->get(['product_variation_value_id', 'sku', 'quantity', 'absolute_price']);
 
             foreach ($povRows as $row) {
-                $pov = (int) $row->product_option_value_id;
+                $pov = (int) $row->product_variation_value_id;
                 $sku = trim((string) ($row->sku ?? ''));
                 $erpQtyByPov[$pov]   = max(0, (int) ($row->quantity ?? 0));
                 $erpPriceByPov[$pov] = (float) ($row->absolute_price ?? $basePrice);
@@ -55,7 +55,7 @@ class LazadaStockPushService
 
         $hasErpVariants = !empty($erpQtyBySku) || !empty($erpQtyByPov);
 
-        $hidden = \App\Integrations\Listings\ListingVariations::hidden('lazada', (int) ($listing->lazada_setting_id ?? 0), [$productId]);
+        $hidden = \App\Channels\Listings\ListingVariations::hidden('lazada', (int) ($listing->store_id ?? 0), [$productId]);
 
         $items = [];
         foreach ($lazadaVariants as $variant) {
@@ -64,10 +64,10 @@ class LazadaStockPushService
                 continue;
             }
             $sellerSku = trim((string) ($variant->seller_sku ?? ''));
-            if (!\App\Integrations\Listings\ListingVariations::allows($hidden, $productId, $sellerSku)) {
+            if (!\App\Channels\Listings\ListingVariations::allows($hidden, $productId, $sellerSku)) {
                 continue;
             }
-            $povId     = $variant->product_option_value_id;
+            $povId     = $variant->product_variation_value_id;
 
             $matched = true;
             if ($sellerSku !== '' && array_key_exists($sellerSku, $erpQtyBySku)) {
@@ -78,7 +78,7 @@ class LazadaStockPushService
                 $price = $erpPriceByPov[(int) $povId] ?? null;
             } elseif (!$hasErpVariants) {
                 $qty   = max(0, (int) ($product->quantity ?? 0));
-                $price = \Extensions\lazada\Services\Lazada\LazadaPushPayload::startingPrice($listing, $basePrice);
+                $price = \Extensions\Lazada\Services\Lazada\LazadaPushPayload::startingPrice($listing, $basePrice);
             } else {
                 Log::warning('LazadaStockPushService: unmatched Lazada variant, defaulting to 0', [
                     'product_id'        => $productId,

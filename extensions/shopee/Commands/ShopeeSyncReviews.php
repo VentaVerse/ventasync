@@ -1,12 +1,12 @@
 <?php
 
-namespace Extensions\shopee\Commands;
+namespace Extensions\Shopee\Commands;
 
-use Extensions\opencart\Models\MarketplaceReview;
-use Extensions\shopee\Models\ShopeeApiLog;
-use Extensions\shopee\Models\ShopeeProductLink;
-use Extensions\shopee\Models\ShopeeSetting;
-use Extensions\shopee\Services\Shopee\ShopeeClient;
+use Extensions\OpenCart\Models\MarketplaceReview;
+use Extensions\Shopee\Models\ShopeeApiLog;
+use Extensions\Shopee\Models\ShopeeListingLink;
+use Extensions\Shopee\Models\ShopeeStore;
+use Extensions\Shopee\Services\Shopee\ShopeeClient;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
@@ -22,10 +22,10 @@ class ShopeeSyncReviews extends Command
 
     public function handle(ShopeeClient $client): int
     {
-        $store = ShopeeSetting::defaultStore();
+        $store = ShopeeStore::defaultStore();
         $setting = $store?->decrypted();
         $this->pauseKey = 'shopee_sync_paused' . ($store ? ':' . $store->id : '');
-        $auth = ShopeeSetting::activeAuth($setting);
+        $auth = ShopeeStore::activeAuth($setting);
         if (!$setting || !$auth['complete']) {
             $modeLabel = $auth['mode'] === 'sandbox' ? 'Sandbox' : 'Production';
             $this->error("Missing Shopee {$modeLabel} credentials/token. Configure Shopee settings for the active mode.");
@@ -39,7 +39,7 @@ class ShopeeSyncReviews extends Command
 
         $this->info('--- Syncing Shopee product reviews ---');
 
-        $itemIds = ShopeeProductLink::query()
+        $itemIds = ShopeeListingLink::query()
             ->whereNotNull('shopee_item_id')
             ->where('shopee_item_id', '!=', '')
             ->distinct()
@@ -89,7 +89,7 @@ class ShopeeSyncReviews extends Command
 
     private function syncItemReviews(ShopeeClient $client, array $auth, string $itemId, ?int $lastSync, int $days): array
     {
-        $link = ShopeeProductLink::query()
+        $link = ShopeeListingLink::query()
             ->where('shopee_item_id', $itemId)
             ->first();
         $productId = $link?->product_id;
@@ -195,8 +195,8 @@ class ShopeeSyncReviews extends Command
 
                 $reviewData = [
                     'product_id'        => $productId,
-                    'platform_item_id'  => $itemId,
-                    'platform_order_id' => (string) ($c['order_sn'] ?? ''),
+                    'channel_item_id'  => $itemId,
+                    'channel_order_id' => (string) ($c['order_sn'] ?? ''),
                     'author'            => (string) ($c['buyer_username'] ?? $c['username'] ?? ''),
                     'rating'            => max(1, min(5, (int) ($c['rating_star'] ?? ($c['rating'] ?? 5)))),
                     'comment'           => (string) ($c['comment'] ?? ''),
@@ -209,8 +209,8 @@ class ShopeeSyncReviews extends Command
                 ];
 
                 $existing = MarketplaceReview::query()
-                    ->where('platform', 'shopee')
-                    ->where('platform_review_id', $commentId)
+                    ->where('channel', 'shopee')
+                    ->where('channel_review_id', $commentId)
                     ->first();
 
                 if ($existing) {
@@ -218,8 +218,8 @@ class ShopeeSyncReviews extends Command
                     $updated++;
                 } else {
                     MarketplaceReview::query()->create(array_merge($reviewData, [
-                        'platform'           => 'shopee',
-                        'platform_review_id' => $commentId,
+                        'channel'           => 'shopee',
+                        'channel_review_id' => $commentId,
                     ]));
                     $created++;
                 }

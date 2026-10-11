@@ -1,9 +1,9 @@
 <?php
 
-namespace Extensions\shopee\Commands;
+namespace Extensions\Shopee\Commands;
 
-use Extensions\shopee\Models\ShopeeSetting;
-use Extensions\shopee\Services\Shopee\ShopeeClient;
+use Extensions\Shopee\Models\ShopeeStore;
+use Extensions\Shopee\Services\Shopee\ShopeeClient;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
@@ -16,7 +16,7 @@ class ShopeeRefreshToken extends Command
 
     public function handle(ShopeeClient $client): int
     {
-        $stores = ShopeeSetting::query()->where('enabled', true)->orderBy('id')->get();
+        $stores = ShopeeStore::query()->where('enabled', true)->orderBy('id')->get();
         if ($stores->isEmpty()) {
             $this->error('No enabled Shopee store. Configure Shopee settings first.');
             return 1;
@@ -38,10 +38,10 @@ class ShopeeRefreshToken extends Command
         return $worst;
     }
 
-    private function refreshStore(ShopeeClient $client, ShopeeSetting $store): int
+    private function refreshStore(ShopeeClient $client, ShopeeStore $store): int
     {
         $setting = $store->decrypted();
-        $auth = ShopeeSetting::activeAuth($setting);
+        $auth = ShopeeStore::activeAuth($setting);
         if (!$auth['partner_id'] || !$auth['partner_key'] || !$auth['shop_id'] || !$auth['refresh_token']) {
             $modeLabel = $auth['mode'] === 'sandbox' ? 'Sandbox' : 'Production';
             $this->error("Missing Shopee {$modeLabel} credentials. Partner ID, Partner Key, Shop ID, and Refresh Token are required.");
@@ -84,7 +84,7 @@ class ShopeeRefreshToken extends Command
                         $raw->sandbox_access_token = encrypt($access);
                         if ($refresh) {
                             $raw->sandbox_refresh_token = encrypt($refresh);
-                            $raw->sandbox_refresh_expires_at = now()->addDays(ShopeeSetting::REFRESH_TOKEN_DAYS);
+                            $raw->sandbox_refresh_expires_at = now()->addDays(ShopeeStore::REFRESH_TOKEN_DAYS);
                         }
                         $expiresIn = $result['body']['expire_in'] ?? null;
                         if (is_numeric($expiresIn)) {
@@ -94,7 +94,7 @@ class ShopeeRefreshToken extends Command
                         $raw->access_token = encrypt($access);
                         if ($refresh) {
                             $raw->refresh_token = encrypt($refresh);
-                            $raw->refresh_expires_at = now()->addDays(ShopeeSetting::REFRESH_TOKEN_DAYS);
+                            $raw->refresh_expires_at = now()->addDays(ShopeeStore::REFRESH_TOKEN_DAYS);
                         }
                         $expiresIn = $result['body']['expire_in'] ?? null;
                         if (is_numeric($expiresIn)) {

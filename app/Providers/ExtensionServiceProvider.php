@@ -53,7 +53,7 @@ class ExtensionServiceProvider extends ServiceProvider
         }
 
         $this->app->booted(function () use ($manager) {
-            $keys = app(\App\Services\PermissionCatalogue::class)->keys();
+            $keys = app(\App\Services\PermissionCatalog::class)->keys();
             sort($keys);
             $syncKey = 'derived_perms_synced_' . md5(json_encode($keys));
             try {
@@ -68,10 +68,10 @@ class ExtensionServiceProvider extends ServiceProvider
         if (!$this->app->runningUnitTests()) {
             $this->app->booted(function () {
                 try {
-                    $catalogue = app(\App\Integrations\Support\AutomationCatalogue::class);
-                    $syncKey = 'automations_synced_' . $catalogue->fingerprint();
+                    $catalog = app(\App\Channels\Support\AutomationCatalog::class);
+                    $syncKey = 'automations_synced_' . $catalog->fingerprint();
                     if (!cache()->has($syncKey) && \Illuminate\Support\Facades\Schema::hasTable('scheduled_jobs')) {
-                        $catalogue->sync();
+                        $catalog->sync();
                         cache()->put($syncKey, true, now()->addHours(24));
                     }
                 } catch (\Throwable) {

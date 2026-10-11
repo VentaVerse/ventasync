@@ -1,6 +1,6 @@
 @extends('layouts.channel')
-@section('breadcrumb', 'Listings')
-@section('title', $setting->store_name . ' Listings')
+@section('breadcrumb', 'Products')
+@section('title', $setting->store_name . ' Products')
 
 @section('content')
 @php
@@ -18,8 +18,8 @@
         unset($qp['page']);
         return url()->current() . '?' . http_build_query($qp);
     };
-    $statusMap = \Extensions\ventacart\Services\VentaCart\VentaCartListingMirror::STATUS_MAP;
-    $tabDefs = \Extensions\ventacart\Services\VentaCart\VentaCartListingMirror::TABS;
+    $statusMap = \Extensions\VentaCart\Services\VentaCart\VentaCartListingMirror::STATUS_MAP;
+    $tabDefs = \Extensions\VentaCart\Services\VentaCart\VentaCartListingMirror::TABS;
     $tabQuery = request()->except('page', 'ventacart_tab');
     $indexUrl = fn (array $params = []) => route('ext.ventacart.listings.index', array_merge(['store' => $setting->id], $params));
 @endphp
@@ -32,7 +32,7 @@
 
 <div class="x-list-head">
     <div>
-        <h1 class="x-page-title">Listings</h1>
+        <h1 class="x-page-title">Products</h1>
         <p class="x-page-sub">
             @if($hasFilters)
                 {{ number_format($products->total()) }} {{ $products->total() === 1 ? 'product matches' : 'products match' }}@if($statusMenu['label'] ?? null): {{ $statusMenu['label'] }}@endif
@@ -65,13 +65,13 @@
 <div class="x-segment-bar">
     <div class="x-segment-groups">
         <div class="x-segment-group">
-            <span class="x-segment-group__k">Your catalogue</span>
-            <nav class="x-segment" aria-label="Catalogue">
+            <span class="x-segment-group__k">Your Master Catalog</span>
+            <nav class="x-segment" aria-label="Catalog">
                 <a href="{{ $indexUrl($tabQuery) }}"
                    class="x-segment__item {{ $ventaCartTab === 'all' ? 'is-active' : '' }}"
                    @if($ventaCartTab === 'all') aria-current="true" @endif>
                     <span>All products</span>
-                    <span class="x-segment__count">{{ number_format((int) ($catalogueTotal ?? $products->total())) }}</span>
+                    <span class="x-segment__count">{{ number_format((int) ($catalogTotal ?? $products->total())) }}</span>
                 </a>
             </nav>
         </div>
@@ -149,15 +149,15 @@
     @endif
     <x-ui.input type="search" name="q" class="x-filters__search" value="{{ $q }}" placeholder="Name, model or SKU" aria-label="Search listings" />
     <div class="x-select-wrap x-filters__select x-filters__select--narrow">
-        <select name="erp_status" class="x-input" data-autosubmit aria-label="Filter by catalogue status">
-            <option value="all" @selected($erpStatus === 'all')>Any catalogue status</option>
+        <select name="erp_status" class="x-input" data-autosubmit aria-label="Filter by Master Catalog status">
+            <option value="all" @selected($erpStatus === 'all')>Any Master Catalog status</option>
             <option value="enabled" @selected($erpStatus === 'enabled')>Enabled</option>
             <option value="disabled" @selected($erpStatus === 'disabled')>Disabled</option>
         </select>
         <x-ui.icon name="chevron-down" size="14" class="x-select-wrap__chevron" />
     </div>
-    @if(!empty($orderOptions))
-        @include('partials.listing-sort', ['options' => $orderOptions, 'chosen' => $order])
+    @if(!empty($orderVariations))
+        @include('partials.listing-sort', ['options' => $orderVariations, 'chosen' => $order])
     @endif
 
     <x-ui.button type="submit" variant="secondary">Search</x-ui.button>
@@ -231,13 +231,13 @@
 
     @php
 
-        $marks = new \App\Integrations\Listings\ListingMarks(
+        $marks = new \App\Channels\Listings\ListingMarks(
 
-            'ventacart', \App\Integrations\Listings\ListingStore::id('ventacart'),
+            'ventacart', \App\Channels\Listings\ListingStore::id('ventacart'),
 
             $products->pluck('product_id')->map(fn ($v) => (int) $v)->all(),
 
-            'ventacart_listings', 'ventacart_setting_id', 'ventacart_product_groups', 'ventacart_product_group_products', 'ventacart_product_group_id', 'ventacart_setting_id'
+            'ch_ventacart_listings', 'store_id', 'ch_ventacart_product_groups', 'ch_ventacart_product_group_products', 'ventacart_product_group_id', 'store_id'
 
         );
 
@@ -252,7 +252,7 @@
             $listed = (bool) ($link?->ventacart_product_id);
             $attempt = $lastAttempts->get($pid);
             $pGroups = $groupsByProductId->get($pid, []);
-            $optRows = $optionRowsByProductId->get($pid);
+            $optRows = $variationRowsByProductId->get($pid);
             $img = trim((string) ($p->image ?? ''));
             $thumbSrc = $marks->thumb((int) $p->product_id, $img) ?? '';
             $rowLiveStatus = $listed ? ($listing?->live_status) : null;
@@ -282,7 +282,7 @@
                             @if($listed)
                                 <span class="co-item__sku lsm-chanid">VentaCart {{ $link->ventacart_product_id }}</span>
                             @endif
-                            @if($p->manufacturer_name)<span>{{ $p->manufacturer_name }}</span>@endif
+                            @if($p->brand_name)<span>{{ $p->brand_name }}</span>@endif
                             @if(($groupFilter ?? 'all') === 'all' && count($pGroups) > 0)
                                 <a class="co-item__var" href="{{ $indexUrl(array_merge(request()->except(['page', 'sync_status', 'group']), ['group' => $pGroups[0]['id']])) }}">Product group: {{ $pGroups[0]['name'] }}</a>
                             @endif
@@ -317,9 +317,9 @@
                             $menu['link'] = ['action' => route('ext.ventacart.listings.check', $setting->id), 'fields' => ['product_ids[]' => $pid]];
                         } else {
                             $menu['update'] = ['action' => route('ext.ventacart.listings.push', [$setting->id, $pid]), 'label' => 'Send to ' . $storeName, 'confirm' => "Send this listing's content and price rule to the live {$storeName} product? Name, description, price, stock, images and variations are updated in place.", 'verb' => 'Send', 'tone' => 'primary'];
-                            if ($rowLiveStatus === \Extensions\ventacart\Models\VentaCartListing::STATUS_ACTIVE) {
+                            if ($rowLiveStatus === \Extensions\VentaCart\Models\VentaCartListing::STATUS_ACTIVE) {
                                 $menu['switch'] = ['action' => route('ext.ventacart.listings.toggle', [$setting->id, $pid]), 'label' => 'Unlist on ' . $storeName, 'fields' => ['action' => 'unlist'], 'confirm' => "Unlist this product on {$storeName}? Buyers stop seeing it. It can be relisted at any time.", 'verb' => 'Unlist'];
-                            } elseif ($rowLiveStatus === \Extensions\ventacart\Models\VentaCartListing::STATUS_INACTIVE) {
+                            } elseif ($rowLiveStatus === \Extensions\VentaCart\Models\VentaCartListing::STATUS_INACTIVE) {
                                 $menu['switch'] = ['action' => route('ext.ventacart.listings.toggle', [$setting->id, $pid]), 'label' => 'Relist on ' . $storeName, 'fields' => ['action' => 'relist'], 'confirm' => "Relist this product on {$storeName}? Buyers see it again at once.", 'verb' => 'Relist', 'tone' => 'primary'];
                             }
                             $menu['check'] = ['action' => route('ext.ventacart.listings.check', $setting->id), 'label' => 'Check against ' . $storeName, 'fields' => ['product_ids[]' => $pid]];
@@ -363,17 +363,17 @@
 @if($canManage)
     <x-channel.add-panel
         id="ventacart-add-panel"
-        :search-url="route('ext.ventacart.products.catalogue_search', $setting->id)"
+        :search-url="route('ext.ventacart.products.catalog_search', $setting->id)"
         :add-url="route('ext.ventacart.products.add_to_store', [$setting->id, '__PID__'])"
-        :groups="\App\Integrations\Listings\StatusMenu::groupChoices($statusMenu ?? [])"
-        :group="\App\Integrations\Listings\StatusMenu::chosenGroup($statusMenu ?? [])"
+        :groups="\App\Channels\Listings\StatusMenu::groupChoices($statusMenu ?? [])"
+        :group="\App\Channels\Listings\StatusMenu::chosenGroup($statusMenu ?? [])"
         sub="Search your Master Catalog. Each product you add joins this store's list, ready to configure and push to {{ $storeName }}."
         toggle-label="Show products already on this store"
         in-label="On this store"
         scope="this store"
         empty-default="Every enabled product is already on this store."
-        empty-all="Your catalog has no enabled products."
-        list-label="Catalog products" />
+        empty-all="Your Master Catalog has no enabled products."
+        list-label="Master Catalog products" />
 @endif
 </div>
 @endsection

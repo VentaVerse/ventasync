@@ -1,51 +1,51 @@
 <?php
 
-namespace Extensions\ventacart\Services\VentaCart;
+namespace Extensions\VentaCart\Services\VentaCart;
 
-use Extensions\ventacart\Models\VentaCartSetting;
+use Extensions\VentaCart\Models\VentaCartStore;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 final class VentaCartStoreDeleter
 {
     private const TABLES = [
-        'ventacart_api_logs',
-        'ventacart_sync_logs',
-        'ventacart_order_status_map',
-        'ventacart_status_placements',
-        'ventacart_orders',
-        'ventacart_listings',
-        'ventacart_product_links',
-        'ventacart_product_groups',
-        'ventacart_categories',
-        'ventacart_brands',
+        'ch_ventacart_api_logs',
+        'ch_ventacart_sync_logs',
+        'ch_ventacart_order_status_map',
+        'ch_ventacart_status_placements',
+        'ch_ventacart_orders',
+        'ch_ventacart_listings',
+        'ch_ventacart_listing_links',
+        'ch_ventacart_product_groups',
+        'ch_ventacart_categories',
+        'ch_ventacart_brands',
     ];
 
-    public function delete(VentaCartSetting $store): array
+    public function delete(VentaCartStore $store): array
     {
         return DB::transaction(function () use ($store) {
             $removed = [];
-            if (Schema::hasTable('ventacart_order_products')) {
-                $orderIds = DB::table('ventacart_orders')->where('ventacart_setting_id', $store->id)->pluck('id');
-                $removed['ventacart_order_products'] = $orderIds->isEmpty() ? 0
-                    : DB::table('ventacart_order_products')->whereIn('ventacart_order_id', $orderIds)->delete();
+            if (Schema::hasTable('ch_ventacart_order_products')) {
+                $orderIds = DB::table('ch_ventacart_orders')->where('store_id', $store->id)->pluck('id');
+                $removed['ch_ventacart_order_products'] = $orderIds->isEmpty() ? 0
+                    : DB::table('ch_ventacart_order_products')->whereIn('ventacart_order_id', $orderIds)->delete();
             }
-            if (Schema::hasTable('ventacart_product_group_products')) {
-                $groupIds = DB::table('ventacart_product_groups')->where('ventacart_setting_id', $store->id)->pluck('id');
-                $removed['ventacart_product_group_products'] = $groupIds->isEmpty() ? 0
-                    : DB::table('ventacart_product_group_products')->whereIn('ventacart_product_group_id', $groupIds)->delete();
+            if (Schema::hasTable('ch_ventacart_product_group_products')) {
+                $groupIds = DB::table('ch_ventacart_product_groups')->where('store_id', $store->id)->pluck('id');
+                $removed['ch_ventacart_product_group_products'] = $groupIds->isEmpty() ? 0
+                    : DB::table('ch_ventacart_product_group_products')->whereIn('ventacart_product_group_id', $groupIds)->delete();
             }
             foreach (self::TABLES as $table) {
-                if (! Schema::hasTable($table) || ! Schema::hasColumn($table, 'ventacart_setting_id')) {
+                if (! Schema::hasTable($table) || ! Schema::hasColumn($table, 'store_id')) {
                     continue;
                 }
-                $removed[$table] = DB::table($table)->where('ventacart_setting_id', $store->id)->delete();
+                $removed[$table] = DB::table($table)->where('store_id', $store->id)->delete();
             }
             if (Schema::hasTable('scheduled_jobs')) {
                 $removed['scheduled_jobs'] = DB::table('scheduled_jobs')
-                    ->where('integration', 'ventacart')->where('store_id', $store->id)->delete();
+                    ->where('extension', 'ventacart')->where('store_id', $store->id)->delete();
             }
-            DB::table('ventacart_settings')->where('id', $store->id)->delete();
+            DB::table('ch_ventacart_stores')->where('id', $store->id)->delete();
 
             return $removed;
         });

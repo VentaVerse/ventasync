@@ -1,5 +1,5 @@
 @extends('layouts.channel')
-@section('breadcrumb', 'Listings')
+@section('breadcrumb', 'Products')
 @section('title', 'Add products to Shopee')
 
 @section('content')
@@ -8,10 +8,10 @@
     $canEditCatalog = auth()->user()?->hasPermission('manage_catalog/product') ?? false;
 
     $q = (string) ($q ?? '');
-    $manufacturerFilter = (string) ($manufacturerFilter ?? 'all');
+    $brandFilter = (string) ($brandFilter ?? 'all');
     $groupFilter = (string) ($groupFilter ?? 'all');
     $onStore = (string) ($onStore ?? 'all');
-    $hasFilters = $q !== '' || $manufacturerFilter !== 'all' || $groupFilter !== 'all' || $onStore !== 'all';
+    $hasFilters = $q !== '' || $brandFilter !== 'all' || $groupFilter !== 'all' || $onStore !== 'all';
 @endphp
 
 <div class="cc-page"
@@ -28,20 +28,20 @@
         </p>
     </div>
     <div class="cc-head-actions">
-        <x-ui.button variant="secondary" :href="route('ext.shopee.products.index')">Back to Listings</x-ui.button>
+        <x-ui.button variant="secondary" :href="route('ext.shopee.products.index')">Back to Products</x-ui.button>
     </div>
 </div>
 
 <form method="GET" action="{{ route('ext.shopee.products.index') }}" class="x-filters" id="shopee-add-filter">
     <input type="hidden" name="list" value="add">
     <x-ui.input type="search" name="q" class="x-filters__search"
-                value="{{ $q }}" placeholder="Name, model or SKU" aria-label="Search your catalogue" />
+                value="{{ $q }}" placeholder="Name, model or SKU" aria-label="Search your Master Catalog" />
 
     <div class="x-select-wrap x-filters__select">
-        <select name="manufacturer" class="x-input" data-autosubmit aria-label="Filter by manufacturer">
-            <option value="all">All manufacturers</option>
-            @foreach(($allManufacturers ?? collect()) as $mId => $mName)
-                <option value="{{ $mId }}" @selected($manufacturerFilter === (string) $mId)>{{ $mName }}</option>
+        <select name="brand" class="x-input" data-autosubmit aria-label="Filter by brand">
+            <option value="all">All brands</option>
+            @foreach(($allBrands ?? collect()) as $mId => $mName)
+                <option value="{{ $mId }}" @selected($brandFilter === (string) $mId)>{{ $mName }}</option>
             @endforeach
         </select>
         <x-ui.icon name="chevron-down" size="14" class="x-select-wrap__chevron" />
@@ -90,11 +90,11 @@
 
 @if($products->count() === 0)
     <x-ui.empty
-        title="{{ $hasFilters ? 'Nothing matches those filters' : ($onStore === 'off' ? 'Every product is already on this store' : 'Your catalogue is empty') }}"
+        title="{{ $hasFilters ? 'Nothing matches those filters' : ($onStore === 'off' ? 'Every product is already on this store' : 'Your Master Catalog is empty') }}"
         :description="$hasFilters
-            ? 'Try clearing the search, or widening the manufacturer and group filters.'
+            ? 'Try clearing the search, or widening the brand and group filters.'
             : ($onStore === 'off'
-                ? 'There is nothing left to add: every catalogue product is already on this store.'
+                ? 'There is nothing left to add: every Master Catalog product is already on this store.'
                 : 'Add a product to your Master Catalog and it will be ready to add to this store.')">
         @if($hasFilters)
             <x-slot:action>
@@ -139,7 +139,7 @@
             $thumbSrc = $productThumbsById->get($pid);
             $pName = (string) ($row->name ?? '');
             $pSku = (string) ($row->sku ?? '');
-            $pMfg = (string) ($row->manufacturer_name ?? '');
+            $pMfg = (string) ($row->brand_name ?? '');
             $pStatus = (int) ($row->status ?? 0);
             $rowLabel = $pName !== '' ? $pName : ($pSku !== '' ? $pSku : 'product ' . $pid);
         @endphp

@@ -1,12 +1,12 @@
 <?php
 
-namespace Extensions\lazada\Controllers;
+namespace Extensions\Lazada\Controllers;
 
 use App\Http\Controllers\Controller;
 
-use Extensions\lazada\Models\LazadaBrand;
-use Extensions\lazada\Models\LazadaSetting;
-use Extensions\lazada\Services\Lazada\LazadaClient;
+use Extensions\Lazada\Models\LazadaBrand;
+use Extensions\Lazada\Models\LazadaStore;
+use Extensions\Lazada\Services\Lazada\LazadaClient;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -41,14 +41,14 @@ class LazadaBrandController extends Controller
 
     public function fetch(Request $request, LazadaClient $client)
     {
-        $setting = LazadaSetting::defaultStore()?->decrypted();
-        $creds = LazadaSetting::activeCredentials($setting);
-        if (!$setting || !$setting->region || !$creds['app_key'] || !$creds['app_secret']) {
+        $store = LazadaStore::defaultStore()?->decrypted();
+        $creds = LazadaStore::activeCredentials($store);
+        if (!$store || !$store->region || !$creds['app_key'] || !$creds['app_secret']) {
             return redirect()->route('ext.lazada.brands.index')->with('error', 'Missing Lazada settings. Please configure Region, App Key, and App Secret first.');
         }
 
         $apiPath = '/category/brands/query';
-        $region = (string)$setting->region;
+        $region = (string)$store->region;
         $pageSize = 200;
         $startRow = 0;
         $brandsById = [];
@@ -140,9 +140,9 @@ class LazadaBrandController extends Controller
         $allRows = array_values($brandsById);
 
         DB::transaction(function () use ($region, $allRows) {
-            DB::table('lazada_brands')->where('region', $region)->delete();
+            DB::table('ch_lazada_brands')->where('region', $region)->delete();
             foreach (array_chunk($allRows, 1000) as $chunk) {
-                DB::table('lazada_brands')->insert($chunk);
+                DB::table('ch_lazada_brands')->insert($chunk);
             }
         });
 
@@ -230,10 +230,10 @@ class LazadaBrandController extends Controller
 
     private function currentRegion(): ?string
     {
-        $setting = LazadaSetting::defaultStore()?->decrypted();
-        $creds = LazadaSetting::activeCredentials($setting);
-        if ($setting && !empty($setting->region)) {
-            return (string)$setting->region;
+        $store = LazadaStore::defaultStore()?->decrypted();
+        $creds = LazadaStore::activeCredentials($store);
+        if ($store && !empty($store->region)) {
+            return (string)$store->region;
         }
         return null;
     }

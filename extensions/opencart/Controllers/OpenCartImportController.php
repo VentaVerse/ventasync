@@ -1,12 +1,12 @@
 <?php
 
-namespace Extensions\opencart\Controllers;
+namespace Extensions\OpenCart\Controllers;
 
 use App\Http\Controllers\Controller;
-use Extensions\opencart\Models\OpenCartProductLink;
-use Extensions\opencart\Models\OpenCartSetting;
-use Extensions\opencart\Services\OpenCart\OpenCartClient;
-use Extensions\opencart\Services\OpenCart\OpenCartItemImport;
+use Extensions\OpenCart\Models\OpenCartListingLink;
+use Extensions\OpenCart\Models\OpenCartStore;
+use Extensions\OpenCart\Services\OpenCart\OpenCartClient;
+use Extensions\OpenCart\Services\OpenCart\OpenCartItemImport;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -15,7 +15,7 @@ class OpenCartImportController extends Controller
 {
     public function importPage(Request $request, int $store)
     {
-        $setting = OpenCartSetting::findOrFail($store);
+        $setting = OpenCartStore::findOrFail($store);
 
         $fetched = null;
         $fetchError = null;
@@ -31,19 +31,19 @@ class OpenCartImportController extends Controller
         ]);
     }
 
-    private function fetchUnmatched(OpenCartSetting $setting): array
+    private function fetchUnmatched(OpenCartStore $store): array
     {
-        if (! $setting->enabled) {
+        if (! $store->enabled) {
             return [null, 'That OpenCart store is turned off, so nothing was fetched.'];
         }
 
-        $client = new OpenCartClient($setting);
+        $client = new OpenCartClient($store);
         $known = $this->knownSkus();
-        $linked = OpenCartProductLink::query()
-            ->where('opencart_setting_id', $setting->id)
+        $linked = OpenCartListingLink::query()
+            ->where('store_id', $store->id)
             ->pluck('oc_product_id')
             ->flip();
-        $base = rtrim((string) $setting->base_url, '/');
+        $base = rtrim((string) $store->base_url, '/');
 
         $found = 0;
         $rows = [];
@@ -85,7 +85,7 @@ class OpenCartImportController extends Controller
     public function importOne(Request $request, int $store, OpenCartItemImport $import)
     {
         $data = $request->validate(['ref' => 'required|integer|min:1']);
-        $setting = OpenCartSetting::findOrFail($store);
+        $setting = OpenCartStore::findOrFail($store);
 
         $r = $import->import($setting, (int) $data['ref']);
 
@@ -95,7 +95,7 @@ class OpenCartImportController extends Controller
     public function importSelected(Request $request, int $store, OpenCartItemImport $import)
     {
         $data = $request->validate(['refs' => 'required|array|min:1', 'refs.*' => 'integer|min:1']);
-        $setting = OpenCartSetting::findOrFail($store);
+        $setting = OpenCartStore::findOrFail($store);
 
         $done = 0;
         $failed = [];
@@ -116,38 +116,34 @@ class OpenCartImportController extends Controller
 
     public function linkItem(Request $request, int $store)
     {
-        OpenCartSetting::findOrFail($store);
+        OpenCartStore::findOrFail($store);
         $data = $request->validate([
             'ref' => 'required|integer|min:1',
             'sku' => 'nullable|string|max:191',
             'product_id' => 'required|integer|min:1',
         ]);
-
-        $pfx = (string) config('catalog.prefix');
-        if (! DB::table($pfx . 'product')->where('product_id', (int) $data['product_id'])->exists()) {
-            return redirect()->back()->with('error', 'That catalog product does not exist.');
+        if (! DB::table('products')->where('product_id', (int) $data['product_id'])->exists()) {
+            return redirect()->back()->with('error', 'That Master Catalog product does not exist.');
         }
 
-        OpenCartProductLink::updateOrCreate(
-            ['opencart_setting_id' => $store, 'oc_product_id' => (int) $data['ref']],
+        OpenCartListingLink::updateOrCreate(
+            ['store_id' => $store, 'oc_product_id' => (int) $data['ref']],
             ['product_id' => (int) $data['product_id'], 'sku' => trim((string) ($data['sku'] ?? '')) ?: null]
         );
 
-        return redirect()->back()->with('status', 'Linked OpenCart product #' . $data['ref'] . ' to catalog product #' . $data['product_id'] . '.');
+        return redirect()->back()->with('status', 'Linked OpenCart product #' . $data['ref'] . ' to Master Catalog product #' . $data['product_id'] . '.');
     }
 
     public function searchCatalog(Request $request, int $store)
     {
-        OpenCartSetting::findOrFail($store);
+        OpenCartStore::findOrFail($store);
         $q = trim((string) $request->query('q', ''));
         if (strlen($q) < 2) {
             return response()->json(['items' => []]);
         }
-
-        $pfx = (string) config('catalog.prefix');
         $langId = (int) config('catalog.default_language_id');
-        $rows = DB::table($pfx . 'product as p')
-            ->join($pfx . 'product_description as pd', function ($j) use ($langId) {
+        $rows = DB::table('products as p')
+            ->join('product_descriptions as pd', function ($j) use ($langId) {
                 $j->on('p.product_id', '=', 'pd.product_id')->where('pd.language_id', '=', $langId);
             })
             ->where(function ($w) use ($q) {
@@ -164,13 +160,12 @@ class OpenCartImportController extends Controller
 
     private function knownSkus(): \Illuminate\Support\Collection
     {
-        $pfx = (string) config('catalog.prefix');
 
         return collect()
-            ->merge(DB::table($pfx . 'product')->whereNotNull('sku')->where('sku', '!=', '')->pluck('sku'))
-            ->merge(DB::table($pfx . 'product')->whereNotNull('model')->where('model', '!=', '')->pluck('model'))
-            ->merge(DB::table($pfx . 'product_option_value')->whereNotNull('sku')->where('sku', '!=', '')->pluck('sku'))
-            ->merge(DB::table('product_option_combinations')->whereNotNull('sku')->where('sku', '!=', '')->pluck('sku'))
+            ->merge(DB::table('products')->whereNotNull('sku')->where('sku', '!=', '')->pluck('sku'))
+            ->merge(DB::table('products')->whereNotNull('model')->where('model', '!=', '')->pluck('model'))
+            ->merge(DB::table('product_variation_values')->whereNotNull('sku')->where('sku', '!=', '')->pluck('sku'))
+            ->merge(DB::table('product_variations')->whereNotNull('sku')->where('sku', '!=', '')->pluck('sku'))
             ->map(fn ($v) => strtolower(trim((string) $v)))
             ->flip();
     }

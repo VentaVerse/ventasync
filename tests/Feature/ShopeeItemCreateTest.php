@@ -2,9 +2,9 @@
 
 namespace Tests\Feature;
 
-use Extensions\shopee\Services\Shopee\ShopeeClient;
+use Extensions\Shopee\Services\Shopee\ShopeeClient;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Extensions\shopee\Services\Shopee\ShopeeItemCreate;
+use Extensions\Shopee\Services\Shopee\ShopeeItemCreate;
 use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
@@ -54,7 +54,7 @@ class ShopeeItemCreateTest extends TestCase
         $this->assertNull($r['item_id']);
         $this->assertStringContainsString('item_sku is duplicated', $r['error'], 'the operator reads what Shopee said');
         $this->assertStringNotContainsString('returned no item id', $r['error']);
-        $this->assertDatabaseHas('shopee_api_logs', ['pack' => 'shopee.products.add_item.test', 'ok' => 0]);
+        $this->assertDatabaseHas('ch_shopee_api_logs', ['pack' => 'shopee.products.add_item.test', 'ok' => 0]);
     }
 
     public function test_add_item_accepted_without_an_item_id_repeats_what_shopee_did_say(): void
@@ -67,7 +67,7 @@ class ShopeeItemCreateTest extends TestCase
         $this->assertNull($r['item_id']);
         $this->assertStringContainsString('returned no item id', $r['error']);
         $this->assertStringContainsString('Item pending review.', $r['error']);
-        $this->assertDatabaseHas('shopee_api_logs', ['pack' => 'shopee.products.add_item.test', 'ok' => 1]);
+        $this->assertDatabaseHas('ch_shopee_api_logs', ['pack' => 'shopee.products.add_item.test', 'ok' => 1]);
     }
 
     public function test_every_upload_is_logged_even_from_the_batch_paths(): void
@@ -77,7 +77,7 @@ class ShopeeItemCreateTest extends TestCase
         $img = $this->tempImage();
         app(ShopeeItemCreate::class)->uploadImages(app(ShopeeClient::class), self::AUTH, [$img]);
 
-        $this->assertDatabaseHas('shopee_api_logs', ['pack' => 'shopee.products.upload_image']);
+        $this->assertDatabaseHas('ch_shopee_api_logs', ['pack' => 'shopee.products.upload_image']);
 
         unlink(storage_path('app/public/itemcreate-pin.png'));
     }

@@ -1,13 +1,7 @@
 const KEY = 'ventasync-nav-groups';
-const EARLIER_KEY = 'xenon-nav-groups';
 
 function read() {
     try {
-        const earlier = localStorage.getItem(EARLIER_KEY);
-        if (earlier !== null) {
-            if (localStorage.getItem(KEY) === null) localStorage.setItem(KEY, earlier);
-            localStorage.removeItem(EARLIER_KEY);
-        }
         return JSON.parse(localStorage.getItem(KEY) || '{}');
     } catch (e) { return {}; }
 }

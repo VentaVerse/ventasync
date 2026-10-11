@@ -3,7 +3,7 @@
 namespace App\Http\Controllers\Catalog;
 
 use App\Http\Controllers\Controller;
-use App\Models\Catalog\Manufacturer;
+use App\Models\Catalog\Brand;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -22,23 +22,23 @@ class ProductImageController extends Controller
         return app(\App\Services\Media\CatalogImageImporter::class)->fetch($url);
     }
 
-    private function manufacturerSlugFromId(int $manufacturerId): string
+    private function brandSlugFromId(int $brandId): string
     {
-        $manufacturerId = (int) $manufacturerId;
-        if ($manufacturerId <= 0) {
-            return '_no_manufacturer_';
+        $brandId = (int) $brandId;
+        if ($brandId <= 0) {
+            return '_no_brand_';
         }
 
-        $m = Manufacturer::query()
-            ->where('manufacturer_id', $manufacturerId)
+        $m = Brand::query()
+            ->where('brand_id', $brandId)
             ->first(['name']);
 
         if (!$m) {
-            return '_no_manufacturer_';
+            return '_no_brand_';
         }
 
         $slug = Str::slug((string) $m->name);
-        return $slug !== '' ? $slug : '_no_manufacturer_';
+        return $slug !== '' ? $slug : '_no_brand_';
     }
 
     private function ensureAllowedImage(string $absPath): void
@@ -78,14 +78,14 @@ class ProductImageController extends Controller
             }
         }
     }
-    private function manufacturerDir(int $manufacturerId): string
+    private function brandDir(int $brandId): string
     {
-        $folder = $this->resolveManufacturerFolder($manufacturerId);
+        $folder = $this->resolveBrandFolder($brandId);
         if ($folder !== '') {
             return 'catalog/' . $folder;
         }
 
-        $slug = $this->manufacturerSlugFromId($manufacturerId);
+        $slug = $this->brandSlugFromId($brandId);
         return 'catalog/' . $slug;
     }
 
@@ -164,7 +164,7 @@ class ProductImageController extends Controller
         $this->tmpCleanup();
 
         $request->validate([
-            'manufacturer_id' => 'nullable|integer|min:0',
+            'brand_id' => 'nullable|integer|min:0',
             'file' => 'required|file|max:5120',
             'product_id' => 'nullable|integer|min:1',
             'token' => 'nullable|string|max:80',
@@ -184,10 +184,10 @@ class ProductImageController extends Controller
 
         $disk = Storage::disk('public');
 
-        $mid = (int) ($request->manufacturer_id ?? 0);
+        $mid = (int) ($request->brand_id ?? 0);
 
         if ($productId > 0) {
-            $dir = $this->manufacturerDir($mid);
+            $dir = $this->brandDir($mid);
 
             $tmpPath = $file->storeAs('tmp/product-images', Str::uuid()->toString() . '.' . $ext, 'public');
             $absTmp = $disk->path($tmpPath);
@@ -239,7 +239,7 @@ class ProductImageController extends Controller
         $this->tmpCleanup();
 
         $request->validate([
-            'manufacturer_id' => 'nullable|integer|min:0',
+            'brand_id' => 'nullable|integer|min:0',
             'url' => 'required|string|max:2048',
             'product_id' => 'nullable|integer|min:1',
             'token' => 'nullable|string|max:80',
@@ -288,10 +288,10 @@ class ProductImageController extends Controller
         $tmpRel = $this->convertWebpToJpg($tmpRel);
         $name = preg_replace('/\.webp$/i', '.jpg', $name);
 
-        $mid = (int) ($request->manufacturer_id ?? 0);
+        $mid = (int) ($request->brand_id ?? 0);
 
         if ($productId > 0) {
-            $dir = $this->manufacturerDir($mid);
+            $dir = $this->brandDir($mid);
             $disk->makeDirectory($dir);
             $target = $this->uniqueTargetPath($dir, $name);
             $disk->move($tmpRel, $target);
@@ -416,14 +416,14 @@ class ProductImageController extends Controller
         return response()->json(['ok' => true]);
     }
 
-    private function resolveManufacturerFolder(int $manufacturerId): string
+    private function resolveBrandFolder(int $brandId): string
     {
-        if ($manufacturerId <= 0) {
+        if ($brandId <= 0) {
             return '';
         }
 
-        $m = Manufacturer::query()
-            ->where('manufacturer_id', $manufacturerId)
+        $m = Brand::query()
+            ->where('brand_id', $brandId)
             ->first(['name']);
 
         if (!$m || !$m->name) {
@@ -590,10 +590,10 @@ class ProductImageController extends Controller
     public function browse(Request $request)
     {
         $request->validate([
-            'manufacturer_id' => 'nullable|integer|min:0',
+            'brand_id' => 'nullable|integer|min:0',
             'product_id' => 'nullable|integer|min:0',
             'path' => 'nullable|string|max:255',
-            'start_at_manufacturer' => 'nullable|boolean',
+            'start_at_brand' => 'nullable|boolean',
             'q' => 'nullable|string|max:120',
         ]);
 
@@ -609,11 +609,11 @@ class ProductImageController extends Controller
         $path = (string) ($request->path ?? '');
         $serverResolved = false;
 
-        if ($request->boolean('start_at_manufacturer') && $path === '') {
-            $mid = (int) ($request->manufacturer_id ?? 0);
-            $folder = $this->resolveManufacturerFolder($mid);
+        if ($request->boolean('start_at_brand') && $path === '') {
+            $mid = (int) ($request->brand_id ?? 0);
+            $folder = $this->resolveBrandFolder($mid);
             if ($folder === '' && $mid > 0) {
-                $m = Manufacturer::query()->where('manufacturer_id', $mid)->first(['name']);
+                $m = Brand::query()->where('brand_id', $mid)->first(['name']);
                 if ($m && trim((string) $m->name) !== '') {
                     $folder = trim((string) $m->name);
                     $disk->makeDirectory('catalog/' . $folder);

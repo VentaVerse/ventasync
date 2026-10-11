@@ -1,10 +1,10 @@
 <?php
 
-namespace Extensions\ventacart\Services\VentaCart;
+namespace Extensions\VentaCart\Services\VentaCart;
 
-use Extensions\ventacart\Models\VentaCartListing;
-use Extensions\ventacart\Models\VentaCartProductLink;
-use Extensions\ventacart\Models\VentaCartSetting;
+use Extensions\VentaCart\Models\VentaCartListing;
+use Extensions\VentaCart\Models\VentaCartListingLink;
+use Extensions\VentaCart\Models\VentaCartStore;
 use Illuminate\Support\Collection;
 
 class VentaCartListingMirror
@@ -23,14 +23,14 @@ class VentaCartListingMirror
     ];
 
     public function __construct(
-        private VentaCartSetting $setting,
+        private VentaCartStore $store,
         private VentaCartClient $client,
     ) {
     }
 
-    public static function for(VentaCartSetting $setting): self
+    public static function for(VentaCartStore $store): self
     {
-        return new self($setting, new VentaCartClient($setting));
+        return new self($store, new VentaCartClient($store));
     }
 
     public function refresh(): array
@@ -81,7 +81,7 @@ class VentaCartListingMirror
 
         $now = now();
         $counts = [];
-        $links = VentaCartProductLink::where('ventacart_setting_id', $this->setting->id)->get();
+        $links = VentaCartListingLink::where('store_id', $this->store->id)->get();
 
         foreach ($links as $link) {
             $facts = $byId[(int) $link->ventacart_product_id]
@@ -94,7 +94,7 @@ class VentaCartListingMirror
             }
 
             VentaCartListing::query()->updateOrCreate(
-                ['ventacart_setting_id' => $this->setting->id, 'product_id' => (int) $link->product_id],
+                ['store_id' => $this->store->id, 'product_id' => (int) $link->product_id],
                 [
                     'live_status' => $status,
                     'live_checked_at' => $now,
@@ -110,13 +110,13 @@ class VentaCartListingMirror
 
     public function fillBlanks(Collection $links, int $limit = 10, ?string &$error = null): int
     {
-        $store = (int) $this->setting->id;
+        $store = (int) $this->store->id;
         $ids = $links->keys()->all();
-        $checked = VentaCartListing::query()->where('ventacart_setting_id', $store)
+        $checked = VentaCartListing::query()->where('store_id', $store)
             ->whereIn('product_id', $ids ?: [0])->whereNotNull('live_status')
             ->pluck('product_id')->map(fn ($v) => (int) $v)->all();
 
-        $push = new VentaCartProductPush($this->setting, $this->client);
+        $push = new VentaCartProductPush($this->store, $this->client);
         $filled = 0;
 
         foreach ($links as $productId => $link) {
@@ -133,7 +133,7 @@ class VentaCartListingMirror
                 break;
             }
 
-            $row = VentaCartListing::query()->firstOrNew(['ventacart_setting_id' => $store, 'product_id' => (int) $productId]);
+            $row = VentaCartListing::query()->firstOrNew(['store_id' => $store, 'product_id' => (int) $productId]);
             $row->mirror($live['status'], $live['price'], $live['quantity']);
             if ($live['state'] === 'found') {
                 $push->rememberHeld((int) $productId, array_column($live['variants'], 'sku'));
@@ -146,11 +146,11 @@ class VentaCartListingMirror
 
     public function counts(): array
     {
-        $store = (int) $this->setting->id;
-        $linked = VentaCartProductLink::where('ventacart_setting_id', $store)->pluck('product_id')->map(fn ($v) => (int) $v)->all();
+        $store = (int) $this->store->id;
+        $linked = VentaCartListingLink::where('store_id', $store)->pluck('product_id')->map(fn ($v) => (int) $v)->all();
 
         $byStatus = VentaCartListing::query()
-            ->where('ventacart_setting_id', $store)
+            ->where('store_id', $store)
             ->whereIn('product_id', $linked ?: [0])
             ->whereNotNull('live_status')
             ->selectRaw('live_status, COUNT(*) as n')
@@ -169,7 +169,7 @@ class VentaCartListingMirror
 
     public function checkedAt(): ?\Illuminate\Support\Carbon
     {
-        $max = VentaCartListing::query()->where('ventacart_setting_id', $this->setting->id)->max('live_checked_at');
+        $max = VentaCartListing::query()->where('store_id', $this->store->id)->max('live_checked_at');
 
         return $max ? \Illuminate\Support\Carbon::parse($max) : null;
     }

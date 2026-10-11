@@ -95,8 +95,8 @@
                     <x-ui.badge :tone="$typeTone($h->type)">{{ $typeLabel($h->type) }}</x-ui.badge>
                 </td>
                 <td data-label="Variation">
-                    @if($h->product_option_value_id)
-                        {{ $optionValueNames[$h->product_option_value_id] ?? 'Variation #'.$h->product_option_value_id }}
+                    @if($h->product_variation_value_id)
+                        {{ $variationValueNames[$h->product_variation_value_id] ?? 'Variation #'.$h->product_variation_value_id }}
                     @else
                         <span class="fm-hint">Whole product</span>
                     @endif

@@ -94,7 +94,7 @@
     @endif
 
     @php
-        $csCategories = \Extensions\tiktok\Models\TikTokCategory::query()->count();
+        $csCategories = \Extensions\TikTok\Models\TikTokCategory::query()->count();
         $csHasShop = $isSandbox ? !empty($setting->sandbox_shop_cipher ?? '') : $hasShop;
         $csShopName = $isSandbox
             ? (string) (($setting->sandbox_shop_name ?? '') ?: ($setting->sandbox_shop_id ?? ''))
@@ -697,7 +697,7 @@
             <h2 class="fm-section__title">Scheduled jobs</h2>
             <x-ui.hint label="About the scheduled jobs">How often each TikTok sync runs, and how far back it looks. Changes here take effect the next time the scheduler wakes up.</x-ui.hint>
         </div>
-        @include('partials._automations_tab', ['integration' => 'tiktok', 'storeId' => null])
+        @include('partials._automations_tab', ['extension' => 'tiktok', 'storeId' => null])
     </section>
 </div>
 @endif

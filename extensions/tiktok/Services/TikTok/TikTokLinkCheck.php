@@ -1,9 +1,9 @@
 <?php
 
-namespace Extensions\tiktok\Services\TikTok;
+namespace Extensions\TikTok\Services\TikTok;
 
-use Extensions\tiktok\Models\TikTokListing;
-use Extensions\tiktok\Models\TikTokProductGroupProduct;
+use Extensions\TikTok\Models\TikTokListing;
+use Extensions\TikTok\Models\TikTokProductGroupProduct;
 use Illuminate\Support\Facades\DB;
 
 class TikTokLinkCheck
@@ -14,17 +14,17 @@ class TikTokLinkCheck
 
     public function runNext(array $c, int $storeId): ?array
     {
-        $linked = \Extensions\tiktok\Models\TikTokListing::query()->whereNotNull('tiktok_product_id')->pluck('product_id')
-            ->merge(\Extensions\tiktok\Models\TikTokProductGroupProduct::query()->onStore($storeId)->whereNotNull('tiktok_product_id')->pluck('product_id'))
+        $linked = \Extensions\TikTok\Models\TikTokListing::query()->whereNotNull('tiktok_product_id')->pluck('product_id')
+            ->merge(\Extensions\TikTok\Models\TikTokProductGroupProduct::query()->onStore($storeId)->whereNotNull('tiktok_product_id')->pluck('product_id'))
             ->map(fn ($v) => (int) $v)->unique()->sort()->values()->all();
-        $linked = \App\Integrations\Support\LinkCheckCursor::rotate('tiktok:' . $storeId, $linked);
+        $linked = \App\Channels\Support\LinkCheckCursor::rotate('tiktok:' . $storeId, $linked);
 
         return $linked !== [] ? $this->run($c, $linked, $storeId) : null;
     }
 
     public function run(array $c, array $productIds, ?int $storeId = null): array
     {
-        $storeId ??= isset($c['setting']) ? (int) $c['setting']->id : (int) (\Extensions\tiktok\Models\TikTokSetting::defaultStore()?->id ?? 0);
+        $storeId ??= isset($c['setting']) ? (int) $c['setting']->id : (int) (\Extensions\TikTok\Models\TikTokStore::defaultStore()?->id ?? 0);
         $groupIds = TikTokProductGroupProduct::groupIdsOn($storeId);
         $states = app(TikTokListingStates::class)->forStore($storeId);
 
@@ -39,17 +39,16 @@ class TikTokLinkCheck
             }
         }
 
-        $pfx = (string) config('catalog.prefix');
         $skusByProduct = [];
-        foreach (DB::table($pfx . 'product')->whereIn('product_id', $productIds)->get(['product_id', 'sku', 'model']) as $p) {
+        foreach (DB::table('products')->whereIn('product_id', $productIds)->get(['product_id', 'sku', 'model']) as $p) {
             foreach ([$p->sku, $p->model] as $v) {
                 if (trim((string) $v) !== '') $skusByProduct[(int) $p->product_id][] = strtolower(trim((string) $v));
             }
         }
-        foreach (DB::table($pfx . 'product_option_value')->whereIn('product_id', $productIds)->whereNotNull('sku')->where('sku', '!=', '')->get(['product_id', 'sku']) as $r) {
+        foreach (DB::table('product_variation_values')->whereIn('product_id', $productIds)->whereNotNull('sku')->where('sku', '!=', '')->get(['product_id', 'sku']) as $r) {
             $skusByProduct[(int) $r->product_id][] = strtolower(trim((string) $r->sku));
         }
-        foreach (DB::table('product_option_combinations')->whereIn('product_id', $productIds)->whereNotNull('sku')->where('sku', '!=', '')->get(['product_id', 'sku']) as $r) {
+        foreach (DB::table('product_variations')->whereIn('product_id', $productIds)->whereNotNull('sku')->where('sku', '!=', '')->get(['product_id', 'sku']) as $r) {
             $skusByProduct[(int) $r->product_id][] = strtolower(trim((string) $r->sku));
         }
 
@@ -80,13 +79,13 @@ class TikTokLinkCheck
                     $this->writeProductStatus($groupIds, (int) $productId, ['tiktok_product_id' => $hit, 'tiktok_sku_id' => null, 'sync_status' => 'pushed']);
                     $verdicts['linked']++;
                 } else {
-                    \App\Integrations\Listings\DroppedLink::write(
+                    \App\Channels\Listings\DroppedLink::write(
                         'TikTok Shop', 'TikTok Listing', (int) $productId, (string) $known,
                         $storeId,
                         $skusByProduct[$productId] ?? [], count($shop['products'] ?? [])
                     );
                     TikTokListing::query()
-                        ->withoutGlobalScope('tiktokStore')->where('tiktok_setting_id', $storeId)
+                        ->withoutGlobalScope('tiktokStore')->where('store_id', $storeId)
                         ->where('product_id', $productId)
                         ->update(['tiktok_product_id' => null, 'tiktok_sku_id' => null, 'live_status' => null, 'live_checked_at' => null, 'last_checked_at' => now()]);
                     $this->writeProductStatus($groupIds, (int) $productId, ['tiktok_product_id' => null, 'tiktok_sku_id' => null, 'sync_status' => 'error', 'push_error' => self::DROPPED]);
@@ -102,8 +101,8 @@ class TikTokLinkCheck
                 $this->writeProductStatus($groupIds, (int) $productId, ['tiktok_product_id' => $hit, 'sync_status' => 'pushed']);
                 $verdicts['linked']++;
             } elseif ($hit !== null) {
-                $states->recordOutcome((int) $productId, 'TikTok Shop product ' . $hit . ' is already linked to catalog product #' . $holder . '. Unlink that product first.');
-                $problems[] = "#{$productId}: TikTok Shop product {$hit} is already linked to catalog product #{$holder}";
+                $states->recordOutcome((int) $productId, 'TikTok Shop product ' . $hit . ' is already linked to Master Catalog product #' . $holder . '. Unlink that product first.');
+                $problems[] = "#{$productId}: TikTok Shop product {$hit} is already linked to Master Catalog product #{$holder}";
                 $verdicts['taken']++;
             } else {
                 $verdicts['not_on_tiktok']++;
@@ -126,7 +125,7 @@ class TikTokLinkCheck
 
     private function holder(string $tiktokProductId, int $productId, int $storeId): ?int
     {
-        $held = TikTokListing::query()->withoutGlobalScope('tiktokStore')->where('tiktok_setting_id', $storeId)
+        $held = TikTokListing::query()->withoutGlobalScope('tiktokStore')->where('store_id', $storeId)
             ->where('tiktok_product_id', $tiktokProductId)->where('product_id', '!=', $productId)->value('product_id')
             ?: TikTokProductGroupProduct::query()->onStore($storeId)
                 ->where('tiktok_product_id', $tiktokProductId)->where('product_id', '!=', $productId)->value('product_id');
@@ -137,7 +136,7 @@ class TikTokLinkCheck
     private function writeProductStatus(array $groupIds, int $productId, array $attributes): void
     {
         \App\Support\ChannelProductStatus::write(
-            'tiktok_product_group_products',
+            'ch_tiktok_product_group_products',
             'tiktok_product_group_id',
             $groupIds,
             $productId,

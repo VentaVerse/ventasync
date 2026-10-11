@@ -47,7 +47,7 @@
         return ['tone' => $tone, 'text' => 'synced ' . $when->diffForHumans()];
     };
 
-    $channelColour = fn (string $key) => $sourceLabelsMap[$key]['chart_color'] ?? null;
+    $channelColor = fn (string $key) => $sourceLabelsMap[$key]['chart_color'] ?? null;
 
     $syncFor = [
         'shopee' => $shopeeSyncStatus ?? null,
@@ -85,7 +85,7 @@
     $channels = [];
 
     try {
-        foreach (app(\App\Integrations\IntegrationRegistry::class)->visibleOrderTabs($user) as $tab) {
+        foreach (app(\App\Channels\ChannelRegistry::class)->visibleOrderTabs($user) as $tab) {
             $tabBase = explode(':', $tab->id, 2)[0];
             $sync = $syncFor[$tab->id] ?? $syncFor[$tabBase] ?? null;
 
@@ -102,7 +102,7 @@
 
             $channels[] = [
                 'name' => $tab->label,
-                'colour' => $tab->accent ?: $channelColour($tab->id),
+                'color' => $tab->accent ?: $channelColor($tab->id),
                 'state' => $state,
                 'figures' => is_array($sync->listing_flags ?? null) ? $sync->listing_flags : [],
                 'pending' => $pendingFor[$tab->id] ?? $pendingFor[$tabBase] ?? $tab->unprocessedCount(),
@@ -219,7 +219,7 @@
                     <svg class="bl-chan__ic" width="40" height="40" viewBox="0 0 40 40"
                          aria-hidden="true" focusable="false">
                         <rect width="40" height="40" rx="13"
-                              fill="{{ $channel['colour'] ?: '#5f6b85' }}"></rect>
+                              fill="{{ $channel['color'] ?: '#5f6b85' }}"></rect>
                         <text class="bl-chan__in" x="20" y="20" text-anchor="middle"
                               dominant-baseline="central">{{ Str::upper(Str::substr($channel['name'], 0, 1)) }}</text>
                     </svg>
@@ -281,7 +281,7 @@
                     <tbody>
                         @forelse($recentOrders as $order)
                             @php
-                                $src = $order->marketplace_source ?: 'direct';
+                                $src = $order->channel ?: 'direct';
                                 $opt = $sourceLabelsMap[$src] ?? null;
                                 $buyer = trim(($order->firstname ?? '') . ' ' . ($order->lastname ?? ''));
                             @endphp
@@ -487,7 +487,7 @@
                                 return $a !== $b && (Str::startsWith($a, $b) || Str::startsWith($b, $a));
                             });
                     };
-                    $brandFor = fn (string $label) => $channelFor($label)['colour'] ?? null;
+                    $brandFor = fn (string $label) => $channelFor($label)['color'] ?? null;
                 @endphp
 
                 <div class="bl-split-ring">

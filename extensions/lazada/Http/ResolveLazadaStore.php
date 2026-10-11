@@ -1,9 +1,9 @@
 <?php
 
-namespace Extensions\lazada\Http;
+namespace Extensions\Lazada\Http;
 
 use Closure;
-use Extensions\lazada\Models\LazadaSetting;
+use Extensions\Lazada\Models\LazadaStore;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\URL;
 
@@ -13,7 +13,7 @@ class ResolveLazadaStore
     {
         $id = $request->route('store');
         if ($id !== null) {
-            $store = LazadaSetting::query()->find((int) $id);
+            $store = LazadaStore::query()->find((int) $id);
             abort_unless($store !== null, 404);
 
             app()->instance('lazada.route-store', $store);

@@ -92,7 +92,7 @@
                 <td data-label="Order"><a class="x-row-link x-num" href="{{ route('orders.show', $s->order_id) }}">{{ $s->order_id }}</a></td>
                 <td data-label="Date"><span class="x-num">{{ \Carbon\Carbon::parse($s->date_added)->format('Y-m-d') }}</span></td>
                 @php
-                    $src = trim((string) ($s->marketplace_source ?? ''));
+                    $src = trim((string) ($s->channel ?? ''));
                     $chanKey = $src === '' ? '' : strtok($src, ':');
                     $chanTone = $src === '' ? 'neutral' : $chanKey;
                     $chanOpt = $src === '' ? null : (($sourceLabelsMap ?? [])[$src] ?? null);
@@ -101,10 +101,10 @@
                 <td data-label="Channel"><x-ui.badge :tone="$chanTone" :dot="false">{{ $chanLabel }}</x-ui.badge></td>
                 <td data-label="Product">
                     <div class="co-item__name">{{ $s->name }}</div>
-                    @if(count($s->options))
+                    @if(count($s->variations))
                         <div class="co-item__meta">
-                            @foreach($s->options as $opt)
-                                <span class="co-item__var">{{ $opt->name }}: {{ $opt->value }}</span>
+                            @foreach($s->variations as $variation)
+                                <span class="co-item__var">{{ $variation->name }}: {{ $variation->value }}</span>
                             @endforeach
                         </div>
                     @endif

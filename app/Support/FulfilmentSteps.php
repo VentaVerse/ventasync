@@ -15,7 +15,7 @@ final class FulfilmentSteps
         'in_transit' => 'In transit',
         'delivered' => 'Delivered',
         'completed' => 'Completed',
-        'cancelled' => 'Cancelled',
+        'canceled' => 'Canceled',
         'failed' => 'Failed Delivery',
         'other' => 'Other',
     ];
@@ -51,16 +51,16 @@ final class FulfilmentSteps
             'COMPLETE' => 'delivered',
             'COMPLETED' => 'delivered',
 
-            'DENIED' => 'cancelled',
-            'CANCELED_REVERSAL' => 'cancelled',
-            'FAILED' => 'cancelled',
-            'REFUNDED' => 'cancelled',
-            'REVERSED' => 'cancelled',
-            'CHARGEBACK' => 'cancelled',
-            'EXPIRED' => 'cancelled',
-            'VOIDED' => 'cancelled',
-            'CANCELED' => 'cancelled',
-            'CANCELLED' => 'cancelled',
+            'DENIED' => 'canceled',
+            'CANCELED_REVERSAL' => 'canceled',
+            'FAILED' => 'canceled',
+            'REFUNDED' => 'canceled',
+            'REVERSED' => 'canceled',
+            'CHARGEBACK' => 'canceled',
+            'EXPIRED' => 'canceled',
+            'VOIDED' => 'canceled',
+            'CANCELED' => 'canceled',
+            'CANCELLED' => 'canceled',
 
             'RETURNING' => 'failed',
             'RETURNED' => 'failed',
@@ -71,7 +71,7 @@ final class FulfilmentSteps
 
     public static function placements(): array
     {
-        return ['unpaid', 'to_pack', 'to_handover', 'shipping', 'delivered', 'cancelled', 'failed', 'other'];
+        return ['unpaid', 'to_pack', 'to_handover', 'shipping', 'delivered', 'canceled', 'failed', 'other'];
     }
 
     public static function bucket(string $surface, iterable $statusCounts, ?callable $resolver = null): array

@@ -9,7 +9,7 @@ class StockHistoryLogger
 {
     public static function log(
         int $productId,
-        ?int $optionValueId,
+        ?int $variationValueId,
         ?int $orderId,
         string $type,
         int $qtyBefore,
@@ -30,7 +30,7 @@ class StockHistoryLogger
 
         DB::table('stock_history')->insert([
             'product_id'              => $productId,
-            'product_option_value_id' => $optionValueId,
+            'product_variation_value_id' => $variationValueId,
             'order_id'                => $orderId,
             'type'                    => $type,
             'quantity_before'         => $qtyBefore,
@@ -45,13 +45,13 @@ class StockHistoryLogger
         ]);
     }
 
-    public static function sourceFromOrder(string $marketplaceSource): string
+    public static function sourceFromOrder(string $orderChannel): string
     {
-        if ($marketplaceSource === 'lazada') return 'lazada_sync';
-        if ($marketplaceSource === 'shopee') return 'shopee_sync';
-        if ($marketplaceSource === 'tiktok') return 'tiktok_sync';
-        if (str_starts_with($marketplaceSource, 'opencart')) return 'opencart_sync';
-        if (str_starts_with($marketplaceSource, 'ventacart')) return 'ventacart_sync';
+        if ($orderChannel === 'lazada') return 'lazada_sync';
+        if ($orderChannel === 'shopee') return 'shopee_sync';
+        if ($orderChannel === 'tiktok') return 'tiktok_sync';
+        if (str_starts_with($orderChannel, 'opencart')) return 'opencart_sync';
+        if (str_starts_with($orderChannel, 'ventacart')) return 'ventacart_sync';
         return 'order';
     }
 }

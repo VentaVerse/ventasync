@@ -2,10 +2,10 @@
 
 namespace Tests\Feature;
 
-use App\Integrations\OneGroupRule;
-use Extensions\shopee\Models\ShopeeProductGroup;
-use Extensions\shopee\Models\ShopeeProductGroupProduct;
-use Extensions\shopee\Models\ShopeeSetting;
+use App\Channels\OneGroupRule;
+use Extensions\Shopee\Models\ShopeeProductGroup;
+use Extensions\Shopee\Models\ShopeeProductGroupProduct;
+use Extensions\Shopee\Models\ShopeeStore;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -13,19 +13,19 @@ class OneGroupRuleTest extends TestCase
 {
     use RefreshDatabase;
 
-    private function store(string $name = 'Main'): ShopeeSetting
+    private function store(string $name = 'Main'): ShopeeStore
     {
-        return ShopeeSetting::query()->create([
+        return ShopeeStore::query()->create([
             'store_name' => $name, 'enabled' => true, 'mode' => 'live',
             'partner_id' => 1, 'partner_key' => 'k', 'shop_id' => 2,
             'access_token' => 't', 'refresh_token' => 'r', 'region' => 'ph',
         ]);
     }
 
-    private function group(ShopeeSetting $store, string $name): ShopeeProductGroup
+    private function group(ShopeeStore $store, string $name): ShopeeProductGroup
     {
         return ShopeeProductGroup::create([
-            'shopee_setting_id' => $store->id, 'name' => $name,
+            'store_id' => $store->id, 'name' => $name,
             'shopee_category_id' => 100, 'logistic_ids' => [1],
         ]);
     }
@@ -40,7 +40,7 @@ class OneGroupRuleTest extends TestCase
         ShopeeProductGroupProduct::create(['shopee_product_group_id' => $a->id, 'product_id' => 12]);
 
         $claim = OneGroupRule::claim(
-            'shopee_product_group_products', 'shopee_product_group_id', 'shopee_product_groups', 'shopee_setting_id',
+            'ch_shopee_product_group_products', 'shopee_product_group_id', 'ch_shopee_product_groups', 'store_id',
             $b->id, [11, 12, 13], [12]
         );
 
@@ -63,7 +63,7 @@ class OneGroupRuleTest extends TestCase
         ShopeeProductGroupProduct::create(['shopee_product_group_id' => $a->id, 'product_id' => 21]);
 
         $claim = OneGroupRule::claim(
-            'shopee_product_group_products', 'shopee_product_group_id', 'shopee_product_groups', 'shopee_setting_id',
+            'ch_shopee_product_group_products', 'shopee_product_group_id', 'ch_shopee_product_groups', 'store_id',
             $b->id, [21]
         );
 
@@ -78,7 +78,7 @@ class OneGroupRuleTest extends TestCase
         ShopeeProductGroupProduct::create(['shopee_product_group_id' => $a->id, 'product_id' => 31]);
 
         $owners = OneGroupRule::owners(
-            'shopee_product_group_products', 'shopee_product_group_id', 'shopee_product_groups', 'shopee_setting_id',
+            'ch_shopee_product_group_products', 'shopee_product_group_id', 'ch_shopee_product_groups', 'store_id',
             0, [31, 32]
         );
 

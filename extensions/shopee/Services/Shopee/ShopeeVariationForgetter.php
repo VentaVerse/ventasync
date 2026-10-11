@@ -1,8 +1,8 @@
 <?php
 
-namespace Extensions\shopee\Services\Shopee;
+namespace Extensions\Shopee\Services\Shopee;
 
-use Extensions\shopee\Models\ShopeeProductLink;
+use Extensions\Shopee\Models\ShopeeListingLink;
 
 final class ShopeeVariationForgetter
 {
@@ -12,7 +12,7 @@ final class ShopeeVariationForgetter
         if ($lower === []) {
             return;
         }
-        foreach (ShopeeProductLink::query()->where('product_id', $productId)->whereNotNull('shopee_model_id')->get() as $link) {
+        foreach (ShopeeListingLink::query()->where('product_id', $productId)->whereNotNull('shopee_model_id')->get() as $link) {
             if (in_array(strtolower(trim((string) $link->sku)), $lower, true)) {
                 $link->delete();
             }

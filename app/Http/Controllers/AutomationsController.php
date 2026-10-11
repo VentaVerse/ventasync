@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers;
 
-use App\Integrations\Support\AutomationSettings;
+use App\Channels\Support\AutomationSettings;
 use App\Models\ScheduledJob;
 use Illuminate\Http\Request;
 
@@ -20,7 +20,7 @@ class AutomationsController extends Controller
 
         $job = ScheduledJob::findOrFail($id);
 
-        if (!self::mayManage((string) $job->integration)) {
+        if (!self::mayManage((string) $job->extension)) {
             return back()->with('error', "You don't have permission to do this action.");
         }
         $job->cadence_value = (int) $data['cadence_value'];
@@ -45,7 +45,7 @@ class AutomationsController extends Controller
     public function run(Request $request, int $id)
     {
         $job = ScheduledJob::findOrFail($id);
-        if (!self::mayManage((string) $job->integration)) {
+        if (!self::mayManage((string) $job->extension)) {
             return back()->with('error', "You don't have permission to do this action.");
         }
 
@@ -61,7 +61,7 @@ class AutomationsController extends Controller
         }
 
         $command = \Illuminate\Support\Facades\Artisan::all()[$commandName];
-        if ($request->expectsJson() && $command instanceof \App\Integrations\Contracts\SteppableAutomation) {
+        if ($request->expectsJson() && $command instanceof \App\Channels\Contracts\SteppableAutomation) {
             $runner = app(\App\Services\AutomationRunner::class);
             $run = $runner->begin($job, $command);
             $run = $runner->step($run, $command);
@@ -98,7 +98,7 @@ class AutomationsController extends Controller
         $run = $this->runFor($request);
         $commandName = (string) strtok(trim((string) $run->job?->command), ' ');
         $command = \Illuminate\Support\Facades\Artisan::all()[$commandName] ?? null;
-        if (! $command instanceof \App\Integrations\Contracts\SteppableAutomation) {
+        if (! $command instanceof \App\Channels\Contracts\SteppableAutomation) {
             return response()->json(['ok' => false, 'message' => 'This job cannot be walked in steps.'], 422);
         }
         $run = app(\App\Services\AutomationRunner::class)->step($run, $command);
@@ -119,7 +119,7 @@ class AutomationsController extends Controller
     private function runFor(Request $request): \App\Models\AutomationRun
     {
         $run = \App\Models\AutomationRun::query()->whereNotNull('scheduled_job_id')->findOrFail((int) $request->route('run'));
-        abort_unless(self::mayManage((string) $run->integration), 403);
+        abort_unless(self::mayManage((string) $run->extension), 403);
 
         return $run;
     }
@@ -142,7 +142,7 @@ class AutomationsController extends Controller
     public function batchUpdate(Request $request)
     {
         $data = $request->validate([
-            'integration'                  => ['nullable', 'string', 'max:32'],
+            'extension'                  => ['nullable', 'string', 'max:32'],
             'windows'                      => ['nullable', 'array'],
             'windows.sync_last_days'         => ['nullable', 'integer', 'min:1', 'max:365'],
             'windows.sync_last_days_returns' => ['nullable', 'integer', 'min:1', 'max:365'],
@@ -152,15 +152,15 @@ class AutomationsController extends Controller
         $jobs = $ids ? ScheduledJob::whereIn('id', $ids)->get()->keyBy('id') : collect();
 
         foreach ($jobs as $job) {
-            if (!self::mayManage((string) $job->integration)) {
+            if (!self::mayManage((string) $job->extension)) {
                 return back()->with('error', "You don't have permission to do this action.");
             }
         }
 
-        $integration = $data['integration'] ?? null;
+        $extension = $data['extension'] ?? null;
         $hasWindows  = !empty($data['windows']) && is_array($data['windows']);
         if ($hasWindows) {
-            if (!$integration || !self::mayManage((string) $integration)) {
+            if (!$extension || !self::mayManage((string) $extension)) {
                 return back()->with('error', "You don't have permission to do this action.");
             }
         }
@@ -168,7 +168,7 @@ class AutomationsController extends Controller
         $saved = AutomationSettings::apply($jobs, $data['jobs'] ?? []);
 
         if ($hasWindows) {
-            $settingClass = $this->settingClassFor((string) $integration);
+            $settingClass = $this->settingClassFor((string) $extension);
             if ($settingClass) {
                 $setting = $settingClass::query()->first();
                 if ($setting) {
@@ -189,24 +189,24 @@ class AutomationsController extends Controller
         return back()->with('status', "Saved {$saved} automation" . ($saved === 1 ? '' : 's') . '.');
     }
 
-    private function settingClassFor(string $integration): ?string
+    private function settingClassFor(string $extension): ?string
     {
         $map = [
-            'shopee' => \Extensions\shopee\Models\ShopeeSetting::class,
-            'lazada' => \Extensions\lazada\Models\LazadaSetting::class,
-            'tiktok' => \Extensions\tiktok\Models\TikTokSetting::class,
+            'shopee' => \Extensions\Shopee\Models\ShopeeStore::class,
+            'lazada' => \Extensions\Lazada\Models\LazadaStore::class,
+            'tiktok' => \Extensions\TikTok\Models\TikTokStore::class,
         ];
-        $class = $map[$integration] ?? null;
+        $class = $map[$extension] ?? null;
         return ($class && class_exists($class)) ? $class : null;
     }
 
-    private static function mayManage(string $integration): bool
+    private static function mayManage(string $extension): bool
     {
         $user = auth()->user();
         if (!$user) {
             return false;
         }
-        foreach (["manage_{$integration}/settings", "manage_{$integration}"] as $key) {
+        foreach (["manage_{$extension}/settings", "manage_{$extension}"] as $key) {
             if ($user->hasPermission($key)) {
                 return true;
             }

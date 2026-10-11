@@ -1,23 +1,23 @@
 <?php
 
-namespace Extensions\ventacart\Models;
+namespace Extensions\VentaCart\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class VentaCartListing extends Model
 {
-    use \App\Integrations\Listings\KeepsItsOwnCopy;
+    use \App\Channels\Listings\KeepsItsOwnCopy;
 
     public const STATUS_ACTIVE = 'active';
     public const STATUS_INACTIVE = 'inactive';
     public const STATUS_MISSING = 'missing';
 
-    protected $table = 'ventacart_listings';
+    protected $table = 'ch_ventacart_listings';
 
     protected $fillable = [
                 'image_off', 'video_path', 'video_off',
-'ventacart_setting_id', 'product_id', 'ventacart_category_id',
+'store_id', 'product_id', 'ventacart_category_id',
         'description_prefix_id', 'description_suffix_id', 'watermark_template_id', 'watermark_all_images',
         'markup_percent', 'markup_fixed', 'price',
         'weight', 'package_length', 'package_width', 'package_height',
@@ -44,9 +44,9 @@ class VentaCartListing extends Model
         'catalog_seen_at' => 'datetime',
     ];
 
-    public function setting(): BelongsTo
+    public function store(): BelongsTo
     {
-        return $this->belongsTo(VentaCartSetting::class, 'ventacart_setting_id');
+        return $this->belongsTo(VentaCartStore::class, 'store_id');
     }
 
     public function priceFor(float $startPrice): float
@@ -72,8 +72,8 @@ class VentaCartListing extends Model
         }
 
         return array_values(array_unique(array_map('intval', array_merge(
-            \Illuminate\Support\Facades\DB::table('product_option_combinations')->whereIn('product_id', $ids)->distinct()->pluck('product_id')->all(),
-            \Illuminate\Support\Facades\DB::table((string) config('catalog.prefix') . 'product_option_value')->whereIn('product_id', $ids)->distinct()->pluck('product_id')->all(),
+            \Illuminate\Support\Facades\DB::table('product_variations')->whereIn('product_id', $ids)->distinct()->pluck('product_id')->all(),
+            \Illuminate\Support\Facades\DB::table('product_variation_values')->whereIn('product_id', $ids)->distinct()->pluck('product_id')->all(),
         ))));
     }
 

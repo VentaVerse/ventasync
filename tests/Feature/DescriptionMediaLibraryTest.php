@@ -8,8 +8,8 @@ use App\Models\Admin\UserGroup;
 use App\Models\DescriptionTemplate;
 use App\Models\User;
 use App\Support\Catalog\DescriptionHtml;
-use Extensions\ventacart\Models\VentaCartListing;
-use Extensions\ventacart\Models\VentaCartSetting;
+use Extensions\VentaCart\Models\VentaCartListing;
+use Extensions\VentaCart\Models\VentaCartStore;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
@@ -29,9 +29,9 @@ class DescriptionMediaLibraryTest extends TestCase
         $manager = $this->app->make(ExtensionManager::class);
         $manager->install('ventacart');
         $manager->enable('ventacart');
-        $this->app->register(\Extensions\ventacart\VentaCartExtension::class);
+        $this->app->register(\Extensions\VentaCart\VentaCartExtension::class);
         $this->app['router']->getRoutes()->refreshNameLookups();
-        $this->artisan('permissions:sync-catalogue');
+        $this->artisan('permissions:sync-catalog');
         Http::preventStrayRequests();
     }
 
@@ -57,20 +57,19 @@ class DescriptionMediaLibraryTest extends TestCase
         ));
     }
 
-    private function store(): VentaCartSetting
+    private function store(): VentaCartStore
     {
-        return VentaCartSetting::create(['store_name' => 'Gear Depot', 'base_url' => self::BASE, 'api_token' => 't', 'enabled' => true]);
+        return VentaCartStore::create(['store_name' => 'Gear Depot', 'base_url' => self::BASE, 'api_token' => 't', 'enabled' => true]);
     }
 
     private function product(string $description): int
     {
-        $pfx = (string) config('catalog.prefix');
-        $pid = (int) DB::table($pfx . 'product')->insertGetId([
+        $pid = (int) DB::table('products')->insertGetId([
             'model' => 'GP-200', 'sku' => 'GP-200', 'price' => 1000, 'quantity' => 7, 'status' => 1,
             'image' => '', 'weight' => 0, 'length' => 0, 'width' => 0, 'height' => 0,
             'date_added' => now(), 'date_modified' => now(),
         ]);
-        DB::table($pfx . 'product_description')->insert([
+        DB::table('product_descriptions')->insert([
             'product_id' => $pid, 'language_id' => (int) config('catalog.default_language_id'),
             'name' => 'Guitar Pedal 200', 'description' => $description,
             'meta_title' => '', 'meta_description' => '', 'meta_keyword' => '', 'tag' => '',
@@ -188,18 +187,18 @@ class DescriptionMediaLibraryTest extends TestCase
     public function test_a_listing_save_keeps_an_inserted_picture(): void
     {
         $store = $this->store();
-        $pid = $this->product('<p>The catalogue description.</p>');
+        $pid = $this->product('<p>The catalog description.</p>');
         $img = '<img src="' . asset('storage/catalog/demo/front.jpg') . '" alt="">';
 
         $this->actingAs($this->ventaCartManager())
             ->put(route('ext.ventacart.listings.update', [$store->id, $pid]), [
                 'name' => 'Listing name',
-                'description' => '<p>The catalogue description.</p><p>' . $img . '</p>',
+                'description' => '<p>The catalog description.</p><p>' . $img . '</p>',
                 'description_edited' => '1',
             ])
             ->assertRedirect();
 
-        $saved = (string) VentaCartListing::where('ventacart_setting_id', $store->id)->where('product_id', $pid)->value('description');
+        $saved = (string) VentaCartListing::where('store_id', $store->id)->where('product_id', $pid)->value('description');
         $this->assertStringContainsString($img, $saved);
     }
 

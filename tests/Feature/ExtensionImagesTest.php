@@ -66,7 +66,7 @@ class ExtensionImagesTest extends TestCase
     {
         $bar = File::get(resource_path('views/partials/channel-menubar.blade.php'));
 
-        $this->assertStringContainsString("ExtensionImages::isTransparent(\$mbChannelId, 'logo-wide.png')", $bar, 'a lockup on its own background would be a block of colour on the bar');
+        $this->assertStringContainsString("ExtensionImages::isTransparent(\$mbChannelId, 'logo-wide.png')", $bar, 'a lockup on its own background would be a block of color on the bar');
         $this->assertStringContainsString("ExtensionImages::has(\$mbChannelId, 'logo.png')", $bar);
         $this->assertStringContainsString('x-chnav__markname', $bar, 'a channel without a wide logo is named beside its mark');
         $this->assertTrue(ExtensionImages::has('ventacart', 'logo-wide.png'), 'VentaCart ships the wide logo the bar shows');

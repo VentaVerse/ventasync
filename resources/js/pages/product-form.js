@@ -120,7 +120,7 @@ function setupTypeahead(opts) {
             const data = await res.json();
             return (data || []).map(function (r) {
                 const item = Object.assign({}, r);
-                item.id = r.id ?? r.manufacturer_id ?? r.category_id ?? r.option_id ?? r.value_id ?? r.option_value_id;
+                item.id = r.id ?? r.brand_id ?? r.category_id ?? r.variation_type_id ?? r.value_id ?? r.variation_value_id;
                 item.name = r.display_name ?? r.name ?? r.path;
                 return item;
             }).filter((r) => r.id !== undefined && r.name);
@@ -161,32 +161,32 @@ document.addEventListener('DOMContentLoaded', function () {
     if (!form) return;
 
     const csrf = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
-    const manufacturerStoreUrl = form.dataset.manufacturerStoreUrl || '';
+    const brandStoreUrl = form.dataset.brandStoreUrl || '';
 
     setupTypeahead({
-        inputId: 'manufacturer_search',
-        hiddenId: 'manufacturer_id',
-        listId: 'manufacturer_list',
-        url: '/api/catalog/manufacturers?term=',
+        inputId: 'brand_search',
+        hiddenId: 'brand_id',
+        listId: 'brand_list',
+        url: '/api/catalog/brands?term=',
         onSelect: function (item) {
             const nameField = document.getElementById('product_name');
             if (nameField && !(nameField.value || '').trim()) nameField.focus();
         },
         onEmpty: function (query, api) {
-            if (!manufacturerStoreUrl) return null;
+            if (!brandStoreUrl) return null;
 
             const row = document.createElement('div');
             row.className = 'fm-ta__new';
 
             const btn = document.createElement('button');
             btn.type = 'button';
-            btn.textContent = 'Add manufacturer "' + query + '"';
+            btn.textContent = 'Add brand "' + query + '"';
             btn.addEventListener('mousedown', async function (e) {
                 e.preventDefault();
                 btn.disabled = true;
                 btn.textContent = 'Creating...';
                 try {
-                    const res = await fetch(manufacturerStoreUrl, {
+                    const res = await fetch(brandStoreUrl, {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',

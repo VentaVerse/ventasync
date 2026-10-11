@@ -1,11 +1,11 @@
 <?php
 
-namespace Extensions\ventacart\Commands;
+namespace Extensions\VentaCart\Commands;
 
-use Extensions\opencart\Models\MarketplaceReview;
-use Extensions\ventacart\Models\VentaCartProductLink;
-use Extensions\ventacart\Models\VentaCartSetting;
-use Extensions\ventacart\Services\VentaCart\VentaCartClient;
+use Extensions\OpenCart\Models\MarketplaceReview;
+use Extensions\VentaCart\Models\VentaCartListingLink;
+use Extensions\VentaCart\Models\VentaCartStore;
+use Extensions\VentaCart\Services\VentaCart\VentaCartClient;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Log;
 
@@ -18,7 +18,7 @@ class VentaCartPushReviews extends Command
 
     public function handle(): int
     {
-        $query = VentaCartSetting::query()->where('enabled', true);
+        $query = VentaCartStore::query()->where('enabled', true);
 
         if ($storeId = $this->option('store')) {
             $query->where('id', (int) $storeId);
@@ -47,10 +47,10 @@ class VentaCartPushReviews extends Command
         $totalSkipped = 0;
         $totalErrors = 0;
 
-        foreach ($stores as $setting) {
-            $this->info("--- Store: {$setting->store_name} (#{$setting->id}) ---");
+        foreach ($stores as $store) {
+            $this->info("--- Store: {$store->store_name} (#{$store->id}) ---");
 
-            $client = new VentaCartClient($setting);
+            $client = new VentaCartClient($store);
 
             $ping = $client->ping();
             if (!($ping['ok'] ?? false)) {
@@ -62,8 +62,8 @@ class VentaCartPushReviews extends Command
             $skipped = 0;
             $errors = 0;
 
-            $linkMap = VentaCartProductLink::query()
-                ->where('ventacart_setting_id', $setting->id)
+            $linkMap = VentaCartListingLink::query()
+                ->where('store_id', $store->id)
                 ->pluck('sku', 'product_id')
                 ->all();
 
@@ -93,8 +93,8 @@ class VentaCartPushReviews extends Command
                         'body'               => $review->comment ?? '',
                         'status'             => 'approved',
                         'date_added'         => $review->reviewed_at?->format('Y-m-d H:i:s') ?? now()->format('Y-m-d H:i:s'),
-                        'platform'           => $review->platform,
-                        'platform_review_id' => $review->platform_review_id,
+                        'platform'           => $review->channel,
+                        'platform_review_id' => $review->channel_review_id,
                         'images'             => $images,
                     ]);
 
@@ -102,7 +102,7 @@ class VentaCartPushReviews extends Command
                         $ventaCartReviewId = $res['body']['data']['review_id'] ?? null;
                         $review->update([
                             'ventacart_sync_status' => 'pushed',
-                            'ventacart_setting_id'  => $setting->id,
+                            'ventacart_store_id'  => $store->id,
                             'ventacart_review_id'   => $ventaCartReviewId,
                             'ventacart_pushed_at'   => now(),
                             'ventacart_push_error'  => null,
@@ -112,7 +112,7 @@ class VentaCartPushReviews extends Command
                         $errorMsg = $res['body']['error'] ?? 'Unknown error';
                         $review->update([
                             'ventacart_sync_status' => 'error',
-                            'ventacart_setting_id'  => $setting->id,
+                            'ventacart_store_id'  => $store->id,
                             'ventacart_push_error'  => substr($errorMsg, 0, 500),
                         ]);
                         $errors++;
@@ -120,19 +120,19 @@ class VentaCartPushReviews extends Command
                 } catch (\Throwable $e) {
                     $review->update([
                         'ventacart_sync_status' => 'error',
-                        'ventacart_setting_id'  => $setting->id,
+                        'ventacart_store_id'  => $store->id,
                         'ventacart_push_error'  => substr($e->getMessage(), 0, 500),
                     ]);
                     $errors++;
                     Log::warning('VentaCart push review failed', [
                         'review_id' => $review->id,
-                        'store'     => $setting->id,
+                        'store'     => $store->id,
                         'error'     => $e->getMessage(),
                     ]);
                 }
             }
 
-            $setting->update(['last_review_push_at' => now()]);
+            $store->update(['last_review_push_at' => now()]);
 
             $this->info("  Pushed: {$pushed}, Skipped: {$skipped}" . ($errors > 0 ? ", Errors: {$errors}" : ''));
             $totalPushed += $pushed;

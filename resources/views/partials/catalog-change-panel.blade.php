@@ -1,10 +1,10 @@
 @php
     $pid = (int) $listing->product_id;
     $cols = $listing::copyColumns();
-    $catalog = \App\Integrations\Listings\CatalogCopy::catalog([$pid])[$pid] ?? null;
-    $own = $catalog !== null ? \App\Integrations\Listings\CatalogCopy::listing($listing, $cols, $catalog) : null;
+    $catalog = \App\Channels\Listings\CatalogCopy::catalog([$pid])[$pid] ?? null;
+    $own = $catalog !== null ? \App\Channels\Listings\CatalogCopy::listing($listing, $cols, $catalog) : null;
     $canCatalog = (bool) (auth()->user()?->hasPermission('manage_catalog/product') ?? false);
-    $hasVariations = \Illuminate\Support\Facades\DB::table((string) config('catalog.prefix') . 'product_option_value')->where('product_id', $pid)->exists();
+    $hasVariations = \Illuminate\Support\Facades\DB::table('product_variation_values')->where('product_id', $pid)->exists();
     $panelErrors = collect($errors->keys())->contains(fn ($k) => str_starts_with($k, 'listing.') || str_starts_with($k, 'catalog.'));
     $openNow = request()->boolean('compare') || $panelErrors;
     $photosOf = function (string $side, array $stored) {
@@ -13,7 +13,7 @@
         return is_array($decoded) ? \App\Support\Catalog\ProductImages::acceptable($decoded) : $stored;
     };
     $sides = $catalog === null ? [] : [
-        'catalog' => ['label' => 'Catalog product', 'values' => $catalog, 'photos' => $photosOf('catalog', $catalog['photos']), 'can' => $canCatalog],
+        'catalog' => ['label' => 'Master Catalog product', 'values' => $catalog, 'photos' => $photosOf('catalog', $catalog['photos']), 'can' => $canCatalog],
         'listing' => ['label' => 'This listing', 'values' => $own, 'photos' => $photosOf('listing', $own['photos']), 'can' => (bool) $canManage],
     ];
     $num = fn ($v, int $places) => rtrim(rtrim(number_format((float) $v, $places, '.', ''), '0'), '.');
@@ -23,7 +23,7 @@
 <div class="modal-backdrop cc-addpanel lcx-panel{{ $openNow ? ' active' : '' }}" id="lcx-panel" data-lcx-panel>
     <div class="cc-addpanel__sheet" role="dialog" aria-modal="true" aria-labelledby="lcx-title">
         <div class="cc-addpanel__head">
-            <h2 class="cc-addpanel__title" id="lcx-title">Catalog change</h2>
+            <h2 class="cc-addpanel__title" id="lcx-title">Master Catalog change</h2>
             <button type="button" class="cc-addpanel__close" data-lcx-close aria-label="Close"><x-ui.icon name="x" size="16" /></button>
         </div>
 
@@ -32,7 +32,7 @@
             <input type="hidden" name="back" value="{{ $back }}">
 
             <div class="lcx-cols" aria-hidden="true">
-                <span class="lcx-col"><b>Catalog product</b>{{ $pid }}</span>
+                <span class="lcx-col"><b>Master Catalog product</b>{{ $pid }}</span>
                 <span class="lcx-col"><b>This listing</b>{{ $storeLabel }}</span>
             </div>
 
@@ -130,7 +130,7 @@
                                             <input type="number" class="x-input fm-input--num" name="{{ $side }}[{{ $key }}]" id="lcx-{{ $side }}-{{ $key }}"
                                                    step="{{ $key === 'weight' ? '0.001' : '0.01' }}"
                                                    min="{{ $mine ? ($key === 'weight' ? '0.001' : '0.01') : '0' }}"
-                                                   value="{{ old($side . '.' . $key, $mine ? $ownNum(((float) $listing->{\App\Integrations\Listings\CatalogCopy::PARCEL[$key]}) > 0 ? $listing->{\App\Integrations\Listings\CatalogCopy::PARCEL[$key]} : null, $places) : $num($s['values']['parcel'][$key], $places)) }}"
+                                                   value="{{ old($side . '.' . $key, $mine ? $ownNum(((float) $listing->{\App\Channels\Listings\CatalogCopy::PARCEL[$key]}) > 0 ? $listing->{\App\Channels\Listings\CatalogCopy::PARCEL[$key]} : null, $places) : $num($s['values']['parcel'][$key], $places)) }}"
                                                    @if($mine) placeholder="{{ $num($catalog['parcel'][$key], $places) }}" @else data-lcx-catalog @endif @disabled(!$s['can'])>
                                         </div>
                                     @endforeach

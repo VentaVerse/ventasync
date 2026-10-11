@@ -61,8 +61,8 @@
                 value="{{ $q }}" placeholder="Name, model or SKU" aria-label="Search products in this product group" />
 
     <div class="x-select-wrap x-filters__select x-filters__select--narrow">
-        <select name="erp_status" class="x-input" data-autosubmit aria-label="Filter by catalog status">
-            <option value="all" @selected($erpStatus === 'all')>Any catalog status</option>
+        <select name="erp_status" class="x-input" data-autosubmit aria-label="Filter by Master Catalog status">
+            <option value="all" @selected($erpStatus === 'all')>Any Master Catalog status</option>
             <option value="enabled" @selected($erpStatus === 'enabled')>Enabled</option>
             <option value="disabled" @selected($erpStatus === 'disabled')>Disabled</option>
         </select>
@@ -80,8 +80,8 @@
         <x-ui.icon name="chevron-down" size="14" class="x-select-wrap__chevron" />
     </div>
 
-    @if(!empty($orderOptions))
-        @include('partials.listing-sort', ['options' => $orderOptions, 'chosen' => $order])
+    @if(!empty($orderVariations))
+        @include('partials.listing-sort', ['options' => $orderVariations, 'chosen' => $order])
     @endif
 
     <x-ui.button type="submit" variant="secondary">Search</x-ui.button>
@@ -105,14 +105,14 @@
 @php
     $gf = ['_return' => $returnTo];
     $bulk = ['group' => true,
-        'push' => ['action' => route('ext.shopee.product-groups.send', $group->id), 'label' => 'Send to Shopee', 'fields' => $gf, 'confirm' => 'Send the selected products to Shopee? Each one is checked against Shopee first, then created or updated to match the catalog, with this product group\'s settings.'],
+        'push' => ['action' => route('ext.shopee.product-groups.send', $group->id), 'label' => 'Send to Shopee', 'fields' => $gf, 'confirm' => 'Send the selected products to Shopee? Each one is checked against Shopee first, then created or updated to match the Master Catalog, with this product group\'s settings.'],
         'link' => ['action' => route('ext.shopee.product-groups.check', $group->id), 'label' => 'Link IDs', 'fields' => $gf],
         'switch' => [
             ['action' => route('ext.shopee.products.bulk_toggle'), 'field' => 'product_ids[]', 'verb' => 'unlist', 'codes' => 'NORMAL', 'label' => 'Delist :n from Shopee', 'button' => 'Delist from Shopee', 'fields' => ['action' => 'unlist'], 'confirm' => 'Delist the selected items from Shopee? Buyers stop seeing them immediately. They can be published again at any time.'],
             ['action' => route('ext.shopee.products.bulk_toggle'), 'field' => 'product_ids[]', 'verb' => 'list', 'codes' => 'UNLIST', 'label' => 'Publish :n on Shopee', 'button' => 'Publish on Shopee', 'fields' => ['action' => 'list'], 'confirm' => 'Publish the selected items on Shopee? Buyers see them again immediately.'],
         ],
         'delete' => ['action' => route('ext.shopee.product-groups.deleteFromShopee', $group->id), 'label' => 'Delete from Shopee', 'fields' => $gf, 'confirm' => 'Delete the selected products from Shopee? They are removed at the marketplace and this cannot be undone.'],
-        'remove' => ['action' => route('ext.shopee.product-groups.massRemove', $group->id), 'label' => 'Remove from product group', 'fields' => $gf, 'confirm' => 'Take the selected products out of this product group? Nothing is deleted from the catalog, and nothing already live on Shopee is touched.'],
+        'remove' => ['action' => route('ext.shopee.product-groups.massRemove', $group->id), 'label' => 'Remove from product group', 'fields' => $gf, 'confirm' => 'Take the selected products out of this product group? Nothing is deleted from the Master Catalog, and nothing already live on Shopee is touched.'],
     ];
 @endphp
 @include('partials.channel-bulk-bar', ['bulk' => $bulk])
@@ -121,7 +121,7 @@
 @if($products->count() === 0)
     <x-ui.empty title="{{ $hasFilters ? 'Nothing matches those filters' : 'No products in this product group' }}"
                 :description="$hasFilters
-                    ? 'Try clearing the search, or widening the catalog and push filters.'
+                    ? 'Try clearing the search, or widening the Master Catalog and push filters.'
                     : 'Nothing is in this product group yet. Add products from this store\'s list and they take the group\'s category, couriers and markup on the next push.'">
         @if($canManageShopee && !$hasFilters)
         <x-slot:action>
@@ -148,7 +148,7 @@
             <th scope="col" class="cc-col-qty x-td-num">Stock</th>
             <th scope="col" class="cc-col-price x-td-num">Price</th>
             <th scope="col" class="cc-col-chanid">Shopee ID</th>
-            <th scope="col" class="cc-col-stat">Catalog</th>
+            <th scope="col" class="cc-col-stat">Master Catalog</th>
             <th scope="col" class="cc-col-sync">Listing</th>
             <th scope="col" class="x-td-actions"><span class="x-sr">Actions</span></th>
         </tr>
@@ -185,7 +185,7 @@
 
             $confirmedAt = $rowListing?->last_checked_at;
 
-            $optRows = isset($optionRowsByProductId) ? $optionRowsByProductId->get($p->product_id) : null;
+            $optRows = isset($variationRowsByProductId) ? $variationRowsByProductId->get($p->product_id) : null;
             $variationCount = $optRows ? count($optRows) : 0;
 
             $pName = (string) ($rowTitles[(int) $p->product_id] ?? html_entity_decode((string) ($p->name ?? ''), ENT_QUOTES | ENT_HTML5, 'UTF-8'));
@@ -193,8 +193,8 @@
             $isManual = in_array((int) $p->product_id, $manualIds, true);
 
             $metaParts = [$pSku !== '' ? $pSku : 'No SKU'];
-            if (!empty($p->manufacturer_name)) {
-                $metaParts[] = (string) $p->manufacturer_name;
+            if (!empty($p->brand_name)) {
+                $metaParts[] = (string) $p->brand_name;
             }
             $metaParts[] = $isManual ? 'added by hand' : 'matched by the product group filter';
             $meta = implode(' / ', $metaParts);
@@ -235,7 +235,7 @@
 
             <td class="cc-col-chanid" data-label="Shopee ID">
                 @if($listed)
-                    @php $liveUrl = \Extensions\shopee\Models\ShopeeSetting::publicListingUrl($rowLink->shopee_item_id); @endphp
+                    @php $liveUrl = \Extensions\Shopee\Models\ShopeeStore::publicListingUrl($rowLink->shopee_item_id); @endphp
                     @if($liveUrl)
                         <a class="x-num" href="{{ $liveUrl }}" target="_blank" rel="noopener">{{ $rowLink->shopee_item_id }}<x-ui.icon name="external-link" size="10" class="x-extlink" /><span class="x-sr"> (opens Shopee in a new tab)</span></a>
                     @else
@@ -253,7 +253,7 @@
             <td class="cc-col-sync" data-label="Listing">
                 @if($listed)
                     @php $rowState = ($listingStates ?? [])[(int) $p->product_id] ?? null; @endphp
-                    @if($rowState && $rowState->state !== \App\Integrations\Listings\ListingState::UNKNOWN)
+                    @if($rowState && $rowState->state !== \App\Channels\Listings\ListingState::UNKNOWN)
                         <x-ui.badge :tone="$rowState->tone()">{{ $rowState->label() }}</x-ui.badge>
                     @else
                         <x-ui.badge tone="success">Listed</x-ui.badge>
@@ -287,9 +287,9 @@
                         $menu['link'] = ['action' => route('ext.shopee.products.sync_shopee_id', $p->product_id)];
                     } else {
                         $menu['update'] = ['action' => route('ext.shopee.product-groups.send', $group->id), 'label' => 'Send to Shopee', 'fields' => $gf];
-                        if ($canToggleListing && $rowState?->state === \App\Integrations\Listings\ListingState::LIVE) {
+                        if ($canToggleListing && $rowState?->state === \App\Channels\Listings\ListingState::LIVE) {
                             $menu['switch'] = ['action' => route('ext.shopee.listings.toggle', $p->product_id), 'label' => 'Delist from Shopee', 'fields' => ['action' => 'unlist'], 'confirm' => "Delist {$pName} from Shopee? Buyers stop seeing it immediately. It can be published again at any time.", 'verb' => 'Delist'];
-                        } elseif ($canToggleListing && $rowState?->state === \App\Integrations\Listings\ListingState::INACTIVE) {
+                        } elseif ($canToggleListing && $rowState?->state === \App\Channels\Listings\ListingState::INACTIVE) {
                             $menu['switch'] = ['action' => route('ext.shopee.listings.toggle', $p->product_id), 'label' => 'Publish on Shopee', 'fields' => ['action' => 'list'], 'confirm' => "Publish {$pName} on Shopee? Buyers see it again immediately.", 'verb' => 'Publish', 'tone' => 'primary'];
                         }
                         $menu['check'] = ['action' => route('ext.shopee.product-groups.check', $group->id), 'label' => 'Check against Shopee', 'fields' => $gf];
@@ -297,7 +297,7 @@
                         $menu['delete'] = ['action' => route('ext.shopee.product-groups.deleteFromShopee', $group->id), 'fields' => $gf, 'confirm' => "Delete {$pName} from Shopee? It is removed at the marketplace and this cannot be undone."];
                     }
                     if ($isManual) {
-                        $menu['remove'] = ['action' => route('ext.shopee.product-groups.removeProduct', [$group->id, $p->product_id]), 'method' => 'DELETE', 'fields' => ['_return' => $returnTo], 'label' => 'Remove from product group', 'verb' => 'Remove', 'tone' => 'primary', 'confirm' => "Take {$pName} out of the product group? Nothing is deleted from the catalog, and nothing already live on Shopee is touched."];
+                        $menu['remove'] = ['action' => route('ext.shopee.product-groups.removeProduct', [$group->id, $p->product_id]), 'method' => 'DELETE', 'fields' => ['_return' => $returnTo], 'label' => 'Remove from product group', 'verb' => 'Remove', 'tone' => 'primary', 'confirm' => "Take {$pName} out of the product group? Nothing is deleted from the Master Catalog, and nothing already live on Shopee is touched."];
                     }
                 @endphp
                 @include('partials.channel-row-menu', ['menu' => $menu])
@@ -336,8 +336,8 @@
         toggle-label="Show products already in this group"
         in-label="In this group"
         scope="this group"
-        empty-default="Every product in your catalog is already in this group."
-        empty-all="Your catalog has no enabled products yet."
+        empty-default="Every product in your Master Catalog is already in this group."
+        empty-all="Your Master Catalog has no enabled products yet."
         list-label="Products" />
 @endif
 

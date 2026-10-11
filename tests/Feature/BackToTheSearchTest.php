@@ -15,7 +15,7 @@ class BackToTheSearchTest extends TestCase
 
     private function catalogManager(): User
     {
-        $this->artisan('permissions:sync-catalogue');
+        $this->artisan('permissions:sync-catalog');
         $group = UserGroup::create(['name' => 'Back-to desk']);
         $group->permissions()->attach(Permission::query()
             ->where('key', 'like', '%catalog%')->pluck('id')->all());
@@ -25,13 +25,12 @@ class BackToTheSearchTest extends TestCase
 
     private function seedProduct(string $sku, string $name): int
     {
-        $pfx = (string) config('catalog.prefix');
-        $productId = DB::table($pfx . 'product')->insertGetId([
+        $productId = DB::table('products')->insertGetId([
             'model' => $sku, 'sku' => $sku, 'quantity' => 5, 'price' => 300,
             'status' => 1, 'image' => '', 'weight' => 1, 'length' => 10, 'width' => 10, 'height' => 10,
-            'manufacturer_id' => 0, 'date_added' => now(), 'date_modified' => now(), 'date_available' => now(),
+            'brand_id' => 0, 'date_added' => now(), 'date_modified' => now(), 'date_available' => now(),
         ]);
-        DB::table($pfx . 'product_description')->insert([
+        DB::table('product_descriptions')->insert([
             'product_id' => $productId, 'language_id' => (int) config('catalog.default_language_id'),
             'name' => $name, 'description' => '',
             'meta_title' => '', 'meta_description' => '', 'meta_keyword' => '', 'tag' => '',
@@ -64,7 +63,7 @@ class BackToTheSearchTest extends TestCase
             'name' => 'Search me too', 'model' => 'BTS-2', 'sku' => 'BTS-2',
             'price' => '300', 'quantity' => '5', 'status' => '1',
             'weight' => '1', 'length' => '10', 'width' => '10', 'height' => '10',
-            'manufacturer_id' => '0', 'images_json' => '["catalog/demo.jpg"]',
+            'brand_id' => '0', 'images_json' => '["catalog/demo.jpg"]',
             'description' => 'A dependable test product description that comfortably clears the eighty character floor the marketplaces set.',
             '_return' => '/catalog/products?q=Search+me+too&page=2',
         ]);
@@ -97,7 +96,7 @@ class BackToTheSearchTest extends TestCase
             'name' => 'Do not follow', 'model' => 'BTS-3', 'sku' => 'BTS-3',
             'price' => '300', 'quantity' => '5', 'status' => '1',
             'weight' => '1', 'length' => '10', 'width' => '10', 'height' => '10',
-            'manufacturer_id' => '0', 'images_json' => '["catalog/demo.jpg"]',
+            'brand_id' => '0', 'images_json' => '["catalog/demo.jpg"]',
             'description' => 'A dependable test product description that comfortably clears the eighty character floor the marketplaces set.',
             '_return' => 'https://evil.example/phish',
         ]);
@@ -105,16 +104,15 @@ class BackToTheSearchTest extends TestCase
         $r->assertRedirect(route('products.index'));
     }
 
-    public function test_categories_and_manufacturers_get_the_same_courtesy(): void
+    public function test_categories_and_brands_get_the_same_courtesy(): void
     {
         $user = $this->catalogManager();
-        $pfx = (string) config('catalog.prefix');
 
-        $catId = DB::table($pfx . 'category')->insertGetId([
+        $catId = DB::table('categories')->insertGetId([
             'parent_id' => 0, 'sort_order' => 0, 'status' => 1,
             'date_added' => now(), 'date_modified' => now(),
         ]);
-        DB::table($pfx . 'category_description')->insert([
+        DB::table('category_descriptions')->insert([
             'category_id' => $catId, 'language_id' => (int) config('catalog.default_language_id'),
             'name' => 'Strings', 'description' => '', 'meta_title' => '', 'meta_description' => '', 'meta_keyword' => '', 'seo_keyword' => '', 'seo_h1' => '', 'seo_h2' => '', 'seo_h3' => '',
         ]);
@@ -124,10 +122,10 @@ class BackToTheSearchTest extends TestCase
             '_return' => '/catalog/categories?q=Str',
         ])->assertRedirect('/catalog/categories?q=Str');
 
-        $manId = DB::table($pfx . 'manufacturer')->insertGetId(['name' => 'Gotoh', 'sort_order' => 0]);
-        $this->actingAs($user)->put(route('manufacturers.update', $manId), [
+        $manId = DB::table('brands')->insertGetId(['name' => 'Gotoh', 'sort_order' => 0]);
+        $this->actingAs($user)->put(route('brands.update', $manId), [
             'name' => 'Gotoh',
-            '_return' => '/catalog/manufacturers?q=Go',
-        ])->assertRedirect('/catalog/manufacturers?q=Go');
+            '_return' => '/catalog/brands?q=Go',
+        ])->assertRedirect('/catalog/brands?q=Go');
     }
 }

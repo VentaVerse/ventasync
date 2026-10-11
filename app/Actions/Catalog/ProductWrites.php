@@ -36,7 +36,7 @@ final class ProductWrites
             'length' => 'sometimes|numeric|gt:0',
             'width' => 'sometimes|numeric|gt:0',
             'height' => 'sometimes|numeric|gt:0',
-            'manufacturer_name' => 'sometimes|nullable|string|max:255',
+            'brand_name' => 'sometimes|nullable|string|max:255',
             'category_names' => 'sometimes|array|max:10',
             'category_names.*' => 'string|max:255',
             'photos' => 'sometimes|array|max:' . $maxImages,
@@ -71,13 +71,13 @@ final class ProductWrites
             }
         }
 
-        if (array_key_exists('manufacturer_name', $data)) {
-            $brand = trim((string) ($data['manufacturer_name'] ?? ''));
-            $manufacturerId = $creator->resolveManufacturerId(0, $brand);
-            if ($brand !== '' && $manufacturerId === 0) {
+        if (array_key_exists('brand_name', $data)) {
+            $brand = trim((string) ($data['brand_name'] ?? ''));
+            $brandId = $creator->resolveBrandId(0, $brand);
+            if ($brand !== '' && $brandId === 0) {
                 $notes[] = 'No brand named "' . $brand . '" exists, so the brand was left as it was.';
             } else {
-                $fields['manufacturer_id'] = $manufacturerId;
+                $fields['brand_id'] = $brandId;
             }
         }
 
@@ -115,7 +115,7 @@ final class ProductWrites
             }
 
             $importer = app(CatalogImageImporter::class);
-            $folder = $creator->imageFolder((int) ($fields['manufacturer_id'] ?? $product->manufacturer_id));
+            $folder = $creator->imageFolder((int) ($fields['brand_id'] ?? $product->brand_id));
             $where = '';
             try {
                 foreach ($urls as $i => $url) {
@@ -154,7 +154,7 @@ final class ProductWrites
         if (isset($changes['sku'])) {
             $synced = (new \App\Services\SkuSyncService())->syncSkuChanges($id, [
                 'product_sku' => ['old' => $changes['sku']['old'], 'new' => $changes['sku']['new']],
-                'option_skus' => [],
+                'variation_skus' => [],
             ]);
             foreach ($synced as $line) {
                 $notes[] = 'SKU synced: ' . $line;
@@ -174,7 +174,7 @@ final class ProductWrites
         return $this->json([
             'product_id' => $id,
             'changed' => array_values(array_map(fn ($k) => match ($k) {
-                'title' => 'name', 'manufacturer_id' => 'brand', 'category_ids' => 'categories', 'images' => 'photos', 'status' => 'enabled', default => $k,
+                'title' => 'name', 'brand_id' => 'brand', 'category_ids' => 'categories', 'images' => 'photos', 'status' => 'enabled', default => $k,
             }, $changed)),
             'before' => array_intersect_key($before, $this->shown($changed)),
             'after' => array_intersect_key($after, $this->shown($changed)),
@@ -212,7 +212,7 @@ final class ProductWrites
 
         $creator = app(ProductCreator::class);
         $importer = app(CatalogImageImporter::class);
-        $folder = $creator->imageFolder((int) Product::whereKey($id)->value('manufacturer_id'));
+        $folder = $creator->imageFolder((int) Product::whereKey($id)->value('brand_id'));
         $stored = [];
         $where = '';
         try {
@@ -258,7 +258,7 @@ final class ProductWrites
     private function shown(array $changed): array
     {
         $keys = ['name' => 'name', 'title' => 'name', 'description' => 'description', 'sku' => 'sku', 'status' => 'status',
-            'manufacturer_id' => 'brand', 'category_ids' => 'categories', 'images' => 'photos',
+            'brand_id' => 'brand', 'category_ids' => 'categories', 'images' => 'photos',
             'weight' => 'weight', 'length' => 'length', 'width' => 'width', 'height' => 'height'];
 
         return array_flip(array_values(array_intersect_key($keys, array_flip($changed))));
@@ -266,15 +266,14 @@ final class ProductWrites
 
     public function details(Product $product): array
     {
-        $pfx = (string) config('catalog.prefix');
         $lang = (int) config('catalog.default_language_id');
         $id = (int) $product->product_id;
 
-        $brand = (int) $product->manufacturer_id > 0
-            ? \Illuminate\Support\Facades\DB::table($pfx . 'manufacturer')->where('manufacturer_id', $product->manufacturer_id)->value('name')
+        $brand = (int) $product->brand_id > 0
+            ? \Illuminate\Support\Facades\DB::table('brands')->where('brand_id', $product->brand_id)->value('name')
             : null;
-        $categories = \Illuminate\Support\Facades\DB::table($pfx . 'product_to_category as ptc')
-            ->leftJoin($pfx . 'category_description as cd', fn ($j) => $j->on('cd.category_id', '=', 'ptc.category_id')->where('cd.language_id', '=', $lang))
+        $categories = \Illuminate\Support\Facades\DB::table('product_categories as ptc')
+            ->leftJoin('category_descriptions as cd', fn ($j) => $j->on('cd.category_id', '=', 'ptc.category_id')->where('cd.language_id', '=', $lang))
             ->where('ptc.product_id', $id)
             ->orderBy('ptc.category_id')
             ->pluck('cd.name')
@@ -345,7 +344,7 @@ final class ProductWrites
             'cost_amount' => 'nullable|numeric|min:0',
             'cost_percentage' => 'nullable|numeric|min:0|max:100',
             'cost_additional' => 'nullable|numeric|min:0|max:99999999',
-            'manufacturer_name' => 'nullable|string|max:255',
+            'brand_name' => 'nullable|string|max:255',
             'category_names' => 'nullable|array|max:10',
             'category_names.*' => 'string|max:255',
             'image_urls' => 'nullable|array|max:' . $maxImages,
@@ -397,9 +396,9 @@ final class ProductWrites
             $writer->validateSkus(0, $wire);
         }
 
-        $brand = trim((string) ($data['manufacturer_name'] ?? ''));
-        $manufacturerId = $creator->resolveManufacturerId(0, $brand);
-        if ($brand !== '' && $manufacturerId === 0) {
+        $brand = trim((string) ($data['brand_name'] ?? ''));
+        $brandId = $creator->resolveBrandId(0, $brand);
+        if ($brand !== '' && $brandId === 0) {
             $notes[] = 'No brand named "' . $brand . '" exists, so the product was saved without one.';
         }
 
@@ -415,7 +414,7 @@ final class ProductWrites
 
         $disk = Storage::disk('public');
         $importer = app(CatalogImageImporter::class);
-        $folder = $creator->imageFolder($manufacturerId);
+        $folder = $creator->imageFolder($brandId);
         $stored = [];
         $paths = [];
         $where = '';
@@ -469,7 +468,7 @@ final class ProductWrites
                 'cost_amount' => (float) ($data['cost_amount'] ?? 0),
                 'cost_percentage' => (float) ($data['cost_percentage'] ?? 0),
                 'cost_additional' => (float) ($data['cost_additional'] ?? 0),
-                'manufacturer_id' => $manufacturerId,
+                'brand_id' => $brandId,
                 'category_ids' => array_values(array_unique($categoryIds)),
                 'description' => (string) ($data['description'] ?? ''),
                 'image_paths' => $paths,
@@ -625,13 +624,13 @@ final class ProductWrites
             'cost_additional' => (float) ($data['cost_additional'] ?? 0),
         ];
         if (count($types) === 1) {
-            $wire['option_name'] = $names[0];
+            $wire['variation_type_name'] = $names[0];
             $wire['values'] = array_map(fn (array $combo): array => ['name' => $combo[0]] + $line($byKey[$keyOf($combo)]), $grid);
         } else {
-            $wire['option1_name'] = $names[0];
-            $wire['option2_name'] = $names[1];
-            $wire['option1_values'] = $values[0];
-            $wire['option2_values'] = $values[1];
+            $wire['type1_name'] = $names[0];
+            $wire['type2_name'] = $names[1];
+            $wire['type1_values'] = $values[0];
+            $wire['type2_values'] = $values[1];
             $wire['combinations'] = array_map(
                 fn (array $combo): array => ['opt1' => $combo[0], 'opt2' => $combo[1]] + $line($byKey[$keyOf($combo)]),
                 $grid
@@ -684,11 +683,11 @@ final class ProductWrites
         $rows = VariationRows::forProducts([(int) $product->product_id])->get((int) $product->product_id, collect());
 
         return $rows->map(function (object $v) use ($product): array {
-            $ids = array_values(array_filter((array) ($v->option_value_ids ?? []), fn ($id) => (int) $id > 0));
+            $ids = array_values(array_filter((array) ($v->variation_value_ids ?? []), fn ($id) => (int) $id > 0));
 
             return [
-                'variation' => (string) $v->option_value_name,
-                'option'    => (string) $v->option_name,
+                'variation' => (string) $v->variation_value_name,
+                'variation_type' => (string) $v->variation_type_name,
                 'sku'       => (string) ($v->sku ?? ''),
                 'quantity'  => (int) $v->quantity,
                 'price'     => (float) ($v->absolute_price ?? 0) > 0 ? (float) $v->absolute_price : (float) $product->price,

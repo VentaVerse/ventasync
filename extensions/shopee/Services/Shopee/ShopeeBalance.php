@@ -1,9 +1,9 @@
 <?php
 
-namespace Extensions\shopee\Services\Shopee;
+namespace Extensions\Shopee\Services\Shopee;
 
 use Carbon\Carbon;
-use Extensions\shopee\Models\ShopeeSetting;
+use Extensions\Shopee\Models\ShopeeStore;
 
 class ShopeeBalance
 {
@@ -23,9 +23,9 @@ class ShopeeBalance
     {
     }
 
-    public function read(ShopeeSetting $store): array
+    public function read(ShopeeStore $store): array
     {
-        $auth = ShopeeSetting::activeAuth($store->decrypted());
+        $auth = ShopeeStore::activeAuth($store->decrypted());
         if (! $auth['complete']) {
             return ['ok' => false, 'error' => 'This store is not connected to Shopee.'];
         }

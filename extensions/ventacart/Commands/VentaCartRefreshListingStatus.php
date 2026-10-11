@@ -1,9 +1,9 @@
 <?php
 
-namespace Extensions\ventacart\Commands;
+namespace Extensions\VentaCart\Commands;
 
-use Extensions\ventacart\Models\VentaCartSetting;
-use Extensions\ventacart\Services\VentaCart\VentaCartListingMirror;
+use Extensions\VentaCart\Models\VentaCartStore;
+use Extensions\VentaCart\Services\VentaCart\VentaCartListingMirror;
 use Illuminate\Console\Command;
 
 class VentaCartRefreshListingStatus extends Command
@@ -14,7 +14,7 @@ class VentaCartRefreshListingStatus extends Command
 
     public function handle(): int
     {
-        $stores = VentaCartSetting::query()->where('enabled', true);
+        $stores = VentaCartStore::query()->where('enabled', true);
         if ($this->option('store')) {
             $stores->where('id', (int) $this->option('store'));
         }
@@ -28,7 +28,7 @@ class VentaCartRefreshListingStatus extends Command
                 continue;
             }
 
-            $checked = app(\Extensions\ventacart\Services\VentaCart\VentaCartLinkCheck::class)->runNext($store);
+            $checked = app(\Extensions\VentaCart\Services\VentaCart\VentaCartLinkCheck::class)->runNext($store);
 
             $this->info(sprintf(
                 '%s: refreshed %d listing(s): %s.%s',

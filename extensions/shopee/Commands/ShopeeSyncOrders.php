@@ -1,17 +1,17 @@
 <?php
 
-namespace Extensions\shopee\Commands;
+namespace Extensions\Shopee\Commands;
 
-use Extensions\shopee\Models\ShopeeApiLog;
-use Extensions\shopee\Models\ShopeeOrder;
-use Extensions\shopee\Models\ShopeeSetting;
-use Extensions\shopee\Services\Shopee\ShopeeClient;
-use Extensions\shopee\Services\Shopee\ShopeeOrderIngest;
+use Extensions\Shopee\Models\ShopeeApiLog;
+use Extensions\Shopee\Models\ShopeeOrder;
+use Extensions\Shopee\Models\ShopeeStore;
+use Extensions\Shopee\Services\Shopee\ShopeeClient;
+use Extensions\Shopee\Services\Shopee\ShopeeOrderIngest;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 
-class ShopeeSyncOrders extends Command implements \App\Integrations\Contracts\SteppableAutomation
+class ShopeeSyncOrders extends Command implements \App\Channels\Contracts\SteppableAutomation
 {
     use \App\Console\Concerns\StepsOutsideArtisan;
 
@@ -26,7 +26,7 @@ class ShopeeSyncOrders extends Command implements \App\Integrations\Contracts\St
 
     public function handle(ShopeeClient $client): int
     {
-        $stores = ShopeeSetting::query()->where('enabled', true)->orderBy('id')->get();
+        $stores = ShopeeStore::query()->where('enabled', true)->orderBy('id')->get();
         if ($stores->isEmpty()) {
             $this->error('No enabled Shopee store. Configure Shopee settings first.');
             return 1;
@@ -49,10 +49,10 @@ class ShopeeSyncOrders extends Command implements \App\Integrations\Contracts\St
         return $worst;
     }
 
-    private function syncStore(ShopeeClient $client, ShopeeSetting $store): int
+    private function syncStore(ShopeeClient $client, ShopeeStore $store): int
     {
         $setting = $store->decrypted();
-        $auth = ShopeeSetting::activeAuth($setting);
+        $auth = ShopeeStore::activeAuth($setting);
         if (!$auth['complete']) {
             $modeLabel = $auth['mode'] === 'sandbox' ? 'Sandbox' : 'Production';
             $this->error("Missing Shopee {$modeLabel} credentials/token for this store.");
@@ -92,16 +92,16 @@ class ShopeeSyncOrders extends Command implements \App\Integrations\Contracts\St
         return 0;
     }
 
-    private function syncOrders(ShopeeClient $client, object $setting, array $auth): void
+    private function syncOrders(ShopeeClient $client, object $store, array $auth): void
     {
         $tz = new \DateTimeZone('Asia/Manila');
         $cliDays = $this->option('days');
         $syncDays = $cliDays !== null && $cliDays !== ''
             ? max(1, (int) $cliDays)
-            : (($setting->sync_last_days ?? null) > 0 ? (int) $setting->sync_last_days : 14);
+            : (($store->sync_last_days ?? null) > 0 ? (int) $store->sync_last_days : 14);
 
         $latestUpdated = ShopeeOrder::query()
-            ->where('shopee_setting_id', (int) $setting->id)
+            ->where('store_id', (int) $store->id)
             ->max('order_updated_at');
 
         if ($latestUpdated) {
@@ -164,7 +164,7 @@ class ShopeeSyncOrders extends Command implements \App\Integrations\Contracts\St
                     $body = $res['body'] ?? [];
                     $msg = \App\Support\MarketplaceAnswer::plain('Shopee', ['ok' => false, 'body' => is_array($body) ? $body : []]);
                     $this->error("  API error: {$msg}");
-                    Cache::put('shopee_sync_paused:' . $setting->id, $msg, now()->addMinutes(10));
+                    Cache::put('shopee_sync_paused:' . $store->id, $msg, now()->addMinutes(10));
                     return;
                 }
 
@@ -191,13 +191,13 @@ class ShopeeSyncOrders extends Command implements \App\Integrations\Contracts\St
             $windowFrom = $windowTo;
         }
 
-        $r = app(ShopeeOrderIngest::class)->orders($setting, $auth, $allOrderSns);
+        $r = app(ShopeeOrderIngest::class)->orders($store, $auth, $allOrderSns);
         $this->info("  Synced: {$r['created']} new, {$r['updated']} updated"
             . ($r['errors'] > 0 ? ", {$r['errors']} errors" : '')
             . ($r['busy'] > 0 ? ", {$r['busy']} being written by a push" : ''));
     }
 
-    private function syncReturns(ShopeeClient $client, object $setting, array $auth): void
+    private function syncReturns(ShopeeClient $client, object $store, array $auth): void
     {
         $saved = 0;
         $errors = 0;
@@ -207,7 +207,7 @@ class ShopeeSyncOrders extends Command implements \App\Integrations\Contracts\St
         $cliDaysReturns = $this->option('days-returns');
         $syncDays = $cliDaysReturns !== null && $cliDaysReturns !== ''
             ? max(1, (int) $cliDaysReturns)
-            : (($setting->sync_last_days_returns ?? null) > 0 ? (int) $setting->sync_last_days_returns : 14);
+            : (($store->sync_last_days_returns ?? null) > 0 ? (int) $store->sync_last_days_returns : 14);
         $tz = new \DateTimeZone('Asia/Manila');
         $rangeStart = (new \DateTime('now', $tz))->modify("-{$syncDays} days")->getTimestamp();
         $rangeEnd = time();
@@ -264,7 +264,7 @@ class ShopeeSyncOrders extends Command implements \App\Integrations\Contracts\St
                 $returnSn = $ret['return_sn'] ?? null;
                 if (!$returnSn) continue;
 
-                $error = app(ShopeeOrderIngest::class)->returnBySn($setting, $auth, (string) $returnSn, is_array($ret) ? $ret : []);
+                $error = app(ShopeeOrderIngest::class)->returnBySn($store, $auth, (string) $returnSn, is_array($ret) ? $ret : []);
                 if ($error !== null) {
                     $errors++;
                     $this->warn('  ' . $error);
@@ -286,12 +286,12 @@ class ShopeeSyncOrders extends Command implements \App\Integrations\Contracts\St
         $this->info("  Synced: {$saved} return(s)" . ($errors > 0 ? ", {$errors} error(s)" : ''));
     }
 
-    private function backfillMissingFees(ShopeeClient $client, object $setting, array $auth): void
+    private function backfillMissingFees(ShopeeClient $client, object $store, array $auth): void
     {
         $region = $auth['region'] ?? 'ph';
 
         $orders = ShopeeOrder::query()
-            ->where('shopee_setting_id', (int) $setting->id)
+            ->where('store_id', (int) $store->id)
             ->whereIn('status', ['SHIPPED', 'TO_CONFIRM_RECEIVE', 'COMPLETED'])
             ->whereNull('fees')
             ->get();
@@ -320,7 +320,7 @@ class ShopeeSyncOrders extends Command implements \App\Integrations\Contracts\St
         $returnsOnly = ! empty($args['--returns']);
         $skipReturns = ! empty($args['--no-returns']);
         $units = [];
-        foreach (ShopeeSetting::query()->where('enabled', true)->orderBy('id')->get() as $store) {
+        foreach (ShopeeStore::query()->where('enabled', true)->orderBy('id')->get() as $store) {
             foreach (array_values(array_filter(['orders', 'fees', 'returns'], fn ($p) => $returnsOnly ? $p === 'returns' : ($p !== 'returns' || ! $skipReturns))) as $phase) {
                 $units[] = $store->id . ':' . $phase;
             }
@@ -343,13 +343,13 @@ class ShopeeSyncOrders extends Command implements \App\Integrations\Contracts\St
         $notes = [];
         foreach ($units as $unit) {
             [$sid, $phase] = array_pad(explode(':', (string) $unit, 2), 2, '');
-            $store = ShopeeSetting::query()->find((int) $sid);
+            $store = ShopeeStore::query()->find((int) $sid);
             if (! $store) {
                 $failed++;
                 continue;
             }
             $setting = $store->decrypted();
-            $auth = ShopeeSetting::activeAuth($setting);
+            $auth = ShopeeStore::activeAuth($setting);
             if (! $auth['complete']) {
                 return ['error' => 'Store ' . ($store->store_name ?: '#' . $store->id) . ' is not connected to Shopee.'];
             }

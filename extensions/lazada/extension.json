@@ -2,9 +2,9 @@
     "id": "lazada",
     "name": "Lazada",
     "version": "0.30.0",
-    "description": "Lazada marketplace integration: OAuth, products, product groups, orders, returns, brands",
+    "description": "Lazada marketplace channel: OAuth, products, product groups, orders, returns, brands",
     "logs": {
-        "lazada_api_logs": {
+        "ch_lazada_api_logs": {
             "label": "API calls"
         }
     },
@@ -12,23 +12,23 @@
     "tier": "community",
     "license_required": false,
     "tables": [
-        "lazada_settings",
-        "lazada_api_logs",
-        "lazada_categories",
-        "lazada_category_templates",
-        "lazada_brands",
-        "lazada_image_links",
-        "lazada_orders",
+        "ch_lazada_stores",
+        "ch_lazada_api_logs",
+        "ch_lazada_categories",
+        "ch_lazada_category_templates",
+        "ch_lazada_brands",
+        "ch_lazada_image_links",
+        "ch_lazada_orders",
         "lazada_order_items",
-        "lazada_order_products",
-        "lazada_order_status_map",
-        "lazada_product_groups",
-        "lazada_product_group_products",
-        "lazada_product_group_attributes",
-        "lazada_product_attributes",
-        "lazada_products",
-        "lazada_product_variants",
-        "lazada_reverse_orders",
+        "ch_lazada_order_products",
+        "ch_lazada_order_status_map",
+        "ch_lazada_product_groups",
+        "ch_lazada_product_group_products",
+        "ch_lazada_product_group_attributes",
+        "ch_lazada_listing_attributes",
+        "ch_lazada_listings",
+        "ch_lazada_listing_variations",
+        "ch_lazada_reverse_orders",
         "lazada_unmatched_items"
     ],
     "nav": []

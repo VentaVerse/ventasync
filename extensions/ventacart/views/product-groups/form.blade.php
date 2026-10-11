@@ -90,7 +90,7 @@
                     <h2 class="fm-section__title">Category on {{ $storeName }} <x-ui.hint label="About the category">The store owns its categories; this list is what was fetched from {{ $storeName }} when the store was set up. Every product in this group is pushed into it. Nothing is written to the store's categories.</x-ui.hint></h2>
                 </div>
                 @if($categoryOptions === [])
-                    <p class="fm-section__note">No categories on file for {{ $storeName }} yet. Fetch them on the store's Settings page first; products pushed without one go up under the catalogue's own category names.</p>
+                    <p class="fm-section__note">No categories on file for {{ $storeName }} yet. Fetch them on the store's Settings page first; products pushed without one go up under the Master Catalog's own category names.</p>
                 @endif
                 <div class="fm-fields">
                     @include('partials.category-tree-pick', [
@@ -121,17 +121,17 @@
             <div class="fm-card">
                 <div class="fm-card__head"><h2 class="fm-card__title">Watermark</h2></div>
                 <div class="fm-card__body">
-                    @include('partials.watermark-pick', ['selected' => old('watermark_template_id', $group->watermark_template_id ?? null), 'integration' => 'ventacart', 'canManage' => $canManageVenta])
+                    @include('partials.watermark-pick', ['selected' => old('watermark_template_id', $group->watermark_template_id ?? null), 'channel' => 'ventacart', 'canManage' => $canManageVenta])
                 </div>
             </div>
 
             <div class="fm-card">
                 <div class="fm-card__head"><h2 class="fm-card__title">Price markup</h2></div>
                 <div class="fm-card__body">
-                    <p class="fm-section__note">The percentage is added to the catalog price first, then the fixed amount on top. Leave both empty to push the catalog price as it is.</p>
+                    <p class="fm-section__note">The percentage is added to the Master Catalog price first, then the fixed amount on top. Leave both empty to push the Master Catalog price as it is.</p>
 
                     <x-ui.field label="Percentage of price" for="pg-markup-percent" name="markup_percent"
-                                hint="5 means the pushed price is 5% above the catalog price.">
+                                hint="5 means the pushed price is 5% above the Master Catalog price.">
                         <div class="cs-inline">
                             <x-ui.input id="pg-markup-percent" name="markup_percent" type="number" step="0.01" min="0"
                                         class="fm-input--num cs-days"

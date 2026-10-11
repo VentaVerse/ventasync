@@ -21,11 +21,10 @@ final class Receivables
 
     public function rows(array $customerKeys = [], array $orderIds = [], ?string $from = null, ?string $to = null, ?string $search = null): Collection
     {
-        $pfx = (string) config('catalog.prefix');
         $lang = (int) config('catalog.default_language_id');
 
-        $query = DB::table($pfx . 'order as o')
-            ->leftJoin($pfx . 'order_status as os', fn ($j) => $j->on('os.order_status_id', '=', 'o.order_status_id')->where('os.language_id', '=', $lang))
+        $query = DB::table('orders as o')
+            ->leftJoin('order_statuses as os', fn ($j) => $j->on('os.order_status_id', '=', 'o.order_status_id')->where('os.language_id', '=', $lang))
             ->leftJoin(DB::raw('(SELECT order_id, SUM(amount) AS paid, COUNT(*) AS payments, MAX(paid_at) AS last_paid_at FROM order_payments GROUP BY order_id) as pay'),
                 'pay.order_id', '=', 'o.order_id')
             ->where('o.track_payments', true);
@@ -52,7 +51,7 @@ final class Receivables
 
         $orders = $query->orderBy('o.date_added')->orderBy('o.order_id')->get([
             'o.order_id', 'o.date_added', 'o.firstname', 'o.lastname', 'o.email', 'o.telephone',
-            'o.store_name', 'o.marketplace_source', 'o.marketplace_order_id', 'os.name as status', 'o.total',
+            'o.store_name', 'o.channel', 'o.marketplace_order_id', 'os.name as status', 'o.total',
             'pay.paid', 'pay.payments', 'pay.last_paid_at',
         ]);
 
@@ -69,7 +68,7 @@ final class Receivables
                     'date' => substr((string) $o->date_added, 0, 10),
                     'customer' => trim(($o->firstname ?? '') . ' ' . ($o->lastname ?? '')),
                     'customer_key' => $this->ledger->identity($o),
-                    'store' => $o->store_name ?: ($o->marketplace_source ?: 'Manual'),
+                    'store' => $o->store_name ?: ($o->channel ?: 'Manual'),
                     'marketplace_order_id' => $o->marketplace_order_id ?: null,
                     'status' => $o->status,
                     'total' => $total,

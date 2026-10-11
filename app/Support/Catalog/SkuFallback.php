@@ -8,10 +8,9 @@ final class SkuFallback
 {
     public static function fill(int $productId): array
     {
-        $pfx = (string) config('catalog.prefix');
         $minted = ['parent' => null, 'variations' => 0];
 
-        $product = DB::table($pfx . 'product')->where('product_id', $productId)->first(['product_id', 'sku']);
+        $product = DB::table('products')->where('product_id', $productId)->first(['product_id', 'sku']);
         if (! $product) {
             return $minted;
         }
@@ -19,34 +18,34 @@ final class SkuFallback
         $parent = trim((string) ($product->sku ?? ''));
         if ($parent === '') {
             $parent = (string) $productId;
-            DB::table($pfx . 'product')->where('product_id', $productId)->update(['sku' => $parent]);
+            DB::table('products')->where('product_id', $productId)->update(['sku' => $parent]);
             $minted['parent'] = $parent;
         }
 
         $n = 0;
         foreach (
-            DB::table('product_option_combinations')->where('product_id', $productId)
+            DB::table('product_variations')->where('product_id', $productId)
                 ->orderBy('sort_order')->orderBy('id')->get(['id', 'sku']) as $combo
         ) {
             $n++;
             if (trim((string) ($combo->sku ?? '')) !== '') {
                 continue;
             }
-            DB::table('product_option_combinations')->where('id', $combo->id)
+            DB::table('product_variations')->where('id', $combo->id)
                 ->update(['sku' => $parent . '-' . $n, 'updated_at' => now()]);
             $minted['variations']++;
         }
 
         $n = 0;
         foreach (
-            DB::table($pfx . 'product_option_value')->where('product_id', $productId)
-                ->orderBy('product_option_value_id')->get(['product_option_value_id', 'sku']) as $value
+            DB::table('product_variation_values')->where('product_id', $productId)
+                ->orderBy('product_variation_value_id')->get(['product_variation_value_id', 'sku']) as $value
         ) {
             $n++;
             if (trim((string) ($value->sku ?? '')) !== '') {
                 continue;
             }
-            DB::table($pfx . 'product_option_value')->where('product_option_value_id', $value->product_option_value_id)
+            DB::table('product_variation_values')->where('product_variation_value_id', $value->product_variation_value_id)
                 ->update(['sku' => $parent . '-' . $n]);
             $minted['variations']++;
         }

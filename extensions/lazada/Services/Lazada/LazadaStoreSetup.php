@@ -1,11 +1,11 @@
 <?php
 
-namespace Extensions\lazada\Services\Lazada;
+namespace Extensions\Lazada\Services\Lazada;
 
 use App\Support\MarketplaceAnswer;
-use Extensions\lazada\Models\LazadaApiLog;
-use Extensions\lazada\Models\LazadaBrand;
-use Extensions\lazada\Models\LazadaSetting;
+use Extensions\Lazada\Models\LazadaApiLog;
+use Extensions\Lazada\Models\LazadaBrand;
+use Extensions\Lazada\Models\LazadaStore;
 use Illuminate\Support\Facades\DB;
 
 class LazadaStoreSetup
@@ -14,7 +14,7 @@ class LazadaStoreSetup
     {
     }
 
-    public function categories(LazadaSetting $setting, array $creds): array
+    public function categories(LazadaStore $store, array $creds): array
     {
         $apiPath = '/category/tree/get';
         $params = [
@@ -23,7 +23,7 @@ class LazadaStoreSetup
             'timestamp' => (string) round(microtime(true) * 1000),
         ];
         $params['sign'] = $this->client->sign($apiPath, $params, (string) $creds['app_secret']);
-        $result = $this->client->get((string) $setting->region, $apiPath, $params);
+        $result = $this->client->get((string) $store->region, $apiPath, $params);
         $this->log('lazada.categories.fetch', $apiPath, $params, $result);
 
         $body = $result['body'] ?? null;
@@ -48,19 +48,19 @@ class LazadaStoreSetup
         }
         unset($r);
         DB::transaction(function () use ($rows) {
-            DB::table('lazada_categories')->delete();
+            DB::table('ch_lazada_categories')->delete();
             foreach (array_chunk($rows, 1000) as $chunk) {
-                DB::table('lazada_categories')->insert($chunk);
+                DB::table('ch_lazada_categories')->insert($chunk);
             }
         });
 
         return ['ok' => true, 'count' => count($rows), 'message' => number_format(count($rows)) . ' categories fetched.'];
     }
 
-    public function brands(LazadaSetting $setting, array $creds, int $maxPages = 20, int $pageSize = 200): array
+    public function brands(LazadaStore $store, array $creds, int $maxPages = 20, int $pageSize = 200): array
     {
         $apiPath = '/category/brands/query';
-        $region = (string) $setting->region;
+        $region = (string) $store->region;
         $saved = 0;
         $lastResult = null;
         for ($pageNo = 1; $pageNo <= $maxPages; $pageNo++) {

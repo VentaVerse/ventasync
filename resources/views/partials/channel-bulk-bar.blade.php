@@ -67,7 +67,7 @@
                         <input type="hidden" name="group" value="none">
                         <input type="hidden" name="_return" value="{{ $b['move']['return'] ?? '' }}">
                         <button type="submit" class="cc-grouppick__pick cc-grouppick__pick--out">
-                            <span class="cc-grouppick__name">{{ \App\Integrations\Listings\StatusMenu::UNGROUPED }}</span>
+                            <span class="cc-grouppick__name">{{ \App\Channels\Listings\StatusMenu::UNGROUPED }}</span>
                         </button>
                     </form>
                 @endif

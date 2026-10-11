@@ -1,10 +1,10 @@
 <?php
 
-namespace Extensions\shopee\Services\Shopee;
+namespace Extensions\Shopee\Services\Shopee;
 
 use App\Support\MarketplaceAnswer;
-use Extensions\shopee\Models\ShopeeListing;
-use Extensions\shopee\Models\ShopeeProductLink;
+use Extensions\Shopee\Models\ShopeeListing;
+use Extensions\Shopee\Models\ShopeeListingLink;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -35,8 +35,6 @@ class ShopeeItemImport
                 return ['ok' => false, 'message' => $models['error']];
             }
         }
-
-        $pfx = (string) config('catalog.prefix');
         $langId = (int) config('catalog.default_language_id');
 
         $name = trim((string) ($item['item_name'] ?? '')) ?: ('Shopee item ' . $itemId);
@@ -46,12 +44,12 @@ class ShopeeItemImport
 
         try {
             try {
-                app(\Extensions\shopee\Controllers\ShopeeProductGroupController::class)->ensureTemplate((int) ($item['category_id'] ?? 0), $this->client);
+                app(\Extensions\Shopee\Controllers\ShopeeProductGroupController::class)->ensureTemplate((int) ($item['category_id'] ?? 0), $this->client);
             } catch (\Throwable) {
             }
 
-            $productId = DB::transaction(function () use ($pfx, $langId, $item, $models, $name, $sku, $price, $qty, $itemId, $auth) {
-                $productId = DB::table($pfx . 'product')->insertGetId([
+            $productId = DB::transaction(function () use ( $langId, $item, $models, $name, $sku, $price, $qty, $itemId, $auth) {
+                $productId = DB::table('products')->insertGetId([
                     'model' => $sku !== '' ? $sku : ('SHP-' . $itemId),
                     'sku' => $sku,
                     'quantity' => $qty,
@@ -62,18 +60,18 @@ class ShopeeItemImport
                     'length' => (float) data_get($item, 'dimension.package_length', 0),
                     'width' => (float) data_get($item, 'dimension.package_width', 0),
                     'height' => (float) data_get($item, 'dimension.package_height', 0),
-                    'manufacturer_id' => 0,
+                    'brand_id' => 0,
                     'date_added' => now(), 'date_modified' => now(), 'date_available' => now(),
                 ]);
 
-                DB::table($pfx . 'product_description')->insert([
+                DB::table('product_descriptions')->insert([
                     'product_id' => $productId,
                     'language_id' => $langId,
                     'name' => Str::limit($name, 250, ''),
                     'description' => \App\Support\Catalog\DescriptionHtml::store(
-                        str_contains(\Extensions\shopee\Services\Shopee\ShopeeDescription::textOf($item), '<')
-                            ? \Extensions\shopee\Services\Shopee\ShopeeDescription::textOf($item)
-                            : nl2br(\Extensions\shopee\Services\Shopee\ShopeeDescription::textOf($item))
+                        str_contains(\Extensions\Shopee\Services\Shopee\ShopeeDescription::textOf($item), '<')
+                            ? \Extensions\Shopee\Services\Shopee\ShopeeDescription::textOf($item)
+                            : nl2br(\Extensions\Shopee\Services\Shopee\ShopeeDescription::textOf($item))
                     ),
                     'meta_title' => Str::limit($name, 250, ''),
                     'meta_description' => '', 'meta_keyword' => '', 'tag' => '',
@@ -81,9 +79,9 @@ class ShopeeItemImport
 
                 $paths = $this->downloadImages((array) data_get($item, 'image.image_url_list', []), $itemId);
                 if ($paths !== []) {
-                    DB::table($pfx . 'product')->where('product_id', $productId)->update(['image' => $paths[0]]);
+                    DB::table('products')->where('product_id', $productId)->update(['image' => $paths[0]]);
                     foreach (array_slice($paths, 1) as $i => $path) {
-                        DB::table($pfx . 'product_image')->insert([
+                        DB::table('product_images')->insert([
                             'product_id' => $productId, 'image' => $path, 'sort_order' => $i,
                         ]);
                     }
@@ -110,12 +108,12 @@ class ShopeeItemImport
                 );
 
                 $liveStatus = strtoupper((string) ($item['item_status'] ?? '')) ?: null;
-                ShopeeProductLink::updateOrCreate(
+                ShopeeListingLink::updateOrCreate(
                     ['product_id' => $productId, 'shopee_item_id' => $itemId, 'shopee_model_id' => null],
                     ['sku' => $sku ?: null, 'live_status' => $liveStatus, 'live_checked_at' => now()]
                 );
                 foreach (($models['models'] ?? []) as $m) {
-                    ShopeeProductLink::updateOrCreate(
+                    ShopeeListingLink::updateOrCreate(
                         ['product_id' => $productId, 'shopee_item_id' => $itemId, 'shopee_model_id' => (int) $m['model_id']],
                         ['sku' => trim((string) ($m['model_sku'] ?? '')) ?: null, 'live_status' => $liveStatus, 'live_checked_at' => now()]
                     );
@@ -132,7 +130,7 @@ class ShopeeItemImport
         return [
             'ok' => true,
             'product_id' => $productId,
-            'message' => "Imported \"{$name}\" as catalog product #{$productId}"
+            'message' => "Imported \"{$name}\" as Master Catalog product #{$productId}"
                 . ($models !== null ? ' with ' . count($models['models']) . ' variations' : '')
                 . ', linked to Shopee item ' . $itemId . '.' . (\App\Support\Catalog\SkuFallback::note($minted) !== '' ? ' ' . \App\Support\Catalog\SkuFallback::note($minted) : ''),
         ];
@@ -184,10 +182,10 @@ class ShopeeItemImport
 
         $data = ['sku' => $parentSku];
         if (count($tiers) >= 2) {
-            $data['option1_name'] = $tierNames[0];
-            $data['option2_name'] = $tierNames[1];
-            $data['option1_values'] = $tierOptions[0];
-            $data['option2_values'] = $tierOptions[1];
+            $data['type1_name'] = $tierNames[0];
+            $data['type2_name'] = $tierNames[1];
+            $data['type1_values'] = $tierOptions[0];
+            $data['type2_values'] = $tierOptions[1];
             $combos = [];
             foreach ($models['models'] as $m) {
                 $idx = (array) ($m['tier_index'] ?? []);
@@ -204,8 +202,8 @@ class ShopeeItemImport
             }
             $data['combinations'] = $combos;
         } else {
-            $data['option_name'] = $tierNames[0] ?? 'Variation';
-            $optionImages = array_map(
+            $data['variation_type_name'] = $tierNames[0] ?? 'Variation';
+            $variationImages = array_map(
                 fn ($o) => is_array($o) ? (string) data_get($o, 'image.image_url', '') : '',
                 (array) ($tiers[0]['option_list'] ?? [])
             );
@@ -213,8 +211,8 @@ class ShopeeItemImport
             foreach ($models['models'] as $m) {
                 $idx = (int) (data_get($m, 'tier_index.0') ?? 0);
                 $imagePath = '';
-                if (($optionImages[$idx] ?? '') !== '') {
-                    $imagePath = $this->downloadImages([$optionImages[$idx]], $itemId, 'v' . $idx)[0] ?? '';
+                if (($variationImages[$idx] ?? '') !== '') {
+                    $imagePath = $this->downloadImages([$variationImages[$idx]], $itemId, 'v' . $idx)[0] ?? '';
                 }
                 $values[] = [
                     'name' => $tierOptions[0][$idx] ?? ('Variation ' . ($idx + 1)),
@@ -230,7 +228,7 @@ class ShopeeItemImport
         }
 
         app(\App\Http\Controllers\Catalog\ProductController::class)
-            ->saveAbsoluteOptions($productId, Request::create('/', 'POST', $data));
+            ->saveAbsoluteVariations($productId, Request::create('/', 'POST', $data));
     }
 
     private function downloadImages(array $urls, int $itemId, string $suffix = ''): array

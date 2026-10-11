@@ -6,7 +6,7 @@ use App\Services\Orders\MarketplaceFeeNormalizer;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 
-// Never re-sync to collect fees: a re-sync re-stamps every order line's cost at today's catalogue costs.
+// Never re-sync to collect fees: a re-sync re-stamps every order line's cost at today's catalog costs.
 class NormalizeMarketplaceFees extends Command
 {
     protected $signature = 'orders:normalize-marketplace-fees
@@ -18,13 +18,12 @@ class NormalizeMarketplaceFees extends Command
 
     public function handle(MarketplaceFeeNormalizer $normalizer): int
     {
-        $pfx = (string) config('catalog.prefix');
         $from = ($this->option('from') ?: '2026-02-01') . ' 00:00:00';
         $to = ($this->option('to') ?: now()->format('Y-m-d')) . ' 23:59:59';
 
-        $orders = DB::table($pfx . 'order')
+        $orders = DB::table('orders')
             ->whereBetween('date_added', [$from, $to])
-            ->where('marketplace_source', '<>', '')
+            ->where('channel', '<>', '')
             ->orderBy('order_id')
             ->pluck('order_id');
 

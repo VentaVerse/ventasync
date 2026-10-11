@@ -52,7 +52,7 @@
         <x-ui.empty title="Everything matches"
                     description="Every item on the store already maps to an SKU in your Master Catalog. Nothing to import." />
     @else
-        <p class="fm-section__note">These items exist on the store but not in your Master Catalog. <x-ui.hint label="How importing works">Import one, or tick several and import them together, to create the real product in your Master Catalog - details, variations and images included. Or link it to a catalog product it already is.</x-ui.hint></p>
+        <p class="fm-section__note">These items exist on the store but not in your Master Catalog. <x-ui.hint label="How importing works">Import one, or tick several and import them together, to create the real product in your Master Catalog - details, variations and images included. Or link it to a Master Catalog product it already is.</x-ui.hint></p>
 
         <div class="cc-bulkbar" data-import-bar hidden>
             <span class="cc-bulkbar__count"><span data-import-count>0</span> selected</span>
@@ -73,7 +73,7 @@
                     <th scope="col" class="cc-col-check"><input type="checkbox" class="cc-check" data-import-check-all aria-label="Select all for import"></th>
                     <th scope="col">Store item</th>
                     <th scope="col" class="cc-col-sku">SKU</th>
-                    <th scope="col" class="cc-col-link">Catalog product</th>
+                    <th scope="col" class="cc-col-link">Master Catalog product</th>
                     <th scope="col" class="x-td-actions"><span class="x-sr">Actions</span></th>
                 </tr>
             </x-slot:head>
@@ -106,7 +106,7 @@
                             <span class="x-cell-muted">None</span>
                         @endif
                     </td>
-                    <td class="cc-col-link" data-label="Catalog product">
+                    <td class="cc-col-link" data-label="Master Catalog product">
                         <form method="POST" action="{{ route('ext.ventacart.products.link_item', $store) }}"
                               class="cc-link"
                               data-unmatched-link
@@ -119,8 +119,8 @@
                             <div class="fm-ta">
                                 <input type="text" class="x-input" data-unmatched-search
                                        placeholder="Search name, model or SKU" autocomplete="off"
-                                       aria-label="Search the catalog for the product this store item is">
-                                <div class="fm-ta__list" data-unmatched-results role="listbox" aria-label="Catalog matches"></div>
+                                       aria-label="Search the Master Catalog for the product this store item is">
+                                <div class="fm-ta__list" data-unmatched-results role="listbox" aria-label="Master Catalog matches"></div>
                             </div>
                             <input type="hidden" name="product_id" value="" data-unmatched-id>
                             <x-ui.button type="submit" size="sm" disabled data-unmatched-submit>Link</x-ui.button>

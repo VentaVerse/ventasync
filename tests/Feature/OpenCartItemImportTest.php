@@ -6,8 +6,8 @@ use App\Extensions\ExtensionManager;
 use App\Models\Admin\Permission;
 use App\Models\Admin\UserGroup;
 use App\Models\User;
-use Extensions\opencart\Models\OpenCartProductLink;
-use Extensions\opencart\Models\OpenCartSetting;
+use Extensions\OpenCart\Models\OpenCartListingLink;
+use Extensions\OpenCart\Models\OpenCartStore;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
@@ -26,14 +26,14 @@ class OpenCartItemImportTest extends TestCase
         $manager = $this->app->make(ExtensionManager::class);
         $manager->install('opencart');
         $manager->enable('opencart');
-        $this->app->register(\Extensions\opencart\OpencartExtension::class);
+        $this->app->register(\Extensions\OpenCart\OpenCartExtension::class);
         $this->app['router']->getRoutes()->refreshNameLookups();
-        $this->artisan('permissions:sync-catalogue');
+        $this->artisan('permissions:sync-catalog');
     }
 
-    private function store(): OpenCartSetting
+    private function store(): OpenCartStore
     {
-        return OpenCartSetting::query()->create([
+        return OpenCartStore::query()->create([
             'store_name' => 'One', 'enabled' => true,
             'base_url' => self::BASE, 'api_key' => 'k',
         ]);
@@ -51,15 +51,14 @@ class OpenCartItemImportTest extends TestCase
 
     private function seedProduct(string $sku): int
     {
-        $pfx = (string) config('catalog.prefix');
         $langId = (int) config('catalog.default_language_id');
-        $pid = DB::table($pfx . 'product')->insertGetId([
+        $pid = DB::table('products')->insertGetId([
             'model' => $sku, 'sku' => $sku, 'quantity' => 5, 'price' => 100,
             'status' => 1, 'image' => '', 'weight' => 0.5, 'length' => 10, 'width' => 10, 'height' => 5,
-            'manufacturer_id' => 0,
+            'brand_id' => 0,
             'date_added' => now(), 'date_modified' => now(), 'date_available' => now(),
         ]);
-        DB::table($pfx . 'product_description')->insert([
+        DB::table('product_descriptions')->insert([
             'product_id' => $pid, 'language_id' => $langId,
             'name' => 'Existing ' . $sku, 'description' => '',
             'meta_title' => '', 'meta_description' => '', 'meta_keyword' => '', 'tag' => '',
@@ -121,13 +120,11 @@ class OpenCartItemImportTest extends TestCase
         $this->actingAs($this->manager())
             ->post(route('ext.opencart.products.import_one', $setting->id), ['ref' => 12])
             ->assertRedirect();
-
-        $pfx = (string) config('catalog.prefix');
-        $product = DB::table($pfx . 'product')->where('sku', 'IMP-1')->first();
+        $product = DB::table('products')->where('sku', 'IMP-1')->first();
         $this->assertNotNull($product, 'the import must create the catalog product');
         $this->assertSame(1, (int) $product->status, 'already selling on the store: it arrives enabled');
 
-        $values = DB::table($pfx . 'product_option_value')
+        $values = DB::table('product_variation_values')
             ->where('product_id', $product->product_id)->get();
         $this->assertEqualsCanonicalizing(['IMP-1-S', 'IMP-1-L'], $values->pluck('sku')->all(),
             'one OpenCart option set becomes a real variation axis');
@@ -136,7 +133,7 @@ class OpenCartItemImportTest extends TestCase
         $this->assertEqualsCanonicalizing([95.0, 110.0], $absolute,
             'relative OpenCart prices convert to absolute variation prices');
 
-        $link = OpenCartProductLink::query()->where('product_id', $product->product_id)->first();
+        $link = OpenCartListingLink::query()->where('product_id', $product->product_id)->first();
         $this->assertNotNull($link);
         $this->assertSame(12, (int) $link->oc_product_id);
     }
@@ -157,11 +154,9 @@ class OpenCartItemImportTest extends TestCase
         $this->actingAs($this->manager())
             ->post(route('ext.opencart.products.import_one', $setting->id), ['ref' => 13])
             ->assertRedirect();
-
-        $pfx = (string) config('catalog.prefix');
-        $product = DB::table($pfx . 'product')->where('sku', 'IMP-3')->first();
+        $product = DB::table('products')->where('sku', 'IMP-3')->first();
         $this->assertNotNull($product);
-        $this->assertSame(0, DB::table($pfx . 'product_option_value')->where('product_id', $product->product_id)->count(),
+        $this->assertSame(0, DB::table('product_variation_values')->where('product_id', $product->product_id)->count(),
             'independent option sets cannot honestly become variations - the import stays flat');
         $this->assertStringContainsString('independent option sets', session('status'),
             'the flat import says so instead of quietly dropping structure');
@@ -185,8 +180,7 @@ class OpenCartItemImportTest extends TestCase
 
         $r->assertSessionHas('error');
         $this->assertStringContainsString('Not imported', session('error'));
-        $pfx = (string) config('catalog.prefix');
-        $this->assertNull(DB::table($pfx . 'product')->where('sku', 'IMP-2')->first(),
+        $this->assertNull(DB::table('products')->where('sku', 'IMP-2')->first(),
             'a refused import must leave nothing half-created');
     }
 

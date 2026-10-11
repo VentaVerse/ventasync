@@ -46,7 +46,7 @@
     <span class="cc-bulkbar__count" aria-live="polite"><span class="x-num" x-text="selected.length"></span> selected</span>
     <div class="cc-bulkbar__actions">
         <form method="POST" action="{{ route('ext.opencart.product-groups.push', [$setting->id, $group->id]) }}" data-bulk-form
-              data-bulk-confirm="Push the selected products to {{ $storeName }}? Anything already there is overwritten with the catalog's version.">
+              data-bulk-confirm="Push the selected products to {{ $storeName }}? Anything already there is overwritten with the Master Catalog's version.">
             @csrf
             <x-ui.button type="submit" size="sm">Push to {{ $storeName }}</x-ui.button>
         </form>
@@ -58,7 +58,7 @@
     <x-ui.empty title="{{ $hasSearch ? 'Nothing matches that search' : 'No products in this product group' }}"
                 :description="$hasSearch
                     ? 'Clear the search to see everything in the product group.'
-                    : 'Edit the product group to widen its category and manufacturer filter, or add products one at a time below.'">
+                    : 'Edit the product group to widen its category and brand filter, or add products one at a time below.'">
         @if($canManageOpencart && !$hasSearch)
         <x-slot:action>
             <x-ui.button variant="primary" :href="route('ext.opencart.product-groups.edit', [$setting->id, $group->id])">Edit product group</x-ui.button>
@@ -82,7 +82,7 @@
             <th scope="col">Product</th>
             <th scope="col" class="cc-col-qty x-td-num">Stock</th>
             <th scope="col" class="cc-col-price x-td-num">Price</th>
-            <th scope="col" class="cc-col-stat">Catalog</th>
+            <th scope="col" class="cc-col-stat">Master Catalog</th>
             <th scope="col" class="cc-col-chanid">This store</th>
             <th scope="col" class="x-td-actions"><span class="x-sr">Actions</span></th>
         </tr>
@@ -151,16 +151,16 @@
             <td class="x-td-actions">
                 @if($canManageOpencart)
                 <x-ui.menu label="Product {{ $p->product_id }} actions">
-                    <a class="x-menu__item" href="{{ route('products.edit', $p->product_id) }}">Edit in catalog</a>
+                    <a class="x-menu__item" href="{{ route('products.edit', $p->product_id) }}">Edit in Master Catalog</a>
                     <form method="POST" action="{{ route('ext.opencart.products.push', [$setting->id, $p->product_id]) }}" data-slow-action
-                          data-confirm="Push {{ $pName ?: 'this product' }} to {{ $storeName }}? Anything already there is overwritten with the catalog's version.">
+                          data-confirm="Push {{ $pName ?: 'this product' }} to {{ $storeName }}? Anything already there is overwritten with the Master Catalog's version.">
                         @csrf
                         <button type="submit" class="x-menu__item">Push to {{ $storeName }}</button>
                     </form>
                     @if($isManual)
                         <div class="x-menu__sep"></div>
                         <form method="POST" action="{{ route('ext.opencart.product-groups.removeProduct', [$setting->id, $group->id, $p->product_id]) }}"
-                              data-confirm="Take {{ $pName ?: 'this product' }} out of the product group? Nothing is deleted from the catalog, and nothing already on {{ $storeName }} is touched.">
+                              data-confirm="Take {{ $pName ?: 'this product' }} out of the product group? Nothing is deleted from the Master Catalog, and nothing already on {{ $storeName }} is touched.">
                             @csrf
                             @method('DELETE')
                             <button type="submit" class="x-menu__item x-menu__item--danger">Remove from product group</button>
@@ -185,14 +185,14 @@
     <div class="fm-section__head">
         <h2 class="fm-section__title">Add a product by name</h2>
     </div>
-    <p class="fm-section__note">For a product the product group's category and manufacturer filter does not pick up. Type at least two characters.</p>
+    <p class="fm-section__note">For a product the product group's category and brand filter does not pick up. Type at least two characters.</p>
 
     <form id="opencart-add-products" method="POST" action="{{ route('ext.opencart.product-groups.addProducts', [$setting->id, $group->id]) }}">
         @csrf
     </form>
 
     <div class="cc-link">
-        <x-ui.input type="search" placeholder="Product name or SKU" aria-label="Search the catalog to add a product"
+        <x-ui.input type="search" placeholder="Product name or SKU" aria-label="Search the Master Catalog to add a product"
                     data-manual-search />
         <x-ui.button type="button" data-manual-search-go>Search</x-ui.button>
         <x-ui.button type="submit" variant="primary" form="opencart-add-products" data-manual-add disabled>Add selected</x-ui.button>

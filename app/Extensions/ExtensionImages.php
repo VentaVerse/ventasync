@@ -46,8 +46,8 @@ final class ExtensionImages
             $w = imagesx($image);
             $h = imagesy($image);
             foreach ([[1, 1], [$w - 2, 1], [1, $h - 2], [$w - 2, $h - 2]] as [$x, $y]) {
-                $colour = imagecolorsforindex($image, imagecolorat($image, max(0, $x), max(0, $y)));
-                if (($colour['alpha'] ?? 0) < 100) {
+                $color = imagecolorsforindex($image, imagecolorat($image, max(0, $x), max(0, $y)));
+                if (($color['alpha'] ?? 0) < 100) {
                     return false;
                 }
             }

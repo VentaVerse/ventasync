@@ -2,14 +2,14 @@
 
 namespace App\Services;
 
-use App\Integrations\IntegrationRegistry;
-use App\Integrations\Push\PushLedger;
+use App\Channels\ChannelRegistry;
+use App\Channels\Push\PushLedger;
 
 class VariationForgetService
 {
     public static function snapshot(int $productId): array
     {
-        return PushLedger::erpVariationSkus([$productId], (string) config('catalog.prefix'))[$productId] ?? [];
+        return PushLedger::erpVariationSkus([$productId])[$productId] ?? [];
     }
 
     public function reconcile(int $productId, array $before): array
@@ -25,8 +25,8 @@ class VariationForgetService
         if ($removed === []) {
             return [];
         }
-        \App\Integrations\Listings\ListingVariations::forget($productId, $removed);
-        foreach (app(IntegrationRegistry::class)->variationForgetters() as $forgetter) {
+        \App\Channels\Listings\ListingVariations::forget($productId, $removed);
+        foreach (app(ChannelRegistry::class)->variationForgetters() as $forgetter) {
             $forgetter->forgetVariations($productId, $removed);
         }
 

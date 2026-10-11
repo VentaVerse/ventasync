@@ -6,10 +6,10 @@ use App\Extensions\ExtensionManager;
 use App\Models\Admin\Permission;
 use App\Models\Admin\UserGroup;
 use App\Models\User;
-use Extensions\lazada\Models\LazadaSetting;
-use Extensions\shopee\Models\ShopeeApiLog;
-use Extensions\shopee\Models\ShopeeSetting;
-use Extensions\tiktok\Models\TikTokSetting;
+use Extensions\Lazada\Models\LazadaStore;
+use Extensions\Shopee\Models\ShopeeApiLog;
+use Extensions\Shopee\Models\ShopeeStore;
+use Extensions\TikTok\Models\TikTokStore;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -26,11 +26,11 @@ class SettingsTabReturnTest extends TestCase
             $manager->install($ext);
             $manager->enable($ext);
         }
-        $this->app->register(\Extensions\shopee\ShopeeExtension::class);
-        $this->app->register(\Extensions\lazada\LazadaExtension::class);
-        $this->app->register(\Extensions\tiktok\TikTokExtension::class);
+        $this->app->register(\Extensions\Shopee\ShopeeExtension::class);
+        $this->app->register(\Extensions\Lazada\LazadaExtension::class);
+        $this->app->register(\Extensions\TikTok\TikTokExtension::class);
         $this->app['router']->getRoutes()->refreshNameLookups();
-        $this->artisan('permissions:sync-catalogue');
+        $this->artisan('permissions:sync-catalog');
     }
 
     private function manager(string $channel): User
@@ -43,9 +43,9 @@ class SettingsTabReturnTest extends TestCase
         return User::factory()->create(['user_group_id' => $group->id]);
     }
 
-    private function tiktokStore(string $name): TikTokSetting
+    private function tiktokStore(string $name): TikTokStore
     {
-        return TikTokSetting::create([
+        return TikTokStore::create([
             'mode' => 'production', 'store_name' => $name, 'app_key' => 'k', 'app_secret' => 's',
             'access_token' => 't', 'refresh_token' => 'r', 'shop_cipher' => 'c-' . uniqid(), 'expires_at' => now()->addDays(3),
         ]);
@@ -53,8 +53,8 @@ class SettingsTabReturnTest extends TestCase
 
     public function test_shopee_log_controls_land_on_the_logs_tab_of_the_store_they_were_pressed_on(): void
     {
-        $a = ShopeeSetting::create(['mode' => 'live', 'store_name' => 'Main', 'api_log_mode' => 'all']);
-        $b = ShopeeSetting::create(['mode' => 'live', 'store_name' => 'Outlet', 'api_log_mode' => 'all']);
+        $a = ShopeeStore::create(['mode' => 'live', 'store_name' => 'Main', 'api_log_mode' => 'all']);
+        $b = ShopeeStore::create(['mode' => 'live', 'store_name' => 'Outlet', 'api_log_mode' => 'all']);
         $user = $this->manager('shopee');
         $logsTab = route('ext.shopee.settings.show', ['store' => $b->id, 'tab' => 'logs']);
 
@@ -64,14 +64,14 @@ class SettingsTabReturnTest extends TestCase
         $this->assertSame('errors', $b->fresh()->api_log_mode);
         $this->assertSame('all', $a->fresh()->api_log_mode, 'the first store is not the one the operator was standing in');
 
-        ShopeeApiLog::create(['shopee_setting_id' => $a->id, 'method' => 'GET', 'api_path' => '/a1', 'ok' => true, 'response_status' => 200]);
-        ShopeeApiLog::create(['shopee_setting_id' => $a->id, 'method' => 'GET', 'api_path' => '/a2', 'ok' => true, 'response_status' => 200]);
-        ShopeeApiLog::create(['shopee_setting_id' => $b->id, 'method' => 'GET', 'api_path' => '/b1', 'ok' => true, 'response_status' => 200]);
+        ShopeeApiLog::create(['store_id' => $a->id, 'method' => 'GET', 'api_path' => '/a1', 'ok' => true, 'response_status' => 200]);
+        ShopeeApiLog::create(['store_id' => $a->id, 'method' => 'GET', 'api_path' => '/a2', 'ok' => true, 'response_status' => 200]);
+        ShopeeApiLog::create(['store_id' => $b->id, 'method' => 'GET', 'api_path' => '/b1', 'ok' => true, 'response_status' => 200]);
         $this->actingAs($user)
             ->delete('/channels/shopee/' . $b->id . '/api-logs')
             ->assertRedirect($logsTab);
-        $this->assertSame(0, ShopeeApiLog::withoutGlobalScope('shopeeStore')->where('shopee_setting_id', $b->id)->count());
-        $this->assertSame(2, ShopeeApiLog::withoutGlobalScope('shopeeStore')->where('shopee_setting_id', $a->id)->count(), 'a purge on one store never wipes another');
+        $this->assertSame(0, ShopeeApiLog::withoutGlobalScope('shopeeStore')->where('store_id', $b->id)->count());
+        $this->assertSame(2, ShopeeApiLog::withoutGlobalScope('shopeeStore')->where('store_id', $a->id)->count(), 'a purge on one store never wipes another');
 
         $this->actingAs($user)
             ->post('/channels/shopee/' . $b->id . '/purge-raw', ['days' => 30])
@@ -80,7 +80,7 @@ class SettingsTabReturnTest extends TestCase
 
     public function test_shopee_status_map_and_explorer_land_on_their_own_tabs(): void
     {
-        $store = ShopeeSetting::create(['mode' => 'live', 'store_name' => 'Main']);
+        $store = ShopeeStore::create(['mode' => 'live', 'store_name' => 'Main']);
         $user = $this->manager('shopee');
 
         $this->actingAs($user)
@@ -107,7 +107,7 @@ class SettingsTabReturnTest extends TestCase
 
     public function test_lazada_actions_land_on_their_tabs_and_the_store_has_a_name_and_a_switch(): void
     {
-        $store = LazadaSetting::create(['mode' => 'live', 'store_name' => 'Gearshipper']);
+        $store = LazadaStore::create(['mode' => 'live', 'store_name' => 'Gearshipper']);
         $user = $this->manager('lazada');
         $base = '/channels/lazada/' . $store->id;
 
@@ -159,7 +159,7 @@ class SettingsTabReturnTest extends TestCase
 
     public function test_a_store_standing_in_sandbox_still_sees_its_name_and_switch(): void
     {
-        $store = ShopeeSetting::create(['mode' => 'sandbox', 'store_name' => 'Main store']);
+        $store = ShopeeStore::create(['mode' => 'sandbox', 'store_name' => 'Main store']);
         $user = $this->manager('shopee');
 
         $html = $this->actingAs($user)->get(route('ext.shopee.settings.show', ['store' => $store->id]))->assertOk()->getContent();
@@ -175,7 +175,7 @@ class SettingsTabReturnTest extends TestCase
 
     public function test_a_fields_description_is_a_tooltip_on_its_label_row_not_a_paragraph(): void
     {
-        $store = ShopeeSetting::create(['mode' => 'live', 'store_name' => 'Main']);
+        $store = ShopeeStore::create(['mode' => 'live', 'store_name' => 'Main']);
 
         $html = $this->actingAs($this->manager('shopee'))
             ->get(route('ext.shopee.settings.show', ['store' => $store->id]))

@@ -1,7 +1,7 @@
 @extends('layouts.channel')
-@section('breadcrumb', 'Listings')
+@section('breadcrumb', 'Products')
 
-@section('title', 'Shopee Listings')
+@section('title', 'Shopee Products')
 
 @section('content')
 @php
@@ -10,7 +10,7 @@
 
     $q = (string) ($q ?? '');
     $syncStatus = (string) ($syncStatus ?? 'all');
-    $manufacturerFilter = (string) ($manufacturerFilter ?? 'all');
+    $brandFilter = (string) ($brandFilter ?? 'all');
     $groupFilter = (string) ($groupFilter ?? 'all');
     $erpStatus = (string) ($erpStatus ?? 'all');
 
@@ -20,7 +20,7 @@
         || ($gapFilter ?? 'all') !== 'all'
         || ($failedFlag ?? false)
         || ($changeFlag ?? false)
-        || $manufacturerFilter !== 'all'
+        || $brandFilter !== 'all'
         || $groupFilter !== 'all'
         || $erpStatus !== 'all';
 
@@ -49,12 +49,12 @@
 
 <div class="x-list-head">
     <div>
-        <h1 class="x-page-title">Listings</h1>
+        <h1 class="x-page-title">Products</h1>
         <p class="x-page-sub">
             @if($hasFilters)
                 {{ number_format($products->total()) }} {{ $products->total() === 1 ? 'product matches' : 'products match' }}@if($statusMenu['label'] ?? null): {{ $statusMenu['label'] }}@endif
             @else
-                {{ number_format($catalogueTotal ?? $products->total()) }} {{ ($catalogueTotal ?? $products->total()) === 1 ? 'product' : 'products' }} on this store
+                {{ number_format($catalogTotal ?? $products->total()) }} {{ ($catalogTotal ?? $products->total()) === 1 ? 'product' : 'products' }} on this store
                 &middot; {{ number_format($listedTotal ?? 0) }} on Shopee
             @endif
         </p>
@@ -130,10 +130,10 @@
                 value="{{ $q }}" placeholder="Name, model or SKU" aria-label="Search listings" />
 
     <div class="x-select-wrap x-filters__select">
-        <select name="manufacturer" class="x-input" data-autosubmit aria-label="Filter by manufacturer">
-            <option value="all">All manufacturers</option>
-            @foreach(($allManufacturers ?? collect()) as $mId => $mName)
-                <option value="{{ $mId }}" @selected($manufacturerFilter === (string) $mId)>{{ $mName }}</option>
+        <select name="brand" class="x-input" data-autosubmit aria-label="Filter by brand">
+            <option value="all">All brands</option>
+            @foreach(($allBrands ?? collect()) as $mId => $mName)
+                <option value="{{ $mId }}" @selected($brandFilter === (string) $mId)>{{ $mName }}</option>
             @endforeach
         </select>
         <x-ui.icon name="chevron-down" size="14" class="x-select-wrap__chevron" />
@@ -141,16 +141,16 @@
 
 
     <div class="x-select-wrap x-filters__select x-filters__select--narrow">
-        <select name="erp_status" class="x-input" data-autosubmit aria-label="Filter by catalog status">
-            <option value="all" @selected($erpStatus === 'all')>Any catalog status</option>
+        <select name="erp_status" class="x-input" data-autosubmit aria-label="Filter by Master Catalog status">
+            <option value="all" @selected($erpStatus === 'all')>Any Master Catalog status</option>
             <option value="enabled" @selected($erpStatus === 'enabled')>Enabled</option>
             <option value="disabled" @selected($erpStatus === 'disabled')>Disabled</option>
         </select>
         <x-ui.icon name="chevron-down" size="14" class="x-select-wrap__chevron" />
     </div>
 
-    @if(!empty($orderOptions))
-        @include('partials.listing-sort', ['options' => $orderOptions, 'chosen' => $order])
+    @if(!empty($orderVariations))
+        @include('partials.listing-sort', ['options' => $orderVariations, 'chosen' => $order])
     @endif
 
     <x-ui.button type="submit" variant="secondary">Search</x-ui.button>
@@ -249,7 +249,7 @@
                     @if($sort === 'price')<x-ui.icon name="{{ $dir === 'asc' ? 'chevron-up' : 'chevron-down' }}" size="12" />@endif
                 </a>
             </th>
-            <th scope="col" class="cc-col-stat">Catalog</th>
+            <th scope="col" class="cc-col-stat">Master Catalog</th>
             <th scope="col" class="cc-col-sync">Listing</th>
             <th scope="col" class="x-td-actions"><span class="x-sr">Actions</span></th>
         </tr>
@@ -257,13 +257,13 @@
 
     @php
 
-        $marks = new \App\Integrations\Listings\ListingMarks(
+        $marks = new \App\Channels\Listings\ListingMarks(
 
-            'shopee', \App\Integrations\Listings\ListingStore::id('shopee'),
+            'shopee', \App\Channels\Listings\ListingStore::id('shopee'),
 
             $products->pluck('product_id')->map(fn ($v) => (int) $v)->all(),
 
-            'shopee_listings', 'shopee_setting_id', 'shopee_product_groups', 'shopee_product_group_products', 'shopee_product_group_id', 'shopee_setting_id'
+            'ch_shopee_listings', 'store_id', 'ch_shopee_product_groups', 'ch_shopee_product_group_products', 'shopee_product_group_id', 'store_id'
 
         );
 
@@ -275,7 +275,7 @@
             $links = $shopeeLinks->get($p->product_id, collect());
             $link = $links->first();
             $pGroups = isset($groupsByProductId) ? ($groupsByProductId[$p->product_id] ?? []) : [];
-            $optRows = isset($optionRowsByProductId) ? $optionRowsByProductId->get($p->product_id) : null;
+            $optRows = isset($variationRowsByProductId) ? $variationRowsByProductId->get($p->product_id) : null;
             $variationCount = $optRows ? count($optRows) : 0;
 
             $img = trim((string) ($p->image ?? ''));
@@ -311,15 +311,15 @@
                         <div class="co-item__meta">
                             <span class="co-item__sku">{{ $p->sku ?: 'No SKU' }}</span>
                             @if($link)
-                                @php $liveUrl = \Extensions\shopee\Models\ShopeeSetting::publicListingUrl($link->shopee_item_id); @endphp
+                                @php $liveUrl = \Extensions\Shopee\Models\ShopeeStore::publicListingUrl($link->shopee_item_id); @endphp
                                 @if($liveUrl)
                                     <a class="co-item__sku lsm-chanid" href="{{ $liveUrl }}" target="_blank" rel="noopener">Shopee {{ $link->shopee_item_id }}<x-ui.icon name="external-link" size="10" class="x-extlink" /><span class="x-sr"> (opens Shopee in a new tab)</span></a>
                                 @else
                                     <span class="co-item__sku lsm-chanid">Shopee {{ $link->shopee_item_id }}</span>
                                 @endif
                             @endif
-                            @if($p->manufacturer_name)
-                                <span>{{ $p->manufacturer_name }}</span>
+                            @if($p->brand_name)
+                                <span>{{ $p->brand_name }}</span>
                             @endif
                             @if(($groupFilter ?? 'all') === 'all' && count($pGroups) > 0)
                                 <a class="co-item__var" href="{{ route('ext.shopee.products.index', array_merge(request()->except(['page', 'sync_status', 'group']), ['group' => $pGroups[0]['id']])) }}">Product group: {{ $pGroups[0]['name'] }}</a>
@@ -342,11 +342,11 @@
                 @php $rowState = $listingStates[(int) $p->product_id] ?? null; @endphp
                 @if($rowState === null)
                     <x-ui.badge tone="neutral">Not listed</x-ui.badge>
-                @elseif($rowState->state === \App\Integrations\Listings\ListingState::UNKNOWN && $link && ($liveCounts ?? null) === null)
+                @elseif($rowState->state === \App\Channels\Listings\ListingState::UNKNOWN && $link && ($liveCounts ?? null) === null)
                     <x-ui.badge tone="success">Listed</x-ui.badge>
-                @elseif($rowState->state === \App\Integrations\Listings\ListingState::UNKNOWN)
+                @elseif($rowState->state === \App\Channels\Listings\ListingState::UNKNOWN)
                     <x-ui.badge tone="neutral" title="Press Refresh from Shopee to read its status">{{ $rowState->label() }}</x-ui.badge>
-                @elseif($rowState->state === \App\Integrations\Listings\ListingState::NOT_LISTED)
+                @elseif($rowState->state === \App\Channels\Listings\ListingState::NOT_LISTED)
                     <x-ui.badge :tone="$rowState->tone()">{{ $rowState->label() }}</x-ui.badge>
                 @else
                     <span @if($rowState->checkedAt) title="Checked {{ $rowState->checkedAt->diffForHumans() }}" @endif>
@@ -378,9 +378,9 @@
                             $menu['link'] = ['action' => route('ext.shopee.products.sync_shopee_id', $p->product_id)];
                         } else {
                             $menu['update'] = ['action' => route('ext.shopee.listings.push_update', $p->product_id), 'label' => 'Send to Shopee', 'confirm' => "Send this listing's content and settings to the live Shopee item? Title, description, package, category, couriers, attributes, price and stock are updated.", 'verb' => 'Send', 'tone' => 'primary'];
-                            if ($rowState?->state === \App\Integrations\Listings\ListingState::LIVE) {
+                            if ($rowState?->state === \App\Channels\Listings\ListingState::LIVE) {
                                 $menu['switch'] = ['action' => route('ext.shopee.listings.toggle', $p->product_id), 'label' => 'Delist from Shopee', 'fields' => ['action' => 'unlist'], 'confirm' => 'Delist this item from Shopee? Buyers stop seeing it immediately. It can be published again at any time.', 'verb' => 'Delist'];
-                            } elseif ($rowState?->state === \App\Integrations\Listings\ListingState::INACTIVE) {
+                            } elseif ($rowState?->state === \App\Channels\Listings\ListingState::INACTIVE) {
                                 $menu['switch'] = ($parcelGaps[$p->product_id] ?? null) !== null
                                     ? ['href' => route('products.edit', $p->product_id), 'label' => 'Add weight and size, then publish', 'title' => 'Shopee will refuse to publish without ' . $parcelGaps[$p->product_id]]
                                     : ['action' => route('ext.shopee.listings.toggle', $p->product_id), 'label' => 'Publish on Shopee', 'fields' => ['action' => 'list'], 'confirm' => 'Publish this item on Shopee? Buyers see it again immediately.', 'verb' => 'Publish', 'tone' => 'primary'];
@@ -427,17 +427,17 @@
 @if($canManageShopee)
     <x-channel.add-panel
         id="shopee-add-panel"
-        :search-url="route('ext.shopee.products.catalogue_search')"
+        :search-url="route('ext.shopee.products.catalog_search')"
         :add-url="route('ext.shopee.products.add_to_store', ['productId' => '__PID__'])"
-        :groups="\App\Integrations\Listings\StatusMenu::groupChoices($statusMenu ?? [])"
-        :group="\App\Integrations\Listings\StatusMenu::chosenGroup($statusMenu ?? [])"
+        :groups="\App\Channels\Listings\StatusMenu::groupChoices($statusMenu ?? [])"
+        :group="\App\Channels\Listings\StatusMenu::chosenGroup($statusMenu ?? [])"
         sub="Search your Master Catalog. Each product you add joins this store's list, ready to configure and push to Shopee."
         toggle-label="Show products already on this store"
         in-label="On this store"
         scope="this store"
         empty-default="Every enabled product is already on this store."
-        empty-all="Your catalogue has no enabled products."
-        list-label="Catalogue products"
+        empty-all="Your Master Catalog has no enabled products."
+        list-label="Master Catalog products"
         :full-url="route('ext.shopee.products.index', ['list' => 'add'])" />
 @endif
 

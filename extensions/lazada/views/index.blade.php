@@ -95,8 +95,8 @@
     @endif
 
     @php
-        $csCategories = \Extensions\lazada\Models\LazadaCategory::query()->count();
-        $csBrands = \Extensions\lazada\Models\LazadaBrand::query()->where('region', (string) ($setting->region ?? ''))->count();
+        $csCategories = \Extensions\Lazada\Models\LazadaCategory::query()->count();
+        $csBrands = \Extensions\Lazada\Models\LazadaBrand::query()->where('region', (string) ($setting->region ?? ''))->count();
         $csSetUp = $csCategories > 0 && $csBrands > 0;
         $csSetupState = $csSetUp || $csCategories > 0 || $csBrands > 0
             ? number_format($csCategories) . ' ' . \Illuminate\Support\Str::plural('category', $csCategories) . ' and ' . number_format($csBrands) . ' ' . \Illuminate\Support\Str::plural('brand', $csBrands) . ' on file'
@@ -566,7 +566,7 @@
                     <button type="button" class="api-endpoint" data-ep='{"name":"Ready To Ship (RTS)","method":"POST","auth":true,"path":"/order/rts","desc":"Mark packed items as ready to ship.","params":[{"k":"delivery_type","req":true,"ph":"dropship"},{"k":"shipping_provider","req":true,"ph":""},{"k":"tracking_number","req":false,"ph":""},{"k":"order_item_ids","req":true,"ph":"comma separated"}]}'><span class="api-badge post">POST</span><span class="api-code">/order/rts</span><div class="api-hint">delivery_type, shipping_provider, order_item_ids</div></button>
                     <button type="button" class="api-endpoint" data-ep='{"name":"Get Shipping Label (AWB)","method":"GET","auth":true,"path":"/order/package/document/get","desc":"Fetch shipping label or document for an order.","params":[{"k":"order_id","req":true,"ph":"123"},{"k":"doc_type","req":false,"ph":"shippingLabel"}]}'><span class="api-badge get">GET</span><span class="api-code">/order/package/document/get</span><div class="api-hint">order_id, doc_type</div></button>
                     <button type="button" class="api-endpoint" data-ep='{"name":"Cancel Order Item","method":"POST","auth":true,"path":"/order/cancel","desc":"Cancel an order item.","params":[{"k":"reason_id","req":true,"ph":""},{"k":"order_item_id","req":true,"ph":""},{"k":"reason_detail","req":false,"ph":""}]}'><span class="api-badge post">POST</span><span class="api-code">/order/cancel</span><div class="api-hint">reason_id, order_item_id</div></button>
-                    <button type="button" class="api-endpoint" data-ep='{"name":"Validate Cancel","method":"GET","auth":true,"path":"/order/reverse/cancel/validate","desc":"Validate whether an order can be cancelled.","params":[{"k":"order_id","req":true,"ph":"123"}]}'><span class="api-badge get">GET</span><span class="api-code">/order/reverse/cancel/validate</span><div class="api-hint">order_id</div></button>
+                    <button type="button" class="api-endpoint" data-ep='{"name":"Validate Cancel","method":"GET","auth":true,"path":"/order/reverse/cancel/validate","desc":"Validate whether an order can be canceled.","params":[{"k":"order_id","req":true,"ph":"123"}]}'><span class="api-badge get">GET</span><span class="api-code">/order/reverse/cancel/validate</span><div class="api-hint">order_id</div></button>
 
                     <div class="api-cat">Images</div>
                     <button type="button" class="api-endpoint" data-ep='{"name":"Image Upload (Base64)","method":"POST","auth":true,"path":"/image/upload","desc":"Upload base64 image (returns a Lazada-hosted link).","params":[{"k":"image","req":true,"ph":"base64 data"}]}'><span class="api-badge post">POST</span><span class="api-code">/image/upload</span><div class="api-hint">image, base64</div></button>
@@ -732,7 +732,7 @@
             <h2 class="fm-section__title">Scheduled jobs</h2>
             <x-ui.hint label="About the scheduled jobs">How often each Lazada sync runs, and how far back it looks. Changes here take effect the next time the scheduler wakes up.</x-ui.hint>
         </div>
-        @include('partials._automations_tab', ['integration' => 'lazada', 'storeId' => null])
+        @include('partials._automations_tab', ['extension' => 'lazada', 'storeId' => null])
     </section>
 </div>
 @endif

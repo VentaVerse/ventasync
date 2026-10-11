@@ -48,10 +48,10 @@
         single.querySelector('[data-pr-sub]').textContent = data.name + (data.sku ? ' · ' + data.sku : '');
         const facts = single.querySelector('[data-pr-facts]');
         facts.textContent = '';
-        fact(facts, 'Goes up at', '₱' + data.price, '(₱' + data.core_price + ' catalog, ' + data.rule + ')');
+        fact(facts, 'Goes up at', '₱' + data.price, '(₱' + data.core_price + ' Master Catalog, ' + data.rule + ')');
         fact(facts, 'Category', data.category || 'None');
         fact(facts, 'Couriers', data.couriers.length ? data.couriers.join(', ') : 'None');
-        fact(facts, 'Images', String(data.images) + ' from the catalog product', data.images_note || undefined);
+        fact(facts, 'Images', String(data.images) + ' from the Master Catalog product', data.images_note || undefined);
         if (data.variations > 0) fact(facts, 'Variations', String(data.variations) + ' go with it');
         single.querySelector('[data-pr-title]').value = data.title || '';
         single.querySelector('[data-pr-description]').value = data.description || '';

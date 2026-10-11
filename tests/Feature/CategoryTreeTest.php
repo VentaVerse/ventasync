@@ -2,7 +2,7 @@
 
 namespace Tests\Feature;
 
-use App\Integrations\Listings\CategoryTree;
+use App\Channels\Listings\CategoryTree;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
@@ -14,7 +14,7 @@ class CategoryTreeTest extends TestCase
     private function shopee(array $rows): void
     {
         foreach ($rows as [$id, $parent, $name, $leaf]) {
-            DB::table('shopee_categories')->insert([
+            DB::table('ch_shopee_categories')->insert([
                 'category_id' => $id, 'parent_id' => $parent ?? 0, 'name' => $name, 'leaf' => $leaf, 'level' => 0,
             ]);
         }
@@ -73,7 +73,7 @@ class CategoryTreeTest extends TestCase
             [2, 1, 'Fitness', 0],
             [3, 2, 'Strength', 1],
         ]);
-        DB::table('shopee_categories')->update(['level' => 0]);
+        DB::table('ch_shopee_categories')->update(['level' => 0]);
 
         $this->assertCount(3, CategoryTree::path('shopee', 0, 3));
         $this->assertSame(['Sports'], array_column(CategoryTree::children('shopee', 0), 'name'),
@@ -103,16 +103,16 @@ class CategoryTreeTest extends TestCase
 
     public function test_a_stores_own_categories_are_scoped_and_their_leaves_counted(): void
     {
-        $first = DB::table('woocommerce_settings')->insertGetId(['store_name' => 'First store', 'base_url' => 'https://one.test']);
-        $second = DB::table('woocommerce_settings')->insertGetId(['store_name' => 'Second store', 'base_url' => 'https://two.test']);
+        $first = DB::table('ch_woocommerce_stores')->insertGetId(['store_name' => 'First store', 'base_url' => 'https://one.test']);
+        $second = DB::table('ch_woocommerce_stores')->insertGetId(['store_name' => 'Second store', 'base_url' => 'https://two.test']);
 
         foreach ([
             [$first, 10, 0, 'Pedals'],
             [$first, 11, 10, 'Overdrive'],
             [$second, 20, 0, 'Another store only'],
         ] as [$store, $id, $parent, $name]) {
-            DB::table('woocommerce_categories')->insert([
-                'woocommerce_setting_id' => $store, 'woo_category_id' => $id,
+            DB::table('ch_woocommerce_categories')->insert([
+                'store_id' => $store, 'woo_category_id' => $id,
                 'parent_id' => $parent, 'name' => $name, 'slug' => strtolower($name),
             ]);
         }
@@ -127,7 +127,7 @@ class CategoryTreeTest extends TestCase
 
     public function test_a_null_parent_is_a_root_too(): void
     {
-        DB::table('tiktok_categories')->insert([
+        DB::table('ch_tiktok_categories')->insert([
             ['id' => 1, 'parent_id' => null, 'name' => 'Electronics', 'is_leaf' => 0],
             ['id' => 2, 'parent_id' => 1, 'name' => 'Headphones', 'is_leaf' => 1],
         ]);

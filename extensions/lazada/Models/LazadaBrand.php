@@ -1,12 +1,12 @@
 <?php
 
-namespace Extensions\lazada\Models;
+namespace Extensions\Lazada\Models;
 
 use Illuminate\Database\Eloquent\Model;
 
 class LazadaBrand extends Model
 {
-    protected $table = 'lazada_brands';
+    protected $table = 'ch_lazada_brands';
 
     protected $fillable = [
         'region',

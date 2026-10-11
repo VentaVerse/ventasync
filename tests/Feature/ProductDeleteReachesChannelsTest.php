@@ -3,22 +3,22 @@
 namespace Tests\Feature;
 
 use App\Extensions\ExtensionManager;
-use App\Integrations\IntegrationRegistry;
+use App\Channels\ChannelRegistry;
 use App\Models\Admin\Permission;
 use App\Models\Admin\UserGroup;
 use App\Models\User;
-use Extensions\lazada\Models\LazadaProduct;
-use Extensions\lazada\Models\LazadaSetting;
-use Extensions\lazada\Services\Lazada\LazadaClient;
-use Extensions\shopee\Models\ShopeeListing;
-use Extensions\shopee\Models\ShopeeProductGroup;
-use Extensions\shopee\Models\ShopeeProductGroupProduct;
-use Extensions\shopee\Models\ShopeeProductLink;
-use Extensions\shopee\Models\ShopeeSetting;
-use Extensions\shopee\Services\Shopee\ShopeeClient;
-use Extensions\tiktok\Models\TikTokListing;
-use Extensions\tiktok\Models\TikTokSetting;
-use Extensions\tiktok\Services\TikTok\TikTokClient;
+use Extensions\Lazada\Models\LazadaListing;
+use Extensions\Lazada\Models\LazadaStore;
+use Extensions\Lazada\Services\Lazada\LazadaClient;
+use Extensions\Shopee\Models\ShopeeListing;
+use Extensions\Shopee\Models\ShopeeProductGroup;
+use Extensions\Shopee\Models\ShopeeProductGroupProduct;
+use Extensions\Shopee\Models\ShopeeListingLink;
+use Extensions\Shopee\Models\ShopeeStore;
+use Extensions\Shopee\Services\Shopee\ShopeeClient;
+use Extensions\TikTok\Models\TikTokListing;
+use Extensions\TikTok\Models\TikTokStore;
+use Extensions\TikTok\Services\TikTok\TikTokClient;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
@@ -37,21 +37,21 @@ class ProductDeleteReachesChannelsTest extends TestCase
             $manager->install($ext);
             $manager->enable($ext);
         }
-        $this->app->register(\Extensions\shopee\ShopeeExtension::class);
-        $this->app->register(\Extensions\lazada\LazadaExtension::class);
-        $this->app->register(\Extensions\tiktok\TiktokExtension::class);
+        $this->app->register(\Extensions\Shopee\ShopeeExtension::class);
+        $this->app->register(\Extensions\Lazada\LazadaExtension::class);
+        $this->app->register(\Extensions\TikTok\TikTokExtension::class);
         $this->app['router']->getRoutes()->refreshNameLookups();
-        $this->artisan('permissions:sync-catalogue');
+        $this->artisan('permissions:sync-catalog');
 
-        ShopeeSetting::query()->create([
+        ShopeeStore::query()->create([
             'store_name' => 'Main store', 'partner_id' => 1001, 'partner_key' => 'k', 'shop_id' => 2002,
             'access_token' => 't', 'refresh_token' => 'r', 'mode' => 'production',
         ]);
-        LazadaSetting::query()->create([
+        LazadaStore::query()->create([
             'store_name' => 'PH store', 'mode' => 'live', 'region' => 'ph',
             'app_key' => 'k', 'app_secret' => 's', 'access_token' => 't', 'refresh_token' => 'r',
         ]);
-        TikTokSetting::create([
+        TikTokStore::create([
             'store_name' => 'TT store', 'mode' => 'production', 'app_key' => 'k', 'app_secret' => 's',
             'access_token' => 't', 'refresh_token' => 'r', 'shop_cipher' => 'c', 'expires_at' => now()->addDays(3),
         ]);
@@ -108,15 +108,14 @@ class ProductDeleteReachesChannelsTest extends TestCase
 
     private function seedProduct(string $name, string $sku): int
     {
-        $pfx = (string) config('catalog.prefix');
         $langId = (int) config('catalog.default_language_id');
-        $productId = DB::table($pfx . 'product')->insertGetId([
+        $productId = DB::table('products')->insertGetId([
             'model' => $sku, 'sku' => $sku, 'quantity' => 5, 'price' => 100,
             'status' => 1, 'image' => 'catalog/x.png', 'weight' => 1, 'length' => 1, 'width' => 1, 'height' => 1,
-            'manufacturer_id' => 0,
+            'brand_id' => 0,
             'date_added' => now()->subDays(30), 'date_modified' => now()->subDays(30), 'date_available' => now()->subDays(30),
         ]);
-        DB::table($pfx . 'product_description')->insert([
+        DB::table('product_descriptions')->insert([
             'product_id' => $productId, 'language_id' => $langId,
             'name' => $name, 'description' => '',
             'meta_title' => '', 'meta_description' => '', 'meta_keyword' => '', 'tag' => '',
@@ -127,25 +126,25 @@ class ProductDeleteReachesChannelsTest extends TestCase
 
     private function listEverywhere(int $pid, string $sku): void
     {
-        ShopeeProductLink::create(['product_id' => $pid, 'shopee_item_id' => 111, 'sku' => $sku, 'live_status' => 'NORMAL', 'live_checked_at' => now()]);
+        ShopeeListingLink::create(['product_id' => $pid, 'shopee_item_id' => 111, 'sku' => $sku, 'live_status' => 'NORMAL', 'live_checked_at' => now()]);
         ShopeeListing::create(['product_id' => $pid, 'shopee_category_id' => 100]);
         $grp = ShopeeProductGroup::create(['name' => 'Delete reach ' . $pid]);
         ShopeeProductGroupProduct::create(['shopee_product_group_id' => $grp->id, 'product_id' => $pid, 'shopee_item_id' => 111, 'sync_status' => 'pushed']);
-        LazadaProduct::query()->create(['product_id' => $pid, 'lazada_item_id' => 'LZ1', 'live_status' => 'active']);
+        LazadaListing::query()->create(['product_id' => $pid, 'lazada_item_id' => 'LZ1', 'live_status' => 'active']);
         TikTokListing::create(['product_id' => $pid, 'tiktok_product_id' => 'tt-1', 'tiktok_category_id' => '900009', 'live_status' => 'ACTIVATE']);
     }
 
     private function productExists(int $pid): bool
     {
-        return DB::table((string) config('catalog.prefix') . 'product')->where('product_id', $pid)->exists();
+        return DB::table('products')->where('product_id', $pid)->exists();
     }
 
     public function test_the_three_channels_answer_the_contract(): void
     {
-        $removers = app(IntegrationRegistry::class)->productRemovers();
+        $removers = app(ChannelRegistry::class)->productRemovers();
         $this->assertCount(3, $removers);
         foreach ($removers as $r) {
-            $this->assertInstanceOf(\App\Integrations\Contracts\ProductRemover::class, $r);
+            $this->assertInstanceOf(\App\Channels\Contracts\ProductRemover::class, $r);
         }
     }
 
@@ -160,10 +159,10 @@ class ProductDeleteReachesChannelsTest extends TestCase
         $this->assertSame('Deleted. It stays on Shopee (Main store), Lazada (PH store) and TikTok Shop (TT store); remove it there when you want it gone.', $flash);
 
         $this->assertFalse($this->productExists($pid));
-        $this->assertSame(0, ShopeeProductLink::query()->where('product_id', $pid)->count());
+        $this->assertSame(0, ShopeeListingLink::query()->where('product_id', $pid)->count());
         $this->assertSame(0, ShopeeListing::query()->where('product_id', $pid)->count());
         $this->assertSame(0, ShopeeProductGroupProduct::query()->where('product_id', $pid)->count());
-        $this->assertSame(0, LazadaProduct::query()->where('product_id', $pid)->count());
+        $this->assertSame(0, LazadaListing::query()->where('product_id', $pid)->count());
         $this->assertSame(0, TikTokListing::query()->where('product_id', $pid)->count());
         $this->assertSame([], $this->calls, 'no marketplace was called');
 
@@ -172,14 +171,14 @@ class ProductDeleteReachesChannelsTest extends TestCase
 
     public function test_a_disconnected_or_refusing_store_cannot_block_a_delete(): void
     {
-        ShopeeSetting::query()->update(['access_token' => '', 'refresh_token' => '']);
+        ShopeeStore::query()->update(['access_token' => '', 'refresh_token' => '']);
         $pid = $this->seedProduct('Blocked before', 'BL-1');
-        ShopeeProductLink::create(['product_id' => $pid, 'shopee_item_id' => 222, 'sku' => 'BL-1', 'live_status' => 'NORMAL', 'live_checked_at' => now()]);
+        ShopeeListingLink::create(['product_id' => $pid, 'shopee_item_id' => 222, 'sku' => 'BL-1', 'live_status' => 'NORMAL', 'live_checked_at' => now()]);
 
         $this->actingAs($this->manager())->delete(route('products.destroy', $pid))->assertRedirect(route('products.index'));
 
         $this->assertFalse($this->productExists($pid));
-        $this->assertSame(0, ShopeeProductLink::query()->where('product_id', $pid)->count());
+        $this->assertSame(0, ShopeeListingLink::query()->where('product_id', $pid)->count());
         $this->assertSame([], $this->calls);
         $this->assertSame('Deleted. It stays on Shopee (Main store); remove it there when you want it gone.', (string) session('status'));
     }
@@ -187,12 +186,12 @@ class ProductDeleteReachesChannelsTest extends TestCase
     public function test_an_item_the_mirror_says_is_gone_is_not_named_as_staying(): void
     {
         $pid = $this->seedProduct('Gone already', 'GA-1');
-        ShopeeProductLink::create(['product_id' => $pid, 'shopee_item_id' => 333, 'sku' => 'GA-1', 'live_status' => 'SELLER_DELETE', 'live_checked_at' => now()]);
+        ShopeeListingLink::create(['product_id' => $pid, 'shopee_item_id' => 333, 'sku' => 'GA-1', 'live_status' => 'SELLER_DELETE', 'live_checked_at' => now()]);
 
         $this->actingAs($this->manager())->delete(route('products.destroy', $pid))->assertRedirect(route('products.index'));
 
         $this->assertFalse($this->productExists($pid));
-        $this->assertSame(0, ShopeeProductLink::query()->where('product_id', $pid)->count());
+        $this->assertSame(0, ShopeeListingLink::query()->where('product_id', $pid)->count());
         $this->assertSame('Deleted.', (string) session('status'));
     }
 
@@ -229,64 +228,63 @@ class ProductDeleteReachesChannelsTest extends TestCase
 
     public function test_the_orphan_queues_are_gone_from_the_listings_pages(): void
     {
-        ShopeeProductLink::create(['product_id' => 999001, 'shopee_item_id' => 999001, 'sku' => 'GONE', 'live_status' => 'NORMAL']);
-        LazadaProduct::query()->create(['product_id' => 999002, 'lazada_item_id' => 'LZ-GONE', 'live_status' => 'active']);
+        ShopeeListingLink::create(['product_id' => 999001, 'shopee_item_id' => 999001, 'sku' => 'GONE', 'live_status' => 'NORMAL']);
+        LazadaListing::query()->create(['product_id' => 999002, 'lazada_item_id' => 'LZ-GONE', 'live_status' => 'active']);
 
         $group = UserGroup::create(['name' => 'Orphan queue viewer']);
         $group->permissions()->attach(Permission::whereIn('key', ['view_shopee/product', 'view_lazada/product'])->pluck('id')->all());
         $user = User::factory()->create(['user_group_id' => $group->id]);
 
-        $this->actingAs($user)->get(route('ext.shopee.products.index', ['store' => ShopeeSetting::query()->value('id')]))->assertOk()
+        $this->actingAs($user)->get(route('ext.shopee.products.index', ['store' => ShopeeStore::query()->value('id')]))->assertOk()
             ->assertDontSee('deleted catalog product')->assertDontSee('999001');
-        $this->actingAs($user)->get(route('ext.lazada.products.index', ['store' => LazadaSetting::query()->value('id')]))->assertOk()
+        $this->actingAs($user)->get(route('ext.lazada.products.index', ['store' => LazadaStore::query()->value('id')]))->assertOk()
             ->assertDontSee('deleted catalog product')->assertDontSee('LZ-GONE');
     }
 
     public function test_the_sweep_names_stranded_rows_and_forgets_them_on_apply(): void
     {
-        ShopeeProductLink::create(['product_id' => 424242, 'shopee_item_id' => 999001, 'sku' => 'STR', 'live_status' => 'NORMAL']);
+        ShopeeListingLink::create(['product_id' => 424242, 'shopee_item_id' => 999001, 'sku' => 'STR', 'live_status' => 'NORMAL']);
         TikTokListing::create(['product_id' => 424242, 'tiktok_product_id' => 'tt-gone', 'tiktok_category_id' => '900009']);
 
         $this->artisan('catalog:purge-stranded-listings')
             ->expectsOutputToContain('Deleted product #424242: still held on Shopee (Main store) item 999001, live; TikTok Shop (TT store) item tt-gone')
             ->expectsOutputToContain('the marketplace items stay where they are')
             ->assertExitCode(0);
-        $this->assertSame(1, ShopeeProductLink::query()->where('product_id', 424242)->count());
+        $this->assertSame(1, ShopeeListingLink::query()->where('product_id', 424242)->count());
 
         $this->artisan('catalog:purge-stranded-listings --apply')->assertExitCode(0);
-        $this->assertSame(0, ShopeeProductLink::query()->where('product_id', 424242)->count());
+        $this->assertSame(0, ShopeeListingLink::query()->where('product_id', 424242)->count());
         $this->assertSame(0, TikTokListing::query()->where('product_id', 424242)->count());
         $this->assertSame([], $this->calls);
     }
 
     private function furnishedProduct(string $sku): int
     {
-        $pfx = (string) config('catalog.prefix');
-        $pid = (int) DB::table($pfx . 'product')->insertGetId([
+        $pid = (int) DB::table('products')->insertGetId([
             'model' => $sku, 'sku' => $sku, 'quantity' => 5, 'price' => 100, 'status' => 1, 'image' => 'catalog/x.png',
-            'weight' => 1, 'length' => 1, 'width' => 1, 'height' => 1, 'manufacturer_id' => 0,
+            'weight' => 1, 'length' => 1, 'width' => 1, 'height' => 1, 'brand_id' => 0,
             'date_added' => now(), 'date_modified' => now(), 'date_available' => now(),
         ]);
-        DB::table($pfx . 'product_description')->insert([
+        DB::table('product_descriptions')->insert([
             'product_id' => $pid, 'language_id' => (int) config('catalog.default_language_id'),
             'name' => 'Furnished ' . $sku, 'description' => '', 'meta_title' => '', 'meta_description' => '', 'meta_keyword' => '', 'tag' => '',
         ]);
-        $po = (int) DB::table($pfx . 'product_option')->insertGetId(['product_id' => $pid, 'option_id' => 1, 'value' => '', 'required' => 0]);
+        $po = (int) DB::table('product_variation_types')->insertGetId(['product_id' => $pid, 'variation_type_id' => 1, 'value' => '', 'required' => 0]);
         foreach ([$sku . '-red', $sku . '-blue'] as $i => $vsku) {
-            DB::table($pfx . 'product_option_value')->insert([
-                'product_id' => $pid, 'product_option_id' => $po, 'option_id' => 1, 'option_value_id' => $i + 1,
+            DB::table('product_variation_values')->insert([
+                'product_id' => $pid, 'product_variation_type_id' => $po, 'variation_type_id' => 1, 'variation_value_id' => $i + 1,
                 'sku' => $vsku, 'quantity' => 2, 'subtract' => 1, 'price' => 0, 'price_prefix' => '+',
                 'points' => 0, 'points_prefix' => '+', 'weight' => 0, 'weight_prefix' => '+',
             ]);
         }
-        $combo = (int) DB::table('product_option_combinations')->insertGetId([
+        $combo = (int) DB::table('product_variations')->insertGetId([
             'product_id' => $pid, 'sku' => $sku . '-combo', 'quantity' => 1, 'absolute_price' => 120, 'image' => null, 'status' => 1,
             'sort_order' => 0, 'created_at' => now(), 'updated_at' => now(),
         ]);
-        DB::table('product_option_combination_values')->insert(['combination_id' => $combo, 'product_option_value_id' => (int) DB::table($pfx . 'product_option_value')->where('product_id', $pid)->value('product_option_value_id')]);
-        DB::table($pfx . 'product_image')->insert(['product_id' => $pid, 'image' => 'catalog/x-2.png', 'sort_order' => 1]);
-        if (\Illuminate\Support\Facades\Schema::hasTable($pfx . 'product_special')) {
-            DB::table($pfx . 'product_special')->insert(['product_id' => $pid, 'customer_group_id' => 1, 'priority' => 1, 'price' => 90, 'date_start' => '2026-01-01', 'date_end' => '2026-12-31']);
+        DB::table('product_variation_parts')->insert(['product_variation_id' => $combo, 'product_variation_value_id' => (int) DB::table('product_variation_values')->where('product_id', $pid)->value('product_variation_value_id')]);
+        DB::table('product_images')->insert(['product_id' => $pid, 'image' => 'catalog/x-2.png', 'sort_order' => 1]);
+        if (\Illuminate\Support\Facades\Schema::hasTable('product_specials')) {
+            DB::table('product_specials')->insert(['product_id' => $pid, 'customer_group_id' => 1, 'priority' => 1, 'price' => 90, 'date_start' => '2026-01-01', 'date_end' => '2026-12-31']);
         }
 
         return $pid;
@@ -294,23 +292,22 @@ class ProductDeleteReachesChannelsTest extends TestCase
 
     public function test_a_delete_takes_the_variations_images_and_specials_with_it_and_a_stranded_row_holds_no_sku(): void
     {
-        $pfx = (string) config('catalog.prefix');
         $pid = $this->furnishedProduct('SX');
 
         app(\App\Services\Catalog\ProductDeleter::class)->delete([$pid]);
 
-        $this->assertSame(0, DB::table($pfx . 'product_option')->where('product_id', $pid)->count());
-        $this->assertSame(0, DB::table($pfx . 'product_option_value')->where('product_id', $pid)->count());
-        $this->assertSame(0, DB::table('product_option_combinations')->where('product_id', $pid)->count());
-        $this->assertSame(0, DB::table('product_option_combination_values')->count());
-        $this->assertSame(0, DB::table($pfx . 'product_image')->where('product_id', $pid)->count());
+        $this->assertSame(0, DB::table('product_variation_types')->where('product_id', $pid)->count());
+        $this->assertSame(0, DB::table('product_variation_values')->where('product_id', $pid)->count());
+        $this->assertSame(0, DB::table('product_variations')->where('product_id', $pid)->count());
+        $this->assertSame(0, DB::table('product_variation_parts')->count());
+        $this->assertSame(0, DB::table('product_images')->where('product_id', $pid)->count());
 
-        DB::table($pfx . 'product_option_value')->insert([
-            'product_id' => 999999, 'product_option_id' => 1, 'option_id' => 1, 'option_value_id' => 1,
+        DB::table('product_variation_values')->insert([
+            'product_id' => 999999, 'product_variation_type_id' => 1, 'variation_type_id' => 1, 'variation_value_id' => 1,
             'sku' => 'GHOST-1', 'quantity' => 2, 'subtract' => 1, 'price' => 0, 'price_prefix' => '+',
             'points' => 0, 'points_prefix' => '+', 'weight' => 0, 'weight_prefix' => '+',
         ]);
-        DB::table('product_option_combinations')->insert([
+        DB::table('product_variations')->insert([
             'product_id' => 999999, 'sku' => 'GHOST-2', 'quantity' => 1, 'absolute_price' => 120, 'image' => null, 'status' => 1,
             'sort_order' => 0, 'created_at' => now(), 'updated_at' => now(),
         ]);
@@ -326,11 +323,11 @@ class ProductDeleteReachesChannelsTest extends TestCase
         $this->assertStringContainsString('already used by a variation of "Furnished LIVE"', $failures[0]);
 
         $this->artisan('catalog:purge-orphan-rows')->expectsOutputToContain('#999999')->assertExitCode(0);
-        $this->assertSame(1, DB::table($pfx . 'product_option_value')->where('product_id', 999999)->count());
+        $this->assertSame(1, DB::table('product_variation_values')->where('product_id', 999999)->count());
         $this->artisan('catalog:purge-orphan-rows', ['--apply' => true])->expectsOutputToContain('Removed the rows of 1 deleted product(s).')->assertExitCode(0);
-        $this->assertSame(0, DB::table($pfx . 'product_option_value')->where('product_id', 999999)->count());
-        $this->assertSame(0, DB::table('product_option_combinations')->where('product_id', 999999)->count());
-        $this->assertSame(2, DB::table($pfx . 'product_option_value')->where('product_id', $alive)->count());
+        $this->assertSame(0, DB::table('product_variation_values')->where('product_id', 999999)->count());
+        $this->assertSame(0, DB::table('product_variations')->where('product_id', 999999)->count());
+        $this->assertSame(2, DB::table('product_variation_values')->where('product_id', $alive)->count());
         $this->artisan('catalog:purge-orphan-rows')->expectsOutputToContain('No orphan rows')->assertExitCode(0);
     }
 }

@@ -12,8 +12,6 @@ final class ProductSearch
         if ($words === []) {
             return $query;
         }
-
-        $pfx = (string) config('catalog.prefix');
         $lang = (int) config('catalog.default_language_id');
         $t = $query->getModel()->getTable();
         $name = self::compact('pd.name');
@@ -24,16 +22,16 @@ final class ProductSearch
 
         foreach ($words as $word) {
             $like = '%' . $word . '%';
-            $query->where(function ($q) use ($like, $pfx, $t, $lang, $name, $sku, $model, $brand, $variationSku) {
+            $query->where(function ($q) use ($like, $t, $lang, $name, $sku, $model, $brand, $variationSku) {
                 $q->whereRaw("{$sku} LIKE ?", [$like])
                     ->orWhereRaw("{$model} LIKE ?", [$like])
-                    ->orWhereExists(fn ($d) => $d->selectRaw('1')->from($pfx . 'product_description as pd')
+                    ->orWhereExists(fn ($d) => $d->selectRaw('1')->from('product_descriptions as pd')
                         ->whereColumn('pd.product_id', $t . '.product_id')->where('pd.language_id', $lang)
                         ->whereRaw("{$name} LIKE ?", [$like]))
-                    ->orWhereExists(fn ($d) => $d->selectRaw('1')->from($pfx . 'manufacturer as m')
-                        ->whereColumn('m.manufacturer_id', $t . '.manufacturer_id')
+                    ->orWhereExists(fn ($d) => $d->selectRaw('1')->from('brands as m')
+                        ->whereColumn('m.brand_id', $t . '.brand_id')
                         ->whereRaw("{$brand} LIKE ?", [$like]))
-                    ->orWhereExists(fn ($d) => $d->selectRaw('1')->from($pfx . 'product_option_value as pov')
+                    ->orWhereExists(fn ($d) => $d->selectRaw('1')->from('product_variation_values as pov')
                         ->whereColumn('pov.product_id', $t . '.product_id')
                         ->whereRaw("{$variationSku} LIKE ?", [$like]));
             });
@@ -42,7 +40,7 @@ final class ProductSearch
         $whole = implode('', $words);
         $query->orderByRaw(
             "CASE WHEN {$sku} = ? OR {$model} = ? THEN 0 "
-            . "WHEN EXISTS (SELECT 1 FROM {$pfx}product_description pd WHERE pd.product_id = {$t}.product_id AND pd.language_id = ? AND {$name} LIKE ?) THEN 1 "
+            . "WHEN EXISTS (SELECT 1 FROM product_descriptions pd WHERE pd.product_id = {$t}.product_id AND pd.language_id = ? AND {$name} LIKE ?) THEN 1 "
             . 'ELSE 2 END',
             [$whole, $whole, $lang, '%' . $whole . '%']
         );

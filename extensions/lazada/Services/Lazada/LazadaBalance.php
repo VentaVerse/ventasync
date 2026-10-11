@@ -1,9 +1,9 @@
 <?php
 
-namespace Extensions\lazada\Services\Lazada;
+namespace Extensions\Lazada\Services\Lazada;
 
 use Carbon\Carbon;
-use Extensions\lazada\Models\LazadaSetting;
+use Extensions\Lazada\Models\LazadaStore;
 
 class LazadaBalance
 {
@@ -23,10 +23,10 @@ class LazadaBalance
     {
     }
 
-    public function read(LazadaSetting $store): array
+    public function read(LazadaStore $store): array
     {
         $setting = $store->decrypted();
-        $creds = LazadaSetting::activeCredentials($setting);
+        $creds = LazadaStore::activeCredentials($setting);
         if (empty($creds['complete']) || ! $setting->region) {
             return ['ok' => false, 'error' => 'This store is not connected to Lazada.'];
         }
@@ -66,8 +66,8 @@ class LazadaBalance
             $pages++;
         } while (count($lines) === self::PAGE_SIZE && $pages < self::MAX_PAGES);
 
-        $toConfirm = \Extensions\lazada\Models\LazadaOrder::query()
-            ->where('lazada_setting_id', $store->id)
+        $toConfirm = \Extensions\Lazada\Models\LazadaOrder::query()
+            ->where('store_id', $store->id)
             ->where('status', 'delivered')
             ->where(fn ($q) => $q->whereNull('payout_status')->orWhere('payout_status', '!=', \App\Support\PayoutStatus::PAID))
             ->count();
@@ -91,11 +91,11 @@ class LazadaBalance
         ];
     }
 
-    private function totalBalance(object $setting, array $creds): float|string|null
+    private function totalBalance(object $store, array $creds): float|string|null
     {
         $rows = [];
         for ($page = 1; $page <= self::MAX_PAGES; $page++) {
-            $body = $this->post($setting, $creds, self::LEDGER, [
+            $body = $this->post($store, $creds, self::LEDGER, [
                 'start_time' => now()->subDays(self::LEDGER_DAYS)->format('Ymd'),
                 'end_time' => now()->format('Ymd'),
                 'page_num' => (string) $page,
@@ -122,7 +122,7 @@ class LazadaBalance
         return round(array_sum(array_map(fn ($r) => $this->amount($r['amount'] ?? 0), $since)), 2);
     }
 
-    private function post(object $setting, array $creds, string $path, array $query): array|string
+    private function post(object $store, array $creds, string $path, array $query): array|string
     {
         $params = $query + [
             'app_key' => (string) $creds['app_key'],
@@ -131,7 +131,7 @@ class LazadaBalance
             'access_token' => (string) $creds['access_token'],
         ];
         $params['sign'] = $this->client->sign($path, $params, (string) $creds['app_secret']);
-        $result = $this->client->post((string) $setting->region, $path, $params);
+        $result = $this->client->post((string) $store->region, $path, $params);
 
         $body = is_array($result['body'] ?? null) ? $result['body'] : [];
         if (empty($result['ok']) || (string) ($body['code'] ?? '0') !== '0') {
@@ -141,7 +141,7 @@ class LazadaBalance
         return $body;
     }
 
-    private function call(object $setting, array $creds, string $path, array $query): array|string
+    private function call(object $store, array $creds, string $path, array $query): array|string
     {
         $params = $query + [
             'app_key' => (string) $creds['app_key'],
@@ -150,7 +150,7 @@ class LazadaBalance
             'access_token' => (string) $creds['access_token'],
         ];
         $params['sign'] = $this->client->sign($path, $params, (string) $creds['app_secret']);
-        $result = $this->client->get((string) $setting->region, $path, $params);
+        $result = $this->client->get((string) $store->region, $path, $params);
 
         $body = is_array($result['body'] ?? null) ? $result['body'] : [];
         if (empty($result['ok']) || (string) ($body['code'] ?? '0') !== '0') {

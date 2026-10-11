@@ -37,7 +37,7 @@
     <div class="fm-head">
         <div class="fm-head__main">
             <a class="fm-back" href="{{ \App\Support\BackTo::safe(request('back'), route('ext.shopee.products.index')) }}" data-guard-leave>
-                <x-ui.icon name="chevron-left" size="14" /> Listings
+                <x-ui.icon name="chevron-left" size="14" /> Products
             </a>
             <h1 class="fm-title">{{ $product->name !== '' ? $product->name : 'Product ' . $product->product_id }}</h1>
             <div class="fm-stamps">
@@ -52,7 +52,7 @@
                 @if($link)
                     <span class="fm-stamp">
                         <span class="fm-stamp__k">Item ID</span>
-                        @php $liveUrl = \Extensions\shopee\Models\ShopeeSetting::publicListingUrl($link->shopee_item_id); @endphp
+                        @php $liveUrl = \Extensions\Shopee\Models\ShopeeStore::publicListingUrl($link->shopee_item_id); @endphp
                         @if($liveUrl)
                             <a class="fm-stamp__v" href="{{ $liveUrl }}" target="_blank" rel="noopener">{{ $link->shopee_item_id }}<x-ui.icon name="external-link" size="10" class="x-extlink" /><span class="x-sr"> (opens Shopee in a new tab)</span></a>
                         @else
@@ -161,7 +161,7 @@
                     <div class="fm-fields">
                         <x-ui.field label="Title" for="sl-name" name="item_name" wide>
                             <x-ui.input id="sl-name" name="item_name" maxlength="255"
-                                        :value="old('item_name', \App\Integrations\Listings\ListingContent::editable($listing->item_name ?? null, (string) $product->name))"
+                                        :value="old('item_name', \App\Channels\Listings\ListingContent::editable($listing->item_name ?? null, (string) $product->name))"
                                         :disabled="!$canManage" />
                         </x-ui.field>
                         @include('partials.channel-description-pick', [
@@ -171,7 +171,7 @@
                         ])
                         @include('partials.channel-description-compose', [
                             'id' => 'sl-description', 'label' => 'Description', 'name' => 'description',
-                            'value' => old('description', \App\Integrations\Listings\ListingContent::editable($listing->description ?? null, (string) $coreDescription)),
+                            'value' => old('description', \App\Channels\Listings\ListingContent::editable($listing->description ?? null, (string) $coreDescription)),
                             'rich' => true, 'disabled' => !$canManage, 'rows' => 6, 'maxlength' => null,
                             'prefixFor' => 'sl-prefix', 'suffixFor' => 'sl-suffix',
                             'prefix' => $listing->description_prefix_id ?? null, 'suffix' => $listing->description_suffix_id ?? null,
@@ -274,7 +274,7 @@
                     'productId' => (int) $product->product_id,
                     'uploadUrl' => route('products.video.upload'),
                     'canManage' => $canManage,
-                ] + \App\Integrations\Listings\ListingVideo::cardData((int) $product->product_id, $listing ?? null))
+                ] + \App\Channels\Listings\ListingVideo::cardData((int) $product->product_id, $listing ?? null))
 
                 @include('partials.listing-variations-card', [
                     'title' => 'Variations on Shopee', 'storeName' => 'Shopee', 'canManage' => $canManage,
@@ -366,7 +366,7 @@
     @include('catalog.products.partials.wysiwyg')
     @include('partials.catalog-change-panel', [
         'listing' => $listing,
-        'storeLabel' => \App\Support\StoreLabel::of('Shopee', \Extensions\shopee\Models\ShopeeSetting::query()->find($listing->shopee_setting_id)?->store_name),
+        'storeLabel' => \App\Support\StoreLabel::of('Shopee', \Extensions\Shopee\Models\ShopeeStore::query()->find($listing->store_id)?->store_name),
         'saveUrl' => route('ext.shopee.listings.catalog_change_save', $listing->product_id),
         'ignoreUrl' => route('ext.shopee.listings.catalog_change_ignore', $listing->product_id),
         'back' => request()->boolean('compare') ? \App\Support\BackTo::safe(request('back'), request()->getRequestUri()) : request()->getRequestUri(),

@@ -1,14 +1,14 @@
 <?php
 
-namespace Extensions\shopee\Services\Shopee;
+namespace Extensions\Shopee\Services\Shopee;
 
-use App\Integrations\Listings\CatalogGaps;
-use App\Integrations\Listings\ListingState;
-use Extensions\shopee\Models\ShopeeCategory;
-use Extensions\shopee\Models\ShopeeCategoryTemplate;
-use Extensions\shopee\Models\ShopeeListing;
-use Extensions\shopee\Models\ShopeeLogistic;
-use Extensions\shopee\Models\ShopeeProductLink;
+use App\Channels\Listings\CatalogGaps;
+use App\Channels\Listings\ListingState;
+use Extensions\Shopee\Models\ShopeeCategory;
+use Extensions\Shopee\Models\ShopeeCategoryTemplate;
+use Extensions\Shopee\Models\ShopeeListing;
+use Extensions\Shopee\Models\ShopeeLogistic;
+use Extensions\Shopee\Models\ShopeeListingLink;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
@@ -28,16 +28,15 @@ class ShopeeListingReadiness
         $categoriesCached = ShopeeCategory::query()->exists();
         $couriersCached = ShopeeLogistic::query()->exists();
 
-        $pfx = (string) config('catalog.prefix');
 
-        $linked = ShopeeProductLink::query()->whereIn('product_id', $productIds)->pluck('product_id')->map(fn ($v) => (int) $v)->flip();
+        $linked = ShopeeListingLink::query()->whereIn('product_id', $productIds)->pluck('product_id')->map(fn ($v) => (int) $v)->flip();
 
         $listings = ShopeeListing::query()
             ->whereIn('product_id', $productIds)
             ->get()
             ->keyBy(fn ($l) => (int) $l->product_id);
 
-        $parcels = DB::table($pfx . 'product')
+        $parcels = DB::table('products')
             ->whereIn('product_id', $productIds)
             ->get(['product_id', 'weight', 'length', 'width', 'height'])
             ->keyBy('product_id');
@@ -71,7 +70,7 @@ class ShopeeListingReadiness
 
         $variations = app(ShopeeVariationPush::class);
         $withVariations = ShopeeListing::withVariations($productIds);
-        $shopeeStoreId = (int) (\Extensions\shopee\Models\ShopeeSetting::defaultStore()?->id ?? 0);
+        $shopeeStoreId = (int) (\Extensions\Shopee\Models\ShopeeStore::defaultStore()?->id ?? 0);
 
         $out = [];
         foreach ($productIds as $productId) {
@@ -106,7 +105,7 @@ class ShopeeListingReadiness
             $width = (float) (($listing?->package_width) ?? ($parcel->width ?? 0));
             $height = (float) (($listing?->package_height) ?? ($parcel->height ?? 0));
             if ($weight <= 0 || $length <= 0 || $width <= 0 || $height <= 0) {
-                $gaps[] = ['code' => ListingState::GAP_PARCEL, 'label' => 'a package weight and size (L×W×H) on the catalog product'];
+                $gaps[] = ['code' => ListingState::GAP_PARCEL, 'label' => 'a package weight and size (L×W×H) on the Master Catalog product'];
             }
 
             if ($isLinked) {

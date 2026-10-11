@@ -1,8 +1,8 @@
 <?php
 
-namespace Extensions\lazada\Services\Lazada;
+namespace Extensions\Lazada\Services\Lazada;
 
-use Extensions\lazada\Models\LazadaApiLog;
+use Extensions\Lazada\Models\LazadaApiLog;
 
 class LazadaLiveListing
 {
@@ -10,7 +10,7 @@ class LazadaLiveListing
     {
     }
 
-    private function signedGet(object $setting, array $creds, string $apiPath, array $extra): array
+    private function signedGet(object $store, array $creds, string $apiPath, array $extra): array
     {
         $params = array_merge([
             'app_key' => (string) $creds['app_key'],
@@ -22,7 +22,7 @@ class LazadaLiveListing
 
         try {
             $res = $this->client->get(
-                (string) $setting->region,
+                (string) $store->region,
                 $apiPath,
                 $params,
                 (string) ($creds['mode'] ?? 'live')
@@ -41,20 +41,20 @@ class LazadaLiveListing
         return is_array($body) ? ($body['data'] ?? []) : [];
     }
 
-    public function count(object $setting, array $creds, string $filter): int
+    public function count(object $store, array $creds, string $filter): int
     {
-        $data = $this->signedGet($setting, $creds, '/products/get', [
+        $data = $this->signedGet($store, $creds, '/products/get', [
             'filter' => $filter, 'limit' => '1', 'offset' => '0',
         ]);
 
         return (int) ($data['total_products'] ?? 0);
     }
 
-    public function itemIds(object $setting, array $creds, string $filter): array
+    public function itemIds(object $store, array $creds, string $filter): array
     {
         $ids = [];
         for ($pageN = 0; $pageN < 10; $pageN++) {
-            $data = $this->signedGet($setting, $creds, '/products/get', [
+            $data = $this->signedGet($store, $creds, '/products/get', [
                 'filter' => $filter, 'limit' => '50', 'offset' => (string) ($pageN * 50),
             ]);
             $products = $data['products'] ?? [];
@@ -71,12 +71,12 @@ class LazadaLiveListing
         return array_values(array_unique($ids));
     }
 
-    public function statusesBySku(object $setting, array $creds, array $skus): array
+    public function statusesBySku(object $store, array $creds, array $skus): array
     {
         $statuses = [];
         // Chunk at 50: the response is capped at 50 items even though the input accepts 100 SKUs.
         foreach (array_chunk(array_values(array_unique(array_filter($skus))), 50) as $chunk) {
-            $data = $this->signedGet($setting, $creds, '/products/get', [
+            $data = $this->signedGet($store, $creds, '/products/get', [
                 'filter' => 'all', 'limit' => '50', 'offset' => '0',
                 'sku_seller_list' => json_encode($chunk, JSON_UNESCAPED_UNICODE),
             ]);
@@ -90,11 +90,11 @@ class LazadaLiveListing
         return $statuses;
     }
 
-    public function refreshMirror(object $setting, array $creds): array
+    public function refreshMirror(object $store, array $creds): array
     {
         try {
-            $statusById = $this->statusIndex($setting, $creds, 'all');
-            foreach ($this->statusIndex($setting, $creds, 'deleted') as $id => $status) {
+            $statusById = $this->statusIndex($store, $creds, 'all');
+            foreach ($this->statusIndex($store, $creds, 'deleted') as $id => $status) {
                 $statusById[$id] ??= $status ?: 'deleted';
             }
         } catch (\Throwable $e) {
@@ -110,12 +110,12 @@ class LazadaLiveListing
         foreach ($byStatus as $status => $ids) {
             $counts[$status] = 0;
             foreach (array_chunk($ids, 500) as $chunk) {
-                $counts[$status] += \Extensions\lazada\Models\LazadaProduct::query()
+                $counts[$status] += \Extensions\Lazada\Models\LazadaListing::query()
                     ->whereIn('lazada_item_id', $chunk)
                     ->update(['live_status' => $status, 'live_checked_at' => $now]);
             }
         }
-        $missing = \Extensions\lazada\Models\LazadaProduct::query()
+        $missing = \Extensions\Lazada\Models\LazadaListing::query()
             ->whereNotNull('lazada_item_id')->where('lazada_item_id', '!=', '')
             ->whereNotIn('lazada_item_id', array_map('strval', array_keys($statusById)) ?: ['-none-'])
             ->update(['live_status' => 'missing', 'live_checked_at' => $now]);
@@ -126,16 +126,16 @@ class LazadaLiveListing
         return [
             'error' => null,
             'counts' => array_filter($counts),
-            'links' => (int) \Extensions\lazada\Models\LazadaProduct::query()
+            'links' => (int) \Extensions\Lazada\Models\LazadaListing::query()
                 ->whereNotNull('lazada_item_id')->where('lazada_item_id', '!=', '')->count(),
         ];
     }
 
-    public function statusIndex(object $setting, array $creds, string $filter): array
+    public function statusIndex(object $store, array $creds, string $filter): array
     {
         $out = [];
         for ($pageN = 0; $pageN < 40; $pageN++) {
-            $data = $this->signedGet($setting, $creds, '/products/get', [
+            $data = $this->signedGet($store, $creds, '/products/get', [
                 'filter' => $filter, 'limit' => '50', 'offset' => (string) ($pageN * 50),
             ]);
             $products = $data['products'] ?? [];
@@ -152,11 +152,11 @@ class LazadaLiveListing
         return $out;
     }
 
-    public function itemsBySkus(object $setting, array $creds, array $skus): array
+    public function itemsBySkus(object $store, array $creds, array $skus): array
     {
         $out = [];
         foreach (array_chunk(array_values(array_unique(array_filter($skus))), 50) as $chunk) {
-            $data = $this->signedGet($setting, $creds, '/products/get', [
+            $data = $this->signedGet($store, $creds, '/products/get', [
                 'filter' => 'all', 'limit' => '50', 'offset' => '0',
                 'sku_seller_list' => json_encode($chunk, JSON_UNESCAPED_UNICODE),
             ]);
@@ -177,13 +177,13 @@ class LazadaLiveListing
         return $out;
     }
 
-    public function skuIndex(object $setting, array $creds): array
+    public function skuIndex(object $store, array $creds): array
     {
         $items = [];
         $complete = true;
         for ($pageN = 0; $pageN < 20; $pageN++) {
             try {
-                $data = $this->signedGet($setting, $creds, '/products/get', [
+                $data = $this->signedGet($store, $creds, '/products/get', [
                     'filter' => 'all', 'limit' => '50', 'offset' => (string) ($pageN * 50),
                 ]);
             } catch (\Throwable) {
@@ -215,19 +215,19 @@ class LazadaLiveListing
         return ['items' => $items, 'complete' => $complete];
     }
 
-    public function raw(object $setting, array $creds, string $itemId): array
+    public function raw(object $store, array $creds, string $itemId): array
     {
-        return $this->signedGet($setting, $creds, '/product/item/get', ['item_id' => $itemId]);
+        return $this->signedGet($store, $creds, '/product/item/get', ['item_id' => $itemId]);
     }
 
-    public function salePropKeys(object $setting, array $creds, string $itemId): array
+    public function salePropKeys(object $store, array $creds, string $itemId): array
     {
-        return $this->itemShape($setting, $creds, $itemId)['keys'];
+        return $this->itemShape($store, $creds, $itemId)['keys'];
     }
 
-    public function itemShape(object $setting, array $creds, string $itemId): array
+    public function itemShape(object $store, array $creds, string $itemId): array
     {
-        return self::shapeOf($this->signedGet($setting, $creds, '/product/item/get', ['item_id' => $itemId]));
+        return self::shapeOf($this->signedGet($store, $creds, '/product/item/get', ['item_id' => $itemId]));
     }
 
     public const PACKAGE_FIELDS = ['package_weight', 'package_length', 'package_width', 'package_height'];
@@ -291,10 +291,10 @@ class LazadaLiveListing
         ];
     }
 
-    public function fetch(object $setting, array $creds, string $itemId): array
+    public function fetch(object $store, array $creds, string $itemId): array
     {
         try {
-            $data = $this->signedGet($setting, $creds, '/product/item/get', [
+            $data = $this->signedGet($store, $creds, '/product/item/get', [
                 'item_id' => $itemId,
             ]);
         } catch (\RuntimeException $e) {

@@ -1,9 +1,9 @@
 <?php
 
-namespace Extensions\opencart\Controllers;
+namespace Extensions\OpenCart\Controllers;
 
 use App\Http\Controllers\Controller;
-use Extensions\opencart\Services\OpenCartOrdersPanel;
+use Extensions\OpenCart\Services\OpenCartOrdersPanel;
 use Illuminate\Http\Request;
 
 class OpenCartOrderController extends Controller

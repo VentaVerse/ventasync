@@ -1,12 +1,12 @@
 <?php
 
-namespace Extensions\lazada\Controllers;
+namespace Extensions\Lazada\Controllers;
 
 use App\Http\Controllers\Controller;
 
-use Extensions\lazada\Models\LazadaCategory;
-use Extensions\lazada\Models\LazadaSetting;
-use Extensions\lazada\Services\Lazada\LazadaClient;
+use Extensions\Lazada\Models\LazadaCategory;
+use Extensions\Lazada\Models\LazadaStore;
+use Extensions\Lazada\Services\Lazada\LazadaClient;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -41,9 +41,9 @@ class LazadaCategoryController extends Controller
 
     public function fetch(Request $request, LazadaClient $client)
     {
-        $setting = LazadaSetting::defaultStore()?->decrypted();
-        $creds = LazadaSetting::activeCredentials($setting);
-        if (!$setting || !$setting->region || !$creds['app_key'] || !$creds['app_secret']) {
+        $store = LazadaStore::defaultStore()?->decrypted();
+        $creds = LazadaStore::activeCredentials($store);
+        if (!$store || !$store->region || !$creds['app_key'] || !$creds['app_secret']) {
             return redirect()->route('ext.lazada.categories.index')->with('error', 'Missing Lazada settings. Please configure Region, App Key, and App Secret first.');
         }
 
@@ -57,7 +57,7 @@ class LazadaCategoryController extends Controller
         $apiPath = '/category/tree/get';
         $params['sign'] = $client->sign($apiPath, $params, (string)$creds['app_secret']);
 
-        $result = $client->get((string)$setting->region, $apiPath, $params);
+        $result = $client->get((string)$store->region, $apiPath, $params);
         $body = $result['body'] ?? null;
 
         $nodes = [];
@@ -90,10 +90,10 @@ class LazadaCategoryController extends Controller
 
         DB::transaction(function () use ($rows) {
             // Clear the cache only after a successful fetch, so a failed call keeps the old categories.
-            DB::table('lazada_categories')->delete();
+            DB::table('ch_lazada_categories')->delete();
             $chunks = array_chunk($rows, 1000);
             foreach ($chunks as $chunk) {
-                DB::table('lazada_categories')->insert($chunk);
+                DB::table('ch_lazada_categories')->insert($chunk);
             }
         });
 

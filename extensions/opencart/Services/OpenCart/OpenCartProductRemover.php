@@ -1,23 +1,23 @@
 <?php
 
-namespace Extensions\opencart\Services\OpenCart;
+namespace Extensions\OpenCart\Services\OpenCart;
 
-use Extensions\opencart\Models\OpenCartProductGroupProduct;
-use Extensions\opencart\Models\OpenCartProductLink;
-use Extensions\opencart\Models\OpenCartSetting;
+use Extensions\OpenCart\Models\OpenCartProductGroupProduct;
+use Extensions\OpenCart\Models\OpenCartListingLink;
+use Extensions\OpenCart\Models\OpenCartStore;
 use Illuminate\Support\Facades\DB;
 
 final class OpenCartProductRemover
 {
     public function presence(array $productIds): array
     {
-        $links = OpenCartProductLink::query()->whereIn('product_id', $productIds)->get();
-        $stores = $this->stores($links->pluck('opencart_setting_id'));
+        $links = OpenCartListingLink::query()->whereIn('product_id', $productIds)->get();
+        $stores = $this->stores($links->pluck('store_id'));
         $out = [];
         foreach ($links as $link) {
             $out[(int) $link->product_id][] = [
                 'channel' => 'OpenCart',
-                'store' => $stores[(int) $link->opencart_setting_id] ?? 'store #' . (int) $link->opencart_setting_id,
+                'store' => $stores[(int) $link->store_id] ?? 'store #' . (int) $link->store_id,
                 'item' => (string) $link->oc_product_id,
                 'live' => null,
             ];
@@ -28,13 +28,13 @@ final class OpenCartProductRemover
 
     public function remove(int $productId): array
     {
-        $links = OpenCartProductLink::query()->where('product_id', $productId)->get();
-        $stores = $this->stores($links->pluck('opencart_setting_id'));
+        $links = OpenCartListingLink::query()->where('product_id', $productId)->get();
+        $stores = $this->stores($links->pluck('store_id'));
         $stays = [];
-        foreach ($links->pluck('opencart_setting_id')->unique() as $storeId) {
+        foreach ($links->pluck('store_id')->unique() as $storeId) {
             $stays['OpenCart (' . ($stores[(int) $storeId] ?? 'store #' . (int) $storeId) . ')'] = true;
         }
-        OpenCartProductLink::query()->where('product_id', $productId)->delete();
+        OpenCartListingLink::query()->where('product_id', $productId)->delete();
         OpenCartProductGroupProduct::query()->where('product_id', $productId)->delete();
 
         return array_keys($stays);
@@ -42,11 +42,10 @@ final class OpenCartProductRemover
 
     public function stranded(): array
     {
-        $pfx = (string) config('catalog.prefix');
         $ids = [];
-        foreach (['opencart_product_links', 'opencart_product_group_products'] as $table) {
+        foreach (['ch_opencart_listing_links', 'ch_opencart_product_group_products'] as $table) {
             $ids = array_merge($ids, DB::table($table)
-                ->whereNotExists(fn ($q) => $q->select(DB::raw(1))->from($pfx . 'product as op')->whereColumn('op.product_id', $table . '.product_id'))
+                ->whereNotExists(fn ($q) => $q->select(DB::raw(1))->from('products as op')->whereColumn('op.product_id', $table . '.product_id'))
                 ->distinct()->pluck('product_id')->map(fn ($v) => (int) $v)->all());
         }
 
@@ -55,7 +54,7 @@ final class OpenCartProductRemover
 
     private function stores($ids): array
     {
-        return OpenCartSetting::query()->whereIn('id', collect($ids)->filter()->unique()->all())
+        return OpenCartStore::query()->whereIn('id', collect($ids)->filter()->unique()->all())
             ->get()->mapWithKeys(fn ($s) => [(int) $s->id => (string) ($s->store_name ?: 'OpenCart store #' . $s->id)])->all();
     }
 }

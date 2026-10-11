@@ -9,16 +9,16 @@ class OrderFetchRunner
 {
     public const SYNC_PAGE_CAP = 3;
 
-    public function begin(string $integration, ?int $storeId, string $dateFrom, string $dateTo, array $options = []): OrderFetchRun
+    public function begin(string $channel, ?int $storeId, string $dateFrom, string $dateTo, array $options = []): OrderFetchRun
     {
         OrderFetchRun::query()
-            ->where('integration', $integration)
+            ->where('channel', $channel)
             ->where(fn ($q) => $storeId === null ? $q->whereNull('store_id') : $q->where('store_id', $storeId))
             ->where('status', OrderFetchRun::RUNNING)
             ->update(['status' => OrderFetchRun::STOPPED]);
 
         return OrderFetchRun::create([
-            'integration' => $integration,
+            'channel' => $channel,
             'store_id' => $storeId,
             'date_from' => $dateFrom,
             'date_to' => $dateTo,
@@ -48,7 +48,7 @@ class OrderFetchRunner
         try {
             $answer = $stepper($run);
         } catch (\Throwable $e) {
-            $answer = ['error' => \App\Support\TransportError::plain($e, Str::title($run->integration))];
+            $answer = ['error' => \App\Support\TransportError::plain($e, Str::title($run->channel))];
         }
         $answer = is_array($answer) ? $answer : [];
 

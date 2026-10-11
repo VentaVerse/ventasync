@@ -8,7 +8,7 @@
         $company = $appSetting->company_name
             ?? ($setting->company_name ?? null)
             ?: 'VentaSync';
-        $logo = \App\Services\Media\BrandImage::show($appSetting->logo_path ?? null, \App\Services\Media\BrandImage::LOGIN);
+        $logo = \App\Services\Media\LogoImage::show($appSetting->logo_path ?? null, \App\Services\Media\LogoImage::LOGIN);
         $favicon = !empty($appSetting->favicon_path ?? null)
             ? asset('storage/' . $appSetting->favicon_path)
             : asset('images/brand/ventasync-icon.png');

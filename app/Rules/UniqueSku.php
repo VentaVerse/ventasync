@@ -19,9 +19,8 @@ class UniqueSku implements ValidationRule
             return;
         }
 
-        $p = (string) config('catalog.prefix');
 
-        $holder = DB::table($p . 'product')->where('sku', $sku);
+        $holder = DB::table('products')->where('sku', $sku);
         if ($this->excludeProductId) {
             $holder->where('product_id', '!=', $this->excludeProductId);
         }
@@ -30,19 +29,19 @@ class UniqueSku implements ValidationRule
             return;
         }
 
-        $optionQuery = DB::table($p . 'product_option_value as pov')
-            ->join($p . 'product as pp', 'pp.product_id', '=', 'pov.product_id')
+        $variationQuery = DB::table('product_variation_values as pov')
+            ->join('products as pp', 'pp.product_id', '=', 'pov.product_id')
             ->where('pov.sku', $sku);
         if ($this->excludeProductId) {
-            $optionQuery->where('pov.product_id', '!=', $this->excludeProductId);
+            $variationQuery->where('pov.product_id', '!=', $this->excludeProductId);
         }
-        if ($optionHolderId = $optionQuery->value('pov.product_id')) {
-            $fail("The SKU \"{$sku}\" is already used by a variation of " . $this->productName((int) $optionHolderId) . '.');
+        if ($variationHolderId = $variationQuery->value('pov.product_id')) {
+            $fail("The SKU \"{$sku}\" is already used by a variation of " . $this->productName((int) $variationHolderId) . '.');
             return;
         }
 
-        $comboQuery = DB::table('product_option_combinations as c')
-            ->join($p . 'product as cp', 'cp.product_id', '=', 'c.product_id')
+        $comboQuery = DB::table('product_variations as c')
+            ->join('products as cp', 'cp.product_id', '=', 'c.product_id')
             ->where('c.sku', $sku);
         if ($this->excludeProductId) {
             $comboQuery->where('c.product_id', '!=', $this->excludeProductId);
@@ -55,7 +54,7 @@ class UniqueSku implements ValidationRule
 
     private function productName(int $productId): string
     {
-        $name = DB::table((string) config('catalog.prefix') . 'product_description')
+        $name = DB::table('product_descriptions')
             ->where('product_id', $productId)
             ->where('language_id', (int) config('catalog.default_language_id'))
             ->value('name');

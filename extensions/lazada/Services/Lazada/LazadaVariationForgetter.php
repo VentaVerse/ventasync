@@ -1,9 +1,9 @@
 <?php
 
-namespace Extensions\lazada\Services\Lazada;
+namespace Extensions\Lazada\Services\Lazada;
 
-use Extensions\lazada\Models\LazadaProduct;
-use Extensions\lazada\Models\LazadaProductVariant;
+use Extensions\Lazada\Models\LazadaListing;
+use Extensions\Lazada\Models\LazadaListingVariation;
 
 final class LazadaVariationForgetter
 {
@@ -13,11 +13,11 @@ final class LazadaVariationForgetter
         if ($lower === []) {
             return;
         }
-        $listingIds = LazadaProduct::query()->where('product_id', $productId)->pluck('id')->all();
+        $listingIds = LazadaListing::query()->where('product_id', $productId)->pluck('id')->all();
         if ($listingIds === []) {
             return;
         }
-        foreach (LazadaProductVariant::query()->whereIn('lazada_product_id', $listingIds)->get() as $variant) {
+        foreach (LazadaListingVariation::query()->whereIn('lazada_listing_id', $listingIds)->get() as $variant) {
             if (in_array(strtolower(trim((string) $variant->seller_sku)), $lower, true)) {
                 $variant->delete();
             }

@@ -1,12 +1,12 @@
 <?php
 
-namespace Extensions\ventacart\Controllers;
+namespace Extensions\VentaCart\Controllers;
 
 use App\Http\Controllers\Controller;
-use Extensions\opencart\Models\MarketplaceReview;
-use Extensions\ventacart\Models\VentaCartProductLink;
-use Extensions\ventacart\Models\VentaCartSetting;
-use Extensions\ventacart\Services\VentaCart\VentaCartClient;
+use Extensions\OpenCart\Models\MarketplaceReview;
+use Extensions\VentaCart\Models\VentaCartListingLink;
+use Extensions\VentaCart\Models\VentaCartStore;
+use Extensions\VentaCart\Services\VentaCart\VentaCartClient;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Process;
 
@@ -24,7 +24,7 @@ class VentaCartReviewController extends Controller
             return redirect()->back()->with('error', 'Review has no mapped product.');
         }
 
-        $link = VentaCartProductLink::query()
+        $link = VentaCartListingLink::query()
             ->where('product_id', $review->product_id)
             ->first();
 
@@ -32,12 +32,12 @@ class VentaCartReviewController extends Controller
             return redirect()->back()->with('error', 'Product not linked to any VentaCart store.');
         }
 
-        $setting = VentaCartSetting::find($link->ventacart_setting_id);
-        if (!$setting || !$setting->enabled) {
+        $store = VentaCartStore::find($link->store_id);
+        if (!$store || !$store->enabled) {
             return redirect()->back()->with('error', 'VentaCart store not found or disabled.');
         }
 
-        $client = new VentaCartClient($setting);
+        $client = new VentaCartClient($store);
 
         $images = [];
         if (!empty($review->images) && is_array($review->images)) {
@@ -52,15 +52,15 @@ class VentaCartReviewController extends Controller
             'body'               => $review->comment ?? '',
             'status'             => 'approved',
             'date_added'         => $review->reviewed_at?->format('Y-m-d H:i:s') ?? now()->format('Y-m-d H:i:s'),
-            'platform'           => $review->platform,
-            'platform_review_id' => $review->platform_review_id,
+            'platform'           => $review->channel,
+            'platform_review_id' => $review->channel_review_id,
             'images'             => $images,
         ]);
 
         if ($res['ok'] ?? false) {
             $review->update([
                 'ventacart_sync_status' => 'pushed',
-                'ventacart_setting_id'  => $setting->id,
+                'ventacart_store_id'  => $store->id,
                 'ventacart_review_id'   => $res['body']['data']['review_id'] ?? $res['body']['review_id'] ?? null,
                 'ventacart_pushed_at'   => now(),
                 'ventacart_push_error'  => null,
@@ -71,7 +71,7 @@ class VentaCartReviewController extends Controller
         $error = $res['body']['error'] ?? 'Unknown error';
         $review->update([
             'ventacart_sync_status' => 'error',
-            'ventacart_setting_id'  => $setting->id,
+            'ventacart_store_id'  => $store->id,
             'ventacart_push_error'  => substr($error, 0, 500),
         ]);
 

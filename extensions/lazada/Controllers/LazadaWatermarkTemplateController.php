@@ -1,10 +1,10 @@
 <?php
 
-namespace Extensions\lazada\Controllers;
+namespace Extensions\Lazada\Controllers;
 
 class LazadaWatermarkTemplateController extends \App\Http\Controllers\Channels\WatermarkTemplateController
 {
-    protected function integration(): string
+    protected function channel(): string
     {
         return 'lazada';
     }

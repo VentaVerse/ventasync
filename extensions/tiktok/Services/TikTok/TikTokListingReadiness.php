@@ -1,13 +1,13 @@
 <?php
 
-namespace Extensions\tiktok\Services\TikTok;
+namespace Extensions\TikTok\Services\TikTok;
 
-use App\Integrations\Listings\CatalogGaps;
-use App\Integrations\Listings\ListingState;
-use Extensions\tiktok\Models\TikTokCategory;
-use Extensions\tiktok\Models\TikTokCategoryTemplate;
-use Extensions\tiktok\Models\TikTokListing;
-use Extensions\tiktok\Models\TikTokProductGroupProduct;
+use App\Channels\Listings\CatalogGaps;
+use App\Channels\Listings\ListingState;
+use Extensions\TikTok\Models\TikTokCategory;
+use Extensions\TikTok\Models\TikTokCategoryTemplate;
+use Extensions\TikTok\Models\TikTokListing;
+use Extensions\TikTok\Models\TikTokProductGroupProduct;
 use Illuminate\Support\Facades\DB;
 
 class TikTokListingReadiness
@@ -21,7 +21,6 @@ class TikTokListingReadiness
         if ($productIds === []) {
             return [];
         }
-        $pfx = (string) config('catalog.prefix');
 
         $listings = TikTokListing::query()->whereIn('product_id', $productIds)->get()->keyBy(fn ($l) => (int) $l->product_id);
         $linked = $listings->filter(fn ($l) => trim((string) ($l->tiktok_product_id ?? '')) !== '')->keys()->flip()
@@ -41,12 +40,12 @@ class TikTokListingReadiness
         $templates = $categoryIds
             ? TikTokCategoryTemplate::query()->whereIn('category_id', $categoryIds)->get()->keyBy('category_id')
             : collect();
-        $axes = DB::table('product_option_combination_values as cv')
-            ->join('product_option_combinations as c', 'c.id', '=', 'cv.combination_id')
-            ->join($pfx . 'product_option_value as pov', 'cv.product_option_value_id', '=', 'pov.product_option_value_id')
+        $axes = DB::table('product_variation_parts as cv')
+            ->join('product_variations as c', 'c.id', '=', 'cv.product_variation_id')
+            ->join('product_variation_values as pov', 'cv.product_variation_value_id', '=', 'pov.product_variation_value_id')
             ->whereIn('c.product_id', $productIds)
             ->groupBy('c.product_id')
-            ->selectRaw('c.product_id, COUNT(DISTINCT pov.product_option_id) as axes')
+            ->selectRaw('c.product_id, COUNT(DISTINCT pov.product_variation_type_id) as axes')
             ->pluck('axes', 'product_id');
 
         $out = [];

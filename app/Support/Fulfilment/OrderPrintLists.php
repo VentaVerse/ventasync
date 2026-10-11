@@ -9,31 +9,31 @@ class OrderPrintLists
 {
     private const CHANNELS = [
         'shopee' => [
-            'model' => \Extensions\shopee\Models\ShopeeOrder::class,
+            'model' => \Extensions\Shopee\Models\ShopeeOrder::class,
             'ref' => 'order_sn',
             'buyer' => null,
             'label' => 'Shopee',
         ],
         'lazada' => [
-            'model' => \Extensions\lazada\Models\LazadaOrder::class,
+            'model' => \Extensions\Lazada\Models\LazadaOrder::class,
             'ref' => 'order_id',
             'buyer' => null,
             'label' => 'Lazada',
         ],
         'tiktok' => [
-            'model' => \Extensions\tiktok\Models\TikTokOrder::class,
+            'model' => \Extensions\TikTok\Models\TikTokOrder::class,
             'ref' => 'order_id',
             'buyer' => 'buyer_name',
             'label' => 'TikTok',
         ],
         'ventacart' => [
-            'model' => \Extensions\ventacart\Models\VentaCartOrder::class,
+            'model' => \Extensions\VentaCart\Models\VentaCartOrder::class,
             'ref' => 'ventacart_order_number',
             'buyer' => 'customer_name',
             'label' => 'Storefront',
         ],
         'woocommerce' => [
-            'model' => \Extensions\woocommerce\Models\WooOrder::class,
+            'model' => \Extensions\WooCommerce\Models\WooCommerceOrder::class,
             'ref' => 'woo_order_number',
             'buyer' => 'customer_name',
             'label' => 'WooCommerce',

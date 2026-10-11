@@ -1,15 +1,15 @@
 <?php
 
-namespace Extensions\ventacart\Models;
+namespace Extensions\VentaCart\Models;
 
 use Illuminate\Database\Eloquent\Model;
 
 class VentaCartBrand extends Model
 {
-    protected $table = 'ventacart_brands';
+    protected $table = 'ch_ventacart_brands';
 
     protected $fillable = [
-        'ventacart_setting_id',
+        'store_id',
         'ventacart_brand_id',
         'name',
         'slug',

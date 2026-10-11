@@ -66,7 +66,7 @@ final class VariationEditor
             $values = array_values(array_map(fn ($v) => trim((string) $v), (array) ($add['values'] ?? [])));
             $price = (float) ($add['price'] ?? 0);
             if (count($values) !== ($twoTypes ? 2 : 1) || in_array('', $values, true)) {
-                $problems[] = $where . ': give ' . ($twoTypes ? 'two values, one ' . $wire['option1_name'] . ' and one ' . $wire['option2_name'] : 'one ' . $wire['option_name'] . ' value') . '.';
+                $problems[] = $where . ': give ' . ($twoTypes ? 'two values, one ' . $wire['type1_name'] . ' and one ' . $wire['type2_name'] : 'one ' . $wire['variation_type_name'] . ' value') . '.';
                 continue;
             }
             if ($price <= 0) {
@@ -97,11 +97,11 @@ final class VariationEditor
                         continue 2;
                     }
                 }
-                if (! $this->has($wire['option1_values'], $v1)) {
-                    $wire['option1_values'][] = $v1;
+                if (! $this->has($wire['type1_values'], $v1)) {
+                    $wire['type1_values'][] = $v1;
                 }
-                if (! $this->has($wire['option2_values'], $v2)) {
-                    $wire['option2_values'][] = $v2;
+                if (! $this->has($wire['type2_values'], $v2)) {
+                    $wire['type2_values'][] = $v2;
                 }
                 $wire['combinations'][] = ['opt1' => $v1, 'opt2' => $v2] + $row;
             } else {
@@ -124,14 +124,14 @@ final class VariationEditor
             return $report;
         }
 
-        $this->writer->validateSkus($productId, $wire + ['sku' => (string) DB::table(config('catalog.prefix') . 'product')->where('product_id', $productId)->value('sku')]);
+        $this->writer->validateSkus($productId, $wire + ['sku' => (string) DB::table('products')->where('product_id', $productId)->value('sku')]);
 
         $before = VariationForgetService::snapshot($productId);
-        $skuChanges = ['product_sku' => null, 'option_skus' => []];
+        $skuChanges = ['product_sku' => null, 'variation_skus' => []];
 
         DB::transaction(function () use ($productId, $wire, &$skuChanges) {
             $this->writer->save($productId, $wire, $skuChanges);
-            DB::table(config('catalog.prefix') . 'product')->where('product_id', $productId)->update(['date_modified' => now()]);
+            DB::table('products')->where('product_id', $productId)->update(['date_modified' => now()]);
         });
 
         foreach ((new SkuSyncService())->syncSkuChanges($productId, $skuChanges) as $line) {
@@ -143,7 +143,7 @@ final class VariationEditor
             $report['notes'][] = 'A new variation starts with no stock; add stock with a stock adjustment.';
         }
 
-        $name = (string) DB::table(config('catalog.prefix') . 'product_description')
+        $name = (string) DB::table('product_descriptions')
             ->where('product_id', $productId)->where('language_id', (int) config('catalog.default_language_id'))->value('name');
         $what = count($report['changed']) . ' changed, ' . count($report['added']) . ' added';
         $label = trim((string) ($by['actor'] ?? '') . ' edited the variations of ' . $name . ' (' . $what . ')');

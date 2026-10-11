@@ -2,7 +2,7 @@
 
 namespace Tests\Feature;
 
-use App\Integrations\Listings\RichDescription;
+use App\Channels\Listings\RichDescription;
 use App\Support\Catalog\DescriptionHtml;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Storage;

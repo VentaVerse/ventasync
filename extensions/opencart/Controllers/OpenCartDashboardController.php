@@ -1,8 +1,8 @@
 <?php
 
-namespace Extensions\opencart\Controllers;
+namespace Extensions\OpenCart\Controllers;
 
-use App\Http\Controllers\Integrations\ChannelDashboardController;
+use App\Http\Controllers\Channels\ChannelDashboardController;
 
 class OpenCartDashboardController extends ChannelDashboardController
 {

@@ -1,17 +1,17 @@
 <?php
 
-namespace Extensions\tiktok\Commands;
+namespace Extensions\TikTok\Commands;
 
-use Extensions\tiktok\Models\TikTokApiLog;
-use Extensions\tiktok\Models\TikTokProductGroupProduct;
-use Extensions\tiktok\Models\TikTokSetting;
-use Extensions\tiktok\Services\TikTok\TikTokClient;
-use Extensions\tiktok\Services\TikTok\TikTokStockPushService;
+use Extensions\TikTok\Models\TikTokApiLog;
+use Extensions\TikTok\Models\TikTokProductGroupProduct;
+use Extensions\TikTok\Models\TikTokStore;
+use Extensions\TikTok\Services\TikTok\TikTokClient;
+use Extensions\TikTok\Services\TikTok\TikTokStockPushService;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
-class TikTokPushStock extends Command implements \App\Integrations\Contracts\SteppableAutomation
+class TikTokPushStock extends Command implements \App\Channels\Contracts\SteppableAutomation
 {
     protected $signature = 'tiktok:push-stock';
 
@@ -19,7 +19,7 @@ class TikTokPushStock extends Command implements \App\Integrations\Contracts\Ste
 
     public function handle(): int
     {
-        $stores = \Extensions\tiktok\Models\TikTokSetting::enabledStores();
+        $stores = \Extensions\TikTok\Models\TikTokStore::enabledStores();
         if ($stores->isEmpty()) { $this->error('No enabled TikTok store. Configure TikTok settings first.'); return 1; }
         $worst = 0;
         foreach ($stores as $store) {
@@ -38,7 +38,7 @@ class TikTokPushStock extends Command implements \App\Integrations\Contracts\Ste
         return $worst;
     }
 
-    private function handleStore(\Extensions\tiktok\Models\TikTokSetting $store): int
+    private function handleStore(\Extensions\TikTok\Models\TikTokStore $store): int
     {
         $raw = $store;
 
@@ -61,12 +61,10 @@ class TikTokPushStock extends Command implements \App\Integrations\Contracts\Ste
             $this->warn('TikTok access token expired. Refresh it first.');
             return 1;
         }
-
-        $pfx = (string) config('catalog.prefix');
         $client = app(TikTokClient::class);
 
         $pivotRows = TikTokProductGroupProduct::query()
-            ->whereIn('tiktok_product_group_id', \Extensions\tiktok\Models\TikTokProductGroup::query()->select('id'))
+            ->whereIn('tiktok_product_group_id', \Extensions\TikTok\Models\TikTokProductGroup::query()->select('id'))
             ->whereNotNull('tiktok_product_id')
             ->where('tiktok_product_id', '!=', '')
             ->get();
@@ -83,9 +81,9 @@ class TikTokPushStock extends Command implements \App\Integrations\Contracts\Ste
             'app_key' => $appKey, 'app_secret' => $appSecret, 'token' => $token,
             'shop_cipher' => $shopCipher, 'warehouse_id' => $warehouseId,
         ];
-        $results = app(\Extensions\tiktok\Services\TikTok\TikTokStockPricePush::class)
-            ->push('stock', $c, $pivotRows, $pfx);
-        \Extensions\tiktok\Services\TikTok\TikTokStockPricePush::recordOutcomes('stock', $results['outcomes'], $store);
+        $results = app(\Extensions\TikTok\Services\TikTok\TikTokStockPricePush::class)
+            ->push('stock', $c, $pivotRows);
+        \Extensions\TikTok\Services\TikTok\TikTokStockPricePush::recordOutcomes('stock', $results['outcomes'], $store);
 
         $totalOk = $results['ok'];
         $totalErr = $results['err'];
@@ -97,18 +95,18 @@ class TikTokPushStock extends Command implements \App\Integrations\Contracts\Ste
         $store->forceFill(['last_stock_push_at' => now()])->save();
 
         $this->info("Done. Success: {$totalOk}, Failed: {$totalErr}, Skipped: {$skipped}."
-            . \Extensions\tiktok\Services\TikTok\TikTokStockPricePush::ledgerClause($results));
+            . \Extensions\TikTok\Services\TikTok\TikTokStockPricePush::ledgerClause($results));
         return $totalErr > 0 ? 1 : 0;
     }
 
 
     public function automationUnits(\App\Models\ScheduledJob $job): array
     {
-        return ['label' => 'products', 'units' => \Extensions\tiktok\Services\TikTok\TikTokPushSteps::units()];
+        return ['label' => 'products', 'units' => \Extensions\TikTok\Services\TikTok\TikTokPushSteps::units()];
     }
 
     public function automationStep(\App\Models\ScheduledJob $job, array $units): array
     {
-        return \Extensions\tiktok\Services\TikTok\TikTokPushSteps::step('stock', $units);
+        return \Extensions\TikTok\Services\TikTok\TikTokPushSteps::step('stock', $units);
     }
 }

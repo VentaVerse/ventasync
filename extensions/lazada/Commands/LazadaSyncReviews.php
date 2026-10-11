@@ -1,12 +1,12 @@
 <?php
 
-namespace Extensions\lazada\Commands;
+namespace Extensions\Lazada\Commands;
 
-use Extensions\lazada\Models\LazadaApiLog;
-use Extensions\lazada\Models\LazadaProduct;
-use Extensions\lazada\Models\LazadaSetting;
-use Extensions\opencart\Models\MarketplaceReview;
-use Extensions\lazada\Services\Lazada\LazadaClient;
+use Extensions\Lazada\Models\LazadaApiLog;
+use Extensions\Lazada\Models\LazadaListing;
+use Extensions\Lazada\Models\LazadaStore;
+use Extensions\OpenCart\Models\MarketplaceReview;
+use Extensions\Lazada\Services\Lazada\LazadaClient;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
@@ -21,9 +21,9 @@ class LazadaSyncReviews extends Command
 
     public function handle(LazadaClient $client): int
     {
-        $setting = LazadaSetting::defaultStore()?->decrypted();
-        $creds = LazadaSetting::activeCredentials($setting);
-        if (!$setting || !$creds['complete'] || empty($creds['region']) || empty($creds['access_token'])) {
+        $store = LazadaStore::defaultStore()?->decrypted();
+        $creds = LazadaStore::activeCredentials($store);
+        if (!$store || !$creds['complete'] || empty($creds['region']) || empty($creds['access_token'])) {
             $modeLabel = ($creds['mode'] ?? 'live') === 'sandbox' ? 'Sandbox' : 'Production';
             $this->error("Missing Lazada {$modeLabel} credentials/token. Configure Lazada settings for the active mode.");
             return 1;
@@ -45,8 +45,8 @@ class LazadaSyncReviews extends Command
         $days = (int) $this->option('days');
         if ($days < 1) $days = 7;
 
-        $lastSync = !empty($setting->last_review_sync_at)
-            ? $setting->last_review_sync_at
+        $lastSync = !empty($store->last_review_sync_at)
+            ? $store->last_review_sync_at
             : null;
 
         $tz = new \DateTimeZone('Asia/Manila');
@@ -63,7 +63,7 @@ class LazadaSyncReviews extends Command
 
         $limit = (int) $this->option('limit');
 
-        $lpQuery = LazadaProduct::query()
+        $lpQuery = LazadaListing::query()
             ->whereNotNull('lazada_item_id')
             ->where('lazada_item_id', '!=', '')
             ->orderByRaw('CAST(lazada_item_id AS UNSIGNED) DESC');
@@ -74,7 +74,7 @@ class LazadaSyncReviews extends Command
 
         if ($lazadaProducts->isEmpty()) {
             $this->info('  No Lazada products found.');
-            LazadaSetting::defaultStore()?->forceFill(['last_review_sync_at' => now()])->save();
+            LazadaStore::defaultStore()?->forceFill(['last_review_sync_at' => now()])->save();
             return 0;
         }
 
@@ -182,7 +182,7 @@ class LazadaSyncReviews extends Command
             }
         }
 
-        LazadaSetting::defaultStore()?->forceFill(['last_review_sync_at' => now()])->save();
+        LazadaStore::defaultStore()?->forceFill(['last_review_sync_at' => now()])->save();
 
         $this->info("  Checked {$itemsChecked} item(s). Reviews: {$created} new, {$updated} updated" . ($errors > 0 ? ", {$errors} error(s)" : ''));
         $this->info('Done.');
@@ -240,8 +240,8 @@ class LazadaSyncReviews extends Command
 
         $reviewData = [
             'product_id'        => $productId,
-            'platform_item_id'  => $itemId ?: null,
-            'platform_order_id' => (string) ($r['trade_order_id'] ?? $r['order_id'] ?? ''),
+            'channel_item_id'  => $itemId ?: null,
+            'channel_order_id' => (string) ($r['trade_order_id'] ?? $r['order_id'] ?? ''),
             'author'            => (string) ($r['buyer_name'] ?? $r['reviewer_name'] ?? $r['buyer'] ?? '') ?: 'Lazada Buyer',
             'rating'            => $rating,
             'comment'           => (string) ($r['review_content'] ?? $r['content'] ?? $r['comment'] ?? ''),
@@ -255,8 +255,8 @@ class LazadaSyncReviews extends Command
 
         $model = MarketplaceReview::query()->updateOrCreate(
             [
-                'platform'           => 'lazada',
-                'platform_review_id' => $reviewId,
+                'channel'           => 'lazada',
+                'channel_review_id' => $reviewId,
             ],
             $reviewData
         );

@@ -1,7 +1,7 @@
 <?php
 
 use App\Support\AppDoor;
-use Extensions\ventacart\Controllers\Api\VentaCartOrderApiController;
+use Extensions\VentaCart\Controllers\Api\VentaCartOrderApiController;
 use Illuminate\Support\Facades\Route;
 
 foreach (AppDoor::channelNames('ventacart') as $channel) {

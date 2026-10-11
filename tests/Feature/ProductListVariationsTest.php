@@ -16,10 +16,10 @@ class ProductListVariationsTest extends TestCase
     {
         $view = $this->listView();
 
-        $this->assertStringContainsString('@foreach($p->option_rows ?? [] as $or)', $view);
+        $this->assertStringContainsString('@foreach($p->variation_rows ?? [] as $or)', $view);
         $this->assertStringContainsString('<tr class="bl-varrow">', $view);
 
-        $this->assertStringContainsString('$or->option_value_name', $view);
+        $this->assertStringContainsString('$or->variation_value_name', $view);
         $this->assertStringContainsString('$or->sku', $view);
         $this->assertStringContainsString('$or->option_image', $view);
         $this->assertStringContainsString('$or->quantity', $view);
@@ -63,8 +63,8 @@ class ProductListVariationsTest extends TestCase
         $this->assertStringContainsString("strtok(\$src, ':')", $view);
 
         $controller = File::get(base_path('app/Http/Controllers/Catalog/ProductController.php'));
-        $this->assertStringContainsString("'o.marketplace_source',", $controller);
-        $this->assertStringContainsString('availableMarketplaceSourceOptions()', $controller,
+        $this->assertStringContainsString("'o.channel',", $controller);
+        $this->assertStringContainsString('availableChannelOptions()', $controller,
             'the label map must come from the registry, not a hardcoded list');
     }
 }

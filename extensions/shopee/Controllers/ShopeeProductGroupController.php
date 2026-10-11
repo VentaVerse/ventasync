@@ -1,26 +1,26 @@
 <?php
 
-namespace Extensions\shopee\Controllers;
+namespace Extensions\Shopee\Controllers;
 
 use App\Http\Controllers\Controller;
 
-use Extensions\shopee\Models\ShopeeApiLog;
-use Extensions\shopee\Models\ShopeeBrand;
-use Extensions\shopee\Models\ShopeeCategory;
-use Extensions\shopee\Models\ShopeeCategoryTemplate;
-use Extensions\shopee\Models\ShopeeItemCache;
-use Extensions\shopee\Models\ShopeeLogistic;
-use Extensions\shopee\Models\ShopeeProductGroup;
-use Extensions\shopee\Models\ShopeeProductGroupAttribute;
-use Extensions\shopee\Models\ShopeeProductGroupProduct;
-use Extensions\shopee\Models\ShopeeListing;
-use Extensions\shopee\Models\ShopeeProductLink;
+use Extensions\Shopee\Models\ShopeeApiLog;
+use Extensions\Shopee\Models\ShopeeBrand;
+use Extensions\Shopee\Models\ShopeeCategory;
+use Extensions\Shopee\Models\ShopeeCategoryTemplate;
+use Extensions\Shopee\Models\ShopeeItemCache;
+use Extensions\Shopee\Models\ShopeeLogistic;
+use Extensions\Shopee\Models\ShopeeProductGroup;
+use Extensions\Shopee\Models\ShopeeProductGroupAttribute;
+use Extensions\Shopee\Models\ShopeeProductGroupProduct;
+use Extensions\Shopee\Models\ShopeeListing;
+use Extensions\Shopee\Models\ShopeeListingLink;
 use Illuminate\Support\Str;
-use Extensions\shopee\Models\ShopeeSetting;
+use Extensions\Shopee\Models\ShopeeStore;
 use App\Services\ActivityLogger;
-use Extensions\shopee\Services\Shopee\ShopeeClient;
-use Extensions\shopee\Services\ShopeeStockPushService;
-use Extensions\shopee\Services\ShopeeStoreProducts;
+use Extensions\Shopee\Services\Shopee\ShopeeClient;
+use Extensions\Shopee\Services\ShopeeStockPushService;
+use Extensions\Shopee\Services\ShopeeStoreProducts;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -29,21 +29,21 @@ class ShopeeProductGroupController extends Controller
 {
     use \App\Http\Controllers\Concerns\DrivesGroupSendRuns;
 
-    protected function groupSendIntegration(): string
+    protected function groupSendChannel(): string
     {
         return 'shopee';
     }
 
     protected function groupSendStoreId(Request $request): int
     {
-        return (int) ShopeeSetting::defaultStore()?->id;
+        return (int) ShopeeStore::defaultStore()?->id;
     }
 
     protected function groupSendMembers(int $groupId): array
     {
-        $group = ShopeeProductGroup::query()->where('shopee_setting_id', (int) ShopeeSetting::defaultStore()?->id)->findOrFail($groupId);
+        $group = ShopeeProductGroup::query()->where('store_id', (int) ShopeeStore::defaultStore()?->id)->findOrFail($groupId);
 
-        return $group->groupProducts()->whereIn('product_id', \Extensions\shopee\Services\ShopeeStoreProducts::query())->orderBy('product_id')->pluck('product_id')->map(fn ($v) => (int) $v)->all();
+        return $group->groupProducts()->whereIn('product_id', \Extensions\Shopee\Services\ShopeeStoreProducts::query())->orderBy('product_id')->pluck('product_id')->map(fn ($v) => (int) $v)->all();
     }
 
     protected function groupSendChunk(int $groupId, array $productIds): array
@@ -54,7 +54,7 @@ class ShopeeProductGroupController extends Controller
     private array $lastPushLedger = [];
 
     public function __construct(
-        private readonly \Extensions\shopee\Services\Shopee\ShopeeLinkCheck $linkCheck,
+        private readonly \Extensions\Shopee\Services\Shopee\ShopeeLinkCheck $linkCheck,
     ) {
     }
 
@@ -77,7 +77,7 @@ class ShopeeProductGroupController extends Controller
                 ->pluck('name', 'category_id');
         }
 
-        $productCounts = DB::table('shopee_product_group_products')
+        $productCounts = DB::table('ch_shopee_product_group_products')
             ->selectRaw('shopee_product_group_id, COUNT(*) as cnt')
             ->groupBy('shopee_product_group_id')
             ->pluck('cnt', 'shopee_product_group_id');
@@ -138,7 +138,7 @@ class ShopeeProductGroupController extends Controller
             : collect();
 
         return view('ext-shopee::product-groups.form', [
-            'productCount' => $group->exists ? \Illuminate\Support\Facades\DB::table('shopee_product_group_products')->where('shopee_product_group_id', $group->id)->count() : 0,
+            'productCount' => $group->exists ? \Illuminate\Support\Facades\DB::table('ch_shopee_product_group_products')->where('shopee_product_group_id', $group->id)->count() : 0,
             'group' => $group,
             'mode' => $mode,
             'shopeeCategories' => $shopeeCategories,
@@ -174,7 +174,7 @@ class ShopeeProductGroupController extends Controller
             'shopee_brand_id' => (int) ($data['shopee_brand_id'] ?? 0),
             'logistic_ids' => !empty($logIds) ? array_values(array_map('intval', $logIds)) : null,
             'markup_fixed' => $data['markup_fixed'] ?? null,
-            'markup_percent' => $data['markup_percent'] ?? null, 'watermark_template_id' => \App\Models\WatermarkTemplate::idOrNull($data['watermark_template_id'] ?? null, 'shopee', \App\Integrations\Listings\ListingStore::id('shopee')),
+            'markup_percent' => $data['markup_percent'] ?? null, 'watermark_template_id' => \App\Models\WatermarkTemplate::idOrNull($data['watermark_template_id'] ?? null, 'shopee', \App\Channels\Listings\ListingStore::id('shopee')),
         ]);
 
         ActivityLogger::log('created', 'Shopee Product group', $group->id, $group->name);
@@ -213,7 +213,7 @@ class ShopeeProductGroupController extends Controller
             'shopee_brand_id' => (int) ($data['shopee_brand_id'] ?? 0),
             'logistic_ids' => !empty($logIds) ? array_values(array_map('intval', $logIds)) : null,
             'markup_fixed' => $data['markup_fixed'] ?? null,
-            'markup_percent' => $data['markup_percent'] ?? null, 'watermark_template_id' => \App\Models\WatermarkTemplate::idOrNull($data['watermark_template_id'] ?? null, 'shopee', \App\Integrations\Listings\ListingStore::id('shopee')),
+            'markup_percent' => $data['markup_percent'] ?? null, 'watermark_template_id' => \App\Models\WatermarkTemplate::idOrNull($data['watermark_template_id'] ?? null, 'shopee', \App\Channels\Listings\ListingStore::id('shopee')),
         ]);
 
         ActivityLogger::log('updated', 'Shopee Product group', $group->id, $group->name);
@@ -239,8 +239,6 @@ class ShopeeProductGroupController extends Controller
     public function products(Request $request, int $id)
     {
         $group = ShopeeProductGroup::query()->findOrFail($id);
-
-        $pfx = (string) config('catalog.prefix');
         $langId = (int) config('catalog.default_language_id');
 
         $q = trim((string) $request->input('q'));
@@ -253,33 +251,33 @@ class ShopeeProductGroupController extends Controller
             $shopeeTab = 'all';
         }
         $memberIds = $group->groupProducts()->pluck('product_id')->map(fn ($v) => (int) $v)->all();
-        $setting = ShopeeSetting::defaultStore()?->decrypted();
-        $auth = ShopeeSetting::activeAuth($setting);
+        $store = ShopeeStore::defaultStore()?->decrypted();
+        $auth = ShopeeStore::activeAuth($store);
         $liveCounts = null;
         $liveCheckedAt = null;
-        if ($setting && $auth['complete']) {
-            $liveCounts = ShopeeProductLink::mirrorCounts($tabMap, $memberIds);
-            $liveCheckedAt = ShopeeProductLink::query()->whereIn('product_id', $memberIds ?: [0])->max('live_checked_at');
+        if ($store && $auth['complete']) {
+            $liveCounts = ShopeeListingLink::mirrorCounts($tabMap, $memberIds);
+            $liveCheckedAt = ShopeeListingLink::query()->whereIn('product_id', $memberIds ?: [0])->max('live_checked_at');
             $liveCheckedAt = $liveCheckedAt ? \Illuminate\Support\Carbon::parse($liveCheckedAt) : null;
         } else {
             $shopeeTab = 'all';
         }
 
-        $pivotTable = 'shopee_product_group_products';
+        $pivotTable = 'ch_shopee_product_group_products';
 
-        $query = DB::table($pfx . 'product as p')
-            ->join($pfx . 'product_description as pd', function ($j) use ($langId) {
+        $query = DB::table('products as p')
+            ->join('product_descriptions as pd', function ($j) use ($langId) {
                 $j->on('p.product_id', '=', 'pd.product_id')->where('pd.language_id', '=', $langId);
             })
             ->join($pivotTable . ' as gp', function ($j) use ($group) {
                 $j->on('p.product_id', '=', 'gp.product_id')
                     ->where('gp.shopee_product_group_id', '=', $group->id);
             })
-            ->leftJoin($pfx . 'manufacturer as m', 'p.manufacturer_id', '=', 'm.manufacturer_id')
+            ->leftJoin('brands as m', 'p.brand_id', '=', 'm.brand_id')
             ->select(
                 'p.product_id', 'pd.name', 'p.sku', 'p.model', 'p.price',
                 'p.quantity', 'p.image', 'p.status', 'p.date_modified',
-                'm.name as manufacturer_name',
+                'm.name as brand_name',
                 'gp.shopee_item_id', 'gp.sync_status', 'gp.last_pushed_at', 'gp.last_confirmed_at', 'gp.push_error'
             );
 
@@ -289,7 +287,7 @@ class ShopeeProductGroupController extends Controller
                     ->orWhere('p.sku', 'like', "%{$q}%")
                     ->orWhere('p.model', 'like', "%{$q}%")
                     ->orWhereIn('p.product_id', ShopeeListing::query()
-                        ->forStore(ShopeeSetting::defaultStore())
+                        ->forStore(ShopeeStore::defaultStore())
                         ->where('item_name', 'like', "%{$q}%")
                         ->select('product_id'));
             });
@@ -302,8 +300,8 @@ class ShopeeProductGroupController extends Controller
         }
 
         $erroredIds = $this->listingStates()->erroredProductIds();
-        $linkedProductIds = DB::table('shopee_product_links')
-            ->when(app()->bound('shopee.route-store'), fn ($q) => $q->where('shopee_setting_id', app('shopee.route-store')->id))
+        $linkedProductIds = DB::table('ch_shopee_listing_links')
+            ->when(app()->bound('shopee.route-store'), fn ($q) => $q->where('store_id', app('shopee.route-store')->id))
             ->whereNotNull('shopee_item_id')
             ->select('product_id');
         if ($syncStatus === 'pushed') {
@@ -316,21 +314,21 @@ class ShopeeProductGroupController extends Controller
             $query->where('gp.sync_status', 'unlinked');
         }
 
-        $catalogueTotal = (clone $query)->count();
+        $catalogTotal = (clone $query)->count();
 
         if ($shopeeTab !== 'all' && $liveCounts !== null) {
-            $tabProductIds = ShopeeProductLink::query()
+            $tabProductIds = ShopeeListingLink::query()
                 ->whereIn('product_id', $memberIds ?: [0])
                 ->where('live_status', $tabMap[$shopeeTab])
                 ->pluck('product_id')->map(fn ($v) => (int) $v)->all();
             $query->whereIn('p.product_id', $tabProductIds ?: [0]);
         }
 
-        $storeId = \App\Integrations\Listings\ListingStore::id('shopee');
-        $sortMenu = ['added' => 'gp.id', 'pushed' => 'gp.last_pushed_at'] + \Extensions\shopee\Services\ShopeeListingSort::columns($storeId);
-        $order = \App\Integrations\Listings\ListingSort::chosen($request, 'shopee.group.' . $group->id);
-        \Extensions\shopee\Services\ShopeeListingSort::join($query, $storeId);
-        \App\Integrations\Listings\ListingSort::apply($query, $order, $sortMenu);
+        $storeId = \App\Channels\Listings\ListingStore::id('shopee');
+        $sortMenu = ['added' => 'gp.id', 'pushed' => 'gp.last_pushed_at'] + \Extensions\Shopee\Services\ShopeeListingSort::columns($storeId);
+        $order = \App\Channels\Listings\ListingSort::chosen($request, 'shopee.group.' . $group->id);
+        \Extensions\Shopee\Services\ShopeeListingSort::join($query, $storeId);
+        \App\Channels\Listings\ListingSort::apply($query, $order, $sortMenu);
 
         $products = $query->paginate(50)->appends($request->except('page'));
 
@@ -342,40 +340,40 @@ class ShopeeProductGroupController extends Controller
             ->get()
             ->keyBy('product_id');
 
-        $optionRowsByProductId = \App\Support\VariationRows::forListing($pivotProductIds, 'shopee', (int) (ShopeeSetting::defaultStore()?->id ?? 0));
+        $variationRowsByProductId = \App\Support\VariationRows::forListing($pivotProductIds, 'shopee', (int) (ShopeeStore::defaultStore()?->id ?? 0));
 
         $manualIds = $group->groupProducts()->pluck('product_id')->toArray();
 
         $failedCount = count(array_intersect($erroredIds, array_map('intval', $memberIds)));
 
         $displayIds = $products->pluck('product_id')->map(fn ($v) => (int) $v)->all();
-        $linksByProductId = ShopeeProductLink::query()
+        $linksByProductId = ShopeeListingLink::query()
             ->whereIn('product_id', $displayIds)
             ->get()
             ->groupBy(fn ($l) => (int) $l->product_id);
         $listingsByProductId = ShopeeListing::query()
-            ->forStore(ShopeeSetting::defaultStore())
+            ->forStore(ShopeeStore::defaultStore())
             ->whereIn('product_id', $displayIds)
             ->get()
             ->keyBy('product_id');
-        $rowTitles = \App\Integrations\Listings\ListingContent::rowTitles($products, $listingsByProductId);
+        $rowTitles = \App\Channels\Listings\ListingContent::rowTitles($products, $listingsByProductId);
         $withVariations = ShopeeListing::withVariations($displayIds);
         $rowPrices = $products->mapWithKeys(fn ($p) => [(int) $p->product_id => ($listingsByProductId->get((int) $p->product_id) ?? new ShopeeListing())
             ->startingPrice((float) $p->price, isset($withVariations[(int) $p->product_id]))])->all();
 
-        $listingStates = app(\Extensions\shopee\Services\Shopee\ShopeeListingStates::class)
+        $listingStates = app(\Extensions\Shopee\Services\Shopee\ShopeeListingStates::class)
             ->forProducts($displayIds);
 
         return view('ext-shopee::product-groups.products', [
             'listingStates' => $listingStates,
             'order' => $order,
-            'orderOptions' => \App\Integrations\Listings\ListingSort::options(array_keys($sortMenu)),
-            'rowErrors' => app(\Extensions\shopee\Services\Shopee\ShopeeListingStates::class)->errors($displayIds),
+            'orderVariations' => \App\Channels\Listings\ListingSort::options(array_keys($sortMenu)),
+            'rowErrors' => app(\Extensions\Shopee\Services\Shopee\ShopeeListingStates::class)->errors($displayIds),
             'group' => $group,
             'failedCount' => $failedCount,
             'products' => $products,
             'pivotMap' => $pivotMap,
-            'optionRowsByProductId' => $optionRowsByProductId,
+            'variationRowsByProductId' => $variationRowsByProductId,
             'linksByProductId' => $linksByProductId,
             'listingsByProductId' => $listingsByProductId,
             'rowTitles' => $rowTitles,
@@ -387,87 +385,87 @@ class ShopeeProductGroupController extends Controller
             'shopeeTab' => $shopeeTab,
             'liveCounts' => $liveCounts,
             'liveCheckedAt' => $liveCheckedAt,
-            'catalogueTotal' => $catalogueTotal,
+            'catalogTotal' => $catalogTotal,
         ]);
     }
 
-    private function buildTierVariation(int $productId, string $pfx, int $langId, float $markupPct, float $markupFixed, float $baseProductPrice): array
+    private function buildTierVariation(int $productId, int $langId, float $markupPct, float $markupFixed, float $baseProductPrice): array
     {
         if ($productId <= 0) {
             return ['tier_variation' => [], 'models' => []];
         }
 
-        $combos = DB::table('product_option_combinations')
+        $combos = DB::table('product_variations')
             ->where('product_id', $productId)
             ->orderBy('sort_order')
             ->get(['id', 'sku', 'quantity', 'absolute_price']);
-        $hidden = \App\Integrations\Listings\ListingVariations::hidden('shopee', (int) (\Extensions\shopee\Models\ShopeeSetting::defaultStore()?->id ?? 0), [$productId]);
-        $combos = $combos->filter(fn ($c) => \App\Integrations\Listings\ListingVariations::allows($hidden, $productId, $c->sku))->values();
+        $hidden = \App\Channels\Listings\ListingVariations::hidden('shopee', (int) (\Extensions\Shopee\Models\ShopeeStore::defaultStore()?->id ?? 0), [$productId]);
+        $combos = $combos->filter(fn ($c) => \App\Channels\Listings\ListingVariations::allows($hidden, $productId, $c->sku))->values();
         if ($combos->isEmpty()) {
             return ['tier_variation' => [], 'models' => []];
         }
 
-        $values = DB::table('product_option_combination_values as pocv')
-            ->join($pfx . 'product_option_value as pov', 'pocv.product_option_value_id', '=', 'pov.product_option_value_id')
-            ->join($pfx . 'option_description as od', function ($j) use ($langId) {
-                $j->on('pov.option_id', '=', 'od.option_id')->where('od.language_id', '=', $langId);
+        $values = DB::table('product_variation_parts as pocv')
+            ->join('product_variation_values as pov', 'pocv.product_variation_value_id', '=', 'pov.product_variation_value_id')
+            ->join('variation_type_descriptions as od', function ($j) use ($langId) {
+                $j->on('pov.variation_type_id', '=', 'od.variation_type_id')->where('od.language_id', '=', $langId);
             })
-            ->join($pfx . 'option_value_description as ovd', function ($j) use ($langId) {
-                $j->on('pov.option_value_id', '=', 'ovd.option_value_id')->where('ovd.language_id', '=', $langId);
+            ->join('variation_value_descriptions as ovd', function ($j) use ($langId) {
+                $j->on('pov.variation_value_id', '=', 'ovd.variation_value_id')->where('ovd.language_id', '=', $langId);
             })
-            ->whereIn('pocv.combination_id', $combos->pluck('id')->all())
+            ->whereIn('pocv.product_variation_id', $combos->pluck('id')->all())
             ->select(
-                'pocv.combination_id',
-                'pov.option_id',
-                'od.name as option_name',
+                'pocv.product_variation_id',
+                'pov.variation_type_id',
+                'od.name as variation_type_name',
                 'ovd.name as value_name'
             )
-            ->orderBy('pocv.combination_id')
-            ->orderBy('pov.option_id')
+            ->orderBy('pocv.product_variation_id')
+            ->orderBy('pov.variation_type_id')
             ->get();
         if ($values->isEmpty()) {
             return ['tier_variation' => [], 'models' => []];
         }
 
-        $orderedOptionIds = [];
-        $optionNameById = [];
-        $valuesByOption = [];
+        $orderedVariationTypeIds = [];
+        $variationTypeNameById = [];
+        $valuesByVariationType = [];
         foreach ($values as $v) {
-            $oid = (int) $v->option_id;
-            if (!in_array($oid, $orderedOptionIds, true)) {
-                $orderedOptionIds[] = $oid;
-                $optionNameById[$oid] = (string) $v->option_name;
-                $valuesByOption[$oid] = [];
+            $oid = (int) $v->variation_type_id;
+            if (!in_array($oid, $orderedVariationTypeIds, true)) {
+                $orderedVariationTypeIds[] = $oid;
+                $variationTypeNameById[$oid] = (string) $v->variation_type_name;
+                $valuesByVariationType[$oid] = [];
             }
             $name = (string) $v->value_name;
-            if (!in_array($name, $valuesByOption[$oid], true)) {
-                $valuesByOption[$oid][] = $name;
+            if (!in_array($name, $valuesByVariationType[$oid], true)) {
+                $valuesByVariationType[$oid][] = $name;
             }
         }
 
         $tierVariation = [];
-        foreach ($orderedOptionIds as $oid) {
+        foreach ($orderedVariationTypeIds as $oid) {
             $tierVariation[] = [
-                'name' => $optionNameById[$oid],
-                'option_list' => array_map(fn ($v) => ['option' => $v], $valuesByOption[$oid]),
+                'name' => $variationTypeNameById[$oid],
+                'option_list' => array_map(fn ($v) => ['option' => $v], $valuesByVariationType[$oid]),
             ];
         }
 
         $valuesByCombo = [];
         foreach ($values as $v) {
-            $valuesByCombo[(int) $v->combination_id][(int) $v->option_id] = (string) $v->value_name;
+            $valuesByCombo[(int) $v->product_variation_id][(int) $v->variation_type_id] = (string) $v->value_name;
         }
 
         $models = [];
         foreach ($combos as $c) {
             $cid = (int) $c->id;
             $tierIndex = [];
-            foreach ($orderedOptionIds as $oid) {
+            foreach ($orderedVariationTypeIds as $oid) {
                 $valueName = $valuesByCombo[$cid][$oid] ?? null;
                 if ($valueName === null) {
                     continue 2;
                 }
-                $idx = array_search($valueName, $valuesByOption[$oid], true);
+                $idx = array_search($valueName, $valuesByVariationType[$oid], true);
                 if ($idx === false) {
                     continue 2;
                 }
@@ -574,9 +572,9 @@ class ShopeeProductGroupController extends Controller
         }
 
         if ($auth === null) {
-            $setting = ShopeeSetting::defaultStore()?->decrypted();
-            $auth = ShopeeSetting::activeAuth($setting);
-            if (!$setting) {
+            $store = ShopeeStore::defaultStore()?->decrypted();
+            $auth = ShopeeStore::activeAuth($store);
+            if (!$store) {
                 return;
             }
         }
@@ -691,9 +689,9 @@ class ShopeeProductGroupController extends Controller
             return response()->json(['ok' => true, 'complete' => true, 'read' => $read()]);
         }
 
-        $setting = ShopeeSetting::defaultStore()?->decrypted();
-        $auth = ShopeeSetting::activeAuth($setting);
-        if (!$setting || !$auth['complete']) {
+        $store = ShopeeStore::defaultStore()?->decrypted();
+        $auth = ShopeeStore::activeAuth($store);
+        if (!$store || !$auth['complete']) {
             return response()->json(['ok' => false, 'message' => 'This store is not connected yet. Authorise it with Shopee first.'], 412);
         }
 
@@ -789,9 +787,9 @@ class ShopeeProductGroupController extends Controller
             ]);
         }
 
-        $setting = ShopeeSetting::defaultStore()?->decrypted();
-        $auth = ShopeeSetting::activeAuth($setting);
-        if (!$setting || !$auth['complete']) {
+        $store = ShopeeStore::defaultStore()?->decrypted();
+        $auth = ShopeeStore::activeAuth($store);
+        if (!$store || !$auth['complete']) {
             $modeLabel = $auth['mode'] === 'sandbox' ? 'Sandbox' : 'Production';
             return response()->json([
                 'ok' => false,
@@ -879,8 +877,6 @@ class ShopeeProductGroupController extends Controller
     public function productSearch(Request $request, int $id)
     {
         $group = ShopeeProductGroup::query()->findOrFail($id);
-
-        $pfx = (string) config('catalog.prefix');
         $langId = (int) config('catalog.default_language_id');
         $q = trim((string) $request->query('q', ''));
         $showAll = $request->boolean('all');
@@ -890,8 +886,8 @@ class ShopeeProductGroupController extends Controller
             ->where('shopee_product_group_id', $group->id)
             ->select('product_id');
 
-        $query = DB::table($pfx . 'product as p')
-            ->leftJoin($pfx . 'product_description as pd', function ($j) use ($langId) {
+        $query = DB::table('products as p')
+            ->leftJoin('product_descriptions as pd', function ($j) use ($langId) {
                 $j->on('p.product_id', '=', 'pd.product_id')->where('pd.language_id', '=', $langId);
             })
             ->leftJoinSub(ShopeeStoreProducts::query(), 'os', 'os.product_id', '=', 'p.product_id')
@@ -918,11 +914,11 @@ class ShopeeProductGroupController extends Controller
             ->whereIn('product_id', $ids)
             ->pluck('product_id')->map(fn ($v) => (int) $v)->flip();
 
-        $owners = $ids === [] ? collect() : DB::table('shopee_product_group_products as pv')
-            ->join('shopee_product_groups as g', 'g.id', '=', 'pv.shopee_product_group_id')
+        $owners = $ids === [] ? collect() : DB::table('ch_shopee_product_group_products as pv')
+            ->join('ch_shopee_product_groups as g', 'g.id', '=', 'pv.shopee_product_group_id')
             ->whereIn('pv.product_id', $ids)
             ->where('g.id', '!=', $group->id)
-            ->when(app()->bound('shopee.route-store'), fn ($w) => $w->where('g.shopee_setting_id', app('shopee.route-store')->id))
+            ->when(app()->bound('shopee.route-store'), fn ($w) => $w->where('g.store_id', app('shopee.route-store')->id))
             ->get(['pv.product_id', 'g.name'])
             ->keyBy('product_id');
 
@@ -949,9 +945,9 @@ class ShopeeProductGroupController extends Controller
     public function addProduct(Request $request, int $id, int $productId)
     {
         $group = ShopeeProductGroup::query()->findOrFail($id);
-        $inCatalogue = DB::table((string) config('catalog.prefix') . 'product')
+        $inCatalog = DB::table('products')
             ->where('product_id', $productId)->where('status', 1)->exists();
-        abort_unless($inCatalogue, 404);
+        abort_unless($inCatalog, 404);
 
         $listedNow = false;
         if (! ShopeeStoreProducts::has($productId)) {
@@ -965,8 +961,8 @@ class ShopeeProductGroupController extends Controller
         $held = [];
 
         if (! $already) {
-            $claim = \App\Integrations\OneGroupRule::claim(
-                'shopee_product_group_products', 'shopee_product_group_id', 'shopee_product_groups', 'shopee_setting_id',
+            $claim = \App\Channels\OneGroupRule::claim(
+                'ch_shopee_product_group_products', 'shopee_product_group_id', 'ch_shopee_product_groups', 'store_id',
                 $group->id, [$productId], $request->boolean('move') ? [$productId] : []
             );
             foreach (array_merge($claim['free'], array_keys($claim['moved'])) as $pid) {
@@ -982,7 +978,7 @@ class ShopeeProductGroupController extends Controller
 
         if ($request->wantsJson()) {
             if (! $already && ! $added) {
-                return response()->json(['ok' => false, 'product_id' => $productId, 'message' => trim(\App\Integrations\OneGroupRule::heldClause($held))], 409);
+                return response()->json(['ok' => false, 'product_id' => $productId, 'message' => trim(\App\Channels\OneGroupRule::heldClause($held))], 409);
             }
 
             return response()->json(['ok' => true, 'product_id' => $productId, 'added' => $added, 'moved_from' => $movedFrom, 'listed' => $listedNow]);
@@ -992,7 +988,7 @@ class ShopeeProductGroupController extends Controller
             ? "Product #{$productId} is already in this product group."
             : ($added
                 ? "Product #{$productId} added to the product group." . ($movedFrom !== null ? " Moved here from '{$movedFrom}'." : '') . ($listedNow ? ' It is on this store now too.' : '')
-                : trim(\App\Integrations\OneGroupRule::heldClause($held)));
+                : trim(\App\Channels\OneGroupRule::heldClause($held)));
 
         return $this->productsRedirect($group->id)->with($added ? 'status' : 'warning', $status);
     }
@@ -1001,7 +997,7 @@ class ShopeeProductGroupController extends Controller
     {
         $group = ShopeeProductGroup::query()->findOrFail($groupId);
 
-        $removed = ShopeeProductLink::unlinkProduct($productId, (int) app('shopee.route-store')->id);
+        $removed = ShopeeListingLink::unlinkProduct($productId, (int) app('shopee.route-store')->id);
 
         return $this->productsRedirect($group->id)->with(
             'status',
@@ -1011,7 +1007,7 @@ class ShopeeProductGroupController extends Controller
         );
     }
 
-    public function syncId(int $groupId, int $productId, \Extensions\shopee\Services\Shopee\ShopeeClient $client)
+    public function syncId(int $groupId, int $productId, \Extensions\Shopee\Services\Shopee\ShopeeClient $client)
     {
         $group = ShopeeProductGroup::query()->findOrFail($groupId);
         $pivot = $group->groupProducts()->where('product_id', $productId)->first();
@@ -1019,26 +1015,24 @@ class ShopeeProductGroupController extends Controller
             return redirect()->back()->with('error', 'Product not in this product group.');
         }
 
-        $setting = ShopeeSetting::defaultStore()?->decrypted();
-        $auth = ShopeeSetting::activeAuth($setting);
-        if (!$setting || !$auth['complete']) {
+        $store = ShopeeStore::defaultStore()?->decrypted();
+        $auth = ShopeeStore::activeAuth($store);
+        if (!$store || !$auth['complete']) {
             $modeLabel = $auth['mode'] === 'sandbox' ? 'Sandbox' : 'Production';
             return redirect()->back()->with('error', "Missing Shopee {$modeLabel} credentials.");
         }
-
-        $pfx = (string) config('catalog.prefix');
         $mode = $auth['mode'];
         $pid = (int) $auth['partner_id'];
         $pkey = (string) $auth['partner_key'];
         $token = (string) $auth['access_token'];
         $shopId = (int) $auth['shop_id'];
 
-        $product = DB::table($pfx . 'product')->where('product_id', $productId)->first(['sku', 'model']);
+        $product = DB::table('products')->where('product_id', $productId)->first(['sku', 'model']);
         $skus = [];
         if ($product->sku && trim($product->sku) !== '') $skus[] = strtolower(trim($product->sku));
         if ($product->model && trim($product->model) !== '') $skus[] = strtolower(trim($product->model));
 
-        $optSkus = DB::table($pfx . 'product_option_value')
+        $optSkus = DB::table('product_variation_values')
             ->where('product_id', $productId)
             ->whereNotNull('sku')->where('sku', '!=', '')
             ->pluck('sku')->map(fn($s) => strtolower(trim($s)))->unique()->toArray();
@@ -1048,9 +1042,9 @@ class ShopeeProductGroupController extends Controller
             return redirect()->back()->with('error', 'Product has no SKU to match against Shopee.');
         }
 
-        $erpHasOptions = !empty($optSkus);
+        $erpHasVariations = !empty($optSkus);
 
-        $existingLink = ShopeeProductLink::query()
+        $existingLink = ShopeeListingLink::query()
             ->where('product_id', $productId)
             ->whereNotNull('shopee_item_id')
             ->first();
@@ -1129,10 +1123,10 @@ class ShopeeProductGroupController extends Controller
 
     private function refreshShopeeProductLinks(
         object $pivot, int $productId, int $itemId, array $skus,
-        \Extensions\shopee\Services\Shopee\ShopeeClient $client, string $mode, int $pid, string $pkey, string $token, int $shopId
+        \Extensions\Shopee\Services\Shopee\ShopeeClient $client, string $mode, int $pid, string $pkey, string $token, int $shopId
     ) {
         $auth = ['mode' => $mode, 'partner_id' => $pid, 'partner_key' => $pkey, 'access_token' => $token, 'shop_id' => $shopId];
-        $r = app(\Extensions\shopee\Services\Shopee\ShopeeModelLinkRepair::class)
+        $r = app(\Extensions\Shopee\Services\Shopee\ShopeeModelLinkRepair::class)
             ->forItem($auth, $productId, $itemId, $skus);
 
         if (isset($r['error'])) {
@@ -1165,8 +1159,8 @@ class ShopeeProductGroupController extends Controller
                 ->with('status', 'Product re-linked to Shopee item ' . $pivot->shopee_item_id . '.');
         }
 
-        $linkId = DB::table('shopee_product_links')
-            ->when(app()->bound('shopee.route-store'), fn ($q) => $q->where('shopee_setting_id', app('shopee.route-store')->id))
+        $linkId = DB::table('ch_shopee_listing_links')
+            ->when(app()->bound('shopee.route-store'), fn ($q) => $q->where('store_id', app('shopee.route-store')->id))
             ->where('product_id', $productId)
             ->value('shopee_item_id');
 
@@ -1214,7 +1208,7 @@ class ShopeeProductGroupController extends Controller
 
         $already = $group->groupProducts()->whereIn('product_id', $ids)->pluck('product_id')->map(fn ($v) => (int) $v)->all();
         $wanted = array_values(array_diff($ids, $already));
-        $claim = \App\Integrations\OneGroupRule::claim('shopee_product_group_products', 'shopee_product_group_id', 'shopee_product_groups', 'shopee_setting_id', $group->id, $wanted, $wanted);
+        $claim = \App\Channels\OneGroupRule::claim('ch_shopee_product_group_products', 'shopee_product_group_id', 'ch_shopee_product_groups', 'store_id', $group->id, $wanted, $wanted);
         $moved = 0;
         foreach (array_merge($claim['free'], array_keys($claim['moved'])) as $pid) {
             ShopeeProductGroupProduct::create(['shopee_product_group_id' => $group->id, 'product_id' => (int) $pid]);
@@ -1252,10 +1246,10 @@ class ShopeeProductGroupController extends Controller
     {
         $group = ShopeeProductGroup::findOrFail($id);
 
-        $setting = ShopeeSetting::defaultStore()?->decrypted();
-        $auth = ShopeeSetting::activeAuth($setting);
+        $store = ShopeeStore::defaultStore()?->decrypted();
+        $auth = ShopeeStore::activeAuth($store);
 
-        if (! $setting || ! $auth['complete']) {
+        if (! $store || ! $auth['complete']) {
             $modeLabel = $auth['mode'] === 'sandbox' ? 'Sandbox' : 'Production';
 
             return $this->productsRedirect($id)->with('error', "Missing Shopee {$modeLabel} settings.");
@@ -1264,7 +1258,7 @@ class ShopeeProductGroupController extends Controller
         $productIds = $this->parseIds($request);
 
         if (empty($productIds)) {
-            $productIds = DB::table('shopee_product_group_products')
+            $productIds = DB::table('ch_shopee_product_group_products')
                 ->where('shopee_product_group_id', $id)
                 ->pluck('product_id')->map('intval')->all();
         }
@@ -1282,10 +1276,10 @@ class ShopeeProductGroupController extends Controller
     {
         $group = ShopeeProductGroup::findOrFail($id);
 
-        $setting = ShopeeSetting::defaultStore()?->decrypted();
-        $auth = ShopeeSetting::activeAuth($setting);
+        $store = ShopeeStore::defaultStore()?->decrypted();
+        $auth = ShopeeStore::activeAuth($store);
 
-        if (! $setting || ! $auth['complete']) {
+        if (! $store || ! $auth['complete']) {
             $modeLabel = $auth['mode'] === 'sandbox' ? 'Sandbox' : 'Production';
 
             return $this->productsRedirect($id)->with('error', "Missing Shopee {$modeLabel} settings.");
@@ -1293,7 +1287,7 @@ class ShopeeProductGroupController extends Controller
 
         $index = $this->linkCheck->skuIndex($client, $auth);
 
-        $known = ShopeeProductLink::query()
+        $known = ShopeeListingLink::query()
             ->whereNotNull('shopee_item_id')
             ->pluck('shopee_item_id')
             ->map('intval')
@@ -1338,16 +1332,14 @@ class ShopeeProductGroupController extends Controller
 
     public function sendProducts(ShopeeProductGroup $group, array $productIds, ShopeeClient $client): array
     {
-        $setting = ShopeeSetting::defaultStore()?->decrypted();
-        $auth = ShopeeSetting::activeAuth($setting);
+        $store = ShopeeStore::defaultStore()?->decrypted();
+        $auth = ShopeeStore::activeAuth($store);
 
-        if (! $setting || ! $auth['complete']) {
+        if (! $store || ! $auth['complete']) {
             $modeLabel = $auth['mode'] === 'sandbox' ? 'Sandbox' : 'Production';
 
             return ['tone' => 'error', 'summary' => "Missing Shopee {$modeLabel} settings.", 'failed' => 0, 'stop' => true];
         }
-
-        $pfx = (string) config('catalog.prefix');
         $langId = (int) config('catalog.default_language_id');
 
         $verdicts = [];
@@ -1356,7 +1348,7 @@ class ShopeeProductGroupController extends Controller
         $blocked = [];
 
         foreach ($productIds as $productId) {
-            $verdict = $this->linkCheck->reconcile($client, $auth, (int) $productId, $pfx);
+            $verdict = $this->linkCheck->reconcile($client, $auth, (int) $productId);
             $verdicts[$verdict['state']] = ($verdicts[$verdict['state']] ?? 0) + 1;
 
             if ($verdict['state'] === 'taken' || $verdict['state'] === 'unreachable') {
@@ -1390,12 +1382,12 @@ class ShopeeProductGroupController extends Controller
             } elseif (empty($group->logistic_ids ?? [])) {
                 $blocked[] = 'Nothing new could be created: this product group has no logistics channels set.';
             } else {
-                $created = $this->createOnShopee($group, $toCreate, $client, $auth, $pfx, $langId);
+                $created = $this->createOnShopee($group, $toCreate, $client, $auth, $langId);
             }
         }
 
         if ($toUpdate) {
-            $updated = $this->updateOnShopee($group, $toUpdate, $client, $auth, $pfx, $langId);
+            $updated = $this->updateOnShopee($group, $toUpdate, $client, $auth, $langId);
         }
 
         $notes = [];
@@ -1445,7 +1437,7 @@ class ShopeeProductGroupController extends Controller
         return ['tone' => $tone, 'summary' => $summary, 'failed' => min(count($productIds), $errCount), 'stop' => false];
     }
 
-    private function createOnShopee(ShopeeProductGroup $group, array $productIds, ShopeeClient $client, array $auth, string $pfx, int $langId): array
+    private function createOnShopee(ShopeeProductGroup $group, array $productIds, ShopeeClient $client, array $auth, int $langId): array
     {
         $logisticIds = array_map('intval', $group->logistic_ids ?? []);
 
@@ -1458,33 +1450,33 @@ class ShopeeProductGroupController extends Controller
             ->where('shopee_product_group_id', (int) $group->id)
             ->pluck('value', 'attribute_key')->toArray();
         $this->ensureTemplate((int) $group->shopee_category_id, $client);
-        $readinessAll = app(\Extensions\shopee\Services\Shopee\ShopeeListingReadiness::class)->forProducts($productIds, [
+        $readinessAll = app(\Extensions\Shopee\Services\Shopee\ShopeeListingReadiness::class)->forProducts($productIds, [
             'category_id' => (int) $group->shopee_category_id ?: null,
             'logistic_ids' => $logisticIds,
             'markup_percent' => $group->markup_percent !== null ? (float) $group->markup_percent : null,
             'markup_fixed' => $group->markup_fixed !== null ? (float) $group->markup_fixed : null,
             'attributes' => $groupAnswers,
         ]);
-        $inherit = app(\Extensions\shopee\Services\Shopee\ShopeeInheritedSettings::class);
+        $inherit = app(\Extensions\Shopee\Services\Shopee\ShopeeInheritedSettings::class);
         $inheritedAll = $inherit->forProducts($productIds);
 
         foreach ($productIds as $productId) {
-            if (ShopeeProductLink::query()->where('product_id', $productId)->exists()) {
+            if (ShopeeListingLink::query()->where('product_id', $productId)->exists()) {
                 $skipCount++;
                 continue;
             }
 
             $readiness = $readinessAll[$productId] ?? ['ready' => false, 'missing' => []];
             if (!$readiness['ready']) {
-                $refusal = \App\Integrations\Listings\CatalogGaps::refusal($readiness);
+                $refusal = \App\Channels\Listings\CatalogGaps::refusal($readiness);
                 $errors[] = "#{$productId}: {$refusal}";
                 $this->writeProductStatus($productId, ['sync_status' => 'error', 'push_error' => $refusal]);
                 $errCount++;
                 continue;
             }
 
-            $product = DB::table($pfx . 'product as p')
-                ->leftJoin($pfx . 'product_description as pd', function ($j) use ($langId) {
+            $product = DB::table('products as p')
+                ->leftJoin('product_descriptions as pd', function ($j) use ($langId) {
                     $j->on('p.product_id', '=', 'pd.product_id')
                       ->where('pd.language_id', '=', $langId);
                 })
@@ -1513,17 +1505,17 @@ class ShopeeProductGroupController extends Controller
             if ($effCategory !== (int) $group->shopee_category_id) {
                 $this->ensureTemplate($effCategory, $client);
             }
-            $content = \App\Integrations\Listings\ListingContent::of(
+            $content = \App\Channels\Listings\ListingContent::of(
                 $ownListing,
                 html_entity_decode($product->name ?? '', ENT_QUOTES | ENT_HTML5, 'UTF-8'),
                 \App\Support\Catalog\DescriptionText::of((string) ($product->description ?? '')),
                 'shopee',
-                (int) (\Extensions\shopee\Models\ShopeeSetting::defaultStore()?->id ?? 0)
+                (int) (\Extensions\Shopee\Models\ShopeeStore::defaultStore()?->id ?? 0)
             );
             $itemName = $content['title'];
             $description = \App\Support\Catalog\DescriptionText::of($content['description']);
 
-            $create = app(\Extensions\shopee\Services\Shopee\ShopeeItemCreate::class);
+            $create = app(\Extensions\Shopee\Services\Shopee\ShopeeItemCreate::class);
             $imagePaths = $create->catalogImagePaths($product, $ownListing);
 
             $imageIds = $create->uploadImages($client, $auth, $imagePaths)['ids'];
@@ -1545,7 +1537,7 @@ class ShopeeProductGroupController extends Controller
             $markupFixed = (float) ($eff->markup_fixed ?? 0);
             $sellingPrice = $eff->itemPriceFor($basePrice, ShopeeListing::hasVariations((int) $productId));
 
-            $tierData = $this->buildTierVariation((int) $productId, $pfx, $langId, $markupPct, $markupFixed, $basePrice);
+            $tierData = $this->buildTierVariation((int) $productId, $langId, $markupPct, $markupFixed, $basePrice);
             $hasTierVariation = !empty($tierData['tier_variation']) && !empty($tierData['models']);
 
             $payload = [
@@ -1554,11 +1546,11 @@ class ShopeeProductGroupController extends Controller
                 'item_name' => mb_substr($itemName, 0, 255),
                 'seller_stock' => [['stock' => max(0, (int) $product->quantity)]],
                 'item_sku' => (string) ($product->sku ?? ''),
-                'weight' => \App\Integrations\Listings\ParcelPrecision::of($eff->weight, $product->weight, \App\Integrations\Listings\ParcelPrecision::SHOPEE['weight']),
+                'weight' => \App\Channels\Listings\ParcelPrecision::of($eff->weight, $product->weight, \App\Channels\Listings\ParcelPrecision::SHOPEE['weight']),
                 'dimension' => [
-                    'package_length' => \App\Integrations\Listings\ParcelPrecision::of($eff->package_length, $product->length, \App\Integrations\Listings\ParcelPrecision::SHOPEE['dimension']),
-                    'package_width' => \App\Integrations\Listings\ParcelPrecision::of($eff->package_width, $product->width, \App\Integrations\Listings\ParcelPrecision::SHOPEE['dimension']),
-                    'package_height' => \App\Integrations\Listings\ParcelPrecision::of($eff->package_height, $product->height, \App\Integrations\Listings\ParcelPrecision::SHOPEE['dimension']),
+                    'package_length' => \App\Channels\Listings\ParcelPrecision::of($eff->package_length, $product->length, \App\Channels\Listings\ParcelPrecision::SHOPEE['dimension']),
+                    'package_width' => \App\Channels\Listings\ParcelPrecision::of($eff->package_width, $product->width, \App\Channels\Listings\ParcelPrecision::SHOPEE['dimension']),
+                    'package_height' => \App\Channels\Listings\ParcelPrecision::of($eff->package_height, $product->height, \App\Channels\Listings\ParcelPrecision::SHOPEE['dimension']),
                 ],
                 'category_id' => $effCategory,
                 'image' => ['image_id_list' => $imageIds],
@@ -1624,7 +1616,7 @@ class ShopeeProductGroupController extends Controller
                 }
 
                 $confirmItemIds[] = (int) $itemId;
-                ShopeeProductLink::create([
+                ShopeeListingLink::create([
                     'product_id' => $productId,
                     'shopee_item_id' => (int) $itemId,
                     'shopee_model_id' => null,
@@ -1645,13 +1637,13 @@ class ShopeeProductGroupController extends Controller
                     ]
                 );
 
-                $variations = app(\Extensions\shopee\Services\Shopee\ShopeeVariationPush::class)->pushForProduct(
+                $variations = app(\Extensions\Shopee\Services\Shopee\ShopeeVariationPush::class)->pushForProduct(
                     $client, $auth, (int) $itemId, $productId,
                     fn (float $core) => $eff->priceFor($core),
                     null
                 );
                 if ($variations !== null && !$variations['ok']) {
-                    $undone = app(\Extensions\shopee\Services\Shopee\ShopeeVariationPush::class)
+                    $undone = app(\Extensions\Shopee\Services\Shopee\ShopeeVariationPush::class)
                         ->undoCreate($client, $auth, $productId, (int) $itemId);
                     $reason = $undone
                         ? 'not pushed - its variations were refused (' . $variations['message'] . '); the item was removed from Shopee again'
@@ -1669,14 +1661,14 @@ class ShopeeProductGroupController extends Controller
                         'last_pushed_at' => now(),
                     ]);
 
-                $erpSkus = DB::table($pfx . 'product_option_value')
+                $erpSkus = DB::table('product_variation_values')
                     ->where('product_id', $productId)
                     ->whereNotNull('sku')
                     ->where('sku', '!=', '')
                     ->pluck('sku')
                     ->map(fn ($s) => strtolower(trim((string) $s)))
                     ->all();
-                $comboSkus = DB::table('product_option_combinations')
+                $comboSkus = DB::table('product_variations')
                     ->where('product_id', $productId)
                     ->whereNotNull('sku')
                     ->where('sku', '!=', '')
@@ -1684,9 +1676,9 @@ class ShopeeProductGroupController extends Controller
                     ->map(fn ($s) => strtolower(trim((string) $s)))
                     ->all();
                 $allSkus = array_values(array_unique(array_merge($erpSkus, $comboSkus)));
-                $erpHasOptions = !empty($allSkus);
+                $erpHasVariations = !empty($allSkus);
 
-                if ($erpHasOptions) {
+                if ($erpHasVariations) {
                     try {
                         $pivot = ShopeeProductGroupProduct::where('shopee_product_group_id', $group->id)
                             ->where('product_id', $productId)
@@ -1725,12 +1717,12 @@ class ShopeeProductGroupController extends Controller
             usleep(300000);
         }
 
-        app(\Extensions\shopee\Services\Shopee\ShopeeLiveListing::class)->confirm($auth, $confirmItemIds ?? []);
+        app(\Extensions\Shopee\Services\Shopee\ShopeeLiveListing::class)->confirm($auth, $confirmItemIds ?? []);
 
         return ['ok' => $okCount, 'skip' => $skipCount, 'err' => $errCount, 'errors' => $errors];
     }
 
-    private function updateOnShopee(ShopeeProductGroup $group, array $productIds, ShopeeClient $client, array $auth, string $pfx, int $langId): array
+    private function updateOnShopee(ShopeeProductGroup $group, array $productIds, ShopeeClient $client, array $auth, int $langId): array
     {
         $okCount = 0;
         $skipCount = 0;
@@ -1739,7 +1731,7 @@ class ShopeeProductGroupController extends Controller
         $warnings = [];
 
         foreach ($productIds as $productId) {
-            $link = ShopeeProductLink::query()->where('product_id', $productId)->first();
+            $link = ShopeeListingLink::query()->where('product_id', $productId)->first();
             if (!$link || !$link->shopee_item_id) {
                 $skipCount++;
                 continue;
@@ -1747,8 +1739,8 @@ class ShopeeProductGroupController extends Controller
 
             $itemId = (int) $link->shopee_item_id;
 
-            $product = DB::table($pfx . 'product as p')
-                ->leftJoin($pfx . 'product_description as pd', function ($j) use ($langId) {
+            $product = DB::table('products as p')
+                ->leftJoin('product_descriptions as pd', function ($j) use ($langId) {
                     $j->on('p.product_id', '=', 'pd.product_id')
                       ->where('pd.language_id', '=', $langId);
                 })
@@ -1767,12 +1759,12 @@ class ShopeeProductGroupController extends Controller
             }
 
             $ownListing = ShopeeListing::query()->where('product_id', (int) $productId)->first();
-            $content = \App\Integrations\Listings\ListingContent::of(
+            $content = \App\Channels\Listings\ListingContent::of(
                 $ownListing,
                 html_entity_decode($product->name ?? '', ENT_QUOTES | ENT_HTML5, 'UTF-8'),
                 \App\Support\Catalog\DescriptionText::of((string) ($product->description ?? '')),
                 'shopee',
-                (int) (\Extensions\shopee\Models\ShopeeSetting::defaultStore()?->id ?? 0)
+                (int) (\Extensions\Shopee\Models\ShopeeStore::defaultStore()?->id ?? 0)
             );
             $itemName = $content['title'];
             $description = \App\Support\Catalog\DescriptionText::of($content['description']);
@@ -1783,7 +1775,7 @@ class ShopeeProductGroupController extends Controller
                 continue;
             }
 
-            $create = app(\Extensions\shopee\Services\Shopee\ShopeeItemCreate::class);
+            $create = app(\Extensions\Shopee\Services\Shopee\ShopeeItemCreate::class);
             $imagePaths = $create->catalogImagePaths($product, $ownListing);
 
             $imageIds = $create->uploadImages($client, $auth, $imagePaths)['ids'];
@@ -1793,11 +1785,11 @@ class ShopeeProductGroupController extends Controller
                 'description' => mb_substr($description, 0, 5000),
                 'item_name' => mb_substr($itemName, 0, 255),
                 'item_sku' => (string) ($product->sku ?? ''),
-                'weight' => \App\Integrations\Listings\ParcelPrecision::of($ownListing?->weight, $product->weight, \App\Integrations\Listings\ParcelPrecision::SHOPEE['weight']),
+                'weight' => \App\Channels\Listings\ParcelPrecision::of($ownListing?->weight, $product->weight, \App\Channels\Listings\ParcelPrecision::SHOPEE['weight']),
                 'dimension' => [
-                    'package_length' => \App\Integrations\Listings\ParcelPrecision::of($ownListing?->package_length, $product->length, \App\Integrations\Listings\ParcelPrecision::SHOPEE['dimension']),
-                    'package_width' => \App\Integrations\Listings\ParcelPrecision::of($ownListing?->package_width, $product->width, \App\Integrations\Listings\ParcelPrecision::SHOPEE['dimension']),
-                    'package_height' => \App\Integrations\Listings\ParcelPrecision::of($ownListing?->package_height, $product->height, \App\Integrations\Listings\ParcelPrecision::SHOPEE['dimension']),
+                    'package_length' => \App\Channels\Listings\ParcelPrecision::of($ownListing?->package_length, $product->length, \App\Channels\Listings\ParcelPrecision::SHOPEE['dimension']),
+                    'package_width' => \App\Channels\Listings\ParcelPrecision::of($ownListing?->package_width, $product->width, \App\Channels\Listings\ParcelPrecision::SHOPEE['dimension']),
+                    'package_height' => \App\Channels\Listings\ParcelPrecision::of($ownListing?->package_height, $product->height, \App\Channels\Listings\ParcelPrecision::SHOPEE['dimension']),
                 ],
             ];
 
@@ -1805,14 +1797,14 @@ class ShopeeProductGroupController extends Controller
                 $payload['image'] = ['image_id_list' => $imageIds];
             }
 
-            $described = (new \Extensions\shopee\Services\Shopee\ShopeeDescription($client))->write(
+            $described = (new \Extensions\Shopee\Services\Shopee\ShopeeDescription($client))->write(
                 $payload, $auth, (int) $itemId,
-                \App\Integrations\Listings\ListingContent::of(
+                \App\Channels\Listings\ListingContent::of(
                     $ownListing,
                     html_entity_decode($product->name ?? '', ENT_QUOTES | ENT_HTML5, 'UTF-8'),
                     (string) ($product->description ?? ''),
                     'shopee',
-                    (int) (\Extensions\shopee\Models\ShopeeSetting::defaultStore()?->id ?? 0)
+                    (int) (\Extensions\Shopee\Models\ShopeeStore::defaultStore()?->id ?? 0)
                 )['description']
             );
             $payload = $described['payload'];
@@ -1820,17 +1812,17 @@ class ShopeeProductGroupController extends Controller
                 $warnings[] = "#{$productId}: {$described['note']}";
             }
 
-            $switches = app(\Extensions\shopee\Services\Shopee\ShopeeVariationSwitches::class);
+            $switches = app(\Extensions\Shopee\Services\Shopee\ShopeeVariationSwitches::class);
             $read = $switches->readFor($client, $auth, $itemId, (int) $productId);
 
-            $rename = app(\Extensions\shopee\Services\Shopee\ShopeeVariationRename::class);
+            $rename = app(\Extensions\Shopee\Services\Shopee\ShopeeVariationRename::class);
             $plan = $rename->plan($client, $auth, $itemId, (int) $productId, $read);
             $renamed = $rename->apply($client, $auth, $plan);
             if (!$renamed['ok']) {
                 $warnings[] = "#{$productId}: {$renamed['message']}";
             }
 
-            $inherit = app(\Extensions\shopee\Services\Shopee\ShopeeInheritedSettings::class);
+            $inherit = app(\Extensions\Shopee\Services\Shopee\ShopeeInheritedSettings::class);
             $eff = $inherit->fill(
                 $ownListing ?? (new ShopeeListing())->forceFill(['product_id' => (int) $productId]),
                 $inherit->forProducts([(int) $productId])[(int) $productId] ?? null
@@ -1841,11 +1833,11 @@ class ShopeeProductGroupController extends Controller
             }
             $followed = $switches->follow(
                 $client, $auth, $itemId, (int) $productId,
-                \Extensions\shopee\Services\Shopee\ShopeeVariationSwitches::renamed($read, $plan, $renamed),
+                \Extensions\Shopee\Services\Shopee\ShopeeVariationSwitches::renamed($read, $plan, $renamed),
                 fn (float $core) => (float) $eff->priceFor($core),
                 $create->tierImageUploader($client, $auth)
             );
-            $switchNote = \Extensions\shopee\Services\Shopee\ShopeeVariationSwitches::note($followed);
+            $switchNote = \Extensions\Shopee\Services\Shopee\ShopeeVariationSwitches::note($followed);
             if ($switchNote !== '') {
                 $warnings[] = "#{$productId}: {$switchNote}";
             }
@@ -1869,12 +1861,12 @@ class ShopeeProductGroupController extends Controller
             $respError = is_array($body) ? ($body['error'] ?? '') : '';
 
             if (($result['ok'] ?? false) && $respError === '') {
-                $links = ShopeeProductLink::query()->where('product_id', $productId)->get();
+                $links = ShopeeListingLink::query()->where('product_id', $productId)->get();
                 $synced = [
-                    $this->pushPriceForLinks($client, $auth, $pfx, $links, $group),
-                    $this->pushStockForLinks($client, $auth, $pfx, $links),
+                    $this->pushPriceForLinks($client, $auth, $links, $group),
+                    $this->pushStockForLinks($client, $auth, $links),
                 ];
-                app(\Extensions\shopee\Services\Shopee\ShopeeLiveListing::class)->confirm($auth, $links->pluck('shopee_item_id')->all());
+                app(\Extensions\Shopee\Services\Shopee\ShopeeLiveListing::class)->confirm($auth, $links->pluck('shopee_item_id')->all());
 
                 $this->writeProductStatus($productId, [
                         'sync_status' => 'pushed',
@@ -1927,9 +1919,9 @@ class ShopeeProductGroupController extends Controller
             return $this->productsRedirect($id)->with('error', 'No products selected.');
         }
 
-        $setting = ShopeeSetting::defaultStore()?->decrypted();
-        $auth = ShopeeSetting::activeAuth($setting);
-        if (!$setting || !$auth['complete']) {
+        $store = ShopeeStore::defaultStore()?->decrypted();
+        $auth = ShopeeStore::activeAuth($store);
+        if (!$store || !$auth['complete']) {
             $modeLabel = $auth['mode'] === 'sandbox' ? 'Sandbox' : 'Production';
             return $this->productsRedirect($id)->with('error', "Missing Shopee {$modeLabel} settings.");
         }
@@ -1942,11 +1934,9 @@ class ShopeeProductGroupController extends Controller
         if (empty($logisticIds)) {
             return $this->productsRedirect($id)->with('error', 'This product group has no logistics channels configured.');
         }
-
-        $pfx = (string) config('catalog.prefix');
         $langId = (int) config('catalog.default_language_id');
 
-        $r = $this->createOnShopee($group, $productIds, $client, $auth, $pfx, $langId);
+        $r = $this->createOnShopee($group, $productIds, $client, $auth, $langId);
         $okCount = $r['ok']; $skipCount = $r['skip']; $errCount = $r['err']; $errors = $r['errors'];
 
         $summary = "Push: {$okCount} pushed";
@@ -1965,17 +1955,15 @@ class ShopeeProductGroupController extends Controller
             return $this->productsRedirect($id)->with('error', 'No products selected.');
         }
 
-        $setting = ShopeeSetting::defaultStore()?->decrypted();
-        $auth = ShopeeSetting::activeAuth($setting);
-        if (!$setting || !$auth['complete']) {
+        $store = ShopeeStore::defaultStore()?->decrypted();
+        $auth = ShopeeStore::activeAuth($store);
+        if (!$store || !$auth['complete']) {
             $modeLabel = $auth['mode'] === 'sandbox' ? 'Sandbox' : 'Production';
             return $this->productsRedirect($id)->with('error', "Missing Shopee {$modeLabel} settings.");
         }
-
-        $pfx = (string) config('catalog.prefix');
         $langId = (int) config('catalog.default_language_id');
 
-        $r = $this->updateOnShopee($group, $productIds, $client, $auth, $pfx, $langId);
+        $r = $this->updateOnShopee($group, $productIds, $client, $auth, $langId);
         $okCount = $r['ok']; $skipCount = $r['skip']; $errCount = $r['err']; $errors = $r['errors'];
 
         $summary = "Update: {$okCount} updated";
@@ -1995,24 +1983,22 @@ class ShopeeProductGroupController extends Controller
             return $this->productsRedirect($id)->with('error', 'No products selected.');
         }
 
-        $setting = ShopeeSetting::defaultStore()?->decrypted();
-        $auth = ShopeeSetting::activeAuth($setting);
-        if (!$setting || !$auth['complete']) {
+        $store = ShopeeStore::defaultStore()?->decrypted();
+        $auth = ShopeeStore::activeAuth($store);
+        if (!$store || !$auth['complete']) {
             $modeLabel = $auth['mode'] === 'sandbox' ? 'Sandbox' : 'Production';
             return $this->productsRedirect($id)->with('error', "Missing Shopee {$modeLabel} settings.");
         }
-
-        $pfx = (string) config('catalog.prefix');
-        $links = ShopeeProductLink::query()->whereIn('product_id', $productIds)->get();
+        $links = ShopeeListingLink::query()->whereIn('product_id', $productIds)->get();
         $skip = count($productIds) - $links->pluck('product_id')->unique()->count();
 
-        $results = $this->pushPriceForLinks($client, $auth, $pfx, $links, $group);
+        $results = $this->pushPriceForLinks($client, $auth, $links, $group);
         $this->recordSyncOutcomes($group->id, $results['outcomes'] ?? []);
 
         return $this->productsRedirect($id)->with(
             $this->batchTone($results['ok'], $results['err']),
             "Sync Price: {$results['ok']} success, {$results['err']} error, {$skip} skipped (not linked)."
-                . \Extensions\shopee\Services\Shopee\ShopeeStockPricePush::ledgerClause($this->lastPushLedger)
+                . \Extensions\Shopee\Services\Shopee\ShopeeStockPricePush::ledgerClause($this->lastPushLedger)
         );
     }
 
@@ -2024,33 +2010,31 @@ class ShopeeProductGroupController extends Controller
             return $this->productsRedirect($id)->with('error', 'No products selected.');
         }
 
-        $setting = ShopeeSetting::defaultStore()?->decrypted();
-        $auth = ShopeeSetting::activeAuth($setting);
-        if (!$setting || !$auth['complete']) {
+        $store = ShopeeStore::defaultStore()?->decrypted();
+        $auth = ShopeeStore::activeAuth($store);
+        if (!$store || !$auth['complete']) {
             $modeLabel = $auth['mode'] === 'sandbox' ? 'Sandbox' : 'Production';
             return $this->productsRedirect($id)->with('error', "Missing Shopee {$modeLabel} settings.");
         }
 
-        $pfx = (string) config('catalog.prefix');
-
-        $enabledIds = DB::table($pfx . 'product')
+        $enabledIds = DB::table('products')
             ->whereIn('product_id', $productIds)
             ->where('status', 1)
             ->pluck('product_id')
             ->toArray();
         $disabledCount = count($productIds) - count($enabledIds);
 
-        $links = ShopeeProductLink::query()->whereIn('product_id', $enabledIds)->get();
+        $links = ShopeeListingLink::query()->whereIn('product_id', $enabledIds)->get();
         $skip = count($enabledIds) - $links->pluck('product_id')->unique()->count();
 
-        $results = $this->pushStockForLinks($client, $auth, $pfx, $links);
+        $results = $this->pushStockForLinks($client, $auth, $links);
         $this->recordSyncOutcomes($group->id, $results['outcomes'] ?? []);
 
         $msg = "Sync Qty: {$results['ok']} success, {$results['err']} error, {$skip} skipped (not linked)";
         if ($disabledCount > 0) {
             $msg .= ", {$disabledCount} skipped (disabled)";
         }
-        $ledger = \Extensions\shopee\Services\Shopee\ShopeeStockPricePush::ledgerClause($this->lastPushLedger);
+        $ledger = \Extensions\Shopee\Services\Shopee\ShopeeStockPricePush::ledgerClause($this->lastPushLedger);
 
         return $this->productsRedirect($id)->with(
             $this->batchTone($results['ok'], $results['err']),
@@ -2066,9 +2050,9 @@ class ShopeeProductGroupController extends Controller
             return $this->productsRedirect($id)->with('error', 'No products selected.');
         }
 
-        $setting = ShopeeSetting::defaultStore()?->decrypted();
-        $auth = ShopeeSetting::activeAuth($setting);
-        if (!$setting || !$auth['complete']) {
+        $store = ShopeeStore::defaultStore()?->decrypted();
+        $auth = ShopeeStore::activeAuth($store);
+        if (!$store || !$auth['complete']) {
             $modeLabel = $auth['mode'] === 'sandbox' ? 'Sandbox' : 'Production';
             return $this->productsRedirect($id)->with('error', "Missing Shopee {$modeLabel} settings.");
         }
@@ -2079,7 +2063,7 @@ class ShopeeProductGroupController extends Controller
         $path = '/api/v2/product/delete_item';
 
         foreach ($productIds as $productId) {
-            $link = ShopeeProductLink::query()->where('product_id', $productId)->first();
+            $link = ShopeeListingLink::query()->where('product_id', $productId)->first();
             if (!$link || !$link->shopee_item_id) {
                 $errCount++;
                 continue;
@@ -2115,7 +2099,7 @@ class ShopeeProductGroupController extends Controller
 
             if (($result['ok'] ?? false) && $respError === '') {
                 ShopeeItemCache::query()->where('shopee_item_id', $link->shopee_item_id)->delete();
-                ShopeeProductLink::query()->where('product_id', $productId)->delete();
+                ShopeeListingLink::query()->where('product_id', $productId)->delete();
 
                 $this->writeProductStatus($productId, ['shopee_item_id' => null, 'sync_status' => 'pending']);
                 $this->listingStates()->clearErrors([$productId]);
@@ -2149,12 +2133,12 @@ class ShopeeProductGroupController extends Controller
 
     private function writeProductStatus(int $productId, array $attributes): void
     {
-        $storeId = (int) (ShopeeSetting::defaultStore()?->id ?? 0);
+        $storeId = (int) (ShopeeStore::defaultStore()?->id ?? 0);
         \App\Support\ChannelProductStatus::write(
-            'shopee_product_group_products',
+            'ch_shopee_product_group_products',
             'shopee_product_group_id',
             $storeId > 0
-                ? ShopeeProductGroup::query()->withoutGlobalScope('shopeeStore')->where('shopee_setting_id', $storeId)
+                ? ShopeeProductGroup::query()->withoutGlobalScope('shopeeStore')->where('store_id', $storeId)
                     ->pluck('id')->map(fn ($v) => (int) $v)->all()
                 : null,
             $productId,
@@ -2168,9 +2152,9 @@ class ShopeeProductGroupController extends Controller
         }
     }
 
-    private function listingStates(): \Extensions\shopee\Services\Shopee\ShopeeListingStates
+    private function listingStates(): \Extensions\Shopee\Services\Shopee\ShopeeListingStates
     {
-        return app(\Extensions\shopee\Services\Shopee\ShopeeListingStates::class);
+        return app(\Extensions\Shopee\Services\Shopee\ShopeeListingStates::class);
     }
 
     private function apiFailureMessage(array $result): string
@@ -2193,7 +2177,7 @@ class ShopeeProductGroupController extends Controller
 
     private function batchTone(int $ok, int $err): string
     {
-        return \App\Integrations\Push\PushLedger::batchTone($ok, $err);
+        return \App\Channels\Push\PushLedger::batchTone($ok, $err);
     }
 
     private function recordSyncOutcomes(int $groupId, array $outcomes): void
@@ -2214,24 +2198,24 @@ class ShopeeProductGroupController extends Controller
         return array_values(array_unique(array_filter(array_map(fn($v) => (int) $v, $ids), fn($v) => $v > 0)));
     }
 
-    private function pushStockForLinks(ShopeeClient $client, array $auth, string $pfx, $links): array
+    private function pushStockForLinks(ShopeeClient $client, array $auth, $links): array
     {
-        $results = app(\Extensions\shopee\Services\Shopee\ShopeeStockPricePush::class)
-            ->push('stock', $auth, $links, $pfx);
+        $results = app(\Extensions\Shopee\Services\Shopee\ShopeeStockPricePush::class)
+            ->push('stock', $auth, $links);
         $this->lastPushLedger = $results;
         [$ok, $err, $outcomes] = [$results['ok'], $results['err'], $results['outcomes']];
 
         return ['ok' => $ok, 'err' => $err, 'outcomes' => $outcomes];
     }
 
-    private function pushPriceForLinks(ShopeeClient $client, array $auth, string $pfx, $links, ShopeeProductGroup $group): array
+    private function pushPriceForLinks(ShopeeClient $client, array $auth, $links, ShopeeProductGroup $group): array
     {
-        $priceFor = \Extensions\shopee\Commands\ShopeePushPrice::priceRule(
+        $priceFor = \Extensions\Shopee\Commands\ShopeePushPrice::priceRule(
             collect($links)->pluck('product_id')->map(fn ($v) => (int) $v)->unique()->values()->all()
         );
 
-        $results = app(\Extensions\shopee\Services\Shopee\ShopeeStockPricePush::class)
-            ->push('price', $auth, $links, $pfx, $priceFor);
+        $results = app(\Extensions\Shopee\Services\Shopee\ShopeeStockPricePush::class)
+            ->push('price', $auth, $links, $priceFor);
         $this->lastPushLedger = $results;
         [$ok, $err, $outcomes] = [$results['ok'], $results['err'], $results['outcomes']];
 
@@ -2246,9 +2230,9 @@ class ShopeeProductGroupController extends Controller
         $shopeeCategoryId = (int) $request->input('shopee_category_id');
         $group->update(['shopee_category_id' => $shopeeCategoryId]);
 
-        $setting = ShopeeSetting::defaultStore()?->decrypted();
-        $auth = ShopeeSetting::activeAuth($setting);
-        if (!$setting || !$auth['complete']) {
+        $store = ShopeeStore::defaultStore()?->decrypted();
+        $auth = ShopeeStore::activeAuth($store);
+        if (!$store || !$auth['complete']) {
             $modeLabel = $auth['mode'] === 'sandbox' ? 'Sandbox' : 'Production';
             return redirect()->route('ext.shopee.product-groups.edit', $group->id)
                 ->with('error', "Missing Shopee {$modeLabel} settings.");
@@ -2360,9 +2344,9 @@ class ShopeeProductGroupController extends Controller
 
     public function refreshCategories(ShopeeClient $client)
     {
-        $setting = ShopeeSetting::defaultStore()?->decrypted();
-        $auth = ShopeeSetting::activeAuth($setting);
-        if (!$setting || !$auth['complete']) {
+        $store = ShopeeStore::defaultStore()?->decrypted();
+        $auth = ShopeeStore::activeAuth($store);
+        if (!$store || !$auth['complete']) {
             $modeLabel = $auth['mode'] === 'sandbox' ? 'Sandbox' : 'Production';
             return response()->json(['ok' => false, 'message' => "Missing Shopee {$modeLabel} settings."]);
         }
@@ -2402,9 +2386,9 @@ class ShopeeProductGroupController extends Controller
         unset($r);
 
         DB::transaction(function () use ($rows) {
-            DB::table('shopee_categories')->delete();
+            DB::table('ch_shopee_categories')->delete();
             foreach (array_chunk($rows, 1000) as $chunk) {
-                DB::table('shopee_categories')->insert($chunk);
+                DB::table('ch_shopee_categories')->insert($chunk);
             }
         });
 
@@ -2446,9 +2430,9 @@ class ShopeeProductGroupController extends Controller
             return response()->json(['ok' => false, 'html' => '']);
         }
 
-        $setting = ShopeeSetting::defaultStore()?->decrypted();
-        $auth = ShopeeSetting::activeAuth($setting);
-        if (!$setting || !$auth['complete']) {
+        $store = ShopeeStore::defaultStore()?->decrypted();
+        $auth = ShopeeStore::activeAuth($store);
+        if (!$store || !$auth['complete']) {
             $modeLabel = $auth['mode'] === 'sandbox' ? 'Sandbox' : 'Production';
             return response()->json(['ok' => false, 'html' => '<div class="text-muted">Missing Shopee ' . $modeLabel . ' settings.</div>']);
         }

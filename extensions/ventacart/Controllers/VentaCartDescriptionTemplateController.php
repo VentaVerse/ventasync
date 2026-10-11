@@ -1,10 +1,10 @@
 <?php
 
-namespace Extensions\ventacart\Controllers;
+namespace Extensions\VentaCart\Controllers;
 
 class VentaCartDescriptionTemplateController extends \App\Http\Controllers\Channels\DescriptionTemplateController
 {
-    protected function integration(): string
+    protected function channel(): string
     {
         return 'ventacart';
     }

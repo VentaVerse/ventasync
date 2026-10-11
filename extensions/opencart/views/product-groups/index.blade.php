@@ -16,7 +16,7 @@
         <h1 class="x-page-title">Product Groups</h1>
         <p class="x-page-sub">
             {{ number_format($groups->count()) }} {{ $groups->count() === 1 ? 'product group' : 'product groups' }} on {{ $storeName }}.
-            <x-ui.hint label="What a product group is">A product group picks catalog products by category and manufacturer, then pushes them to this store together.</x-ui.hint>
+            <x-ui.hint label="What a product group is">A product group picks Master Catalog products by category and brand, then pushes them to this store together.</x-ui.hint>
         </p>
     </div>
     @if($canManageOpencart)
@@ -62,7 +62,7 @@
                         <a class="x-menu__item" href="{{ route('ext.opencart.product-groups.edit', [$setting->id, $g->id]) }}">Edit product group</a>
                         <div class="x-menu__sep"></div>
                         <button type="button" class="x-menu__item x-menu__item--danger"
-                                data-confirm="Delete the product group {{ $g->name }} from {{ $storeName }}? Its product links go with it. Nothing changes in the catalog, and nothing already on the OpenCart store is touched."
+                                data-confirm="Delete the product group {{ $g->name }} from {{ $storeName }}? Its product links go with it. Nothing changes in the Master Catalog, and nothing already on the OpenCart store is touched."
                                 data-confirm-submit="ocpg-del-{{ $g->id }}">Delete product group</button>
                     @endif
                 </x-ui.menu>

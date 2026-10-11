@@ -1,13 +1,13 @@
 <?php
 
-namespace Extensions\shopee\Services\Shopee;
+namespace Extensions\Shopee\Services\Shopee;
 
 use App\Support\PayoutStatus;
-use Extensions\shopee\Models\ShopeeApiLog;
-use Extensions\shopee\Models\ShopeeOrder;
+use Extensions\Shopee\Models\ShopeeApiLog;
+use Extensions\Shopee\Models\ShopeeOrder;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
-use Extensions\shopee\Models\ShopeeSetting;
+use Extensions\Shopee\Models\ShopeeStore;
 
 class ShopeePayoutSync
 {
@@ -35,8 +35,8 @@ class ShopeePayoutSync
     {
         return [
             'channel' => 'shopee',
-            'table' => 'shopee_orders',
-            'store_column' => 'shopee_setting_id',
+            'table' => 'ch_shopee_orders',
+            'store_column' => 'store_id',
             'id_column' => 'order_sn',
             'payable' => ['COMPLETED'],
             'received_column' => 'payout_amount',
@@ -47,17 +47,17 @@ class ShopeePayoutSync
         ];
     }
 
-    public function sync(ShopeeSetting $store, int $days, ?callable $say = null): array
+    public function sync(ShopeeStore $store, int $days, ?callable $say = null): array
     {
         $say ??= static function (string $line): void {};
         $out = ['ok' => true, 'message' => '', 'waiting' => 0, 'requests' => 0, 'paid' => 0, 'releasing' => 0, 'returned' => 0, 'checked' => 0, 'no_payout' => 0];
 
-        $auth = ShopeeSetting::activeAuth($store->decrypted());
+        $auth = ShopeeStore::activeAuth($store->decrypted());
         if (! $auth['complete']) {
             return ['ok' => false, 'message' => 'This store is not connected to Shopee.'] + $out;
         }
 
-        $payable = ShopeeOrder::query()->where('shopee_setting_id', $store->id)->where('status', 'COMPLETED');
+        $payable = ShopeeOrder::query()->where('store_id', $store->id)->where('status', 'COMPLETED');
 
         $this->checkOldOrders($store, $auth, $days, $out);
         $out['no_payout'] = PayoutStatus::retireOlderThan($payable, $days);
@@ -161,12 +161,12 @@ class ShopeePayoutSync
         return $out;
     }
 
-    private function refreshStaleEscrow(ShopeeSetting $store, array $auth, int $days): int
+    private function refreshStaleEscrow(ShopeeStore $store, array $auth, int $days): int
     {
         $escrow = "CAST(CASE WHEN JSON_VALID(fees) THEN COALESCE(JSON_VALUE(fees, '$.order_income.escrow_amount'), JSON_VALUE(fees, '$.escrow_amount')) END AS DECIMAL(12,2))";
 
-        $stale = DB::table('shopee_orders')
-            ->where('shopee_setting_id', $store->id)
+        $stale = DB::table('ch_shopee_orders')
+            ->where('store_id', $store->id)
             ->where('payout_status', PayoutStatus::PAID)
             ->whereNotNull('payout_amount')
             ->where('order_created_at', '>=', now()->subDays($days))
@@ -184,7 +184,7 @@ class ShopeePayoutSync
             if ($detail === null) {
                 continue;
             }
-            DB::table('shopee_orders')->where('id', $order->id)->update(['fees' => json_encode($detail)]);
+            DB::table('ch_shopee_orders')->where('id', $order->id)->update(['fees' => json_encode($detail)]);
             $done++;
         }
 
@@ -218,10 +218,10 @@ class ShopeePayoutSync
         return true;
     }
 
-    private function checkOldOrders(ShopeeSetting $store, array $auth, int $days, array &$out): void
+    private function checkOldOrders(ShopeeStore $store, array $auth, int $days, array &$out): void
     {
         $old = ShopeeOrder::query()
-            ->where('shopee_setting_id', $store->id)
+            ->where('store_id', $store->id)
             ->where('status', 'COMPLETED')
             ->where('order_created_at', '<', now()->subDays($days))
             ->where(fn ($q) => $q->whereNull('payout_status')->orWhereNotIn('payout_status', [PayoutStatus::PAID, PayoutStatus::RETURNED]))

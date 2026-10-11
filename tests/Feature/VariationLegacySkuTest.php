@@ -9,7 +9,7 @@ class VariationLegacySkuTest extends TestCase
 {
     private function source(): string
     {
-        return File::get(base_path('resources/views/catalog/products/partials/options_fields.blade.php'));
+        return File::get(base_path('resources/views/catalog/products/partials/variations_fields.blade.php'));
     }
 
     public function test_a_row_remembers_whether_it_arrived_without_a_sku(): void

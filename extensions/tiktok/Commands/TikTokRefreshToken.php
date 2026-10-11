@@ -1,9 +1,9 @@
 <?php
 
-namespace Extensions\tiktok\Commands;
+namespace Extensions\TikTok\Commands;
 
-use Extensions\tiktok\Models\TikTokSetting;
-use Extensions\tiktok\Services\TikTok\TikTokClient;
+use Extensions\TikTok\Models\TikTokStore;
+use Extensions\TikTok\Services\TikTok\TikTokClient;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Log;
 
@@ -15,7 +15,7 @@ class TikTokRefreshToken extends Command
 
     public function handle(): int
     {
-        $stores = \Extensions\tiktok\Models\TikTokSetting::enabledStores();
+        $stores = \Extensions\TikTok\Models\TikTokStore::enabledStores();
         if ($stores->isEmpty()) { $this->error('No enabled TikTok store. Configure TikTok settings first.'); return 1; }
         $worst = 0;
         foreach ($stores as $store) {
@@ -34,7 +34,7 @@ class TikTokRefreshToken extends Command
         return $worst;
     }
 
-    private function handleStore(\Extensions\tiktok\Models\TikTokSetting $store): int
+    private function handleStore(\Extensions\TikTok\Models\TikTokStore $store): int
     {
         $raw = $store;
 

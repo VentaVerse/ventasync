@@ -1,12 +1,12 @@
 <?php
 
-namespace Extensions\lazada\Models;
+namespace Extensions\Lazada\Models;
 
 use Illuminate\Database\Eloquent\Model;
 
 class LazadaOrderStatusMap extends Model
 {
-    protected $table = 'lazada_order_status_map';
+    protected $table = 'ch_lazada_order_status_map';
 
     protected $fillable = [
         'lazada_status',

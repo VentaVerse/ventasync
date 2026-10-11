@@ -26,8 +26,8 @@
         'opened_desc' => 'Opened, newest first',
         'opened_asc' => 'Opened, oldest first',
     ];
-    $statusMap = \Extensions\tiktok\Services\TikTokReturnsPanel::STATUS_MAP;
-    $typeMap = \Extensions\tiktok\Services\TikTokReturnsPanel::TYPE_MAP;
+    $statusMap = \Extensions\TikTok\Services\TikTokReturnsPanel::STATUS_MAP;
+    $typeMap = \Extensions\TikTok\Services\TikTokReturnsPanel::TYPE_MAP;
     $activeFilters = (int) ($openedFromFilter !== '') + (int) ($openedToFilter !== '') + (int) (($sort ?? 'updated_desc') !== 'updated_desc') + (int) ($perPage !== 10);
 @endphp
 
@@ -128,7 +128,7 @@
                 </div>
             </form>
             <form method="POST" action="{{ route('ext.tiktok.orders.fetch_returns') }}"
-                  data-confirm="Re-read every return TikTok Shop has on file, ignoring the dates? This refreshes statuses for returns the buyer may have cancelled." data-confirm-tone="primary" data-confirm-verb="Update statuses">
+                  data-confirm="Re-read every return TikTok Shop has on file, ignoring the dates? This refreshes statuses for returns the buyer may have canceled." data-confirm-tone="primary" data-confirm-verb="Update statuses">
                 @csrf
                 <x-ui.button type="submit" variant="secondary">Update statuses</x-ui.button>
             </form>

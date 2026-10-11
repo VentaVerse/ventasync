@@ -1,10 +1,10 @@
 <?php
 
-namespace Extensions\lazada\Services\Lazada;
+namespace Extensions\Lazada\Services\Lazada;
 
-use Extensions\lazada\Models\LazadaApiLog;
-use Extensions\lazada\Models\LazadaImageLink;
-use Extensions\lazada\Models\LazadaSetting;
+use Extensions\Lazada\Models\LazadaApiLog;
+use Extensions\Lazada\Models\LazadaImageLink;
+use Extensions\Lazada\Models\LazadaStore;
 use Illuminate\Support\Str;
 
 class LazadaImages
@@ -148,11 +148,11 @@ class LazadaImages
     public function getProductImageUrls(int $productId, ?object $productRow, ?array $own = null, ?object $listing = null): array
     {
         $paths = \App\Services\Media\ListingWatermark::paths(
-            \App\Integrations\Listings\ListingImages::sending(\App\Support\Catalog\ProductImages::paths($productId, $own), $listing),
+            \App\Channels\Listings\ListingImages::sending(\App\Support\Catalog\ProductImages::paths($productId, $own), $listing),
             $listing,
-            \App\Services\Media\ListingWatermark::groupTemplateId('lazada_product_groups', 'lazada_product_group_products', 'lazada_product_group_id', $productId, 'lazada_setting_id', (int) ($listing?->lazada_setting_id ?? 0) ?: null),
+            \App\Services\Media\ListingWatermark::groupTemplateId('ch_lazada_product_groups', 'ch_lazada_product_group_products', 'lazada_product_group_id', $productId, 'store_id', (int) ($listing?->store_id ?? 0) ?: null),
             'lazada',
-            (int) ($listing?->lazada_setting_id ?? 0)
+            (int) ($listing?->store_id ?? 0)
         );
         $paths = \App\Services\Media\ImageCache::pushPaths($paths);
         $images = [];
@@ -166,9 +166,9 @@ class LazadaImages
         return $images;
     }
 
-    public function ensureLazadaInlinkImages(array $productPayload, $setting, LazadaClient $client): array
+    public function ensureLazadaInlinkImages(array $productPayload, $store, LazadaClient $client): array
     {
-        $creds = LazadaSetting::activeCredentials($setting);
+        $creds = LazadaStore::activeCredentials($store);
 
         $images = data_get($productPayload, 'Request.Product.Images.Image', []);
         if (!is_array($images) || empty($images)) {
@@ -195,7 +195,7 @@ class LazadaImages
             }
         }
 
-        $region = (string) $setting->region;
+        $region = (string) $store->region;
         $inlinks = $this->migrateImagesToLazadaInlinks(
             $region,
             $images,
@@ -291,15 +291,15 @@ class LazadaImages
 
     private const LOOPBACK = ['localhost', '127.0.0.1', '0.0.0.0'];
 
-    public function ensureLazadaDescriptionImages(array $productPayload, $setting, LazadaClient $client): array
+    public function ensureLazadaDescriptionImages(array $productPayload, $store, LazadaClient $client): array
     {
         $attributes = data_get($productPayload, 'Request.Product.Attributes');
         if (!is_array($attributes)) {
             return [$productPayload, 0];
         }
 
-        $creds = LazadaSetting::activeCredentials($setting);
-        $region = (string) ($setting->region ?? '');
+        $creds = LazadaStore::activeCredentials($store);
+        $region = (string) ($store->region ?? '');
         $links = [];
         $leftOut = [];
 

@@ -6,8 +6,8 @@ use App\Extensions\ExtensionManager;
 use App\Models\Admin\Permission;
 use App\Models\Admin\UserGroup;
 use App\Models\User;
-use Extensions\shopee\Models\ShopeeProductGroup;
-use Extensions\shopee\Models\ShopeeSetting;
+use Extensions\Shopee\Models\ShopeeProductGroup;
+use Extensions\Shopee\Models\ShopeeStore;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
@@ -16,7 +16,7 @@ class AddProductsGroupChoiceTest extends TestCase
 {
     use RefreshDatabase;
 
-    private ShopeeSetting $store;
+    private ShopeeStore $store;
 
     private ShopeeProductGroup $cables;
 
@@ -31,21 +31,20 @@ class AddProductsGroupChoiceTest extends TestCase
         $manager = $this->app->make(ExtensionManager::class);
         $manager->install('shopee');
         $manager->enable('shopee');
-        $this->app->register(\Extensions\shopee\ShopeeExtension::class);
+        $this->app->register(\Extensions\Shopee\ShopeeExtension::class);
         $this->app['router']->getRoutes()->refreshNameLookups();
-        $this->artisan('permissions:sync-catalogue');
+        $this->artisan('permissions:sync-catalog');
 
-        $this->store = ShopeeSetting::query()->create(['partner_id' => 1, 'partner_key' => 'k', 'shop_id' => 2, 'store_name' => 'Main shop', 'mode' => 'production']);
-        $this->cables = ShopeeProductGroup::create(['name' => 'Cables', 'shopee_category_id' => 1, 'logistic_ids' => [1], 'shopee_setting_id' => $this->store->id]);
-        $this->pedals = ShopeeProductGroup::create(['name' => 'Pedals', 'shopee_category_id' => 1, 'logistic_ids' => [1], 'shopee_setting_id' => $this->store->id]);
+        $this->store = ShopeeStore::query()->create(['partner_id' => 1, 'partner_key' => 'k', 'shop_id' => 2, 'store_name' => 'Main shop', 'mode' => 'production']);
+        $this->cables = ShopeeProductGroup::create(['name' => 'Cables', 'shopee_category_id' => 1, 'logistic_ids' => [1], 'store_id' => $this->store->id]);
+        $this->pedals = ShopeeProductGroup::create(['name' => 'Pedals', 'shopee_category_id' => 1, 'logistic_ids' => [1], 'store_id' => $this->store->id]);
 
-        $pfx = (string) config('catalog.prefix');
-        $this->productId = (int) DB::table($pfx . 'product')->insertGetId([
+        $this->productId = (int) DB::table('products')->insertGetId([
             'model' => 'P', 'sku' => 'SKU-P', 'quantity' => 5, 'price' => 100, 'status' => 1, 'image' => '',
-            'weight' => 1, 'length' => 1, 'width' => 1, 'height' => 1, 'manufacturer_id' => 0,
+            'weight' => 1, 'length' => 1, 'width' => 1, 'height' => 1, 'brand_id' => 0,
             'date_added' => now(), 'date_modified' => now(), 'date_available' => now(),
         ]);
-        DB::table($pfx . 'product_description')->insert(['product_id' => $this->productId, 'language_id' => (int) config('catalog.default_language_id'), 'name' => 'Patch cable',
+        DB::table('product_descriptions')->insert(['product_id' => $this->productId, 'language_id' => (int) config('catalog.default_language_id'), 'name' => 'Patch cable',
             'description' => '', 'meta_title' => '', 'meta_description' => '', 'meta_keyword' => '', 'tag' => '']);
     }
 
@@ -66,7 +65,7 @@ class AddProductsGroupChoiceTest extends TestCase
 
     private function holdingGroups(): array
     {
-        return DB::table('shopee_product_group_products')->where('product_id', $this->productId)->pluck('shopee_product_group_id')->map(fn ($v) => (int) $v)->all();
+        return DB::table('ch_shopee_product_group_products')->where('product_id', $this->productId)->pluck('shopee_product_group_id')->map(fn ($v) => (int) $v)->all();
     }
 
     public function test_the_product_lands_in_the_chosen_group(): void
@@ -74,7 +73,7 @@ class AddProductsGroupChoiceTest extends TestCase
         $this->add(['group' => (string) $this->cables->id]);
 
         $this->assertSame([$this->cables->id], $this->holdingGroups());
-        $this->assertTrue(DB::table('shopee_listings')->where('product_id', $this->productId)->exists(), 'it is on the store too');
+        $this->assertTrue(DB::table('ch_shopee_listings')->where('product_id', $this->productId)->exists(), 'it is on the store too');
     }
 
     public function test_no_group_leaves_it_ungrouped(): void
@@ -86,7 +85,7 @@ class AddProductsGroupChoiceTest extends TestCase
 
     public function test_it_leaves_its_other_group_on_the_same_store(): void
     {
-        DB::table('shopee_product_group_products')->insert(['shopee_product_group_id' => $this->pedals->id, 'product_id' => $this->productId]);
+        DB::table('ch_shopee_product_group_products')->insert(['shopee_product_group_id' => $this->pedals->id, 'product_id' => $this->productId]);
 
         $this->add(['group' => (string) $this->cables->id]);
 
@@ -95,8 +94,8 @@ class AddProductsGroupChoiceTest extends TestCase
 
     public function test_a_group_of_another_store_is_refused(): void
     {
-        $other = ShopeeSetting::query()->create(['partner_id' => 3, 'partner_key' => 'k', 'shop_id' => 4, 'store_name' => 'Outlet', 'mode' => 'production']);
-        $theirs = ShopeeProductGroup::create(['name' => 'Theirs', 'shopee_category_id' => 1, 'logistic_ids' => [1], 'shopee_setting_id' => $other->id]);
+        $other = ShopeeStore::query()->create(['partner_id' => 3, 'partner_key' => 'k', 'shop_id' => 4, 'store_name' => 'Outlet', 'mode' => 'production']);
+        $theirs = ShopeeProductGroup::create(['name' => 'Theirs', 'shopee_category_id' => 1, 'logistic_ids' => [1], 'store_id' => $other->id]);
         $this->app->instance('shopee.route-store', $this->store);
 
         $this->add(['group' => (string) $theirs->id]);
@@ -106,8 +105,8 @@ class AddProductsGroupChoiceTest extends TestCase
 
     public function test_the_window_opens_on_the_group_the_page_stands_in(): void
     {
-        DB::table('shopee_listings')->insert(['product_id' => $this->productId, 'shopee_setting_id' => $this->store->id, 'created_at' => now(), 'updated_at' => now()]);
-        DB::table('shopee_product_group_products')->insert(['shopee_product_group_id' => $this->cables->id, 'product_id' => $this->productId]);
+        DB::table('ch_shopee_listings')->insert(['product_id' => $this->productId, 'store_id' => $this->store->id, 'created_at' => now(), 'updated_at' => now()]);
+        DB::table('ch_shopee_product_group_products')->insert(['shopee_product_group_id' => $this->cables->id, 'product_id' => $this->productId]);
         $user = $this->user();
 
         $this->actingAs($user)->get(route('ext.shopee.products.index', ['group' => $this->cables->id]))

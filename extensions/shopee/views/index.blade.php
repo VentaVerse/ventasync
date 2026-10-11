@@ -94,8 +94,8 @@
     @endif
 
     @php
-        $csCategories = \Extensions\shopee\Models\ShopeeCategory::query()->count();
-        $csCouriers = \Extensions\shopee\Models\ShopeeLogistic::query()->count();
+        $csCategories = \Extensions\Shopee\Models\ShopeeCategory::query()->count();
+        $csCouriers = \Extensions\Shopee\Models\ShopeeLogistic::query()->count();
         $csSetUp = $csCategories > 0 && $csCouriers > 0;
         $csSetupState = $csSetUp || $csCategories > 0 || $csCouriers > 0
             ? number_format($csCategories) . ' ' . \Illuminate\Support\Str::plural('category', $csCategories) . ' and ' . number_format($csCouriers) . ' ' . \Illuminate\Support\Str::plural('courier', $csCouriers) . ' on file'
@@ -767,7 +767,7 @@
             <h2 class="fm-section__title">Scheduled jobs</h2>
             <x-ui.hint label="About the scheduled jobs">How often each Shopee sync runs, and how far back it looks. Changes here take effect the next time the scheduler wakes up.</x-ui.hint>
         </div>
-        @include('partials._automations_tab', ['integration' => 'shopee', 'storeId' => null])
+        @include('partials._automations_tab', ['extension' => 'shopee', 'storeId' => null])
     </section>
 </div>
 @endif

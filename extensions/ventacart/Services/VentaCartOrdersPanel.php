@@ -1,12 +1,12 @@
 <?php
 
-namespace Extensions\ventacart\Services;
+namespace Extensions\VentaCart\Services;
 
 use Illuminate\Support\Facades\DB;
 use App\Support\FulfilmentSteps;
-use Extensions\ventacart\Models\VentaCartOrder;
-use Extensions\ventacart\Models\VentaCartSetting;
-use Extensions\ventacart\Services\VentaCart\VentaCartStatusPlacements;
+use Extensions\VentaCart\Models\VentaCartOrder;
+use Extensions\VentaCart\Models\VentaCartStore;
+use Extensions\VentaCart\Services\VentaCart\VentaCartStatusPlacements;
 use Illuminate\Http\Request;
 
 class VentaCartOrdersPanel
@@ -30,7 +30,7 @@ class VentaCartOrdersPanel
             : 'order_created_at';
         $status = $request->filled('status') ? (string) $request->input('status') : '';
 
-        $statusCounts = VentaCartOrder::where('ventacart_setting_id', $storeId)
+        $statusCounts = VentaCartOrder::where('store_id', $storeId)
             ->selectRaw('status, COUNT(*) as cnt')
             ->groupBy('status')
             ->pluck('cnt', 'status');
@@ -43,7 +43,7 @@ class VentaCartOrdersPanel
             'TO_SHIP'         => 'to_ship',
             'SHIPPING'        => 'shipping',
             'DELIVERED'       => 'delivered',
-            'CANCELLED'       => 'cancelled',
+            'CANCELLED'       => 'canceled',
             'FAILED_DELIVERY' => 'failed',
         ];
 
@@ -82,7 +82,7 @@ class VentaCartOrdersPanel
             ? (string) $request->input('dir')
             : $defaultDir;
 
-        $query = VentaCartOrder::where('ventacart_setting_id', $storeId)
+        $query = VentaCartOrder::where('store_id', $storeId)
             ->with('products')
             ->orderBy($sort, $dir);
 
@@ -151,7 +151,7 @@ class VentaCartOrdersPanel
 
         $vtImages = $this->imagesForOrders($orders->getCollection());
 
-        $storeLabel = (string) (VentaCartSetting::where('id', $storeId)->value('store_name')
+        $storeLabel = (string) (VentaCartStore::where('id', $storeId)->value('store_name')
             ?: ('VentaCart #' . $storeId));
 
         return [
@@ -199,13 +199,13 @@ class VentaCartOrdersPanel
         $resolved = \App\Support\CatalogImages::forSkus($skus);
 
         $linked = [];
-        $linkIds = DB::table('ventacart_product_links')
+        $linkIds = DB::table('ch_ventacart_listing_links')
             ->whereIn('sku', $skus)
             ->pluck('product_id', 'sku')
             ->all();
 
         if ($linkIds !== []) {
-            $linkImages = DB::table('product')
+            $linkImages = DB::table('products')
                 ->whereIn('product_id', array_values($linkIds))
                 ->where('image', '!=', '')
                 ->whereNotNull('image')

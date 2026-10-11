@@ -1,8 +1,8 @@
 <?php
 
-namespace Extensions\tiktok\Services\TikTok;
+namespace Extensions\TikTok\Services\TikTok;
 
-use Extensions\tiktok\Models\TikTokApiLog;
+use Extensions\TikTok\Models\TikTokApiLog;
 
 class TikTokLiveListing
 {
@@ -148,22 +148,22 @@ class TikTokLiveListing
         $statuses = $answer['statuses'];
         $now = now();
 
-        $withRow = \Extensions\tiktok\Models\TikTokListing::query()->pluck('product_id')->map(fn ($v) => (int) $v)->all();
-        $pivots = \Extensions\tiktok\Models\TikTokProductGroupProduct::query()->onStore($c['setting'] ?? null)
+        $withRow = \Extensions\TikTok\Models\TikTokListing::query()->pluck('product_id')->map(fn ($v) => (int) $v)->all();
+        $pivots = \Extensions\TikTok\Models\TikTokProductGroupProduct::query()->onStore($c['setting'] ?? null)
             ->whereNotNull('tiktok_product_id')
             ->whereNotIn('product_id', $withRow ?: [0])
             ->orderByDesc('last_pushed_at')
             ->get()
             ->unique('product_id');
         foreach ($pivots as $pv) {
-            \Extensions\tiktok\Models\TikTokListing::query()->firstOrCreate(
+            \Extensions\TikTok\Models\TikTokListing::query()->firstOrCreate(
                 ['product_id' => (int) $pv->product_id],
                 ['tiktok_product_id' => (string) $pv->tiktok_product_id, 'tiktok_sku_id' => $pv->tiktok_sku_id, 'last_pushed_at' => $pv->last_pushed_at, 'last_push_source' => 'group']
             );
         }
-        $blank = \Extensions\tiktok\Models\TikTokListing::query()->whereNull('tiktok_product_id')->get();
+        $blank = \Extensions\TikTok\Models\TikTokListing::query()->whereNull('tiktok_product_id')->get();
         foreach ($blank as $row) {
-            $pv = \Extensions\tiktok\Models\TikTokProductGroupProduct::query()->onStore($c['setting'] ?? null)
+            $pv = \Extensions\TikTok\Models\TikTokProductGroupProduct::query()->onStore($c['setting'] ?? null)
                 ->where('product_id', $row->product_id)->whereNotNull('tiktok_product_id')
                 ->orderByDesc('last_pushed_at')->first();
             if ($pv) {
@@ -172,10 +172,10 @@ class TikTokLiveListing
         }
 
         $counts = [];
-        $rows = \Extensions\tiktok\Models\TikTokListing::query()->whereNotNull('tiktok_product_id')->get(['id', 'tiktok_product_id']);
+        $rows = \Extensions\TikTok\Models\TikTokListing::query()->whereNotNull('tiktok_product_id')->get(['id', 'tiktok_product_id']);
         foreach ($rows as $row) {
             $status = $statuses[(string) $row->tiktok_product_id] ?? 'MISSING';
-            \Extensions\tiktok\Models\TikTokListing::query()->whereKey($row->id)
+            \Extensions\TikTok\Models\TikTokListing::query()->whereKey($row->id)
                 ->update(['live_status' => $status, 'live_checked_at' => $now]);
             $counts[$status] = ($counts[$status] ?? 0) + 1;
         }

@@ -1,11 +1,11 @@
 <?php
 
-namespace Extensions\tiktok\Services\TikTok;
+namespace Extensions\TikTok\Services\TikTok;
 
-use App\Integrations\Push\PushLedger;
-use Extensions\tiktok\Models\TikTokApiLog;
-use Extensions\tiktok\Models\TikTokProductGroup;
-use Extensions\tiktok\Models\TikTokProductGroupProduct;
+use App\Channels\Push\PushLedger;
+use Extensions\TikTok\Models\TikTokApiLog;
+use Extensions\TikTok\Models\TikTokProductGroup;
+use Extensions\TikTok\Models\TikTokProductGroupProduct;
 
 class TikTokStockPricePush
 {
@@ -18,7 +18,7 @@ class TikTokStockPricePush
 
     private const SKU_ERROR = '/sku|inventory.*not.*found|product.*not.*(?:found|exist)/i';
 
-    public function push(string $kind, array $c, $pivots, string $pfx, ?callable $priceFor = null): array
+    public function push(string $kind, array $c, $pivots, ?callable $priceFor = null): array
     {
         $pivots = collect($pivots)->values();
         $out = [
@@ -30,10 +30,10 @@ class TikTokStockPricePush
         }
 
         $productIds = $pivots->pluck('product_id')->map(fn ($v) => (int) $v)->unique()->values()->all();
-        $erpSkus = PushLedger::erpVariationSkus($productIds, $pfx);
-        $storeId = (int) (\Extensions\tiktok\Models\TikTokSetting::defaultStore()?->id ?? 0);
-        $hidden = \App\Integrations\Listings\ListingVariations::hidden('tiktok', $storeId, $productIds);
-        $soldSkus = \App\Integrations\Listings\ListingVariations::sold('tiktok', $storeId, $productIds, $pfx);
+        $erpSkus = PushLedger::erpVariationSkus($productIds);
+        $storeId = (int) (\Extensions\TikTok\Models\TikTokStore::defaultStore()?->id ?? 0);
+        $hidden = \App\Channels\Listings\ListingVariations::hidden('tiktok', $storeId, $productIds);
+        $soldSkus = \App\Channels\Listings\ListingVariations::sold('tiktok', $storeId, $productIds);
 
         foreach ($pivots as $pivot) {
             $pid = (int) $pivot->product_id;
@@ -51,16 +51,16 @@ class TikTokStockPricePush
             }
         }
 
-        $resolved = $this->resolver->resolve($pivots, $pfx, $priceFor);
+        $resolved = $this->resolver->resolve($pivots, $priceFor);
 
         foreach ($resolved as $row) {
-            $this->pushProduct($kind, $c, $row, $pfx, $priceFor, $erpSkus, $hidden, $out, true);
+            $this->pushProduct($kind, $c, $row, $priceFor, $erpSkus, $hidden, $out, true);
         }
 
         return $out;
     }
 
-    private function pushProduct(string $kind, array $c, array $row, string $pfx, ?callable $priceFor, array $erpSkus, array $hidden, array &$out, bool $mayHeal): void
+    private function pushProduct(string $kind, array $c, array $row, ?callable $priceFor, array $erpSkus, array $hidden, array &$out, bool $mayHeal): void
     {
         $pivot = $row['pivot'];
         $pid = (int) $pivot->product_id;
@@ -77,7 +77,7 @@ class TikTokStockPricePush
             if (!$sku['matched'] && $sku['seller_sku'] !== '' && !empty($erpSkus[$pid])) {
                 continue;
             }
-            if (!\App\Integrations\Listings\ListingVariations::allows($hidden, $pid, (string) $sku['seller_sku'])) {
+            if (!\App\Channels\Listings\ListingVariations::allows($hidden, $pid, (string) $sku['seller_sku'])) {
                 continue;
             }
             $payload[] = $kind === 'price'
@@ -139,9 +139,9 @@ class TikTokStockPricePush
             if (!isset($r['error'])) {
                 $out['healed_products'][] = $ttId;
                 $pivot->tiktok_sku_id = json_encode($r['map']);
-                $fresh = $this->resolver->resolve([$pivot], $pfx, $priceFor);
+                $fresh = $this->resolver->resolve([$pivot], $priceFor);
                 if (!empty($fresh)) {
-                    $this->pushProduct($kind, $c, $fresh[0], $pfx, $priceFor, $erpSkus, $hidden, $out,false);
+                    $this->pushProduct($kind, $c, $fresh[0], $priceFor, $erpSkus, $hidden, $out,false);
                 }
 
                 return;
@@ -166,9 +166,9 @@ class TikTokStockPricePush
         }
     }
 
-    public static function recordOutcomes(string $kind, array $outcomes, \Extensions\tiktok\Models\TikTokSetting|int|null $store = null): void
+    public static function recordOutcomes(string $kind, array $outcomes, \Extensions\TikTok\Models\TikTokStore|int|null $store = null): void
     {
-        $store ??= \Extensions\tiktok\Models\TikTokSetting::defaultStore();
+        $store ??= \Extensions\TikTok\Models\TikTokStore::defaultStore();
         if ($store === null) {
             return;
         }

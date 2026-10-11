@@ -1,9 +1,9 @@
 <?php
 
-namespace Extensions\shopee\Services\Shopee;
+namespace Extensions\Shopee\Services\Shopee;
 
-use Extensions\shopee\Models\ShopeeItemCache;
-use Extensions\shopee\Models\ShopeeProductLink;
+use Extensions\Shopee\Models\ShopeeItemCache;
+use Extensions\Shopee\Models\ShopeeListingLink;
 
 class ShopeeModelLinkRepair
 {
@@ -27,7 +27,7 @@ class ShopeeModelLinkRepair
         $models = ($body['response'] ?? $body)['model'] ?? [];
 
         if (empty($models)) {
-            $removed = (int) ShopeeProductLink::query()
+            $removed = (int) ShopeeListingLink::query()
                 ->where('product_id', $productId)
                 ->where('shopee_item_id', $itemId)
                 ->whereNotNull('shopee_model_id')
@@ -37,7 +37,7 @@ class ShopeeModelLinkRepair
                 ->whereNotNull('shopee_model_id')
                 ->delete();
 
-            ShopeeProductLink::updateOrCreate(
+            ShopeeListingLink::updateOrCreate(
                 ['product_id' => $productId, 'shopee_item_id' => $itemId, 'shopee_model_id' => null],
                 ['sku' => $skus[0] ?? '', 'last_synced_at' => now(), 'last_sync_ok' => true, 'last_sync_error_code' => null, 'last_sync_error_message' => null]
             );
@@ -46,7 +46,7 @@ class ShopeeModelLinkRepair
             return ['mode' => 'item', 'linked' => 1, 'removed' => $removed, 'unmatched' => []];
         }
 
-        $removed = (int) ShopeeProductLink::query()
+        $removed = (int) ShopeeListingLink::query()
             ->where('product_id', $productId)
             ->where('shopee_item_id', $itemId)
             ->whereNull('shopee_model_id')
@@ -71,7 +71,7 @@ class ShopeeModelLinkRepair
             );
 
             if (in_array($modelSku, $skus, true)) {
-                ShopeeProductLink::updateOrCreate(
+                ShopeeListingLink::updateOrCreate(
                     ['product_id' => $productId, 'shopee_item_id' => $itemId, 'shopee_model_id' => $modelId],
                     ['sku' => $model['model_sku'], 'last_synced_at' => now(), 'last_sync_ok' => true, 'last_sync_error_code' => null, 'last_sync_error_message' => null]
                 );
@@ -82,7 +82,7 @@ class ShopeeModelLinkRepair
         }
 
         if (!empty($activeModelIds)) {
-            $removed += (int) ShopeeProductLink::query()
+            $removed += (int) ShopeeListingLink::query()
                 ->where('product_id', $productId)
                 ->where('shopee_item_id', $itemId)
                 ->whereNotNull('shopee_model_id')
@@ -103,6 +103,6 @@ class ShopeeModelLinkRepair
 
     private function storeId(array $auth): int
     {
-        return (int) ($auth['store_id'] ?? 0) ?: (int) (\Extensions\shopee\Models\ShopeeSetting::defaultStore()?->id ?? 0);
+        return (int) ($auth['store_id'] ?? 0) ?: (int) (\Extensions\Shopee\Models\ShopeeStore::defaultStore()?->id ?? 0);
     }
 }

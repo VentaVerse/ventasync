@@ -15,7 +15,7 @@
         <h1 class="x-page-title">Product Groups</h1>
         <p class="x-page-sub">
             {{ number_format($groups->count()) }} {{ $groups->count() === 1 ? 'product group' : 'product groups' }}.
-            <x-ui.hint label="What a product group is">A product group holds the shared Lazada settings a push starts from - category, brand, attributes, markup. Keep products under it and push them from here, or work per listing on the Listings page.</x-ui.hint>
+            <x-ui.hint label="What a product group is">A product group holds the shared Lazada settings a push starts from - category, brand, attributes, markup. Keep products under it and push them from here, or work per listing on the Products page.</x-ui.hint>
         </p>
     </div>
     @if($canManageLazada)
@@ -85,7 +85,7 @@
                         <a class="x-menu__item" href="{{ route('ext.lazada.product-groups.edit', $g->id) }}">Edit product group</a>
                         <div class="x-menu__sep"></div>
                         <button type="button" class="x-menu__item x-menu__item--danger"
-                                data-confirm="Delete the product group {{ $g->name }}? Listings in no other product group that were never uploaded to Lazada are removed from this list with it. Nothing changes in the catalog, and nothing already live on Lazada is touched."
+                                data-confirm="Delete the product group {{ $g->name }}? Listings in no other product group that were never uploaded to Lazada are removed from this list with it. Nothing changes in the Master Catalog, and nothing already live on Lazada is touched."
                                 data-confirm-submit="lpg-del-{{ $g->id }}">Delete product group</button>
                     @endif
                 </x-ui.menu>

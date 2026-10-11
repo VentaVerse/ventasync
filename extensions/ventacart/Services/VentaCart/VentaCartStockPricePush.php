@@ -1,41 +1,40 @@
 <?php
 
-namespace Extensions\ventacart\Services\VentaCart;
+namespace Extensions\VentaCart\Services\VentaCart;
 
-use Extensions\ventacart\Models\VentaCartProductLink;
-use Extensions\ventacart\Models\VentaCartSetting;
+use Extensions\VentaCart\Models\VentaCartListingLink;
+use Extensions\VentaCart\Models\VentaCartStore;
 use Illuminate\Support\Facades\DB;
 
 final class VentaCartStockPricePush
 {
-    public function __construct(private readonly VentaCartSetting $setting, private readonly VentaCartClient $client) {}
+    public function __construct(private readonly VentaCartStore $store, private readonly VentaCartClient $client) {}
 
-    public static function for(VentaCartSetting $setting): self
+    public static function for(VentaCartStore $store): self
     {
-        return new self($setting, new VentaCartClient($setting));
+        return new self($store, new VentaCartClient($store));
     }
 
     public function push(array $productIds, bool $stock, bool $price): array
     {
-        $pfx = (string) config('catalog.prefix');
         $ids = array_values(array_unique(array_map('intval', $productIds)));
         $out = ['ok' => 0, 'failed' => 0, 'skipped' => 0, 'errors' => [], 'outcomes' => []];
         if ($ids === []) {
             return $out;
         }
-        $links = VentaCartProductLink::query()->where('ventacart_setting_id', $this->setting->id)->whereIn('product_id', $ids)->get()->keyBy('product_id');
-        $products = DB::table($pfx . 'product')->whereIn('product_id', $ids)->get(['product_id', 'sku', 'quantity', 'price', 'status'])->keyBy('product_id');
-        $combos = DB::table('product_option_combinations')->whereIn('product_id', $ids)->get(['product_id', 'sku', 'quantity', 'absolute_price'])->groupBy(fn ($r) => (int) $r->product_id);
-        $options = DB::table($pfx . 'product_option_value')->whereIn('product_id', $ids)->whereNotNull('sku')->where('sku', '!=', '')
+        $links = VentaCartListingLink::query()->where('store_id', $this->store->id)->whereIn('product_id', $ids)->get()->keyBy('product_id');
+        $products = DB::table('products')->whereIn('product_id', $ids)->get(['product_id', 'sku', 'quantity', 'price', 'status'])->keyBy('product_id');
+        $combos = DB::table('product_variations')->whereIn('product_id', $ids)->get(['product_id', 'sku', 'quantity', 'absolute_price'])->groupBy(fn ($r) => (int) $r->product_id);
+        $variationValues = DB::table('product_variation_values')->whereIn('product_id', $ids)->whereNotNull('sku')->where('sku', '!=', '')
             ->get(['product_id', 'sku', 'quantity', 'price', 'price_prefix', 'absolute_price'])->groupBy(fn ($r) => (int) $r->product_id);
-        $hidden = \App\Integrations\Listings\ListingVariations::hidden('ventacart', (int) $this->setting->id, $ids);
-        $listings = \Extensions\ventacart\Models\VentaCartListing::query()->where('ventacart_setting_id', $this->setting->id)->whereIn('product_id', $ids)->get()->keyBy(fn ($l) => (int) $l->product_id);
-        $groupsByProduct = DB::table('ventacart_product_group_products as gp')
-            ->join('ventacart_product_groups as g', 'g.id', '=', 'gp.ventacart_product_group_id')
-            ->where('g.ventacart_setting_id', $this->setting->id)->whereIn('gp.product_id', $ids)
+        $hidden = \App\Channels\Listings\ListingVariations::hidden('ventacart', (int) $this->store->id, $ids);
+        $listings = \Extensions\VentaCart\Models\VentaCartListing::query()->where('store_id', $this->store->id)->whereIn('product_id', $ids)->get()->keyBy(fn ($l) => (int) $l->product_id);
+        $groupsByProduct = DB::table('ch_ventacart_product_group_products as gp')
+            ->join('ch_ventacart_product_groups as g', 'g.id', '=', 'gp.ventacart_product_group_id')
+            ->where('g.store_id', $this->store->id)->whereIn('gp.product_id', $ids)
             ->orderBy('gp.id')->get(['gp.product_id', 'g.markup_percent', 'g.markup_fixed'])
             ->unique('product_id')->keyBy(fn ($r) => (int) $r->product_id);
-        $withVariations = array_flip(\Extensions\ventacart\Models\VentaCartListing::withVariations($ids));
+        $withVariations = array_flip(\Extensions\VentaCart\Models\VentaCartListing::withVariations($ids));
 
         foreach ($ids as $pid) {
             $link = $links->get($pid);
@@ -47,14 +46,14 @@ final class VentaCartStockPricePush
             $sku = $link->sku ?: $product->sku;
             $fine = true;
             $why = '';
-            $allVariants = ($combos->get($pid) ?? collect())->isNotEmpty() ? $combos->get($pid) : ($options->get($pid) ?? collect());
-            $variants = $allVariants->filter(fn ($v) => \App\Integrations\Listings\ListingVariations::allows($hidden, $pid, (string) ($v->sku ?? '')));
+            $allVariants = ($combos->get($pid) ?? collect())->isNotEmpty() ? $combos->get($pid) : ($variationValues->get($pid) ?? collect());
+            $variants = $allVariants->filter(fn ($v) => \App\Channels\Listings\ListingVariations::allows($hidden, $pid, (string) ($v->sku ?? '')));
             if ($allVariants->isNotEmpty() && $variants->isEmpty()) {
                 $out['skipped']++;
                 continue;
             }
             $basePrice = (float) $product->price;
-            $rule = \Extensions\ventacart\Models\VentaCartListing::ruleFor($listings->get($pid), $groupsByProduct->get($pid));
+            $rule = \Extensions\VentaCart\Models\VentaCartListing::ruleFor($listings->get($pid), $groupsByProduct->get($pid));
 
             $variantSkus = $variants->filter(fn ($v) => trim((string) ($v->sku ?? '')) !== '');
             $hasVariants = $variantSkus->isNotEmpty();
@@ -94,7 +93,7 @@ final class VentaCartStockPricePush
                         $variantCall($this->client->updateVariant($vsku, ['price' => $rule(self::variantPrice($v, $basePrice))]), $vsku);
                     }
                 } else {
-                    $start = \Extensions\ventacart\Models\VentaCartListing::startFor($listings->get($pid), $basePrice, isset($withVariations[$pid]));
+                    $start = \Extensions\VentaCart\Models\VentaCartListing::startFor($listings->get($pid), $basePrice, isset($withVariations[$pid]));
                     $r = $this->client->updateProduct($sku, ['price' => $rule($start)]);
                     if (! ($r['ok'] ?? false)) {
                         $fine = false;
@@ -131,8 +130,8 @@ final class VentaCartStockPricePush
     private function rememberHeld(int $productId, array $answers): void
     {
         $held = [];
-        $before = DB::table(\App\Integrations\Listings\ListingVariations::STORE_SKUS)
-            ->where('channel', 'ventacart')->where('store_id', $this->setting->id)->where('product_id', $productId)
+        $before = DB::table(\App\Channels\Listings\ListingVariations::STORE_SKUS)
+            ->where('channel', 'ventacart')->where('store_id', $this->store->id)->where('product_id', $productId)
             ->value('skus');
         foreach ((array) json_decode((string) $before, true) as $sku) {
             $k = strtolower(trim((string) $sku));
@@ -145,7 +144,7 @@ final class VentaCartStockPricePush
                 $held[] = $sku;
             }
         }
-        \App\Integrations\Listings\ListingVariations::remember('ventacart', (int) $this->setting->id, $productId, $held);
+        \App\Channels\Listings\ListingVariations::remember('ventacart', (int) $this->store->id, $productId, $held);
     }
 
     public static function variantPrice(object $v, float $basePrice): float
@@ -160,16 +159,16 @@ final class VentaCartStockPricePush
         return $basePrice;
     }
 
-    public static function recordOutcomes(int $settingId, array $outcomes): void
+    public static function recordOutcomes(int $storeId, array $outcomes): void
     {
         if ($outcomes === []) {
             return;
         }
-        $groupIds = DB::table('ventacart_product_groups')->where('ventacart_setting_id', $settingId)->pluck('id');
-        $states = VentaCartListingStates::for($settingId);
+        $groupIds = DB::table('ch_ventacart_product_groups')->where('store_id', $storeId)->pluck('id');
+        $states = VentaCartListingStates::for($storeId);
         foreach ($outcomes as $productId => $failure) {
             if ($groupIds->isNotEmpty()) {
-                DB::table('ventacart_product_group_products')->whereIn('ventacart_product_group_id', $groupIds)->where('product_id', (int) $productId)
+                DB::table('ch_ventacart_product_group_products')->whereIn('ventacart_product_group_id', $groupIds)->where('product_id', (int) $productId)
                     ->update([
                         'sync_status' => $failure === null ? 'pushed' : 'error',
                         'push_error' => $failure === null ? null : \Illuminate\Support\Str::limit($failure, 480),

@@ -6,10 +6,10 @@ use App\Extensions\ExtensionManager;
 use App\Models\Admin\Permission;
 use App\Models\Admin\UserGroup;
 use App\Models\User;
-use Extensions\shopee\Models\ShopeeProductGroup;
-use Extensions\shopee\Models\ShopeeProductLink;
-use Extensions\shopee\Models\ShopeeSetting;
-use Extensions\shopee\ShopeeExtension;
+use Extensions\Shopee\Models\ShopeeProductGroup;
+use Extensions\Shopee\Models\ShopeeListingLink;
+use Extensions\Shopee\Models\ShopeeStore;
+use Extensions\Shopee\ShopeeExtension;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
@@ -42,7 +42,7 @@ class ShopeeOrphansRenderTest extends TestCase
 
     private function seedShop(): int
     {
-        ShopeeSetting::create([
+        ShopeeStore::create([
             'mode' => 'live',
             'partner_id' => 200123,
             'partner_key' => encrypt('live-partner-key'),
@@ -77,7 +77,7 @@ class ShopeeOrphansRenderTest extends TestCase
     {
         $groupId = $this->seedShop();
 
-        ShopeeProductLink::create(['product_id' => 4242, 'shopee_item_id' => 5001, 'sku' => 'known-1']);
+        ShopeeListingLink::create(['product_id' => 4242, 'shopee_item_id' => 5001, 'sku' => 'known-1']);
 
         $this->fakeShop();
 
@@ -119,13 +119,13 @@ class ShopeeOrphansRenderTest extends TestCase
         $groupId = $this->seedShop();
         $this->fakeShop();
 
-        $before = DB::table('shopee_product_links')->count();
+        $before = DB::table('ch_shopee_listing_links')->count();
 
         $this->actingAs($this->user(['view_shopee', 'view_shopee/dashboard', 'manage_shopee', 'view_shopee/settings', 'view_shopee/category', 'view_shopee/category_attribute', 'view_shopee/logistics', 'view_shopee/product_group', 'view_shopee/product', 'manage_shopee/settings', 'manage_shopee/category', 'manage_shopee/category_attribute', 'manage_shopee/logistics', 'manage_shopee/product_group', 'manage_shopee/product', 'manage_shopee/dashboard']))
             ->get(route('ext.shopee.product-groups.orphans', $groupId))
             ->assertOk();
 
-        $this->assertSame($before, DB::table('shopee_product_links')->count(),
+        $this->assertSame($before, DB::table('ch_shopee_listing_links')->count(),
             'Viewing the orphan report created or removed a link, so a read route is writing.');
     }
 }

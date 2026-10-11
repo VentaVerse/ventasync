@@ -2,11 +2,11 @@
 
 namespace App\Services;
 
-use App\Integrations\IntegrationRegistry;
+use App\Channels\ChannelRegistry;
 use App\Models\Catalog\Order;
 use App\Models\Catalog\OrderStatus;
 use App\Models\Catalog\Product;
-use App\Models\Catalog\ProductOptionValue;
+use App\Models\Catalog\ProductVariationValue;
 use Illuminate\Support\Facades\DB;
 
 class OrderStockService
@@ -35,32 +35,32 @@ class OrderStockService
         }
 
         $direction = ($oldSubtract === 0 && $newSubtract === 1) ? -1 : 1;
-        $source = StockHistoryLogger::sourceFromOrder($order->marketplace_source ?? '');
+        $source = StockHistoryLogger::sourceFromOrder($order->channel ?? '');
         $orderLabel = self::label($order, $source);
 
-        $order->load('products.options');
+        $order->load('products.variations');
 
         $defaultWarehouse = self::resolveDefaultWarehouse();
 
         foreach ($order->products as $orderProduct) {
             $resolved = self::resolve($orderProduct);
-            self::move($order, $resolved['product'], $resolved['option_value'], $direction * (int) $orderProduct->quantity, $source, $orderLabel, $defaultWarehouse);
+            self::move($order, $resolved['product'], $resolved['variation_value'], $direction * (int) $orderProduct->quantity, $source, $orderLabel, $defaultWarehouse);
         }
     }
 
     public static function snapshot(Order $order): array
     {
         $order->unsetRelation('products');
-        $order->load('products.options');
+        $order->load('products.variations');
 
         $lines = [];
         foreach ($order->products as $orderProduct) {
             $resolved = self::resolve($orderProduct);
-            if (! $resolved['product'] && ! $resolved['option_value']) {
+            if (! $resolved['product'] && ! $resolved['variation_value']) {
                 continue;
             }
-            $key = (int) ($resolved['product']->product_id ?? $resolved['option_value']->product_id) . '|' . (int) ($resolved['option_value']->product_option_value_id ?? 0);
-            $lines[$key] ??= ['product' => $resolved['product'], 'option_value' => $resolved['option_value'], 'qty' => 0];
+            $key = (int) ($resolved['product']->product_id ?? $resolved['variation_value']->product_id) . '|' . (int) ($resolved['variation_value']->product_variation_value_id ?? 0);
+            $lines[$key] ??= ['product' => $resolved['product'], 'variation_value' => $resolved['variation_value'], 'qty' => 0];
             $lines[$key]['qty'] += (int) $orderProduct->quantity;
         }
 
@@ -72,7 +72,7 @@ class OrderStockService
         $old = self::subtracts($oldStatusId) ? $before : [];
         $new = self::subtracts($newStatusId) ? self::snapshot($order) : [];
 
-        $source = StockHistoryLogger::sourceFromOrder($order->marketplace_source ?? '');
+        $source = StockHistoryLogger::sourceFromOrder($order->channel ?? '');
         $orderLabel = self::label($order, $source);
         $defaultWarehouse = self::resolveDefaultWarehouse();
 
@@ -82,7 +82,7 @@ class OrderStockService
                 continue;
             }
             $entry = $new[$key] ?? $old[$key];
-            self::move($order, $entry['product'], $entry['option_value'], -$deductMore, $source, $orderLabel, $defaultWarehouse);
+            self::move($order, $entry['product'], $entry['variation_value'], -$deductMore, $source, $orderLabel, $defaultWarehouse);
         }
     }
 
@@ -109,7 +109,7 @@ class OrderStockService
         return 'Order #' . $order->order_id . ($sourceLabel !== '' ? " ($sourceLabel)" : '');
     }
 
-    private static function move(Order $order, ?Product $product, ?ProductOptionValue $optionValue, int $delta, string $source, string $orderLabel, ?object $defaultWarehouse): void
+    private static function move(Order $order, ?Product $product, ?ProductVariationValue $variationValue, int $delta, string $source, string $orderLabel, ?object $defaultWarehouse): void
     {
         if ($delta === 0) {
             return;
@@ -117,35 +117,35 @@ class OrderStockService
 
         $type = $delta < 0 ? 'deduct' : 'restore';
         $amount = abs($delta);
-        $optionValue = $optionValue?->fresh();
+        $variationValue = $variationValue?->fresh();
         $product = $product?->fresh();
 
-        if ($optionValue && (int) $optionValue->subtract) {
-            $ovQtyBefore = (int) $optionValue->quantity;
-            $optionValue->quantity = $optionValue->quantity + $delta;
-            $optionValue->save();
+        if ($variationValue && (int) $variationValue->subtract) {
+            $ovQtyBefore = (int) $variationValue->quantity;
+            $variationValue->quantity = $variationValue->quantity + $delta;
+            $variationValue->save();
 
-            DB::table('product_option_combination_values as cv')
-                ->join('product_option_combinations as c', 'c.id', '=', 'cv.combination_id')
-                ->where('cv.product_option_value_id', $optionValue->product_option_value_id)
-                ->where('c.product_id', $optionValue->product_id)
-                ->update(['c.quantity' => $optionValue->quantity]);
+            DB::table('product_variation_parts as cv')
+                ->join('product_variations as c', 'c.id', '=', 'cv.product_variation_id')
+                ->where('cv.product_variation_value_id', $variationValue->product_variation_value_id)
+                ->where('c.product_id', $variationValue->product_id)
+                ->update(['c.quantity' => $variationValue->quantity]);
 
             StockHistoryLogger::log(
-                productId: (int) $optionValue->product_id,
-                optionValueId: (int) $optionValue->product_option_value_id,
+                productId: (int) $variationValue->product_id,
+                variationValueId: (int) $variationValue->product_variation_value_id,
                 orderId: (int) $order->order_id,
                 type: $type,
                 qtyBefore: $ovQtyBefore,
-                qtyAfter: (int) $optionValue->quantity,
+                qtyAfter: (int) $variationValue->quantity,
                 source: $source,
-                note: "$orderLabel: {$type}ed {$amount} (option)",
+                note: "$orderLabel: {$type}ed {$amount} (variation)",
             );
 
             self::syncWarehouseInventory(
                 $defaultWarehouse,
-                (int) $optionValue->product_id,
-                (int) $optionValue->product_option_value_id,
+                (int) $variationValue->product_id,
+                (int) $variationValue->product_variation_value_id,
                 $delta,
             );
         }
@@ -157,7 +157,7 @@ class OrderStockService
 
             StockHistoryLogger::log(
                 productId: (int) $product->product_id,
-                optionValueId: null,
+                variationValueId: null,
                 orderId: (int) $order->order_id,
                 type: $type,
                 qtyBefore: $pQtyBefore,
@@ -166,7 +166,7 @@ class OrderStockService
                 note: "$orderLabel: {$type}ed {$amount}",
             );
 
-            if (! $optionValue) {
+            if (! $variationValue) {
                 self::syncWarehouseInventory(
                     $defaultWarehouse,
                     (int) $product->product_id,
@@ -179,11 +179,11 @@ class OrderStockService
 
     private static function resolveDefaultWarehouse(): ?object
     {
-        if (!class_exists(\Extensions\warehousing\Services\WarehouseStockService::class)) {
+        if (!class_exists(\Extensions\Warehousing\Services\WarehouseStockService::class)) {
             return null;
         }
 
-        return \Extensions\warehousing\Services\WarehouseStockService::getDefaultWarehouse();
+        return \Extensions\Warehousing\Services\WarehouseStockService::getDefaultWarehouse();
     }
 
     private static function syncWarehouseInventory(?object $warehouse, int $productId, int $povId, int $delta): void
@@ -192,7 +192,7 @@ class OrderStockService
             return;
         }
 
-        $inv = \Extensions\warehousing\Services\WarehouseStockService::getOrCreateInventory(
+        $inv = \Extensions\Warehousing\Services\WarehouseStockService::getOrCreateInventory(
             $warehouse->id,
             $productId,
             $povId,
@@ -208,14 +208,14 @@ class OrderStockService
     private static function resolve($orderProduct): array
     {
         $product = null;
-        $optionValue = null;
+        $variationValue = null;
         $sku = trim((string) $orderProduct->model);
 
-        $orderOption = $orderProduct->options->first();
-        if ($orderOption && $orderOption->product_option_value_id > 0) {
-            $optionValue = ProductOptionValue::where('product_option_value_id', $orderOption->product_option_value_id)->first();
-            if ($optionValue) {
-                $product = Product::where('product_id', $optionValue->product_id)->first();
+        $orderVariation = $orderProduct->variations->first();
+        if ($orderVariation && $orderVariation->product_variation_value_id > 0) {
+            $variationValue = ProductVariationValue::where('product_variation_value_id', $orderVariation->product_variation_value_id)->first();
+            if ($variationValue) {
+                $product = Product::where('product_id', $variationValue->product_id)->first();
             }
         }
 
@@ -224,14 +224,14 @@ class OrderStockService
         }
 
         if (!$product && $sku !== '') {
-            foreach (app(IntegrationRegistry::class)->skuResolvers() as $resolver) {
+            foreach (app(ChannelRegistry::class)->skuResolvers() as $resolver) {
                 $resolved = $resolver->resolveCatalogProduct($sku);
                 if ($resolved === null) {
                     continue;
                 }
                 $product = Product::where('product_id', $resolved['product_id'])->first();
-                if (!$optionValue && !empty($resolved['product_option_value_id'])) {
-                    $optionValue = ProductOptionValue::where('product_option_value_id', $resolved['product_option_value_id'])->first();
+                if (!$variationValue && !empty($resolved['product_variation_value_id'])) {
+                    $variationValue = ProductVariationValue::where('product_variation_value_id', $resolved['product_variation_value_id'])->first();
                 }
                 if ($product) {
                     break;
@@ -244,12 +244,12 @@ class OrderStockService
             }
         }
 
-        if ($product && !$optionValue && $sku !== '') {
-            $optionValue = ProductOptionValue::where('product_id', $product->product_id)
+        if ($product && !$variationValue && $sku !== '') {
+            $variationValue = ProductVariationValue::where('product_id', $product->product_id)
                 ->where('sku', $sku)
                 ->first();
         }
 
-        return ['product' => $product, 'option_value' => $optionValue];
+        return ['product' => $product, 'variation_value' => $variationValue];
     }
 }

@@ -17,12 +17,10 @@ final class CustomerLedger
         if ($search === '') {
             return [];
         }
-
-        $pfx = (string) config('catalog.prefix');
         $like = '%' . str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $search) . '%';
         $digits = preg_replace('/\D+/', '', $search);
 
-        $orders = DB::table($pfx . 'order as o')
+        $orders = DB::table('orders as o')
             ->where(function ($q) use ($like, $digits) {
                 $q->where('o.firstname', 'like', $like)
                     ->orWhere('o.lastname', 'like', $like)
@@ -35,18 +33,17 @@ final class CustomerLedger
             ->orderByDesc('o.date_added')
             ->limit(2000)
             ->get(['o.order_id', 'o.firstname', 'o.lastname', 'o.email', 'o.telephone', 'o.customer_group',
-                'o.marketplace_source', 'o.store_id', 'o.store_name', 'o.order_status_id', 'o.date_added']);
+                'o.channel', 'o.store_id', 'o.store_name', 'o.order_status_id', 'o.date_added']);
 
         return $this->summarise($orders)->take($limit)->values()->all();
     }
 
     public function history(array $keys, ?string $from = null, ?string $to = null): array
     {
-        $pfx = (string) config('catalog.prefix');
         $lang = (int) config('catalog.default_language_id');
         $keys = array_values(array_unique(array_filter(array_map('trim', $keys))));
 
-        $query = DB::table($pfx . 'order as o')->where(function ($q) use ($keys) {
+        $query = DB::table('orders as o')->where(function ($q) use ($keys) {
             foreach ($keys as $key) {
                 [$kind, $value] = array_pad(explode(':', $key, 2), 2, '');
                 match ($kind) {
@@ -65,20 +62,20 @@ final class CustomerLedger
             $query->where('o.date_added', '<=', $to . ' 23:59:59');
         }
 
-        $orders = $query->leftJoin($pfx . 'order_status as os', fn ($j) => $j->on('os.order_status_id', '=', 'o.order_status_id')->where('os.language_id', '=', $lang))
+        $orders = $query->leftJoin('order_statuses as os', fn ($j) => $j->on('os.order_status_id', '=', 'o.order_status_id')->where('os.language_id', '=', $lang))
             ->orderByDesc('o.date_added')
-            ->get(['o.order_id', 'o.firstname', 'o.lastname', 'o.email', 'o.telephone', 'o.customer_group', 'o.marketplace_source',
+            ->get(['o.order_id', 'o.firstname', 'o.lastname', 'o.email', 'o.telephone', 'o.customer_group', 'o.channel',
                 'o.store_id', 'o.store_name', 'o.order_status_id', 'o.date_added', 'o.marketplace_order_id', 'os.name as status']);
 
         $orders = $orders->filter(fn ($o) => in_array($this->identity($o), $keys, true))->values();
 
         $counted = $this->countedStatuses();
         $ids = $orders->pluck('order_id')->all();
-        $lines = $ids === [] ? collect() : DB::table($pfx . 'order_product as op')
-            ->leftJoin(DB::raw("(SELECT order_product_id, MIN(product_option_value_id) AS pov, GROUP_CONCAT(value ORDER BY order_option_id SEPARATOR ' / ') AS variation
-                FROM `{$pfx}order_option` GROUP BY order_product_id) as oo"), 'oo.order_product_id', '=', 'op.order_product_id')
-            ->leftJoin($pfx . 'product as p', 'p.product_id', '=', 'op.product_id')
-            ->leftJoin($pfx . 'product_option_value as pov', 'pov.product_option_value_id', '=', 'oo.pov')
+        $lines = $ids === [] ? collect() : DB::table('order_products as op')
+            ->leftJoin(DB::raw("(SELECT order_product_id, MIN(product_variation_value_id) AS pov, GROUP_CONCAT(value ORDER BY order_variation_id SEPARATOR ' / ') AS variation
+                FROM `order_variations` GROUP BY order_product_id) as oo"), 'oo.order_product_id', '=', 'op.order_product_id')
+            ->leftJoin('products as p', 'p.product_id', '=', 'op.product_id')
+            ->leftJoin('product_variation_values as pov', 'pov.product_variation_value_id', '=', 'oo.pov')
             ->whereIn('op.order_id', $ids)
             ->get(['op.order_id', 'op.product_id', 'op.name', 'op.model', 'op.quantity', 'op.price', 'op.total', 'op.cost',
                 'oo.variation', 'p.sku', 'p.price as price_now', 'pov.sku as variation_sku', 'pov.absolute_price as variation_price_now']);
@@ -137,7 +134,7 @@ final class CustomerLedger
             'orders' => $orders->map(fn ($o) => [
                 'order_id' => (int) $o->order_id,
                 'date' => substr((string) $o->date_added, 0, 10),
-                'store' => $o->store_name ?: ($o->marketplace_source ?: 'Manual'),
+                'store' => $o->store_name ?: ($o->channel ?: 'Manual'),
                 'store_ref' => $this->storeRef($o),
                 'status' => $o->status,
                 'counted' => in_array((int) $o->order_status_id, $counted, true),
@@ -149,7 +146,7 @@ final class CustomerLedger
 
     private function storeRef(object $order): array
     {
-        $source = (string) ($order->marketplace_source ?? '');
+        $source = (string) ($order->channel ?? '');
         if ($source === '') {
             return ['key' => \App\Support\StoreKey::MANUAL, 'channel' => 'Manual', 'name' => ''];
         }
@@ -191,7 +188,7 @@ final class CustomerLedger
     {
         $counted = $this->countedStatuses();
         $countedIds = $orders->filter(fn ($o) => in_array((int) $o->order_status_id, $counted, true))->pluck('order_id')->all();
-        $spent = $countedIds === [] ? collect() : DB::table((string) config('catalog.prefix') . 'order_product')
+        $spent = $countedIds === [] ? collect() : DB::table('order_products')
             ->whereIn('order_id', $countedIds)->groupBy('order_id')
             ->selectRaw('order_id, SUM(total) as spent')->pluck('spent', 'order_id');
 
@@ -206,7 +203,7 @@ final class CustomerLedger
                     'email' => ($latest->email && ! str_contains($latest->email, '*')) ? $latest->email : null,
                     'phone' => ($latest->telephone && ! str_contains($latest->telephone, '*')) ? $latest->telephone : null,
                     'customer_types' => $g->pluck('customer_group')->filter()->unique()->values()->all(),
-                    'stores' => $g->map(fn ($o) => $o->store_name ?: ($o->marketplace_source ?: 'Manual'))->unique()->values()->all(),
+                    'stores' => $g->map(fn ($o) => $o->store_name ?: ($o->channel ?: 'Manual'))->unique()->values()->all(),
                     'store_refs' => $g->map(fn ($o) => $this->storeRef($o))->unique('key')->values()->all(),
                     'orders' => $g->count(),
                     'spent' => round((float) $g->sum(fn ($o) => (float) ($spent[$o->order_id] ?? 0)), 2),
@@ -219,7 +216,7 @@ final class CustomerLedger
 
     private function countedStatuses(): array
     {
-        return DB::table((string) config('catalog.prefix') . 'order_status')->where('add_revenue', 1)
+        return DB::table('order_statuses')->where('add_revenue', 1)
             ->distinct()->pluck('order_status_id')->map(fn ($id) => (int) $id)->all();
     }
 }

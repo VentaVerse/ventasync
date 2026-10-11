@@ -2,9 +2,9 @@
 
 namespace App\Http\Controllers\Concerns;
 
-use App\Integrations\Listings\CatalogCopy;
-use App\Integrations\Listings\ListingContent;
-use App\Integrations\Listings\ListingImages;
+use App\Channels\Listings\CatalogCopy;
+use App\Channels\Listings\ListingContent;
+use App\Channels\Listings\ListingImages;
 use App\Services\Catalog\CatalogBasicsWriter;
 use App\Support\BackTo;
 use App\Support\Catalog\ProductImages;
@@ -89,8 +89,7 @@ trait ComparesWithTheCatalog
         $catalog = CatalogCopy::catalog([$productId])[$productId] ?? null;
         if ($catalog !== null) {
             $own = fn ($value, float $catalogValue) => ($value === null || $value === '' || abs((float) $value - $catalogValue) < 0.0005) ? null : (float) $value;
-            $pfx = (string) config('catalog.prefix');
-            $hasVariations = DB::table($pfx . 'product_option_value')->where('product_id', $productId)->exists();
+            $hasVariations = DB::table('product_variation_values')->where('product_id', $productId)->exists();
             if ($hasVariations) {
                 $listing->price = null;
             } elseif (array_key_exists('price', $l)) {

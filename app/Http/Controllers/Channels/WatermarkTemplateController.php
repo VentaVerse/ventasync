@@ -13,11 +13,11 @@ use Illuminate\Validation\Rule;
 
 abstract class WatermarkTemplateController extends Controller
 {
-    abstract protected function integration(): string;
+    abstract protected function channel(): string;
 
     protected function storeId(): int
     {
-        $key = $this->integration() . '.route-store';
+        $key = $this->channel() . '.route-store';
         if (app()->bound($key)) {
             return (int) app($key)->id;
         }
@@ -27,14 +27,14 @@ abstract class WatermarkTemplateController extends Controller
 
     protected function canManage(): bool
     {
-        return auth()->user()?->hasPermission('manage_' . $this->integration() . '/watermark_template') ?? false;
+        return auth()->user()?->hasPermission('manage_' . $this->channel() . '/watermark_template') ?? false;
     }
 
     public function index(Request $request)
     {
         $q = trim((string) $request->get('q', ''));
 
-        $templates = WatermarkTemplate::ofStore($this->integration(), $this->storeId())
+        $templates = WatermarkTemplate::ofStore($this->channel(), $this->storeId())
             ->when($q !== '', fn ($query) => $query->where('name', 'like', '%' . $q . '%'))
             ->orderBy('name')
             ->paginate(50)
@@ -65,7 +65,7 @@ abstract class WatermarkTemplateController extends Controller
     {
         $data = $this->validated($request, null);
         $template = WatermarkTemplate::create($data + [
-            'integration' => $this->integration(),
+            'channel' => $this->channel(),
             'store_id' => $this->storeId(),
         ]);
 
@@ -169,8 +169,8 @@ abstract class WatermarkTemplateController extends Controller
         abort_unless($this->canManage(), 403);
 
         $data = $request->validate([
-            'name' => ['required', 'string', 'max:120', Rule::unique('watermark_templates', 'name')
-                ->where('integration', $this->integration())
+            'name' => ['required', 'string', 'max:120', Rule::unique('ch_watermark_templates', 'name')
+                ->where('channel', $this->channel())
                 ->where('store_id', $this->storeId())
                 ->ignore($ignoreId)],
             'image_path' => 'required|string|max:1000',
@@ -197,26 +197,25 @@ abstract class WatermarkTemplateController extends Controller
 
     private function ownRow(int $id): WatermarkTemplate
     {
-        return WatermarkTemplate::ofStore($this->integration(), $this->storeId())->where('id', $id)->firstOrFail();
+        return WatermarkTemplate::ofStore($this->channel(), $this->storeId())->where('id', $id)->firstOrFail();
     }
 
     private function url(string $action, array $params = []): string
     {
-        return route('ext.' . $this->integration() . '.watermarks.' . $action, ['store' => $this->storeId()] + $params);
+        return route('ext.' . $this->channel() . '.watermarks.' . $action, ['store' => $this->storeId()] + $params);
     }
 
     private function channelName(): string
     {
-        return app(\App\Integrations\IntegrationRegistry::class)->resolveMarketplaceSourceLabel($this->integration())
-            ?? \Illuminate\Support\Str::headline($this->integration());
+        return app(\App\Channels\ChannelRegistry::class)->resolveChannelLabel($this->channel())
+            ?? \Illuminate\Support\Str::headline($this->channel());
     }
 
     private function anyCatalogImage(): ?string
     {
-        $pfx = (string) config('catalog.prefix');
         $disk = Storage::disk('public');
 
-        $paths = \Illuminate\Support\Facades\DB::table($pfx . 'product')
+        $paths = \Illuminate\Support\Facades\DB::table('products')
             ->whereNotNull('image')->where('image', '<>', '')
             ->orderByDesc('product_id')->limit(50)->pluck('image');
 

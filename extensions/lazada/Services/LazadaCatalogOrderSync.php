@@ -1,14 +1,14 @@
 <?php
 
-namespace Extensions\lazada\Services;
+namespace Extensions\Lazada\Services;
 
-use Extensions\lazada\Models\LazadaOrder;
-use Extensions\lazada\Models\LazadaOrderStatusMap;
-use Extensions\lazada\Models\LazadaProduct;
-use Extensions\lazada\Models\LazadaProductVariant;
+use Extensions\Lazada\Models\LazadaOrder;
+use Extensions\Lazada\Models\LazadaOrderStatusMap;
+use Extensions\Lazada\Models\LazadaListing;
+use Extensions\Lazada\Models\LazadaListingVariation;
 use App\Models\Catalog\Order;
 use App\Models\Catalog\OrderHistory;
-use App\Models\Catalog\OrderOption;
+use App\Models\Catalog\OrderVariation;
 use App\Models\Catalog\OrderProduct;
 use App\Models\Catalog\OrderTotal;
 use App\Services\OrderStockService;
@@ -94,7 +94,7 @@ class LazadaCatalogOrderSync
             }
 
             if (!$catalogOrder) {
-                $catalogOrder = Order::where('marketplace_source', 'lazada')
+                $catalogOrder = Order::where('channel', 'lazada')
                     ->where('marketplace_order_id', $lazadaOrderId)
                     ->first();
             }
@@ -106,8 +106,8 @@ class LazadaCatalogOrderSync
                 $rate = (float) $catalogOrder->currency_value;
             }
 
-            $storeId = (int) $lazadaOrder->lazada_setting_id;
-            $storeName = mb_substr((string) (\Extensions\lazada\Models\LazadaSetting::query()->find($storeId)?->store_name ?? ''), 0, 64);
+            $storeId = (int) $lazadaOrder->store_id;
+            $storeName = mb_substr((string) (\Extensions\Lazada\Models\LazadaStore::query()->find($storeId)?->store_name ?? ''), 0, 64);
 
             $orderData = [
                 'invoice_no'            => 0,
@@ -174,7 +174,7 @@ class LazadaCatalogOrderSync
                 'accept_language'       => '',
                 'courier_id'            => 0,
                 'tracking_number'       => $trackingNumber,
-                'marketplace_source'    => 'lazada',
+                'channel'    => 'lazada',
                 'marketplace_order_id'  => $lazadaOrderId,
                 'oe_import'             => 0,
             ];
@@ -195,7 +195,7 @@ class LazadaCatalogOrderSync
             }
 
             OrderProduct::where('order_id', $catalogOrder->order_id)->delete();
-            OrderOption::where('order_id', $catalogOrder->order_id)->delete();
+            OrderVariation::where('order_id', $catalogOrder->order_id)->delete();
 
             $subTotal = 0;
             $shippingTotal = 0;
@@ -236,38 +236,38 @@ class LazadaCatalogOrderSync
                 $lineTotalBase = \App\Services\OrderCurrencyService::toBase($lineTotal, $rate);
 
                 $resolvedProductId = 0;
-                $resolvedOptionValueId = 0;
+                $resolvedVariationValueId = 0;
                 $sellerSku = $item['sku'];
                 if ($sellerSku !== '') {
-                    $variant = LazadaProductVariant::where('seller_sku', $sellerSku)->first();
+                    $variant = LazadaListingVariation::where('seller_sku', $sellerSku)->first();
                     if ($variant) {
-                        $lzProduct = LazadaProduct::where('id', $variant->lazada_product_id)->first();
+                        $lzProduct = LazadaListing::where('id', $variant->lazada_listing_id)->first();
                         if ($lzProduct && $lzProduct->product_id > 0) {
                             $resolvedProductId = (int) $lzProduct->product_id;
                         }
-                        if ($variant->product_option_value_id > 0) {
-                            $resolvedOptionValueId = (int) $variant->product_option_value_id;
+                        if ($variant->product_variation_value_id > 0) {
+                            $resolvedVariationValueId = (int) $variant->product_variation_value_id;
                         }
                     }
 
-                    if ($resolvedProductId > 0 && $resolvedOptionValueId === 0) {
-                        $pov = \App\Models\Catalog\ProductOptionValue::where('product_id', $resolvedProductId)
+                    if ($resolvedProductId > 0 && $resolvedVariationValueId === 0) {
+                        $pov = \App\Models\Catalog\ProductVariationValue::where('product_id', $resolvedProductId)
                             ->where('sku', $sellerSku)
                             ->first();
                         if ($pov) {
-                            $resolvedOptionValueId = (int) $pov->product_option_value_id;
+                            $resolvedVariationValueId = (int) $pov->product_variation_value_id;
                         }
                     }
                 }
 
-                if ($resolvedProductId > 0 && $resolvedOptionValueId === 0) {
+                if ($resolvedProductId > 0 && $resolvedVariationValueId === 0) {
                     $variation = trim($item['variation'] ?? '');
                     if ($variation !== '') {
-                        $resolvedOptionValueId = $this->resolveOptionByVariation($resolvedProductId, $variation);
+                        $resolvedVariationValueId = $this->resolveOptionByVariation($resolvedProductId, $variation);
                     }
                 }
 
-                $productCost = \App\Support\LineCost::resolve((int) $resolvedProductId, (int) $resolvedOptionValueId);
+                $productCost = \App\Support\LineCost::resolve((int) $resolvedProductId, (int) $resolvedVariationValueId);
 
                 $op = OrderProduct::create([
                     'order_id'      => $catalogOrder->order_id,
@@ -287,11 +287,11 @@ class LazadaCatalogOrderSync
                 ]);
 
                 if ($item['variation'] && trim($item['variation']) !== '') {
-                    OrderOption::create([
+                    OrderVariation::create([
                         'order_id'                => $catalogOrder->order_id,
                         'order_product_id'        => $op->order_product_id,
-                        'product_option_id'       => 0,
-                        'product_option_value_id' => $resolvedOptionValueId,
+                        'product_variation_type_id'       => 0,
+                        'product_variation_value_id' => $resolvedVariationValueId,
                         'name'                    => 'Variation',
                         'value'                   => $item['variation'],
                         'type'                    => 'text',
@@ -302,7 +302,7 @@ class LazadaCatalogOrderSync
             OrderTotal::where('order_id', $catalogOrder->order_id)->delete();
 
             $sortOrder = 1;
-            foreach (\Extensions\lazada\Services\LazadaSaleLines::lines($raw, $subTotal, $shippingTotal) as $line) {
+            foreach (\Extensions\Lazada\Services\LazadaSaleLines::lines($raw, $subTotal, $shippingTotal) as $line) {
                 OrderTotal::create([
                     'order_id'   => $catalogOrder->order_id,
                     'code'       => $line['code'],
@@ -342,7 +342,6 @@ class LazadaCatalogOrderSync
 
     private function resolveOptionByVariation(int $productId, string $variation): int
     {
-        $pfx = (string) config('catalog.prefix');
         $langId = (int) config('catalog.default_language_id');
 
         $parts = array_map('trim', explode(',', $variation));
@@ -362,15 +361,15 @@ class LazadaCatalogOrderSync
             return 0;
         }
 
-        $match = DB::table($pfx . 'product_option_value as pov')
-            ->join($pfx . 'option_value_description as ovd', function ($j) use ($langId) {
-                $j->on('pov.option_value_id', '=', 'ovd.option_value_id')
+        $match = DB::table('product_variation_values as pov')
+            ->join('variation_value_descriptions as ovd', function ($j) use ($langId) {
+                $j->on('pov.variation_value_id', '=', 'ovd.variation_value_id')
                     ->where('ovd.language_id', '=', $langId);
             })
             ->where('pov.product_id', $productId)
             ->whereIn('ovd.name', $candidates)
-            ->first(['pov.product_option_value_id']);
+            ->first(['pov.product_variation_value_id']);
 
-        return $match ? (int) $match->product_option_value_id : 0;
+        return $match ? (int) $match->product_variation_value_id : 0;
     }
 }

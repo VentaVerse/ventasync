@@ -241,7 +241,7 @@
                 <x-ui.hint>Fetch pulls the orders created between these dates. Update statuses uses the same two dates, so both are required.</x-ui.hint>
             </div>
         </form>
-        <x-channel.order-fetch integration="lazada" :store-id="\Extensions\lazada\Models\LazadaSetting::defaultStore()?->id" form-id="formFetchLazadaOrders" channel-label="Lazada"
+        <x-channel.order-fetch channel="lazada" :store-id="\Extensions\Lazada\Models\LazadaStore::defaultStore()?->id" form-id="formFetchLazadaOrders" channel-label="Lazada"
             :begin-url="route('ext.lazada.orders.fetch_run_begin')" :step-url="route('ext.lazada.orders.fetch_run_step', ['run' => 0])" :stop-url="route('ext.lazada.orders.fetch_run_stop', ['run' => 0])" :state-url="route('ext.lazada.orders.fetch_run_state', ['run' => 0])" />
         </div>
     </x-ui.foldout>
@@ -324,7 +324,7 @@
 
             $statusNorm = strtolower(trim($statusStr));
             $isUnpaid = ($statusNorm === 'unpaid');
-            $isCancelled = in_array($statusNorm, ['canceled', 'cancelled'], true);
+            $isCanceled = in_array($statusNorm, ['canceled', 'cancelled'], true);
             $isToPack = in_array($statusNorm, ['pending', 'repacked'], true);
             $isToArrange = ($statusNorm === 'packed');
             $isToHandover = ($statusNorm === 'ready_to_ship');
@@ -411,7 +411,7 @@
             $showsAwbButton = $orderId && (
                 ($canManageLazadaOrders && ($isToArrange || $isToHandover))
                 || (!$canManageLazadaOrders && !$isToPack && $hasAwb)
-                || ($canManageLazadaOrders && !$isToPack && !$isToArrange && !$isToHandover && !$isCancelled && $hasAwb)
+                || ($canManageLazadaOrders && !$isToPack && !$isToArrange && !$isToHandover && !$isCanceled && $hasAwb)
             );
         @endphp
         <tr class="co-band">
@@ -583,19 +583,19 @@
                         @endif
                     @endif
 
-                    @if($canManageLazadaOrders && !$isToPack && !$isToArrange && !$isToHandover && !$isCancelled && $hasAwb)
+                    @if($canManageLazadaOrders && !$isToPack && !$isToArrange && !$isToHandover && !$isCanceled && $hasAwb)
                         <x-ui.button size="sm"
                                      :href="route('ext.lazada.orders.awb', ['orderId' => $orderId])"
                                      target="_blank" rel="noopener">Print waybill</x-ui.button>
                     @endif
 
-                    @if(!$isCancelled && !$isToPack)
+                    @if(!$isCanceled && !$isToPack)
                         <x-ui.button size="sm" class="btnLzLogistics"
                                      data-url="{{ route('ext.lazada.orders.logistics_trace', ['orderId' => $orderId]) }}">Tracking</x-ui.button>
                     @endif
                 </div>
 
-                @if(!$isCancelled && !$isToPack)
+                @if(!$isCanceled && !$isToPack)
                     <div class="x-docs">
                         <span class="x-docs__label">Print</span>
                         @if($hasAwb && !$showsAwbButton)

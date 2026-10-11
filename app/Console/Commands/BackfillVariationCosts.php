@@ -16,7 +16,6 @@ class BackfillVariationCosts extends Command
 
     public function handle(): int
     {
-        $pfx = (string) config('catalog.prefix');
         $apply = (bool) $this->option('apply');
         $overwrite = (bool) $this->option('overwrite');
 
@@ -24,13 +23,13 @@ class BackfillVariationCosts extends Command
             $this->warn('Reporting only. Add --apply to write.');
         }
 
-        $parents = DB::table($pfx . 'product as p')
-            ->join($pfx . 'product_description as pd', function ($j) {
+        $parents = DB::table('products as p')
+            ->join('product_descriptions as pd', function ($j) {
                 $j->on('pd.product_id', '=', 'p.product_id')
                   ->where('pd.language_id', '=', (int) config('catalog.default_language_id', 1));
             })
-            ->whereExists(function ($q) use ($pfx) {
-                $q->selectRaw('1')->from($pfx . 'product_option_value as pov')->whereColumn('pov.product_id', 'p.product_id');
+            ->whereExists(function ($q)  {
+                $q->selectRaw('1')->from('product_variation_values as pov')->whereColumn('pov.product_id', 'p.product_id');
             })
             ->orderBy('p.product_id')
             ->get(['p.product_id', 'pd.name', 'p.price', 'p.cost_amount', 'p.cost_percentage', 'p.cost_additional', 'p.cost']);
@@ -52,10 +51,10 @@ class BackfillVariationCosts extends Command
 
             $unit = fn (float $ownAmount, float $ownAdd, float $price) => round($ownAmount + ($pct / 100 * $price) + $ownAdd, 4);
 
-            $values = DB::table($pfx . 'product_option_value')
+            $values = DB::table('product_variation_values')
                 ->where('product_id', $p->product_id)
-                ->get(['product_option_value_id', 'sku', 'absolute_price', 'cost_amount', 'cost_percentage', 'cost_additional', 'absolute_cost', 'cost']);
-            $combos = DB::table('product_option_combinations')
+                ->get(['product_variation_value_id', 'sku', 'absolute_price', 'cost_amount', 'cost_percentage', 'cost_additional', 'absolute_cost', 'cost']);
+            $combos = DB::table('product_variations')
                 ->where('product_id', $p->product_id)
                 ->get(['id', 'sku', 'absolute_price', 'cost_amount', 'cost_additional', 'absolute_cost']);
 
@@ -87,8 +86,8 @@ class BackfillVariationCosts extends Command
                 $after += $newAbsolute;
 
                 if ($apply) {
-                    DB::table($pfx . 'product_option_value')
-                        ->where('product_option_value_id', $v->product_option_value_id)
+                    DB::table('product_variation_values')
+                        ->where('product_variation_value_id', $v->product_variation_value_id)
                         ->update([
                             'cost_amount' => $ownAmount,
                             'cost_percentage' => $pct,
@@ -116,7 +115,7 @@ class BackfillVariationCosts extends Command
 
                 $combosTouched++;
                 if ($apply) {
-                    DB::table('product_option_combinations')
+                    DB::table('product_variations')
                         ->where('id', $c->id)
                         ->update([
                             'cost_amount' => $ownAmount,

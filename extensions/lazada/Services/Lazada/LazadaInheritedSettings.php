@@ -1,9 +1,9 @@
 <?php
 
-namespace Extensions\lazada\Services\Lazada;
+namespace Extensions\Lazada\Services\Lazada;
 
-use Extensions\lazada\Models\LazadaProduct;
-use Extensions\lazada\Models\LazadaProductGroup;
+use Extensions\Lazada\Models\LazadaListing;
+use Extensions\Lazada\Models\LazadaProductGroup;
 use Illuminate\Support\Facades\DB;
 
 final class LazadaInheritedSettings
@@ -15,8 +15,8 @@ final class LazadaInheritedSettings
             return [];
         }
 
-        $rows = DB::table('lazada_product_group_products as pv')
-            ->joinSub(LazadaProductGroup::query()->forStore(\Extensions\lazada\Models\LazadaSetting::defaultStore())->select(['id', 'name', 'lazada_category_id', 'brand_id', 'brand_name_override', 'markup_fixed', 'markup_percent']), 'g', 'g.id', '=', 'pv.lazada_product_group_id')
+        $rows = DB::table('ch_lazada_product_group_products as pv')
+            ->joinSub(LazadaProductGroup::query()->forStore(\Extensions\Lazada\Models\LazadaStore::defaultStore())->select(['id', 'name', 'lazada_category_id', 'brand_id', 'brand_name_override', 'markup_fixed', 'markup_percent']), 'g', 'g.id', '=', 'pv.lazada_product_group_id')
             ->whereIn('pv.product_id', $productIds)
             ->orderBy('pv.id')
             ->get(['pv.product_id', 'g.id as group_id', 'g.name', 'g.lazada_category_id', 'g.brand_id', 'g.brand_name_override', 'g.markup_fixed', 'g.markup_percent']);
@@ -40,7 +40,7 @@ final class LazadaInheritedSettings
         }
         $groupIds = array_values(array_unique(array_map(fn ($g) => $g['group_id'], $out)));
         if ($groupIds !== []) {
-            $answers = \Extensions\lazada\Models\LazadaProductGroupAttribute::query()->whereIn('lazada_product_group_id', $groupIds)
+            $answers = \Extensions\Lazada\Models\LazadaProductGroupAttribute::query()->whereIn('lazada_product_group_id', $groupIds)
                 ->get(['lazada_product_group_id', 'attribute_key', 'value'])->groupBy('lazada_product_group_id');
             foreach ($out as $pid => $g) {
                 $out[$pid]['attributes'] = ($answers->get($g['group_id']) ?? collect())->pluck('value', 'attribute_key')->all();
@@ -50,7 +50,7 @@ final class LazadaInheritedSettings
         return $out;
     }
 
-    public function fill(LazadaProduct $listing, ?array $group): array
+    public function fill(LazadaListing $listing, ?array $group): array
     {
         $copy = clone $listing;
         $inherited = [];

@@ -14,17 +14,16 @@ class CategoryController extends Controller
 {
     public function index(Request $request)
     {
-        $p = config('catalog.prefix');
         $languageId = (int) config('catalog.default_language_id');
         $q = trim((string) $request->get('q', ''));
 
-        $pathsSub = $this->pathsSubquery($p, $languageId);
+        $pathsSub = $this->pathsSubquery( $languageId);
 
-        $categories = DB::table($p.'category as c')
+        $categories = DB::table('categories as c')
             ->leftJoinSub($pathsSub, 'cp', function($j) {
                 $j->on('c.category_id','=','cp.category_id');
             })
-            ->leftJoin($p.'category_description as pcd', function($j) use ($languageId) {
+            ->leftJoin('category_descriptions as pcd', function($j) use ($languageId) {
                 $j->on('c.parent_id','=','pcd.category_id')->where('pcd.language_id','=',$languageId);
             })
             ->when($q !== '', function($query) use ($q) {
@@ -109,11 +108,10 @@ return view('catalog.categories.index', ['categories' => $categories, 'q' => $q]
 
     public function edit($id)
     {
-        $p = config('catalog.prefix');
         $languageId = (int) config('catalog.default_language_id');
 
-        $category = DB::table($p.'category as c')
-            ->leftJoin($p.'category_description as cd', function($j) use ($languageId) {
+        $category = DB::table('categories as c')
+            ->leftJoin('category_descriptions as cd', function($j) use ($languageId) {
                 $j->on('c.category_id','=','cd.category_id')->where('cd.language_id','=',$languageId);
             })
             ->select('c.*','cd.name','cd.description')
@@ -189,16 +187,15 @@ return view('catalog.categories.index', ['categories' => $categories, 'q' => $q]
 
     public function destroy($id)
     {
-        $p = config('catalog.prefix');
         $languageId = (int) config('catalog.default_language_id');
-        $name = DB::table($p.'category_description')
+        $name = DB::table('category_descriptions')
             ->where('category_id', (int)$id)->where('language_id', $languageId)->value('name') ?? '#' . $id;
 
-        DB::transaction(function () use ($id, $p) {
-            DB::table($p.'category_path')->where('category_id', (int)$id)->delete();
-            DB::table($p.'category_description')->where('category_id', (int)$id)->delete();
-            DB::table($p.'product_to_category')->where('category_id', (int)$id)->delete();
-            DB::table($p.'category')->where('category_id', (int)$id)->delete();
+        DB::transaction(function () use ($id) {
+            DB::table('category_paths')->where('category_id', (int)$id)->delete();
+            DB::table('category_descriptions')->where('category_id', (int)$id)->delete();
+            DB::table('product_categories')->where('category_id', (int)$id)->delete();
+            DB::table('categories')->where('category_id', (int)$id)->delete();
         });
 
         ActivityLogger::log('deleted', 'Category', (int) $id, $name);
@@ -225,9 +222,8 @@ return view('catalog.categories.index', ['categories' => $categories, 'q' => $q]
             return redirect()->route('categories.index')->with('status', 'Invalid action.');
         }
 
-        $pfx = config('catalog.prefix');
         $newStatus = $action === 'enable' ? 1 : 0;
-        DB::table($pfx.'category')->whereIn('category_id', $ids)->update(['status' => $newStatus]);
+        DB::table('categories')->whereIn('category_id', $ids)->update(['status' => $newStatus]);
 
         ActivityLogger::log($action === 'enable' ? 'updated' : 'updated', 'Category', null, count($ids) . ' categories ' . $action . 'd');
 
@@ -236,13 +232,12 @@ return view('catalog.categories.index', ['categories' => $categories, 'q' => $q]
 
     public function lookup(Request $request)
     {
-        $p = config('catalog.prefix');
         $languageId = (int) config('catalog.default_language_id');
         $q = trim((string) $request->get('q', ''));
 
-        $pathsSub = $this->pathsSubquery($p, $languageId);
+        $pathsSub = $this->pathsSubquery( $languageId);
 
-        $rows = DB::table($p.'category as c')
+        $rows = DB::table('categories as c')
             ->leftJoinSub($pathsSub, 'cp', function($j) {
                 $j->on('c.category_id','=','cp.category_id');
             })
@@ -263,12 +258,11 @@ return view('catalog.categories.index', ['categories' => $categories, 'q' => $q]
 
     private function parentOptions(?int $excludeId = null)
     {
-        $p = config('catalog.prefix');
         $languageId = (int) config('catalog.default_language_id');
 
-        $pathsSub = $this->pathsSubquery($p, $languageId);
+        $pathsSub = $this->pathsSubquery( $languageId);
 
-        $q = DB::table($p.'category as c')
+        $q = DB::table('categories as c')
             ->leftJoinSub($pathsSub, 'cp', function($j) {
                 $j->on('c.category_id','=','cp.category_id');
             })
@@ -286,10 +280,10 @@ return view('catalog.categories.index', ['categories' => $categories, 'q' => $q]
         return $q->get();
     }
 
-    private function pathsSubquery(string $p, int $languageId)
+    private function pathsSubquery( int $languageId)
     {
-        return DB::table($p.'category_path as cp')
-            ->join($p.'category_description as cd', function($j) use ($languageId, $p) {
+        return DB::table('category_paths as cp')
+            ->join('category_descriptions as cd', function($j) use ($languageId) {
                 $j->on('cp.path_id','=','cd.category_id')
                   ->where('cd.language_id','=',$languageId);
             })
@@ -302,11 +296,10 @@ return view('catalog.categories.index', ['categories' => $categories, 'q' => $q]
 
     private function ensurePathExists(int $categoryId): void
     {
-        $p = config('catalog.prefix');
-        $exists = DB::table($p.'category_path')->where('category_id', $categoryId)->exists();
+        $exists = DB::table('category_paths')->where('category_id', $categoryId)->exists();
         if ($exists) return;
 
-        DB::table($p.'category_path')->insert([
+        DB::table('category_paths')->insert([
             'category_id' => $categoryId,
             'path_id'     => $categoryId,
             'level'       => 0,
@@ -315,22 +308,21 @@ return view('catalog.categories.index', ['categories' => $categories, 'q' => $q]
 
     private function rebuildCategoryPath(int $categoryId, int $parentId): void
     {
-        $p = config('catalog.prefix');
 
-        DB::table($p.'category_path')->where('category_id', $categoryId)->delete();
+        DB::table('category_paths')->where('category_id', $categoryId)->delete();
 
         $level = 0;
 
         if ($parentId > 0) {
             $this->ensurePathExists($parentId);
 
-            $parentPaths = DB::table($p.'category_path')
+            $parentPaths = DB::table('category_paths')
                 ->where('category_id', $parentId)
                 ->orderBy('level')
                 ->get();
 
             foreach ($parentPaths as $pp) {
-                DB::table($p.'category_path')->insert([
+                DB::table('category_paths')->insert([
                     'category_id' => $categoryId,
                     'path_id' => (int) $pp->path_id,
                     'level' => $level,
@@ -339,7 +331,7 @@ return view('catalog.categories.index', ['categories' => $categories, 'q' => $q]
             }
         }
 
-        DB::table($p.'category_path')->insert([
+        DB::table('category_paths')->insert([
             'category_id' => $categoryId,
             'path_id' => $categoryId,
             'level' => $level,
@@ -348,9 +340,8 @@ return view('catalog.categories.index', ['categories' => $categories, 'q' => $q]
 
     private function rebuildChildrenPaths(int $categoryId): void
     {
-        $p = config('catalog.prefix');
 
-        $children = DB::table($p.'category')
+        $children = DB::table('categories')
             ->where('parent_id', $categoryId)
             ->select('category_id','parent_id')
             ->get();

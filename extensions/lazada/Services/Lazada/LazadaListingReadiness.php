@@ -1,13 +1,13 @@
 <?php
 
-namespace Extensions\lazada\Services\Lazada;
+namespace Extensions\Lazada\Services\Lazada;
 
-use App\Integrations\Listings\CatalogGaps;
-use App\Integrations\Listings\ListingState;
-use Extensions\lazada\Models\LazadaCategory;
-use Extensions\lazada\Models\LazadaCategoryTemplate;
-use Extensions\lazada\Models\LazadaProductAttribute;
-use Extensions\lazada\Models\LazadaSetting;
+use App\Channels\Listings\CatalogGaps;
+use App\Channels\Listings\ListingState;
+use Extensions\Lazada\Models\LazadaCategory;
+use Extensions\Lazada\Models\LazadaCategoryTemplate;
+use Extensions\Lazada\Models\LazadaListingAttribute;
+use Extensions\Lazada\Models\LazadaStore;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -21,9 +21,8 @@ class LazadaListingReadiness
             return [];
         }
 
-        $pfx = (string) config('catalog.prefix');
         $langId = (int) config('catalog.default_language_id');
-        $region = (string) (LazadaSetting::defaultStore()?->region ?? '');
+        $region = (string) (LazadaStore::defaultStore()?->region ?? '');
         $attrs = app(LazadaAttributes::class);
 
         $inherit = app(LazadaInheritedSettings::class);
@@ -47,8 +46,8 @@ class LazadaListingReadiness
         }
         $sharedAnswers = array_filter((array) ($overrides['attributes'] ?? []), fn ($v) => trim((string) $v) !== '');
 
-        $products = DB::table($pfx . 'product as p')
-            ->leftJoin($pfx . 'product_description as pd', function ($j) use ($langId) {
+        $products = DB::table('products as p')
+            ->leftJoin('product_descriptions as pd', function ($j) use ($langId) {
                 $j->on('p.product_id', '=', 'pd.product_id')->where('pd.language_id', '=', $langId);
             })
             ->whereIn('p.product_id', $productIds)
@@ -64,20 +63,20 @@ class LazadaListingReadiness
             ->get()
             ->keyBy('primary_category_id');
 
-        $savedAttrs = LazadaProductAttribute::query()
-            ->whereIn('lazada_product_id', $listings->pluck('id')->all())
+        $savedAttrs = LazadaListingAttribute::query()
+            ->whereIn('lazada_listing_id', $listings->pluck('id')->all())
             ->get()
-            ->groupBy('lazada_product_id');
+            ->groupBy('lazada_listing_id');
 
-        $povByProduct = DB::table($pfx . 'product_option_value as pov')
-            ->leftJoin($pfx . 'option_description as od', function ($j) use ($langId) {
-                $j->on('pov.option_id', '=', 'od.option_id')->where('od.language_id', '=', $langId);
+        $povByProduct = DB::table('product_variation_values as pov')
+            ->leftJoin('variation_type_descriptions as od', function ($j) use ($langId) {
+                $j->on('pov.variation_type_id', '=', 'od.variation_type_id')->where('od.language_id', '=', $langId);
             })
             ->whereIn('pov.product_id', $productIds)
-            ->orderBy('pov.product_option_value_id')
-            ->get(['pov.product_id', 'pov.product_option_value_id', 'pov.option_id', 'pov.sku', 'pov.absolute_price', 'od.name as option_name'])
+            ->orderBy('pov.product_variation_value_id')
+            ->get(['pov.product_id', 'pov.product_variation_value_id', 'pov.variation_type_id', 'pov.sku', 'pov.absolute_price', 'od.name as variation_type_name'])
             ->groupBy('product_id');
-        $combosByProduct = DB::table('product_option_combinations')
+        $combosByProduct = DB::table('product_variations')
             ->whereIn('product_id', $productIds)
             ->orderBy('sort_order')
             ->get(['id', 'product_id', 'sku', 'absolute_price'])
@@ -85,13 +84,13 @@ class LazadaListingReadiness
         $axisByProduct = [];
         $allComboIds = $combosByProduct->collapse()->pluck('id')->all();
         if ($allComboIds !== []) {
-            foreach (DB::table('product_option_combination_values as pocv')
-                ->join($pfx . 'product_option_value as pov2', 'pocv.product_option_value_id', '=', 'pov2.product_option_value_id')
-                ->join('product_option_combinations as c', 'pocv.combination_id', '=', 'c.id')
-                ->whereIn('pocv.combination_id', $allComboIds)
-                ->get(['c.product_id', 'pov2.option_id'])
+            foreach (DB::table('product_variation_parts as pocv')
+                ->join('product_variation_values as pov2', 'pocv.product_variation_value_id', '=', 'pov2.product_variation_value_id')
+                ->join('product_variations as c', 'pocv.product_variation_id', '=', 'c.id')
+                ->whereIn('pocv.product_variation_id', $allComboIds)
+                ->get(['c.product_id', 'pov2.variation_type_id'])
                 ->groupBy('product_id') as $pid => $rows) {
-                $axisByProduct[(int) $pid] = $rows->pluck('option_id')->unique()->count();
+                $axisByProduct[(int) $pid] = $rows->pluck('variation_type_id')->unique()->count();
             }
         }
 
@@ -178,9 +177,9 @@ class LazadaListingReadiness
         $prices = [];
 
         if ($povRows->count() > 0) {
-            $optionIds = $povRows->pluck('option_id')->filter()->unique()->values();
+            $variationTypeIds = $povRows->pluck('variation_type_id')->filter()->unique()->values();
 
-            if ($combos->isEmpty() && $optionIds->count() > 1) {
+            if ($combos->isEmpty() && $variationTypeIds->count() > 1) {
                 $gaps[] = ['code' => ListingState::GAP_VARIATIONS, 'label' => 'its variation combinations stored (re-save the product to build them)'];
             } elseif ($combos->isNotEmpty()) {
                 $keys = $template && $listing->primary_category_id
@@ -213,7 +212,7 @@ class LazadaListingReadiness
 
         $needsPrice = in_array('price', array_map(fn ($k) => strtolower((string) $k), $requiredKeys), true);
         if ($needsPrice && array_filter($prices, fn ($p) => $p <= 0) !== []) {
-            $gaps[] = ['code' => ListingState::GAP_PRICE, 'label' => 'a price above zero on the catalog product and every variation'];
+            $gaps[] = ['code' => ListingState::GAP_PRICE, 'label' => 'a price above zero on the Master Catalog product and every variation'];
         }
 
         return $gaps;

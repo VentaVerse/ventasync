@@ -20,7 +20,7 @@ class Kernel extends ConsoleKernel
                 $manifests = $extensions->getManifests();
 
                 foreach (ScheduledJob::query()->where('enabled', true)->get() as $job) {
-                    if (isset($manifests[$job->integration]) && ! $extensions->isEnabled($job->integration)) {
+                    if (isset($manifests[$job->extension]) && ! $extensions->isEnabled($job->extension)) {
                         continue;
                     }
 

@@ -1,11 +1,11 @@
 <?php
 
-namespace Extensions\lazada\Controllers;
+namespace Extensions\Lazada\Controllers;
 
 use App\Http\Controllers\Controller;
-use Extensions\lazada\Models\LazadaApiLog;
-use Extensions\lazada\Models\LazadaSetting;
-use Extensions\lazada\Services\Lazada\LazadaClient;
+use Extensions\Lazada\Models\LazadaApiLog;
+use Extensions\Lazada\Models\LazadaStore;
+use Extensions\Lazada\Services\Lazada\LazadaClient;
 use Illuminate\Http\Request;
 
 class LazadaVoucherController extends Controller
@@ -30,17 +30,17 @@ class LazadaVoucherController extends Controller
             $status = 'all';
         }
 
-        [$setting, $creds] = $this->creds();
+        [$store, $creds] = $this->creds();
         $vouchers = null;
         $liveError = null;
-        if (!$setting || !$creds['complete']) {
+        if (!$store || !$creds['complete']) {
             $liveError = 'Missing Lazada settings.';
         } else {
             $query = ['voucher_type' => 'COLLECTIBLE_VOUCHER', 'cur_page' => '1', 'page_size' => '100'];
             if ($status !== 'all') {
                 $query['status'] = $status;
             }
-            $result = $this->call($client, $setting, $creds, 'GET', self::LIST_PATH, $query);
+            $result = $this->call($client, $store, $creds, 'GET', self::LIST_PATH, $query);
             if ($this->callOk($result)) {
                 $vouchers = collect($result['body']['data']['voucher_list'] ?? ($result['body']['data']['vouchers'] ?? []))
                     ->map(function (array $v) {
@@ -76,12 +76,12 @@ class LazadaVoucherController extends Controller
             'starts_at.after' => 'The start has to be in the future.',
         ]);
 
-        [$setting, $creds] = $this->creds();
-        if (!$setting || !$creds['complete']) {
+        [$store, $creds] = $this->creds();
+        if (!$store || !$creds['complete']) {
             return redirect()->route('ext.lazada.vouchers.index')->with('error', 'Missing Lazada settings.');
         }
 
-        $result = $this->call($client, $setting, $creds, 'POST', self::CREATE_PATH, $this->createParams($data));
+        $result = $this->call($client, $store, $creds, 'POST', self::CREATE_PATH, $this->createParams($data));
         $voucherId = (string) ($result['body']['data']['voucher_id'] ?? ($result['body']['data']['id'] ?? ''));
         if (!$this->callOk($result) || $voucherId === '') {
             return redirect()->route('ext.lazada.vouchers.index')
@@ -95,12 +95,12 @@ class LazadaVoucherController extends Controller
 
     public function deactivate(Request $request, string $voucherId, LazadaClient $client)
     {
-        [$setting, $creds] = $this->creds();
-        if (!$setting || !$creds['complete']) {
+        [$store, $creds] = $this->creds();
+        if (!$store || !$creds['complete']) {
             return redirect()->route('ext.lazada.vouchers.index')->with('error', 'Missing Lazada settings.');
         }
 
-        $result = $this->call($client, $setting, $creds, 'POST', self::DEACTIVATE_PATH, [
+        $result = $this->call($client, $store, $creds, 'POST', self::DEACTIVATE_PATH, [
             'voucher_id' => $voucherId, 'voucher_type' => 'COLLECTIBLE_VOUCHER',
         ]);
         if (!$this->callOk($result)) {
@@ -144,17 +144,17 @@ class LazadaVoucherController extends Controller
 
     private function creds(): array
     {
-        $setting = LazadaSetting::defaultStore();
-        $decrypted = $setting?->decrypted();
-        $creds = LazadaSetting::activeCredentials($decrypted);
-        if ($setting && !$setting->region) {
+        $store = LazadaStore::defaultStore();
+        $decrypted = $store?->decrypted();
+        $creds = LazadaStore::activeCredentials($decrypted);
+        if ($store && !$store->region) {
             $creds['complete'] = false;
         }
 
-        return [$setting, $creds];
+        return [$store, $creds];
     }
 
-    private function call(LazadaClient $client, object $setting, array $creds, string $method, string $apiPath, array $extra): array
+    private function call(LazadaClient $client, object $store, array $creds, string $method, string $apiPath, array $extra): array
     {
         $params = array_merge([
             'app_key' => (string) $creds['app_key'],
@@ -167,8 +167,8 @@ class LazadaVoucherController extends Controller
 
         try {
             $result = $method === 'GET'
-                ? $client->get((string) $setting->region, $apiPath, $params, $mode)
-                : $client->post((string) $setting->region, $apiPath, $params, $mode);
+                ? $client->get((string) $store->region, $apiPath, $params, $mode)
+                : $client->post((string) $store->region, $apiPath, $params, $mode);
         } catch (\Throwable $e) {
             $result = ['ok' => false, 'status' => 0, 'body' => ['message' => \App\Support\TransportError::plain($e, 'Lazada')]];
         }

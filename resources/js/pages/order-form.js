@@ -171,7 +171,7 @@
         lines.forEach(function (item, idx) {
             const price = unitPrice(item);
             const cost = Math.round(toOrder(item.baseCost) * 100) / 100;
-            const label = item.option_value ? item.name + ' - ' + item.option_value : item.name;
+            const label = item.variation_value ? item.name + ' - ' + item.variation_value : item.name;
 
             const tr = document.createElement('tr');
 
@@ -191,14 +191,14 @@
                 tdName.appendChild(hidden(idx, pair[0], pair[1]));
             });
 
-            if (item.option_value_id) {
-                tdName.appendChild(hidden(idx, 'option_value_id', item.option_value_id));
-                tdName.appendChild(hidden(idx, 'option_name', item.option_name || ''));
-                tdName.appendChild(hidden(idx, 'option_value', item.option_value || ''));
+            if (item.variation_value_id) {
+                tdName.appendChild(hidden(idx, 'variation_value_id', item.variation_value_id));
+                tdName.appendChild(hidden(idx, 'variation_type_name', item.variation_type_name || ''));
+                tdName.appendChild(hidden(idx, 'variation_value', item.variation_value || ''));
             }
             const meta = el('span', 'of-line__meta');
-            if (item.option_value) {
-                meta.appendChild(el('span', 'of-line__var', item.option_name + ': ' + item.option_value));
+            if (item.variation_value) {
+                meta.appendChild(el('span', 'of-line__var', item.variation_type_name + ': ' + item.variation_value));
             }
             meta.appendChild(el('span', 'of-line__sku x-num', item.sku || item.model || 'No SKU'));
             tdName.appendChild(meta);
@@ -323,8 +323,8 @@
     const detailName = document.getElementById('of-detail-name');
     const detailSku = document.getElementById('of-detail-sku');
     const detailPrice = document.getElementById('of-detail-price');
-    const optionsWrap = document.getElementById('of-options');
-    const optionsList = document.getElementById('of-options-list');
+    const variationsWrap = document.getElementById('of-variations');
+    const variationsList = document.getElementById('of-variations-list');
     const qtyInput = document.getElementById('of-pick-qty');
     const addBtn = document.getElementById('of-pick-add');
     const message = document.getElementById('of-pick-msg');
@@ -366,20 +366,20 @@
         if (ev.key === 'Escape' && picker.classList.contains('active')) closePicker();
     });
 
-    function optionPrice(product, option) {
-        const abs = parseFloat(option.absolute_price) || 0;
+    function variationPrice(product, variation) {
+        const abs = parseFloat(variation.absolute_price) || 0;
         if (abs > 0) return abs;
         const base = parseFloat(product.price) || 0;
-        const modifier = parseFloat(option.option_price) || 0;
-        return option.price_prefix === '-' ? base - modifier : base + modifier;
+        const modifier = parseFloat(variation.variation_price) || 0;
+        return variation.price_prefix === '-' ? base - modifier : base + modifier;
     }
 
-    function optionCost(product, option) {
-        const abs = parseFloat(option.absolute_cost) || 0;
+    function variationCost(product, variation) {
+        const abs = parseFloat(variation.absolute_cost) || 0;
         if (abs > 0) return abs;
         const base = parseFloat(product.cost) || 0;
-        const modifier = parseFloat(option.option_cost) || 0;
-        return option.cost_prefix === '-' ? base - modifier : base + modifier;
+        const modifier = parseFloat(variation.variation_cost) || 0;
+        return variation.cost_prefix === '-' ? base - modifier : base + modifier;
     }
 
     function showDetail(product) {
@@ -390,33 +390,33 @@
         detailSku.textContent = product.sku || product.model || '';
         detailPrice.textContent = 'Catalog price ' + money(cur.symbol, toOrder(parseFloat(product.price)));
 
-        optionsList.textContent = '';
+        variationsList.textContent = '';
         qtyInput.value = 1;
 
-        if (product.options && product.options.length > 0) {
-            optionsWrap.hidden = false;
-            product.options.forEach(function (option, i) {
+        if (product.variations && product.variations.length > 0) {
+            variationsWrap.hidden = false;
+            product.variations.forEach(function (variation, i) {
                 const label = el('label', 'of-opt');
                 const radio = document.createElement('input');
                 radio.type = 'radio';
-                radio.name = 'of_option_pick';
+                radio.name = 'of_variation_pick';
                 radio.className = 'of-opt__radio';
                 radio.value = i;
                 if (i === 0) radio.checked = true;
 
                 const text = el('span', 'of-opt__text');
-                text.appendChild(el('span', 'of-opt__name', option.option_name + ': ' + option.value_name));
+                text.appendChild(el('span', 'of-opt__name', variation.variation_type_name + ': ' + variation.value_name));
                 text.appendChild(el('span', 'of-opt__meta',
-                    money(cur.symbol, toOrder(optionPrice(product, option)))
-                    + (option.option_sku ? '  ' + option.option_sku : '')
-                    + '  ' + option.option_qty + ' in stock'));
+                    money(cur.symbol, toOrder(variationPrice(product, variation)))
+                    + (variation.variation_sku ? '  ' + variation.variation_sku : '')
+                    + '  ' + variation.variation_qty + ' in stock'));
 
                 label.appendChild(radio);
                 label.appendChild(text);
-                optionsList.appendChild(label);
+                variationsList.appendChild(label);
             });
         } else {
-            optionsWrap.hidden = true;
+            variationsWrap.hidden = true;
         }
 
         detail.hidden = false;
@@ -465,9 +465,9 @@
                         money(cur.symbol, toOrder(parseFloat(product.price)))));
                     row.appendChild(el('span', 'of-res__stock x-num', product.quantity + ' in stock'));
 
-                    if (product.options && product.options.length > 0) {
+                    if (product.variations && product.variations.length > 0) {
                         row.appendChild(el('span', 'of-res__opts',
-                            product.options.length + (product.options.length === 1 ? ' variation' : ' variations')));
+                            product.variations.length + (product.variations.length === 1 ? ' variation' : ' variations')));
                     } else {
                         row.appendChild(el('span', 'of-res__opts', ''));
                     }
@@ -512,30 +512,30 @@
             basePrice: parseFloat(product.price) || 0,
             baseCost: parseFloat(product.cost) || 0,
             qty: qty,
-            option_value_id: null,
-            option_name: '',
-            option_value: '',
+            variation_value_id: null,
+            variation_type_name: '',
+            variation_value: '',
         };
 
-        if (product.options && product.options.length > 0) {
-            const checked = optionsList.querySelector('input[name="of_option_pick"]:checked');
+        if (product.variations && product.variations.length > 0) {
+            const checked = variationsList.querySelector('input[name="of_variation_pick"]:checked');
             if (!checked) {
                 say('Pick a variation.');
                 return;
             }
-            const option = product.options[parseInt(checked.value, 10)];
-            item.basePrice = optionPrice(product, option);
-            item.baseCost = optionCost(product, option);
-            item.sku = option.option_sku || item.sku;
-            item.option_value_id = option.product_option_value_id || option.combination_id || null;
-            item.option_name = option.option_name;
-            item.option_value = option.value_name;
+            const variation = product.variations[parseInt(checked.value, 10)];
+            item.basePrice = variationPrice(product, variation);
+            item.baseCost = variationCost(product, variation);
+            item.sku = variation.variation_sku || item.sku;
+            item.variation_value_id = variation.product_variation_value_id || variation.product_variation_id || null;
+            item.variation_type_name = variation.variation_type_name;
+            item.variation_value = variation.value_name;
         }
 
         const existing = lines.findIndex(function (line) {
             return line.product_id === item.product_id
                 && line.sku === item.sku
-                && line.option_value === item.option_value;
+                && line.variation_value === item.variation_value;
         });
 
         if (existing >= 0) {

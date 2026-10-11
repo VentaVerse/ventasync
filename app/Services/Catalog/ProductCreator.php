@@ -2,7 +2,7 @@
 
 namespace App\Services\Catalog;
 
-use App\Models\Catalog\Manufacturer;
+use App\Models\Catalog\Brand;
 use App\Models\Catalog\Product;
 use App\Models\Catalog\ProductToCategory;
 use App\Plans\Quota;
@@ -19,10 +19,9 @@ class ProductCreator
 
     public function create(array $data, ?\Closure $variations = null, ?\Closure $images = null, array $by = []): int
     {
-        $pfx = (string) config('catalog.prefix');
         $langId = (int) config('catalog.default_language_id');
 
-        $productId = Quota::within('products', fn () => DB::transaction(function () use ($data, $variations, $images, $pfx, $langId) {
+        $productId = Quota::within('products', fn () => DB::transaction(function () use ($data, $variations, $images, $langId) {
             $p = new Product();
 
             $p->model = trim((string) ($data['model'] ?? ''));
@@ -42,7 +41,7 @@ class ProductCreator
             $p->height = (float) ($data['height'] ?? 0);
             $p->stock_status_id = 0;
             $p->image = null;
-            $p->manufacturer_id = (int) ($data['manufacturer_id'] ?? 0);
+            $p->brand_id = (int) ($data['brand_id'] ?? 0);
             $p->shipping = 1;
             $p->status = (int) ($data['status'] ?? 1);
 
@@ -62,7 +61,7 @@ class ProductCreator
             $p->save();
             $id = (int) $p->product_id;
 
-            DB::table($pfx . 'product_description')->insert([
+            DB::table('product_descriptions')->insert([
                 'product_id' => $id,
                 'language_id' => $langId,
                 'name' => (string) $data['name'],
@@ -91,7 +90,7 @@ class ProductCreator
 
         $name = (string) $data['name'];
         $sku = (string) ($data['sku'] ?? '');
-        $finalQty = (int) DB::table($pfx . 'product')->where('product_id', $productId)->value('quantity');
+        $finalQty = (int) DB::table('products')->where('product_id', $productId)->value('quantity');
         $this->warehouse($productId, $finalQty);
 
         if (($by['source'] ?? 'user') === 'api') {
@@ -103,7 +102,7 @@ class ProductCreator
                 'api');
             if ($finalQty > 0) {
                 StockHistoryLogger::log(
-                    productId: $productId, optionValueId: null, orderId: null, type: 'set',
+                    productId: $productId, variationValueId: null, orderId: null, type: 'set',
                     qtyBefore: 0, qtyAfter: $finalQty, source: 'api',
                     note: $actor . ' created the product with ' . $finalQty . ' in stock. Reason: ' . $reason,
                 );
@@ -112,7 +111,7 @@ class ProductCreator
             ActivityLogger::log('created', 'Product', $productId, $name . ' (SKU: ' . $sku . ')');
             if ($finalQty > 0) {
                 StockHistoryLogger::log(
-                    productId: $productId, optionValueId: null, orderId: null, type: 'set',
+                    productId: $productId, variationValueId: null, orderId: null, type: 'set',
                     qtyBefore: 0, qtyAfter: $finalQty, source: 'manual',
                     note: "Product created: initial stock $finalQty",
                 );
@@ -122,23 +121,23 @@ class ProductCreator
         return $productId;
     }
 
-    public function resolveManufacturerId(?int $manufacturerId, ?string $manufacturerName): int
+    public function resolveBrandId(?int $brandId, ?string $brandName): int
     {
-        $manufacturerId = (int) ($manufacturerId ?? 0);
-        if ($manufacturerId > 0) {
-            return $manufacturerId;
+        $brandId = (int) ($brandId ?? 0);
+        if ($brandId > 0) {
+            return $brandId;
         }
 
-        $name = trim((string) ($manufacturerName ?? ''));
+        $name = trim((string) ($brandName ?? ''));
         if ($name === '') {
             return 0;
         }
 
-        $row = Manufacturer::query()
+        $row = Brand::query()
             ->whereRaw('LOWER(name) = ?', [mb_strtolower($name, 'UTF-8')])
-            ->first(['manufacturer_id']);
+            ->first(['brand_id']);
 
-        return $row ? (int) $row->manufacturer_id : 0;
+        return $row ? (int) $row->brand_id : 0;
     }
 
     public function resolveCategoryId(?int $categoryId, ?string $categoryName): int
@@ -155,7 +154,7 @@ class ProductCreator
 
         $last = trim(preg_split('/\s*>\s*/', $name)[-1] ?? $name);
 
-        $row = DB::table(config('catalog.prefix') . 'category_description')
+        $row = DB::table('category_descriptions')
             ->where('language_id', (int) config('catalog.default_language_id'))
             ->whereRaw('LOWER(name) = ?', [mb_strtolower($last, 'UTF-8')])
             ->first(['category_id']);
@@ -163,12 +162,12 @@ class ProductCreator
         return $row ? (int) $row->category_id : 0;
     }
 
-    public function imageFolder(int $manufacturerId): string
+    public function imageFolder(int $brandId): string
     {
         $disk = Storage::disk('public');
 
-        if ($manufacturerId > 0) {
-            $m = Manufacturer::query()->where('manufacturer_id', $manufacturerId)->first(['name']);
+        if ($brandId > 0) {
+            $m = Brand::query()->where('brand_id', $brandId)->first(['name']);
             if ($m && $m->name) {
                 $name = (string) $m->name;
                 $slug = Str::slug($name);
@@ -193,18 +192,17 @@ class ProductCreator
             }
         }
 
-        return 'catalog/_no_manufacturer_';
+        return 'catalog/_no_brand_';
     }
 
     public function saveImages(int $productId, array $paths): void
     {
-        $pfx = (string) config('catalog.prefix');
 
-        DB::table($pfx . 'product')->where('product_id', $productId)->update(['image' => $paths[0] ?? '']);
+        DB::table('products')->where('product_id', $productId)->update(['image' => $paths[0] ?? '']);
 
-        DB::table($pfx . 'product_image')->where('product_id', $productId)->delete();
+        DB::table('product_images')->where('product_id', $productId)->delete();
         foreach (array_values(array_slice($paths, 1)) as $sort => $img) {
-            DB::table($pfx . 'product_image')->insert([
+            DB::table('product_images')->insert([
                 'product_id' => $productId,
                 'image' => $img,
                 'sort_order' => $sort,
@@ -214,16 +212,16 @@ class ProductCreator
 
     private function warehouse(int $productId, int $quantity): void
     {
-        if (! class_exists(\Extensions\warehousing\Services\WarehouseStockService::class)) {
+        if (! class_exists(\Extensions\Warehousing\Services\WarehouseStockService::class)) {
             return;
         }
 
-        $warehouse = \Extensions\warehousing\Services\WarehouseStockService::getDefaultWarehouse();
+        $warehouse = \Extensions\Warehousing\Services\WarehouseStockService::getDefaultWarehouse();
         if (! $warehouse) {
             return;
         }
 
-        \Extensions\warehousing\Services\WarehouseStockService::getOrCreateInventory($warehouse->id, $productId, 0)
+        \Extensions\Warehousing\Services\WarehouseStockService::getOrCreateInventory($warehouse->id, $productId, 0)
             ->update(['quantity' => $quantity]);
     }
 }

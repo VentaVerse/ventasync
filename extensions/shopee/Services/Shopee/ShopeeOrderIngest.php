@@ -1,12 +1,12 @@
 <?php
 
-namespace Extensions\shopee\Services\Shopee;
+namespace Extensions\Shopee\Services\Shopee;
 
-use Extensions\shopee\Models\ShopeeApiLog;
-use Extensions\shopee\Models\ShopeeOrder;
-use Extensions\shopee\Models\ShopeeOrderProduct;
-use Extensions\shopee\Models\ShopeeReturn;
-use Extensions\shopee\Services\ShopeeCatalogOrderSync;
+use Extensions\Shopee\Models\ShopeeApiLog;
+use Extensions\Shopee\Models\ShopeeOrder;
+use Extensions\Shopee\Models\ShopeeOrderProduct;
+use Extensions\Shopee\Models\ShopeeReturn;
+use Extensions\Shopee\Services\ShopeeCatalogOrderSync;
 use Illuminate\Contracts\Cache\LockTimeoutException;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
@@ -23,7 +23,7 @@ class ShopeeOrderIngest
     {
     }
 
-    public function orders(object $setting, array $auth, array $orderSns): array
+    public function orders(object $store, array $auth, array $orderSns): array
     {
         $out = ['created' => 0, 'updated' => 0, 'errors' => 0, 'busy' => 0, 'missing' => []];
         $region = $auth['region'] ?? 'ph';
@@ -56,7 +56,7 @@ class ShopeeOrderIngest
             $detailList = $detailResp['order_list'] ?? [];
             if (!is_array($detailList)) $detailList = [];
 
-            $invoiceMap = $this->buyerInvoices($setting, $auth, $chunk);
+            $invoiceMap = $this->buyerInvoices($store, $auth, $chunk);
 
             $answered = [];
             foreach ($detailList as $o) {
@@ -66,8 +66,8 @@ class ShopeeOrderIngest
                 if ($orderSn === '') continue;
                 $answered[] = $orderSn;
 
-                $written = self::locked($orderSn, function () use ($setting, $region, $auth, $o, $orderSn, $invoiceMap, &$out) {
-                    $this->apply($setting, $region, $auth, $o, $orderSn, $invoiceMap, $out);
+                $written = self::locked($orderSn, function () use ($store, $region, $auth, $o, $orderSn, $invoiceMap, &$out) {
+                    $this->apply($store, $region, $auth, $o, $orderSn, $invoiceMap, $out);
                 });
                 if (! $written) {
                     $out['busy']++;
@@ -80,10 +80,10 @@ class ShopeeOrderIngest
         return $out;
     }
 
-    private function apply(object $setting, string $region, array $auth, array $o, string $orderSn, array $invoiceMap, array &$out): void
+    private function apply(object $store, string $region, array $auth, array $o, string $orderSn, array $invoiceMap, array &$out): void
     {
         $existing = ShopeeOrder::query()
-            ->where('shopee_setting_id', (int) $setting->id)
+            ->where('store_id', (int) $store->id)
             ->where('order_sn', $orderSn)
             ->first();
 
@@ -119,7 +119,7 @@ class ShopeeOrderIngest
 
         try {
             $newOrder = ShopeeOrder::query()->create([
-                'shopee_setting_id' => (int) $setting->id,
+                'store_id' => (int) $store->id,
                 'region'           => $region,
                 'order_sn'         => $orderSn,
                 'status'           => (string) ($o['order_status'] ?? ''),
@@ -149,7 +149,7 @@ class ShopeeOrderIngest
         }
     }
 
-    public function returnBySn(object $setting, array $auth, string $returnSn, array $listed = []): ?string
+    public function returnBySn(object $store, array $auth, string $returnSn, array $listed = []): ?string
     {
         $detailRes = $this->client->shopGet(
             $auth['mode'],
@@ -176,7 +176,7 @@ class ShopeeOrderIngest
         $shopeeOrder = null;
         if ($orderSn !== '') {
             $shopeeOrder = ShopeeOrder::query()
-                ->where('shopee_setting_id', (int) $setting->id)
+                ->where('store_id', (int) $store->id)
                 ->where('order_sn', $orderSn)
                 ->first();
         }
@@ -184,7 +184,7 @@ class ShopeeOrderIngest
         try {
             ShopeeReturn::query()->updateOrCreate(
                 [
-                    'shopee_setting_id' => (int) $setting->id,
+                    'store_id' => (int) $store->id,
                     'return_sn' => $returnSn,
                 ],
                 [
@@ -300,7 +300,7 @@ class ShopeeOrderIngest
     {
         static $on = null;
 
-        return $on ??= \Extensions\shopee\Models\ShopeeSetting::query()
+        return $on ??= \Extensions\Shopee\Models\ShopeeStore::query()
             ->where('enabled', true)
             ->where('apply_order_pushes', true)
             ->exists();
@@ -341,7 +341,7 @@ class ShopeeOrderIngest
         }
     }
 
-    private function buyerInvoices(object $setting, array $auth, array $chunk): array
+    private function buyerInvoices(object $store, array $auth, array $chunk): array
     {
         $queries = array_map(fn ($sn) => ['order_sn' => (string) $sn], $chunk);
 

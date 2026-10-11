@@ -1,10 +1,10 @@
 <?php
 
-namespace Extensions\shopee\Commands;
+namespace Extensions\Shopee\Commands;
 
-use Extensions\shopee\Models\ShopeeProductLink;
-use Extensions\shopee\Models\ShopeeSetting;
-use Extensions\shopee\Services\Shopee\ShopeeClient;
+use Extensions\Shopee\Models\ShopeeListingLink;
+use Extensions\Shopee\Models\ShopeeStore;
+use Extensions\Shopee\Services\Shopee\ShopeeClient;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 
@@ -18,7 +18,7 @@ class ShopeeFindDuplicates extends Command
 
     public function handle(ShopeeClient $client): int
     {
-        $stores = ShopeeSetting::query()->where('enabled', true)
+        $stores = ShopeeStore::query()->where('enabled', true)
             ->when($this->option('store'), fn ($q) => $q->whereKey((int) $this->option('store')))
             ->orderBy('id')->get();
 
@@ -30,7 +30,7 @@ class ShopeeFindDuplicates extends Command
 
         foreach ($stores as $store) {
             $label = $store->store_name ?: ('#' . $store->id);
-            $auth = ShopeeSetting::activeAuth($store->decrypted());
+            $auth = ShopeeStore::activeAuth($store->decrypted());
             if (! $auth['complete']) {
                 $this->error("Store {$label}: missing credentials.");
                 continue;
@@ -189,8 +189,8 @@ class ShopeeFindDuplicates extends Command
 
     private function reportOrphans(array $items, int $storeId): void
     {
-        $linked = ShopeeProductLink::query()
-            ->when($this->linksAreScoped(), fn ($q) => $q->where('shopee_setting_id', $storeId))
+        $linked = ShopeeListingLink::query()
+            ->when($this->linksAreScoped(), fn ($q) => $q->where('store_id', $storeId))
             ->pluck('shopee_item_id')->map(fn ($v) => (int) $v)->flip();
 
         $orphans = array_filter($items, fn ($i) => ! $linked->has($i['id']));
@@ -214,15 +214,15 @@ class ShopeeFindDuplicates extends Command
 
     private function reportLinks(int $storeId): void
     {
-        $rows = ShopeeProductLink::query()
+        $rows = ShopeeListingLink::query()
             ->withoutGlobalScope('shopeeStore')
             ->orderBy('product_id')
-            ->get(['product_id', 'shopee_item_id', 'shopee_model_id', 'shopee_setting_id', 'sku', 'live_status']);
+            ->get(['product_id', 'shopee_item_id', 'shopee_model_id', 'store_id', 'sku', 'live_status']);
 
         $this->line('');
         $this->line('Link rows in this ERP (every store): ' . $rows->count());
 
-        $byStore = $rows->groupBy(fn ($r) => (string) ($r->shopee_setting_id ?? 'NULL'));
+        $byStore = $rows->groupBy(fn ($r) => (string) ($r->store_id ?? 'NULL'));
         foreach ($byStore as $sid => $group) {
             $mark = (string) $sid === (string) $storeId ? '' : '   <- NOT this store';
             $this->line(sprintf('  store %s: %d row(s)%s', $sid, $group->count(), $mark));
@@ -236,7 +236,7 @@ class ShopeeFindDuplicates extends Command
                 $row->shopee_model_id ? ' model ' . $row->shopee_model_id : '',
                 $row->sku === '' || $row->sku === null ? 'none' : $row->sku,
                 $row->live_status ?: 'not checked',
-                $row->shopee_setting_id ?? 'NULL'
+                $row->store_id ?? 'NULL'
             ));
         }
     }
@@ -252,7 +252,7 @@ class ShopeeFindDuplicates extends Command
             'shopee.product.delete_item.bulk',
         ];
 
-        $rows = \Extensions\shopee\Models\ShopeeApiLog::query()
+        $rows = \Extensions\Shopee\Models\ShopeeApiLog::query()
             ->whereIn('pack', $packs)
             ->orderByDesc('id')
             ->limit(60)
@@ -286,14 +286,13 @@ class ShopeeFindDuplicates extends Command
 
     private function reportSkuless(int $storeId): void
     {
-        $pfx = (string) config('catalog.prefix');
         $langId = (int) config('catalog.default_language_id');
 
-        $rows = DB::table($pfx . 'product as p')
-            ->leftJoin($pfx . 'product_description as pd', function ($j) use ($langId) {
+        $rows = DB::table('products as p')
+            ->leftJoin('product_descriptions as pd', function ($j) use ($langId) {
                 $j->on('p.product_id', '=', 'pd.product_id')->where('pd.language_id', '=', $langId);
             })
-            ->whereIn('p.product_id', \Extensions\shopee\Services\ShopeeStoreProducts::query())
+            ->whereIn('p.product_id', \Extensions\Shopee\Services\ShopeeStoreProducts::query())
             ->where(fn ($q) => $q->whereNull('p.sku')->orWhere('p.sku', ''))
             ->where(fn ($q) => $q->whereNull('p.model')->orWhere('p.model', ''))
             ->orderBy('p.product_id')
@@ -317,7 +316,7 @@ class ShopeeFindDuplicates extends Command
     private function linksAreScoped(): bool
     {
         return \Illuminate\Support\Facades\Schema::hasColumn(
-            (new ShopeeProductLink())->getTable(), 'shopee_setting_id'
+            (new ShopeeListingLink())->getTable(), 'store_id'
         );
     }
 }

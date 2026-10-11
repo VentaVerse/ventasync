@@ -6,10 +6,10 @@ use App\Extensions\ExtensionManager;
 use App\Models\Admin\Permission;
 use App\Models\Admin\UserGroup;
 use App\Models\User;
-use Extensions\shopee\Models\ShopeeProductGroup;
-use Extensions\shopee\Models\ShopeeProductGroupProduct;
-use Extensions\shopee\Models\ShopeeProductLink;
-use Extensions\shopee\Models\ShopeeSetting;
+use Extensions\Shopee\Models\ShopeeProductGroup;
+use Extensions\Shopee\Models\ShopeeProductGroupProduct;
+use Extensions\Shopee\Models\ShopeeListingLink;
+use Extensions\Shopee\Models\ShopeeStore;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
@@ -25,11 +25,11 @@ class GroupScopeStripsTest extends TestCase
         $manager = $this->app->make(ExtensionManager::class);
         $manager->install('shopee');
         $manager->enable('shopee');
-        $this->app->register(\Extensions\shopee\ShopeeExtension::class);
+        $this->app->register(\Extensions\Shopee\ShopeeExtension::class);
         $this->app['router']->getRoutes()->refreshNameLookups();
-        $this->artisan('permissions:sync-catalogue');
+        $this->artisan('permissions:sync-catalog');
 
-        ShopeeSetting::query()->create([
+        ShopeeStore::query()->create([
             'store_name' => 'Main', 'enabled' => true, 'mode' => 'live',
             'partner_id' => 1, 'partner_key' => 'k', 'shop_id' => 2,
             'access_token' => 't', 'refresh_token' => 'r', 'region' => 'ph',
@@ -48,15 +48,14 @@ class GroupScopeStripsTest extends TestCase
 
     private function seedProduct(string $name, string $sku): int
     {
-        $pfx = (string) config('catalog.prefix');
         $langId = (int) config('catalog.default_language_id');
-        $pid = DB::table($pfx . 'product')->insertGetId([
+        $pid = DB::table('products')->insertGetId([
             'model' => $sku, 'sku' => $sku, 'quantity' => 5, 'price' => 100,
             'status' => 1, 'image' => '', 'weight' => 0.5, 'length' => 10, 'width' => 10, 'height' => 5,
-            'manufacturer_id' => 0,
+            'brand_id' => 0,
             'date_added' => now(), 'date_modified' => now(), 'date_available' => now(),
         ]);
-        DB::table($pfx . 'product_description')->insert([
+        DB::table('product_descriptions')->insert([
             'product_id' => $pid, 'language_id' => $langId,
             'name' => $name, 'description' => '',
             'meta_title' => '', 'meta_description' => '', 'meta_keyword' => '', 'tag' => '',
@@ -79,9 +78,9 @@ class GroupScopeStripsTest extends TestCase
             ShopeeProductGroupProduct::create(['shopee_product_group_id' => $group->id, 'product_id' => $pid]);
         }
 
-        ShopeeProductLink::create(['product_id' => $member, 'shopee_item_id' => 1001, 'sku' => 'MEM-1', 'live_status' => 'NORMAL', 'live_checked_at' => now()]);
-        ShopeeProductLink::create(['product_id' => $stranger, 'shopee_item_id' => 1002, 'sku' => 'STR-1', 'live_status' => 'NORMAL', 'live_checked_at' => now()]);
-        ShopeeProductLink::create(['product_id' => $memberUnlisted, 'shopee_item_id' => 1003, 'sku' => 'MEM-2', 'live_status' => 'UNLIST', 'live_checked_at' => now()]);
+        ShopeeListingLink::create(['product_id' => $member, 'shopee_item_id' => 1001, 'sku' => 'MEM-1', 'live_status' => 'NORMAL', 'live_checked_at' => now()]);
+        ShopeeListingLink::create(['product_id' => $stranger, 'shopee_item_id' => 1002, 'sku' => 'STR-1', 'live_status' => 'NORMAL', 'live_checked_at' => now()]);
+        ShopeeListingLink::create(['product_id' => $memberUnlisted, 'shopee_item_id' => 1003, 'sku' => 'MEM-2', 'live_status' => 'UNLIST', 'live_checked_at' => now()]);
 
         $manager = $this->manager();
         $html = $this->actingAs($manager)
@@ -89,7 +88,7 @@ class GroupScopeStripsTest extends TestCase
             ->assertOk()->getContent();
 
         $this->assertStringContainsString('<span>All</span>', $html);
-        $this->assertStringNotContainsString('x-segment-group__k', $html, 'the catalogue framing went with #201: the strip is the store\'s own list, no group labels');
+        $this->assertStringNotContainsString('x-segment-group__k', $html, 'the catalog framing went with #201: the strip is the store\'s own list, no group labels');
         $this->assertMatchesRegularExpression('/>Live<\/span>\s*<span class="x-segment__count">1</', $html,
             'the Live count must be member-scoped: 1, not 2 - the stranger\'s NORMAL row is not this group\'s business');
         $this->assertStringContainsString('shopee_tab=unlisted', $html);

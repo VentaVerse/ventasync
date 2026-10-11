@@ -18,7 +18,6 @@ class NormalizeOrderCurrency extends Command
 
     public function handle(OrderCurrencyService $currencies): int
     {
-        $pfx = (string) config('catalog.prefix');
         $execute = (bool) $this->option('execute');
 
         if (!$execute) {
@@ -29,7 +28,7 @@ class NormalizeOrderCurrency extends Command
         $this->info("Default currency: {$defaultCode}");
 
         // Skip rows that already have foreign_total, or a second run inverts an already-correct rate.
-        $orders = DB::table($pfx.'order')
+        $orders = DB::table('orders')
             ->select('order_id', 'currency_code', 'currency_value', 'total')
             ->whereNull('foreign_total')
             ->orderBy('order_id')
@@ -113,7 +112,7 @@ class NormalizeOrderCurrency extends Command
                     $o->order_id,
                     $o->currency_code,
                     number_format((float) $o->total, 4),
-                    DB::table($pfx.'order')->where('order_id', $o->order_id)->value('date_added'),
+                    DB::table('orders')->where('order_id', $o->order_id)->value('date_added'),
                 ], $lostRate)
             );
         }
@@ -135,13 +134,13 @@ class NormalizeOrderCurrency extends Command
         }
 
         try {
-            DB::transaction(function () use ($pfx, $legacy, $before) {
+            DB::transaction(function () use ( $legacy, $before) {
                 foreach ($legacy as $entry) {
                     $o = $entry['order'];
                     $orderPlan = $entry['plan'];
                     $oldRate = (float) $o->currency_value;
 
-                    $products = DB::table($pfx.'order_product')
+                    $products = DB::table('order_products')
                         ->where('order_id', $o->order_id)
                         ->select('order_product_id', 'price', 'total')
                         ->get();
@@ -149,7 +148,7 @@ class NormalizeOrderCurrency extends Command
                     foreach ($products as $op) {
                         $plan = N::planLegacyProduct((float) $op->price, (float) $op->total, $oldRate);
 
-                        DB::table($pfx.'order_product')
+                        DB::table('order_products')
                             ->where('order_product_id', $op->order_product_id)
                             ->update([
                                 'foreign_price' => $plan['foreign_price'],
@@ -157,7 +156,7 @@ class NormalizeOrderCurrency extends Command
                             ]);
                     }
 
-                    DB::table($pfx.'order')
+                    DB::table('orders')
                         ->where('order_id', $o->order_id)
                         ->update([
                             'foreign_total'  => $orderPlan['foreign_total'],
@@ -166,7 +165,7 @@ class NormalizeOrderCurrency extends Command
                 }
 
                 foreach ($before as $orderId => $originalTotal) {
-                    $after = (string) DB::table($pfx.'order')->where('order_id', $orderId)->value('total');
+                    $after = (string) DB::table('orders')->where('order_id', $orderId)->value('total');
 
                     if ($after !== $originalTotal) {
                         throw new RuntimeException(

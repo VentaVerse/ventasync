@@ -14,15 +14,14 @@ class ClearCopiedShippingCost extends Command
 
     public function handle(): int
     {
-        $pfx = (string) config('catalog.prefix');
 
-        $orderIds = DB::table($pfx . 'order as o')
-            ->join($pfx . 'order_total as ot', function ($join) {
+        $orderIds = DB::table('orders as o')
+            ->join('order_totals as ot', function ($join) {
                 $join->on('ot.order_id', '=', 'o.order_id')->where('ot.code', '=', 'shipping');
             })
             ->where(function ($query) {
-                $query->where('o.marketplace_source', 'like', 'ventacart:%')
-                    ->orWhere('o.marketplace_source', 'like', 'woocommerce:%');
+                $query->where('o.channel', 'like', 'ventacart:%')
+                    ->orWhere('o.channel', 'like', 'woocommerce:%');
             })
             ->where('o.shipping_cost', '>', 0)
             ->whereRaw('ABS(o.shipping_cost - ot.value) < 0.005')
@@ -44,7 +43,7 @@ class ClearCopiedShippingCost extends Command
         }
 
         foreach (array_chunk($orderIds, 500) as $chunk) {
-            DB::table($pfx . 'order')->whereIn('order_id', $chunk)->update(['shipping_cost' => 0]);
+            DB::table('orders')->whereIn('order_id', $chunk)->update(['shipping_cost' => 0]);
         }
         $this->info('Cleared the shipping cost on ' . count($orderIds) . ' orders.');
 

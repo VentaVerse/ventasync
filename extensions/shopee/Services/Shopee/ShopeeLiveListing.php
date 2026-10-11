@@ -1,8 +1,8 @@
 <?php
 
-namespace Extensions\shopee\Services\Shopee;
+namespace Extensions\Shopee\Services\Shopee;
 
-use Extensions\shopee\Models\ShopeeApiLog;
+use Extensions\Shopee\Models\ShopeeApiLog;
 
 class ShopeeLiveListing
 {
@@ -66,7 +66,7 @@ class ShopeeLiveListing
 
     public const STATUSES = ['NORMAL', 'UNLIST', 'BANNED', 'REVIEWING', 'SELLER_DELETE', 'SHOPEE_DELETE'];
 
-    public function refreshMirror(array $auth, ?int $settingId = null): array
+    public function refreshMirror(array $auth, ?int $storeId = null): array
     {
         $idsByStatus = [];
         foreach (self::STATUSES as $status) {
@@ -83,8 +83,8 @@ class ShopeeLiveListing
         foreach ($idsByStatus as $status => $ids) {
             $counts[$status] = 0;
             foreach (array_chunk($ids, 500) as $chunk) {
-                $counts[$status] += \Extensions\shopee\Models\ShopeeProductLink::query()
-                    ->when($settingId !== null, fn ($q) => $q->where('shopee_setting_id', $settingId))
+                $counts[$status] += \Extensions\Shopee\Models\ShopeeListingLink::query()
+                    ->when($storeId !== null, fn ($q) => $q->where('store_id', $storeId))
                     ->whereIn('shopee_item_id', $chunk)
                     ->update(['live_status' => $status, 'live_checked_at' => $now]);
                 foreach ($chunk as $id) {
@@ -92,8 +92,8 @@ class ShopeeLiveListing
                 }
             }
         }
-        $missing = \Extensions\shopee\Models\ShopeeProductLink::query()
-            ->when($settingId !== null, fn ($q) => $q->where('shopee_setting_id', $settingId))
+        $missing = \Extensions\Shopee\Models\ShopeeListingLink::query()
+            ->when($storeId !== null, fn ($q) => $q->where('store_id', $storeId))
             ->whereNotIn('shopee_item_id', array_keys($seen) ?: [0])
             ->update(['live_status' => 'MISSING', 'live_checked_at' => $now]);
         if ($missing > 0) {
@@ -103,8 +103,8 @@ class ShopeeLiveListing
         return [
             'error' => null,
             'counts' => array_filter($counts),
-            'links' => (int) \Extensions\shopee\Models\ShopeeProductLink::query()
-                ->when($settingId !== null, fn ($q) => $q->where('shopee_setting_id', $settingId))->count(),
+            'links' => (int) \Extensions\Shopee\Models\ShopeeListingLink::query()
+                ->when($storeId !== null, fn ($q) => $q->where('store_id', $storeId))->count(),
         ];
     }
 
@@ -156,7 +156,7 @@ class ShopeeLiveListing
             if ($status === '' || $status === null) {
                 continue;
             }
-            \Extensions\shopee\Models\ShopeeProductLink::query()
+            \Extensions\Shopee\Models\ShopeeListingLink::query()
                 ->where('shopee_item_id', $itemId)
                 ->update(['live_status' => $status, 'live_checked_at' => $now]);
         }
@@ -181,7 +181,7 @@ class ShopeeLiveListing
             if ($status === null || $status === '') {
                 continue;
             }
-            \Extensions\shopee\Models\ShopeeProductLink::query()->whereKey($l->id)
+            \Extensions\Shopee\Models\ShopeeListingLink::query()->whereKey($l->id)
                 ->update(['live_status' => $status, 'live_checked_at' => $now]);
             $l->live_status = $status;
             $l->live_checked_at = $now;

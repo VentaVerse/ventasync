@@ -4,6 +4,8 @@ namespace App\Models\Catalog;
 
 class OrderStatus extends BaseModel
 {
+    protected $table = 'order_statuses';
+
     protected $primaryKey = 'order_status_id';
 
     protected $fillable = [
@@ -12,9 +14,4 @@ class OrderStatus extends BaseModel
         'subtract_stock',
         'add_revenue',
     ];
-
-    public function getTable()
-    {
-        return $this->tableName('order_status');
-    }
 }

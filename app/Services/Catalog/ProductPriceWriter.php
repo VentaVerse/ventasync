@@ -42,18 +42,17 @@ final class ProductPriceWriter
 
     private function setVariation(Product $product, string $sku, float $price, string $reason, string $actor): array
     {
-        $pfx = (string) config('catalog.prefix');
         $needle = strtolower($sku);
 
-        $combo = DB::table('product_option_combinations')
+        $combo = DB::table('product_variations')
             ->where('product_id', $product->product_id)
             ->whereRaw('LOWER(TRIM(sku)) = ?', [$needle])
             ->first(['id', 'absolute_price']);
 
-        $pov = DB::table($pfx . 'product_option_value')
+        $pov = DB::table('product_variation_values')
             ->where('product_id', $product->product_id)
             ->whereRaw('LOWER(TRIM(sku)) = ?', [$needle])
-            ->first(['product_option_value_id', 'absolute_price']);
+            ->first(['product_variation_value_id', 'absolute_price']);
 
         if (! $combo && ! $pov) {
             throw new RuntimeException(
@@ -64,13 +63,13 @@ final class ProductPriceWriter
 
         $before = (float) ($combo->absolute_price ?? $pov->absolute_price ?? 0);
 
-        DB::transaction(function () use ($combo, $pov, $pfx, $price) {
+        DB::transaction(function () use ($combo, $pov, $price) {
             if ($combo) {
-                DB::table('product_option_combinations')->where('id', $combo->id)
+                DB::table('product_variations')->where('id', $combo->id)
                     ->update(['absolute_price' => $price, 'updated_at' => now()]);
             }
             if ($pov) {
-                DB::table($pfx . 'product_option_value')->where('product_option_value_id', $pov->product_option_value_id)
+                DB::table('product_variation_values')->where('product_variation_value_id', $pov->product_variation_value_id)
                     ->update(['absolute_price' => $price]);
             }
         });
@@ -84,7 +83,7 @@ final class ProductPriceWriter
 
     private function named(Product $product): string
     {
-        $name = \App\Integrations\Listings\CatalogCopy::title((string) DB::table(config('catalog.prefix') . 'product_description')
+        $name = \App\Channels\Listings\CatalogCopy::title((string) DB::table('product_descriptions')
             ->where('product_id', $product->product_id)
             ->where('language_id', (int) config('catalog.default_language_id'))
             ->value('name'));

@@ -23,7 +23,7 @@
                   lg:sticky lg:top-0 lg:z-auto lg:flex lg:h-screen lg:self-start">
         <div class="flex items-center gap-2.5 border-b border-side-rule px-4 py-3">
             @php $blCompany = $appSetting->company_name ?? config('app.name', 'VentaSync'); @endphp
-            @php $blLogo = \App\Services\Media\BrandImage::show($appSetting->logo_path ?? null, \App\Services\Media\BrandImage::NAV); @endphp
+            @php $blLogo = \App\Services\Media\LogoImage::show($appSetting->logo_path ?? null, \App\Services\Media\LogoImage::NAV); @endphp
             <img class="bl-brand__logo" src="{{ $blLogo['url'] }}"
                  width="{{ $blLogo['width'] }}" height="{{ $blLogo['height'] }}"
                  alt="{{ $blCompany }}">

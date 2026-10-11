@@ -1,15 +1,15 @@
 <?php
 
-use Extensions\shopee\Controllers\ShopeeDescriptionTemplateController;
-use Extensions\shopee\Controllers\ShopeeWatermarkTemplateController;
-use Extensions\shopee\Controllers\ShopeeSettingsController;
-use Extensions\shopee\Controllers\ShopeeApiExplorerController;
-use Extensions\shopee\Controllers\ShopeeOrderController;
-use Extensions\shopee\Controllers\ShopeeCategoryController;
-use Extensions\shopee\Controllers\ShopeeCategoryAttributeController;
-use Extensions\shopee\Controllers\ShopeeProductGroupController;
-use Extensions\shopee\Controllers\ShopeeProductController;
-use Extensions\shopee\Controllers\ShopeeLogisticsController;
+use Extensions\Shopee\Controllers\ShopeeDescriptionTemplateController;
+use Extensions\Shopee\Controllers\ShopeeWatermarkTemplateController;
+use Extensions\Shopee\Controllers\ShopeeSettingsController;
+use Extensions\Shopee\Controllers\ShopeeApiExplorerController;
+use Extensions\Shopee\Controllers\ShopeeOrderController;
+use Extensions\Shopee\Controllers\ShopeeCategoryController;
+use Extensions\Shopee\Controllers\ShopeeCategoryAttributeController;
+use Extensions\Shopee\Controllers\ShopeeProductGroupController;
+use Extensions\Shopee\Controllers\ShopeeProductController;
+use Extensions\Shopee\Controllers\ShopeeLogisticsController;
 use Illuminate\Support\Facades\Route;
 
 // /shopee and /shopee/authorize must keep their URIs: the callback is registered byte for byte at Shopee.
@@ -24,7 +24,7 @@ Route::middleware(['auth'])->group(function () {
         ->defaults('permission_tier', 'manage');
 });
 
-Route::middleware(['auth', \Extensions\shopee\Http\ResolveShopeeStore::class])
+Route::middleware(['auth', \Extensions\Shopee\Http\ResolveShopeeStore::class])
     ->prefix('channels')->where(['store' => '[0-9]+'])->group(function () {
 
     Route::group([], function () {
@@ -61,14 +61,14 @@ Route::middleware(['auth', \Extensions\shopee\Http\ResolveShopeeStore::class])
 
         Route::get('/shopee/{store}/products', [ShopeeProductController::class, 'index'])->name('ext.shopee.products.index');
         Route::get('/shopee/{store}/products/search-catalog', [ShopeeProductController::class, 'searchCatalogProducts'])->name('ext.shopee.products.search_catalog');
-        Route::get('/shopee/{store}/products/catalogue-search', [ShopeeProductController::class, 'catalogueSearch'])->name('ext.shopee.products.catalogue_search');
+        Route::get('/shopee/{store}/products/catalog-search', [ShopeeProductController::class, 'catalogSearch'])->name('ext.shopee.products.catalog_search');
         Route::get('/shopee/{store}/products/categories/search', [ShopeeProductController::class, 'searchCategories'])->name('ext.shopee.products.searchCategories');
         Route::get('/shopee/{store}/products/categories/lookup', [ShopeeProductController::class, 'categoryLookup'])->name('ext.shopee.products.categoryLookup');
         Route::get('/shopee/{store}/products/brands', [ShopeeProductController::class, 'brandsForCategory'])->name('ext.shopee.products.brandsForCategory');
         Route::get('/shopee/{store}/products/import', [ShopeeProductController::class, 'importPage'])->name('ext.shopee.products.import');
         Route::get('/shopee/{store}/products/{productId}/push-review', [ShopeeProductController::class, 'pushReview'])->whereNumber('productId')->name('ext.shopee.products.push_review');
 
-        Route::get('/shopee/{store}/vouchers', [\Extensions\shopee\Controllers\ShopeeVoucherController::class, 'index'])->name('ext.shopee.vouchers.index');
+        Route::get('/shopee/{store}/vouchers', [\Extensions\Shopee\Controllers\ShopeeVoucherController::class, 'index'])->name('ext.shopee.vouchers.index');
 
 
         Route::get('/shopee/{store}/listings/{productId}', [ShopeeProductController::class, 'listing'])
@@ -155,9 +155,9 @@ Route::middleware(['auth', \Extensions\shopee\Http\ResolveShopeeStore::class])
         Route::post('/shopee/{store}/listings/{productId}/push-update', [ShopeeProductController::class, 'pushListingUpdate'])->whereNumber('productId')->name('ext.shopee.listings.push_update');
         Route::post('/shopee/{store}/products/fetch-attributes', [ShopeeProductController::class, 'fetchAttributes'])->name('ext.shopee.products.fetchAttributes');
 
-        Route::post('/shopee/{store}/vouchers', [\Extensions\shopee\Controllers\ShopeeVoucherController::class, 'store'])->name('ext.shopee.vouchers.store');
-        Route::post('/shopee/{store}/vouchers/{voucherId}/end', [\Extensions\shopee\Controllers\ShopeeVoucherController::class, 'end'])->whereNumber('voucherId')->name('ext.shopee.vouchers.end');
-        Route::post('/shopee/{store}/vouchers/{voucherId}/delete', [\Extensions\shopee\Controllers\ShopeeVoucherController::class, 'destroy'])->whereNumber('voucherId')->name('ext.shopee.vouchers.delete');
+        Route::post('/shopee/{store}/vouchers', [\Extensions\Shopee\Controllers\ShopeeVoucherController::class, 'store'])->name('ext.shopee.vouchers.store');
+        Route::post('/shopee/{store}/vouchers/{voucherId}/end', [\Extensions\Shopee\Controllers\ShopeeVoucherController::class, 'end'])->whereNumber('voucherId')->name('ext.shopee.vouchers.end');
+        Route::post('/shopee/{store}/vouchers/{voucherId}/delete', [\Extensions\Shopee\Controllers\ShopeeVoucherController::class, 'destroy'])->whereNumber('voucherId')->name('ext.shopee.vouchers.delete');
         Route::post('/shopee/{store}/products/{productId}/unlink', [ShopeeProductController::class, 'unlink'])->name('ext.shopee.products.unlink');
         Route::post('/shopee/{store}/products/{productId}/delete', [ShopeeProductController::class, 'deleteFromShopee'])->name('ext.shopee.products.delete');
     });
@@ -190,8 +190,8 @@ Route::middleware(['auth', \Extensions\shopee\Http\ResolveShopeeStore::class])
 
 });
 
-Route::middleware(['auth', \Extensions\shopee\Http\ResolveShopeeStore::class])->prefix('channels')->group(function () {
-    Route::get('/shopee/{store?}', [\Extensions\shopee\Controllers\ShopeeDashboardController::class, 'show'])
+Route::middleware(['auth', \Extensions\Shopee\Http\ResolveShopeeStore::class])->prefix('channels')->group(function () {
+    Route::get('/shopee/{store?}', [\Extensions\Shopee\Controllers\ShopeeDashboardController::class, 'show'])
         ->where('store', '[0-9]+')
         ->defaults('permission_denial', '404')
         ->name('ext.shopee.dashboard');
@@ -199,7 +199,7 @@ Route::middleware(['auth', \Extensions\shopee\Http\ResolveShopeeStore::class])->
 
 Route::middleware(['auth'])->prefix('channels')->group(function () {
     Route::get('/shopee/{legacyPath}', function (\Illuminate\Http\Request $request, string $legacyPath) {
-        $store = \Extensions\shopee\Models\ShopeeSetting::query()->where('enabled', true)->orderBy('id')->value('id');
+        $store = \Extensions\Shopee\Models\ShopeeStore::query()->where('enabled', true)->orderBy('id')->value('id');
         abort_unless($store !== null, 404);
         $qs = $request->getQueryString();
 

@@ -3,16 +3,16 @@
 namespace Tests\Feature;
 
 use App\Extensions\ExtensionManager;
-use App\Integrations\IntegrationCard;
-use App\Integrations\IntegrationRegistry;
+use App\Channels\ChannelCard;
+use App\Channels\ChannelRegistry;
 use App\Models\Admin\Permission;
 use App\Models\Admin\UserGroup;
 use App\Models\User;
 use App\Support\ChannelWorkspace;
-use Extensions\opencart\Models\OpenCartSetting;
-use Extensions\opencart\OpencartExtension;
-use Extensions\ventacart\Models\VentaCartSetting;
-use Extensions\ventacart\VentaCartExtension;
+use Extensions\OpenCart\Models\OpenCartStore;
+use Extensions\OpenCart\OpenCartExtension;
+use Extensions\VentaCart\Models\VentaCartStore;
+use Extensions\VentaCart\VentaCartExtension;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -28,8 +28,8 @@ class MultistoreWorkspaceTest extends TestCase
 
         $providers = [
             'ventacart' => VentaCartExtension::class,
-            'opencart' => OpencartExtension::class,
-            'shopee' => \Extensions\shopee\ShopeeExtension::class,
+            'opencart' => OpenCartExtension::class,
+            'shopee' => \Extensions\Shopee\ShopeeExtension::class,
         ];
 
         foreach ($providers as $id => $class) {
@@ -45,25 +45,25 @@ class MultistoreWorkspaceTest extends TestCase
 
     private function seedStores(): void
     {
-        VentaCartSetting::updateOrCreate(
+        VentaCartStore::updateOrCreate(
             ['store_name' => 'Gear Depot'],
             ['base_url' => 'https://one.ventacart.test', 'api_token' => 'ventacart-token-one',
              'enabled' => true, 'last_order_sync_at' => now()->subMinutes(5)]
         );
 
-        VentaCartSetting::updateOrCreate(
+        VentaCartStore::updateOrCreate(
             ['store_name' => 'Switch Bazaar'],
             ['base_url' => 'https://two.ventacart.test', 'api_token' => 'ventacart-token-two',
              'enabled' => true, 'last_order_sync_at' => null]
         );
 
-        OpenCartSetting::updateOrCreate(
+        OpenCartStore::updateOrCreate(
             ['store_name' => 'Parts Yard'],
             ['base_url' => 'https://one.opencart.test', 'api_key' => 'oc-key-one',
              'enabled' => true, 'last_order_sync_at' => now()->subMinutes(5)]
         );
 
-        OpenCartSetting::updateOrCreate(
+        OpenCartStore::updateOrCreate(
             ['store_name' => 'Cable Loft'],
             ['base_url' => 'https://two.opencart.test', 'api_key' => 'oc-key-two',
              'enabled' => false, 'last_order_sync_at' => now()->subMinutes(5)]
@@ -73,8 +73,8 @@ class MultistoreWorkspaceTest extends TestCase
     private function storeId(string $channel, string $name): int
     {
         return (int) ($channel === 'ventacart'
-            ? VentaCartSetting::where('store_name', $name)->firstOrFail()->id
-            : OpenCartSetting::where('store_name', $name)->firstOrFail()->id);
+            ? VentaCartStore::where('store_name', $name)->firstOrFail()->id
+            : OpenCartStore::where('store_name', $name)->firstOrFail()->id);
     }
 
     private function storeIds(string $channel): array
@@ -89,17 +89,17 @@ class MultistoreWorkspaceTest extends TestCase
         return 'href="'.e(ChannelWorkspace::overviewUrl($key)).'"';
     }
 
-    private function card(string $channel): IntegrationCard
+    private function card(string $channel): ChannelCard
     {
-        foreach (app(IntegrationRegistry::class)->all() as $provider) {
-            foreach ($provider->integrationCards() as $card) {
+        foreach (app(ChannelRegistry::class)->all() as $provider) {
+            foreach ($provider->channelCards() as $card) {
                 if ($card->id === $channel) {
                     return $card;
                 }
             }
         }
 
-        $this->fail(ucfirst($channel).' did not register an IntegrationCard.');
+        $this->fail(ucfirst($channel).' did not register an ChannelCard.');
     }
 
     private function operator(string $channel): User
@@ -107,7 +107,7 @@ class MultistoreWorkspaceTest extends TestCase
         $group = UserGroup::create(['name' => 'Multistore '.$channel.' Operators']);
 
         $keys = array_values(array_filter(
-            app(\App\Services\PermissionCatalogue::class)->keys(),
+            app(\App\Services\PermissionCatalog::class)->keys(),
             fn ($k) => str_starts_with($k, 'view_'.$channel.'/')
         ));
 
@@ -162,7 +162,7 @@ class MultistoreWorkspaceTest extends TestCase
             ['Sell', 'Orders', route('ext.'.$channel.'.orders.index', ['store' => $storeId])],
         ];
         if ($channel === 'ventacart') {
-            $rows[] = ['Catalog', 'Listings', route('ext.ventacart.listings.index', ['store' => $storeId])];
+            $rows[] = ['Catalog', 'Products', route('ext.ventacart.listings.index', ['store' => $storeId])];
         }
         $rows[] = ['Catalog', 'Product Groups', route('ext.'.$channel.'.product-groups.index', ['store' => $storeId])];
         if (\Illuminate\Support\Facades\Route::has('ext.'.$channel.'.description-templates.index')) {
@@ -207,8 +207,8 @@ class MultistoreWorkspaceTest extends TestCase
     public function test_a_channel_with_no_stores_has_no_workspace(string $channel): void
     {
         $channel === 'ventacart'
-            ? VentaCartSetting::query()->delete()
-            : OpenCartSetting::query()->delete();
+            ? VentaCartStore::query()->delete()
+            : OpenCartStore::query()->delete();
 
         $this->assertFalse(app(ChannelWorkspace::class)->hasWorkspace($this->card($channel)));
     }
@@ -632,10 +632,10 @@ class MultistoreWorkspaceTest extends TestCase
         return User::factory()->create(['user_group_id' => $group->id]);
     }
 
-    private function ventaCartOrder(int $storeId, string $customer, string $status): \Extensions\ventacart\Models\VentaCartOrder
+    private function ventaCartOrder(int $storeId, string $customer, string $status): \Extensions\VentaCart\Models\VentaCartOrder
     {
-        return \Extensions\ventacart\Models\VentaCartOrder::create([
-            'ventacart_setting_id'   => $storeId,
+        return \Extensions\VentaCart\Models\VentaCartOrder::create([
+            'store_id'   => $storeId,
             'ventacart_order_id'     => ($storeId * 100000) + random_int(1, 99999),
             'ventacart_order_number' => ($storeId * 100000) + random_int(1, 99999),
             'status'             => $status,
@@ -649,12 +649,11 @@ class MultistoreWorkspaceTest extends TestCase
 
     private function opencartOrder(int $storeId, string $firstname, string $marketplaceOrderId): int
     {
-        $prefix = (string) config('catalog.prefix');
 
-        return (int) \Illuminate\Support\Facades\DB::table($prefix.'order')->insertGetId([
+        return (int) \Illuminate\Support\Facades\DB::table('orders')->insertGetId([
             'firstname' => $firstname, 'lastname' => 'Buyer',
             'email' => strtolower($firstname).'@example.test',
-            'marketplace_source' => 'opencart:'.$storeId,
+            'channel' => 'opencart:'.$storeId,
             'marketplace_order_id' => $marketplaceOrderId,
             'order_status_id' => 1, 'total' => 999.00,
             'currency_code' => 'PHP', 'currency_value' => 1,

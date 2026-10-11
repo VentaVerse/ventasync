@@ -6,11 +6,11 @@ use App\Extensions\ExtensionManager;
 use App\Models\Admin\Permission;
 use App\Models\Admin\UserGroup;
 use App\Models\User;
-use Extensions\shopee\Models\ShopeeItemCache;
-use Extensions\shopee\Models\ShopeeListing;
-use Extensions\shopee\Models\ShopeeProductLink;
-use Extensions\shopee\Models\ShopeeSetting;
-use Extensions\shopee\Services\Shopee\ShopeeClient;
+use Extensions\Shopee\Models\ShopeeItemCache;
+use Extensions\Shopee\Models\ShopeeListing;
+use Extensions\Shopee\Models\ShopeeListingLink;
+use Extensions\Shopee\Models\ShopeeStore;
+use Extensions\Shopee\Services\Shopee\ShopeeClient;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
@@ -31,12 +31,12 @@ class ShopeeVariationPushTest extends TestCase
         $manager = $this->app->make(ExtensionManager::class);
         $manager->install('shopee');
         $manager->enable('shopee');
-        $this->app->register(\Extensions\shopee\ShopeeExtension::class);
+        $this->app->register(\Extensions\Shopee\ShopeeExtension::class);
         $this->app['router']->getRoutes()->refreshNameLookups();
-        $this->artisan('permissions:sync-catalogue');
-        \Extensions\shopee\Models\ShopeeCategoryTemplate::query()->firstOrCreate(['category_id' => 106755], ['attributes' => ['attribute_list' => []], 'fetched_at' => now()]);
+        $this->artisan('permissions:sync-catalog');
+        \Extensions\Shopee\Models\ShopeeCategoryTemplate::query()->firstOrCreate(['category_id' => 106755], ['attributes' => ['attribute_list' => []], 'fetched_at' => now()]);
 
-        ShopeeSetting::query()->create([
+        ShopeeStore::query()->create([
             'partner_id' => 1001, 'partner_key' => 'k', 'shop_id' => 2002,
             'access_token' => 't', 'refresh_token' => 'r', 'mode' => 'production',
         ]);
@@ -112,53 +112,52 @@ class ShopeeVariationPushTest extends TestCase
 
     private function seedVariationProduct(): int
     {
-        $pfx = (string) config('catalog.prefix');
         $langId = (int) config('catalog.default_language_id');
 
-        $productId = DB::table($pfx . 'product')->insertGetId([
+        $productId = DB::table('products')->insertGetId([
             'model' => 'VP-1', 'sku' => 'VP-SKU', 'quantity' => 32, 'price' => 21990,
             'status' => 1, 'image' => 'catalog/__vp-parent.png', 'weight' => 3, 'length' => 20, 'width' => 20, 'height' => 20,
-            'manufacturer_id' => 0,
+            'brand_id' => 0,
             'date_added' => now(), 'date_modified' => now(), 'date_available' => now(),
         ]);
-        DB::table($pfx . 'product_description')->insert([
+        DB::table('product_descriptions')->insert([
             'product_id' => $productId, 'language_id' => $langId,
-            'name' => 'Variation push product', 'description' => 'Two colours.',
+            'name' => 'Variation push product', 'description' => 'Two colors.',
             'meta_title' => '', 'meta_description' => '', 'meta_keyword' => '', 'tag' => '',
         ]);
 
-        $optionId = (int) DB::table($pfx . 'option')->insertGetId(['type' => 'select', 'sort_order' => 0]);
-        DB::table($pfx . 'option_description')->insert([
-            'option_id' => $optionId, 'language_id' => $langId, 'name' => 'Colour',
+        $variationTypeId = (int) DB::table('variation_types')->insertGetId(['type' => 'select', 'sort_order' => 0]);
+        DB::table('variation_type_descriptions')->insert([
+            'variation_type_id' => $variationTypeId, 'language_id' => $langId, 'name' => 'Color',
         ]);
-        $productOptionId = (int) DB::table($pfx . 'product_option')->insertGetId([
-            'product_id' => $productId, 'option_id' => $optionId, 'value' => '', 'required' => 0,
+        $productVariationTypeId = (int) DB::table('product_variation_types')->insertGetId([
+            'product_id' => $productId, 'variation_type_id' => $variationTypeId, 'value' => '', 'required' => 0,
         ]);
 
         foreach ([['Red', 'VP-RED', 14, 'catalog/__vp-red.png'], ['Black', 'VP-BLACK', 18, null]] as $i => [$name, $sku, $qty, $image]) {
-            $valueId = (int) DB::table($pfx . 'option_value')->insertGetId([
-                'option_id' => $optionId, 'image' => '', 'sort_order' => $i,
+            $valueId = (int) DB::table('variation_values')->insertGetId([
+                'variation_type_id' => $variationTypeId, 'image' => '', 'sort_order' => $i,
             ]);
-            DB::table($pfx . 'option_value_description')->insert([
-                'option_value_id' => $valueId, 'language_id' => $langId,
-                'option_id' => $optionId, 'name' => $name,
+            DB::table('variation_value_descriptions')->insert([
+                'variation_value_id' => $valueId, 'language_id' => $langId,
+                'variation_type_id' => $variationTypeId, 'name' => $name,
             ]);
-            $povId = (int) DB::table($pfx . 'product_option_value')->insertGetId([
-                'product_option_id' => $productOptionId, 'product_id' => $productId,
-                'option_id' => $optionId, 'option_value_id' => $valueId,
+            $povId = (int) DB::table('product_variation_values')->insertGetId([
+                'product_variation_type_id' => $productVariationTypeId, 'product_id' => $productId,
+                'variation_type_id' => $variationTypeId, 'variation_value_id' => $valueId,
                 'sku' => $sku, 'quantity' => $qty, 'subtract' => 1,
                 'price' => 0, 'price_prefix' => '+', 'points' => 0, 'points_prefix' => '+',
                 'weight' => 0, 'weight_prefix' => '+',
                 'cost' => 0, 'cost_amount' => 0, 'cost_percentage' => 0, 'cost_additional' => 0,
                 'absolute_cost' => 0, 'cost_prefix' => '+', 'absolute_price' => 21990,
             ]);
-            $comboId = (int) DB::table('product_option_combinations')->insertGetId([
+            $comboId = (int) DB::table('product_variations')->insertGetId([
                 'product_id' => $productId, 'sku' => $sku, 'quantity' => $qty,
                 'absolute_price' => 21990, 'image' => $image, 'status' => 1,
                 'sort_order' => $i, 'created_at' => now(), 'updated_at' => now(),
             ]);
-            DB::table('product_option_combination_values')->insert([
-                'combination_id' => $comboId, 'product_option_value_id' => $povId,
+            DB::table('product_variation_parts')->insert([
+                'product_variation_id' => $comboId, 'product_variation_value_id' => $povId,
             ]);
         }
 
@@ -182,7 +181,7 @@ class ShopeeVariationPushTest extends TestCase
         $this->assertSame(990077, (int) $init['body']['item_id']);
 
         $tier = $init['body']['tier_variation'][0];
-        $this->assertSame('Colour', $tier['name']);
+        $this->assertSame('Color', $tier['name']);
         $this->assertSame(['Red', 'Black'], array_column($tier['option_list'], 'option'));
         $this->assertSame('img-tier-001', $tier['option_list'][0]['image']['image_id'] ?? null,
             'Red carries its own uploaded picture.');
@@ -197,7 +196,7 @@ class ShopeeVariationPushTest extends TestCase
         $this->assertSame(14, (int) $models[0]['seller_stock'][0]['stock']);
         $this->assertSame([1], $models[1]['tier_index']);
 
-        $links = ShopeeProductLink::query()->where('product_id', $productId)->get();
+        $links = ShopeeListingLink::query()->where('product_id', $productId)->get();
         $this->assertCount(2, $links);
         $this->assertTrue($links->every(fn ($l) => $l->shopee_model_id !== null));
         $this->assertEqualsCanonicalizing([700001, 700002], $links->pluck('shopee_model_id')->map(fn ($v) => (int) $v)->all());
@@ -223,22 +222,21 @@ class ShopeeVariationPushTest extends TestCase
         $this->assertNotContains('/api/v2/product/update_item', $paths);
 
         $init = collect($this->sentPayloads)->firstWhere('path', '/api/v2/product/init_tier_variation');
-        $this->assertSame('Colour', $init['body']['tier_variation'][0]['name']);
+        $this->assertSame('Color', $init['body']['tier_variation'][0]['name']);
         $this->assertSame(['Red', 'Black'], array_column($init['body']['tier_variation'][0]['option_list'], 'option'));
     }
 
     public function test_a_plain_product_triggers_no_tier_call(): void
     {
-        $pfx = (string) config('catalog.prefix');
-        $productId = DB::table($pfx . 'product')->insertGetId([
+        $productId = DB::table('products')->insertGetId([
             'model' => 'VP-2', 'sku' => 'VP2-SKU', 'quantity' => 5, 'price' => 100,
             'status' => 1, 'image' => 'catalog/__vp-parent.png', 'weight' => 1, 'length' => 1, 'width' => 1, 'height' => 1,
-            'manufacturer_id' => 0,
+            'brand_id' => 0,
             'date_added' => now(), 'date_modified' => now(), 'date_available' => now(),
         ]);
-        DB::table($pfx . 'product_description')->insert([
+        DB::table('product_descriptions')->insert([
             'product_id' => $productId, 'language_id' => (int) config('catalog.default_language_id'),
-            'name' => 'Plain product', 'description' => 'No colours.',
+            'name' => 'Plain product', 'description' => 'No colors.',
             'meta_title' => '', 'meta_description' => '', 'meta_keyword' => '', 'tag' => '',
         ]);
         ShopeeListing::query()->create([
@@ -251,13 +249,13 @@ class ShopeeVariationPushTest extends TestCase
 
         $this->assertNotNull(collect($this->sentPayloads)->firstWhere('path', '/api/v2/product/add_item'));
         $this->assertNull(collect($this->sentPayloads)->firstWhere('path', '/api/v2/product/init_tier_variation'));
-        $this->assertSame(1, ShopeeProductLink::query()->where('product_id', $productId)->whereNull('shopee_model_id')->count());
+        $this->assertSame(1, ShopeeListingLink::query()->where('product_id', $productId)->whereNull('shopee_model_id')->count());
     }
 
     public function test_a_knowable_price_ratio_stops_the_push_at_the_door(): void
     {
         $productId = $this->seedVariationProduct();
-        DB::table('product_option_combinations')
+        DB::table('product_variations')
             ->where('product_id', $productId)->where('sku', 'VP-RED')
             ->update(['absolute_price' => 21990 * 6]);
         ShopeeListing::query()->create([
@@ -299,7 +297,7 @@ class ShopeeVariationPushTest extends TestCase
         $delete = collect($this->sentPayloads)->firstWhere('path', '/api/v2/product/delete_item');
         $this->assertNotNull($delete, 'the half-created item is deleted at Shopee');
         $this->assertSame(990077, (int) $delete['body']['item_id']);
-        $this->assertSame(0, ShopeeProductLink::query()->where('product_id', $productId)->count(),
+        $this->assertSame(0, ShopeeListingLink::query()->where('product_id', $productId)->count(),
             'no link row survives a rolled-back create');
     }
 }

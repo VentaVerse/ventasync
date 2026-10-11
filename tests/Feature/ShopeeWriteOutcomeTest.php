@@ -2,7 +2,7 @@
 
 namespace Tests\Feature;
 
-use Extensions\shopee\Controllers\ShopeeProductGroupController;
+use Extensions\Shopee\Controllers\ShopeeProductGroupController;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use ReflectionMethod;
@@ -16,7 +16,7 @@ class ShopeeWriteOutcomeTest extends TestCase
     {
         parent::setUp();
 
-        \Extensions\shopee\Models\ShopeeSetting::create(['mode' => 'live', 'store_name' => 'Main store']);
+        \Extensions\Shopee\Models\ShopeeStore::create(['mode' => 'live', 'store_name' => 'Main store']);
     }
 
     private const CONTROLLER = 'extensions/shopee/Controllers/ShopeeProductGroupController.php';
@@ -41,7 +41,7 @@ class ShopeeWriteOutcomeTest extends TestCase
     public function test_a_batch_that_lost_rows_is_not_a_success(): void
     {
         $this->assertSame('warning', $this->invokePrivate('batchTone', [8, 4]),
-            'A partly failed batch still wears the success colour.');
+            'A partly failed batch still wears the success color.');
     }
 
     public function test_a_batch_that_failed_entirely_is_an_error(): void
@@ -88,7 +88,7 @@ class ShopeeWriteOutcomeTest extends TestCase
             2708 => ['ok' => false, 'error' => 'Item_id is not found.'],
         ]]);
 
-        $row = DB::table('shopee_product_group_products')->where('product_id', 2708)->first();
+        $row = DB::table('ch_shopee_product_group_products')->where('product_id', 2708)->first();
 
         $this->assertSame('error', $row->sync_status);
         $this->assertSame('Item_id is not found.', $row->push_error);
@@ -102,7 +102,7 @@ class ShopeeWriteOutcomeTest extends TestCase
 
         $this->invokePrivate('recordSyncOutcomes', [$group, [2708 => ['ok' => true, 'error' => null]]]);
 
-        $row = DB::table('shopee_product_group_products')->where('product_id', 2708)->first();
+        $row = DB::table('ch_shopee_product_group_products')->where('product_id', 2708)->first();
 
         $this->assertSame('pushed', $row->sync_status);
         $this->assertNull($row->push_error, 'A fixed product keeps displaying its old failure.');
@@ -120,7 +120,7 @@ class ShopeeWriteOutcomeTest extends TestCase
         ]]);
 
         foreach ([$one, $two] as $group) {
-            $row = DB::table('shopee_product_group_products')
+            $row = DB::table('ch_shopee_product_group_products')
                 ->where('shopee_product_group_id', $group)
                 ->where('product_id', 2708)
                 ->first();
@@ -140,7 +140,7 @@ class ShopeeWriteOutcomeTest extends TestCase
 
         $this->invokePrivate('recordSyncOutcomes', [$two, [2708 => ['ok' => true, 'error' => null]]]);
 
-        $stale = DB::table('shopee_product_group_products')
+        $stale = DB::table('ch_shopee_product_group_products')
             ->where('shopee_product_group_id', $one)
             ->where('product_id', 2708)
             ->first();
@@ -208,9 +208,9 @@ class ShopeeWriteOutcomeTest extends TestCase
 
     private function group(): int
     {
-        return DB::table('shopee_product_groups')->insertGetId([
-            'shopee_setting_id' => \Extensions\shopee\Models\ShopeeSetting::query()->orderBy('id')->value('id')
-                ?? \Extensions\shopee\Models\ShopeeSetting::create(['mode' => 'live', 'store_name' => 'Main store'])->id,
+        return DB::table('ch_shopee_product_groups')->insertGetId([
+            'store_id' => \Extensions\Shopee\Models\ShopeeStore::query()->orderBy('id')->value('id')
+                ?? \Extensions\Shopee\Models\ShopeeStore::create(['mode' => 'live', 'store_name' => 'Main store'])->id,
             'name' => 'Mosky',
             'created_at' => now(),
             'updated_at' => now(),
@@ -219,7 +219,7 @@ class ShopeeWriteOutcomeTest extends TestCase
 
     private function pivotFor(int $group, int $productId, array $attrs = []): void
     {
-        DB::table('shopee_product_group_products')->insert(array_merge([
+        DB::table('ch_shopee_product_group_products')->insert(array_merge([
             'shopee_product_group_id' => $group,
             'product_id' => $productId,
         ], $attrs));

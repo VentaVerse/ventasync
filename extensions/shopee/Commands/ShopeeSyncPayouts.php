@@ -1,10 +1,10 @@
 <?php
 
-namespace Extensions\shopee\Commands;
+namespace Extensions\Shopee\Commands;
 
 use App\Support\PayoutStatus;
-use Extensions\shopee\Models\ShopeeSetting;
-use Extensions\shopee\Services\Shopee\ShopeePayoutSync;
+use Extensions\Shopee\Models\ShopeeStore;
+use Extensions\Shopee\Services\Shopee\ShopeePayoutSync;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Cache;
 
@@ -19,7 +19,7 @@ class ShopeeSyncPayouts extends Command
     public function handle(ShopeePayoutSync $payouts): int
     {
         $days = PayoutStatus::lookbackDays($this->option('days'));
-        $stores = ShopeeSetting::query()->where('enabled', true)
+        $stores = ShopeeStore::query()->where('enabled', true)
             ->when($this->option('store') !== null, fn ($q) => $q->whereKey((int) $this->option('store')))
             ->orderBy('id')->get();
         if ($stores->isEmpty()) {

@@ -15,7 +15,7 @@
         <h1 class="x-page-title">Product Groups</h1>
         <p class="x-page-sub">
             {{ number_format($groups->count()) }} {{ $groups->count() === 1 ? 'product group' : 'product groups' }}.
-            <x-ui.hint label="What a product group is">A product group holds the shared Shopee settings a push starts from - category, attributes, couriers, markup. Load it from the push review on the Listings page, or keep products under it and push them from here.</x-ui.hint>
+            <x-ui.hint label="What a product group is">A product group holds the shared Shopee settings a push starts from - category, attributes, couriers, markup. Load it from the push review on the Products page, or keep products under it and push them from here.</x-ui.hint>
         </p>
     </div>
     @if($canManageShopee)
@@ -94,7 +94,7 @@
                         <a class="x-menu__item" href="{{ route('ext.shopee.product-groups.edit', $p->id) }}">Edit product group</a>
                         <div class="x-menu__sep"></div>
                         <button type="button" class="x-menu__item x-menu__item--danger"
-                                data-confirm="Delete the product group {{ $p->name }}? Its products stay in the catalog and stay listed on Shopee. Only the grouping is removed."
+                                data-confirm="Delete the product group {{ $p->name }}? Its products stay in the Master Catalog and stay listed on Shopee. Only the grouping is removed."
                                 data-confirm-submit="spg-del-{{ $p->id }}">Delete product group</button>
                     @endif
                 </x-ui.menu>

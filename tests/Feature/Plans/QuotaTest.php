@@ -11,9 +11,9 @@ use App\Plans\CountsAsStore;
 use App\Plans\PlanLimitReached;
 use App\Plans\Quota;
 use App\Services\Catalog\ProductCreator;
-use Extensions\shopee\Models\ShopeeSetting;
-use Extensions\shopee\Services\Shopee\ShopeeClient;
-use Extensions\shopee\Services\Shopee\ShopeeItemImport;
+use Extensions\Shopee\Models\ShopeeStore;
+use Extensions\Shopee\Services\Shopee\ShopeeClient;
+use Extensions\Shopee\Services\Shopee\ShopeeItemImport;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
@@ -27,9 +27,9 @@ class QuotaTest extends TestCase
 
     private function product(string $sku): int
     {
-        return (int) DB::table(config('catalog.prefix') . 'product')->insertGetId([
+        return (int) DB::table('products')->insertGetId([
             'model' => $sku, 'sku' => $sku, 'quantity' => 1, 'price' => 100, 'status' => 1, 'image' => '',
-            'weight' => 1, 'length' => 1, 'width' => 1, 'height' => 1, 'manufacturer_id' => 0,
+            'weight' => 1, 'length' => 1, 'width' => 1, 'height' => 1, 'brand_id' => 0,
             'date_added' => now(), 'date_modified' => now(), 'date_available' => now(),
         ]);
     }
@@ -115,7 +115,7 @@ class QuotaTest extends TestCase
 
     public function test_everything_that_makes_a_product_asks_the_quota(): void
     {
-        $makers = $this->filesMatching("/'product'\\)\\s*->insertGetId\\(|new Product\\(\\)/");
+        $makers = $this->filesMatching("/'products'\\)\\s*->insertGetId\\(|new Product\\(\\)/");
 
         foreach ($makers as $path => $code) {
             $this->assertStringContainsString('Quota::', $code, $path . ' makes products without asking the plan');
@@ -167,18 +167,18 @@ class QuotaTest extends TestCase
 
         $this->expectException(PlanLimitReached::class);
         $this->expectExceptionMessage('Your plan allows 0 stores.');
-        ShopeeSetting::create(['store_name' => 'Second shop']);
+        ShopeeStore::create(['store_name' => 'Second shop']);
     }
 
     public function test_every_channel_store_model_counts_as_a_store(): void
     {
-        $models = glob(base_path('extensions/*/Models/*Setting.php'));
+        $models = glob(base_path('extensions/*/Models/*{Store,Setting}.php'), GLOB_BRACE);
 
         foreach ($models as $file) {
             $this->assertStringContainsString('CountsAsStore', (string) file_get_contents($file), $file . ' is a store model the plan does not count');
         }
         $this->assertCount(count($models), Counters::storeModels());
-        $this->assertContains(CountsAsStore::class, class_uses_recursive(ShopeeSetting::class));
+        $this->assertContains(CountsAsStore::class, class_uses_recursive(ShopeeStore::class));
     }
 
     public function test_an_api_app_past_the_limit_is_refused(): void
@@ -203,7 +203,9 @@ class QuotaTest extends TestCase
 
     public function test_every_core_order_insert_asks_the_quota(): void
     {
-        foreach ($this->filesMatching("/'order'\\)\\s*->insertGetId\\(/") as $path => $code) {
+        $makers = $this->filesMatching("/'orders'\\)\\s*->insertGetId\\(/");
+        $this->assertNotEmpty($makers, 'the search no longer finds the code that makes orders');
+        foreach ($makers as $path => $code) {
             $this->assertStringContainsString('Quota::', $code, $path . ' makes orders without asking the plan');
         }
     }

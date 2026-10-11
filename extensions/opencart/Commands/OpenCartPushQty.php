@@ -1,16 +1,16 @@
 <?php
 
-namespace Extensions\opencart\Commands;
+namespace Extensions\OpenCart\Commands;
 
-use Extensions\opencart\Models\OpenCartSetting;
-use Extensions\opencart\Services\OpenCart\OpenCartClient;
-use Extensions\opencart\Services\OpenCart\OpenCartProductSync;
+use Extensions\OpenCart\Models\OpenCartStore;
+use Extensions\OpenCart\Services\OpenCart\OpenCartClient;
+use Extensions\OpenCart\Services\OpenCart\OpenCartProductSync;
 use Illuminate\Console\Command;
 
-class OpenCartPushQty extends Command implements \App\Integrations\Contracts\SteppableAutomation
+class OpenCartPushQty extends Command implements \App\Channels\Contracts\SteppableAutomation
 {
     protected $signature = 'opencart:push-qty
-        {--store= : Store ID (opencart_settings.id). Omit to push to all enabled stores}';
+        {--store= : Store ID (ch_opencart_stores.id). Omit to push to all enabled stores}';
 
     protected $description = 'Push product quantities from the ERP to OpenCart stores';
 
@@ -19,7 +19,7 @@ class OpenCartPushQty extends Command implements \App\Integrations\Contracts\Ste
         $storeId = $this->option('store');
 
         if ($storeId) {
-            $settings = OpenCartSetting::where('id', (int) $storeId)
+            $settings = OpenCartStore::where('id', (int) $storeId)
                 ->where('enabled', true)
                 ->get();
 
@@ -28,7 +28,7 @@ class OpenCartPushQty extends Command implements \App\Integrations\Contracts\Ste
                 return 1;
             }
         } else {
-            $settings = OpenCartSetting::where('enabled', true)->get();
+            $settings = OpenCartStore::where('enabled', true)->get();
 
             if ($settings->isEmpty()) {
                 $this->error('No enabled OpenCart stores configured.');
@@ -36,12 +36,12 @@ class OpenCartPushQty extends Command implements \App\Integrations\Contracts\Ste
             }
         }
 
-        foreach ($settings as $setting) {
+        foreach ($settings as $store) {
             $this->newLine();
-            $this->info("=== Pushing quantities to: {$setting->store_name} (#{$setting->id}) ===");
+            $this->info("=== Pushing quantities to: {$store->store_name} (#{$store->id}) ===");
 
             try {
-                $client = new OpenCartClient($setting);
+                $client = new OpenCartClient($store);
 
                 $ping = $client->ping();
                 if (!$ping['ok']) {
@@ -49,7 +49,7 @@ class OpenCartPushQty extends Command implements \App\Integrations\Contracts\Ste
                     continue;
                 }
 
-                $sync = new OpenCartProductSync($client, $setting);
+                $sync = new OpenCartProductSync($client, $store);
                 $log = $sync->pushQuantities();
 
                 $this->info("  Status: {$log->status}");
@@ -71,11 +71,11 @@ class OpenCartPushQty extends Command implements \App\Integrations\Contracts\Ste
 
     public function automationUnits(\App\Models\ScheduledJob $job): array
     {
-        return ['label' => 'products', 'units' => \Extensions\opencart\Services\OpenCart\OpenCartPushSteps::units($job)];
+        return ['label' => 'products', 'units' => \Extensions\OpenCart\Services\OpenCart\OpenCartPushSteps::units($job)];
     }
 
     public function automationStep(\App\Models\ScheduledJob $job, array $units): array
     {
-        return \Extensions\opencart\Services\OpenCart\OpenCartPushSteps::step('stock', $units);
+        return \Extensions\OpenCart\Services\OpenCart\OpenCartPushSteps::step('stock', $units);
     }
 }

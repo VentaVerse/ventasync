@@ -1,8 +1,8 @@
 <?php
 
-namespace Extensions\shopee\Models\Concerns;
+namespace Extensions\Shopee\Models\Concerns;
 
-use Extensions\shopee\Models\ShopeeSetting;
+use Extensions\Shopee\Models\ShopeeStore;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
@@ -11,25 +11,25 @@ trait BelongsToShopeeStore
     public static function bootBelongsToShopeeStore(): void
     {
         static::creating(function ($model) {
-            $model->shopee_setting_id ??= ShopeeSetting::defaultStore()?->id;
+            $model->store_id ??= ShopeeStore::defaultStore()?->id;
         });
 
         static::addGlobalScope('shopeeStore', function (Builder $query) {
             if (app()->bound('shopee.route-store')) {
-                $query->where($query->qualifyColumn('shopee_setting_id'), app('shopee.route-store')->id);
+                $query->where($query->qualifyColumn('store_id'), app('shopee.route-store')->id);
             }
         });
     }
 
     public function store(): BelongsTo
     {
-        return $this->belongsTo(ShopeeSetting::class, 'shopee_setting_id');
+        return $this->belongsTo(ShopeeStore::class, 'store_id');
     }
 
-    public function scopeForStore(Builder $query, ShopeeSetting|int|null $store): Builder
+    public function scopeForStore(Builder $query, ShopeeStore|int|null $store): Builder
     {
-        $id = $store instanceof ShopeeSetting ? $store->id : $store;
+        $id = $store instanceof ShopeeStore ? $store->id : $store;
 
-        return $id === null ? $query : $query->where($query->qualifyColumn('shopee_setting_id'), $id);
+        return $id === null ? $query : $query->where($query->qualifyColumn('store_id'), $id);
     }
 }

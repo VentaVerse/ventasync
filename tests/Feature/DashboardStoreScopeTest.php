@@ -6,7 +6,7 @@ use App\Extensions\ExtensionManager;
 use App\Models\Admin\Permission;
 use App\Models\Admin\UserGroup;
 use App\Models\User;
-use Extensions\shopee\Models\ShopeeSetting;
+use Extensions\Shopee\Models\ShopeeStore;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\Support\MakesCoreOrders;
 use Tests\TestCase;
@@ -22,9 +22,9 @@ class DashboardStoreScopeTest extends TestCase
         $m = $this->app->make(ExtensionManager::class);
         $m->install('shopee');
         $m->enable('shopee');
-        $this->app->register(\Extensions\shopee\ShopeeExtension::class);
+        $this->app->register(\Extensions\Shopee\ShopeeExtension::class);
         $this->app['router']->getRoutes()->refreshNameLookups();
-        $this->artisan('permissions:sync-catalogue');
+        $this->artisan('permissions:sync-catalog');
     }
 
     private function viewer(): User
@@ -37,11 +37,11 @@ class DashboardStoreScopeTest extends TestCase
 
     public function test_a_store_key_scopes_the_page_and_the_ranking_names_stores(): void
     {
-        $a = ShopeeSetting::create(['mode' => 'live', 'store_name' => 'Main store']);
-        $b = ShopeeSetting::create(['mode' => 'live', 'store_name' => 'Outlet']);
-        $this->coreOrder(['marketplace_source' => 'shopee', 'store_id' => $a->id, 'store_name' => 'Main store', 'total' => 100]);
-        $this->coreOrder(['marketplace_source' => 'shopee', 'store_id' => $b->id, 'store_name' => 'Outlet', 'total' => 300]);
-        $this->coreOrder(['marketplace_source' => 'shopee', 'store_id' => 424242, 'store_name' => 'Gone store', 'total' => 50]);
+        $a = ShopeeStore::create(['mode' => 'live', 'store_name' => 'Main store']);
+        $b = ShopeeStore::create(['mode' => 'live', 'store_name' => 'Outlet']);
+        $this->coreOrder(['channel' => 'shopee', 'store_id' => $a->id, 'store_name' => 'Main store', 'total' => 100]);
+        $this->coreOrder(['channel' => 'shopee', 'store_id' => $b->id, 'store_name' => 'Outlet', 'total' => 300]);
+        $this->coreOrder(['channel' => 'shopee', 'store_id' => 424242, 'store_name' => 'Gone store', 'total' => 50]);
         $user = $this->viewer();
 
         $all = $this->actingAs($user)->get(route('dashboard'))->assertOk();
@@ -67,8 +67,8 @@ class DashboardStoreScopeTest extends TestCase
 
     public function test_one_store_on_a_channel_ranks_under_the_channel_name(): void
     {
-        $a = ShopeeSetting::create(['mode' => 'live', 'store_name' => 'Main store']);
-        $this->coreOrder(['marketplace_source' => 'shopee', 'store_id' => $a->id, 'store_name' => 'Main store']);
+        $a = ShopeeStore::create(['mode' => 'live', 'store_name' => 'Main store']);
+        $this->coreOrder(['channel' => 'shopee', 'store_id' => $a->id, 'store_name' => 'Main store']);
 
         $slices = $this->actingAs($this->viewer())->get(route('dashboard'))->assertOk()->viewData('platformSlices');
         $this->assertSame('Shopee: Main store', $slices[0]['name']);

@@ -15,7 +15,7 @@ class ParcelRequiredTest extends TestCase
 
     private function manager(): User
     {
-        $this->artisan('permissions:sync-catalogue');
+        $this->artisan('permissions:sync-catalog');
         $group = UserGroup::create(['name' => 'Parcel desk']);
         $group->permissions()->attach(Permission::query()->where('key', 'like', '%catalog%')->pluck('id')->all());
 
@@ -24,13 +24,12 @@ class ParcelRequiredTest extends TestCase
 
     private function seedProduct(string $sku, float $weight): int
     {
-        $pfx = (string) config('catalog.prefix');
-        $productId = DB::table($pfx . 'product')->insertGetId([
+        $productId = DB::table('products')->insertGetId([
             'model' => $sku, 'sku' => $sku, 'quantity' => 5, 'price' => 300,
             'status' => 1, 'image' => '', 'weight' => $weight, 'length' => $weight > 0 ? 10 : 0, 'width' => $weight > 0 ? 10 : 0, 'height' => $weight > 0 ? 10 : 0,
-            'manufacturer_id' => 0, 'date_added' => now(), 'date_modified' => now(), 'date_available' => now(),
+            'brand_id' => 0, 'date_added' => now(), 'date_modified' => now(), 'date_available' => now(),
         ]);
-        DB::table($pfx . 'product_description')->insert([
+        DB::table('product_descriptions')->insert([
             'product_id' => $productId, 'language_id' => (int) config('catalog.default_language_id'),
             'name' => 'Parcel product ' . $sku, 'description' => '',
             'meta_title' => '', 'meta_description' => '', 'meta_keyword' => '', 'tag' => '',
@@ -49,7 +48,7 @@ class ParcelRequiredTest extends TestCase
 
         $r->assertSessionHasErrors(['weight', 'length', 'width', 'height']);
         $this->assertStringContainsString('more than zero', session('errors')->first('weight'));
-        $this->assertNull(DB::table((string) config('catalog.prefix') . 'product')->where('price', 100)->first());
+        $this->assertNull(DB::table('products')->where('price', 100)->first());
     }
 
     public function test_a_new_product_with_a_parcel_is_born_fine(): void
@@ -74,7 +73,7 @@ class ParcelRequiredTest extends TestCase
             'name' => 'Renamed, parcel untouched', 'model' => 'OLD-ZERO', 'sku' => 'OLD-ZERO',
             'price' => '300', 'quantity' => '5', 'status' => '1',
             'weight' => '0', 'length' => '0', 'width' => '0', 'height' => '0',
-            'manufacturer_id' => '0', 'images_json' => '["catalog/demo.jpg"]',
+            'brand_id' => '0', 'images_json' => '["catalog/demo.jpg"]',
             'description' => 'A well-made product description with easily more than the eighty characters of text the strictest marketplace demands.',
         ])->assertSessionHasErrors(['weight', 'length', 'width', 'height']);
 
@@ -82,7 +81,7 @@ class ParcelRequiredTest extends TestCase
             'name' => 'Renamed, parcel filled', 'model' => 'OLD-ZERO', 'sku' => 'OLD-ZERO',
             'price' => '300', 'quantity' => '5', 'status' => '1',
             'weight' => '0.5', 'length' => '10', 'width' => '5', 'height' => '3',
-            'manufacturer_id' => '0', 'images_json' => '["catalog/demo.jpg"]',
+            'brand_id' => '0', 'images_json' => '["catalog/demo.jpg"]',
             'description' => 'A well-made product description with easily more than the eighty characters of text the strictest marketplace demands.',
         ])->assertSessionHasNoErrors();
     }

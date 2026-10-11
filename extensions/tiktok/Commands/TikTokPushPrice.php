@@ -1,16 +1,16 @@
 <?php
 
-namespace Extensions\tiktok\Commands;
+namespace Extensions\TikTok\Commands;
 
-use Extensions\tiktok\Models\TikTokListing;
-use Extensions\tiktok\Models\TikTokProductGroup;
-use Extensions\tiktok\Models\TikTokProductGroupProduct;
-use Extensions\tiktok\Models\TikTokSetting;
-use Extensions\tiktok\Services\TikTok\TikTokStockPricePush;
+use Extensions\TikTok\Models\TikTokListing;
+use Extensions\TikTok\Models\TikTokProductGroup;
+use Extensions\TikTok\Models\TikTokProductGroupProduct;
+use Extensions\TikTok\Models\TikTokStore;
+use Extensions\TikTok\Services\TikTok\TikTokStockPricePush;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Log;
 
-class TikTokPushPrice extends Command implements \App\Integrations\Contracts\SteppableAutomation
+class TikTokPushPrice extends Command implements \App\Channels\Contracts\SteppableAutomation
 {
     protected $signature = 'tiktok:push-price';
 
@@ -18,7 +18,7 @@ class TikTokPushPrice extends Command implements \App\Integrations\Contracts\Ste
 
     public function handle(): int
     {
-        $stores = TikTokSetting::enabledStores();
+        $stores = TikTokStore::enabledStores();
         if ($stores->isEmpty()) {
             $this->error('No enabled TikTok store. Configure TikTok settings first.');
 
@@ -43,7 +43,7 @@ class TikTokPushPrice extends Command implements \App\Integrations\Contracts\Ste
         return $worst;
     }
 
-    private function handleStore(TikTokSetting $raw): int
+    private function handleStore(TikTokStore $raw): int
     {
         $s = $raw->decrypted();
         $sandbox = $raw->mode === 'sandbox';
@@ -73,14 +73,12 @@ class TikTokPushPrice extends Command implements \App\Integrations\Contracts\Ste
 
             return 0;
         }
-
-        $pfx = (string) config('catalog.prefix');
         $c = [
             'app_key' => $appKey, 'app_secret' => $appSecret, 'token' => $token,
             'shop_cipher' => $shopCipher, 'warehouse_id' => $raw->warehouse_id ?: null,
         ];
         $this->info("Pushing prices for {$pivotRows->count()} product(s)...");
-        $results = app(TikTokStockPricePush::class)->push('price', $c, $pivotRows, $pfx, self::priceRule($pivotRows));
+        $results = app(TikTokStockPricePush::class)->push('price', $c, $pivotRows, self::priceRule($pivotRows));
         TikTokStockPricePush::recordOutcomes('price', $results['outcomes'], $raw);
 
         if ($results['err'] > 0) {
@@ -96,7 +94,7 @@ class TikTokPushPrice extends Command implements \App\Integrations\Contracts\Ste
         $pivots = collect($pivots);
         $pids = $pivots->pluck('product_id')->map(fn ($v) => (int) $v)->unique()->values()->all();
         $listings = TikTokListing::query()->whereIn('product_id', $pids ?: [0])->get()->keyBy('product_id');
-        $store = TikTokSetting::defaultStore();
+        $store = TikTokStore::defaultStore();
         $groupByProduct = TikTokProductGroupProduct::query()->whereIn('product_id', $pids ?: [0])
             ->whereIn('tiktok_product_group_id', TikTokProductGroup::query()->forStore($store)->select('id'))
             ->orderBy('id')->get()
@@ -118,11 +116,11 @@ class TikTokPushPrice extends Command implements \App\Integrations\Contracts\Ste
 
     public function automationUnits(\App\Models\ScheduledJob $job): array
     {
-        return ['label' => 'products', 'units' => \Extensions\tiktok\Services\TikTok\TikTokPushSteps::units()];
+        return ['label' => 'products', 'units' => \Extensions\TikTok\Services\TikTok\TikTokPushSteps::units()];
     }
 
     public function automationStep(\App\Models\ScheduledJob $job, array $units): array
     {
-        return \Extensions\tiktok\Services\TikTok\TikTokPushSteps::step('price', $units);
+        return \Extensions\TikTok\Services\TikTok\TikTokPushSteps::step('price', $units);
     }
 }

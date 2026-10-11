@@ -1,18 +1,18 @@
 <?php
 
-namespace Extensions\tiktok\Commands;
+namespace Extensions\TikTok\Commands;
 
-use Extensions\tiktok\Models\TikTokApiLog;
-use Extensions\tiktok\Models\TikTokOrder;
-use Extensions\tiktok\Models\TikTokOrderProduct;
-use Extensions\tiktok\Models\TikTokSetting;
-use Extensions\tiktok\Services\TikTok\TikTokClient;
-use Extensions\tiktok\Services\TikTok\TikTokReturnSync;
-use Extensions\tiktok\Services\TikTokCatalogOrderSync;
+use Extensions\TikTok\Models\TikTokApiLog;
+use Extensions\TikTok\Models\TikTokOrder;
+use Extensions\TikTok\Models\TikTokOrderProduct;
+use Extensions\TikTok\Models\TikTokStore;
+use Extensions\TikTok\Services\TikTok\TikTokClient;
+use Extensions\TikTok\Services\TikTok\TikTokReturnSync;
+use Extensions\TikTok\Services\TikTokCatalogOrderSync;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Log;
 
-class TikTokSyncOrders extends Command implements \App\Integrations\Contracts\SteppableAutomation
+class TikTokSyncOrders extends Command implements \App\Channels\Contracts\SteppableAutomation
 {
     use \App\Console\Concerns\StepsOutsideArtisan;
 
@@ -27,7 +27,7 @@ class TikTokSyncOrders extends Command implements \App\Integrations\Contracts\St
 
     public function handle(): int
     {
-        $stores = \Extensions\tiktok\Models\TikTokSetting::enabledStores();
+        $stores = \Extensions\TikTok\Models\TikTokStore::enabledStores();
         if ($stores->isEmpty()) { $this->error('No enabled TikTok store. Configure TikTok settings first.'); return 1; }
         $worst = 0;
         foreach ($stores as $store) {
@@ -46,7 +46,7 @@ class TikTokSyncOrders extends Command implements \App\Integrations\Contracts\St
         return $worst;
     }
 
-    private function handleStore(\Extensions\tiktok\Models\TikTokSetting $store): int
+    private function handleStore(\Extensions\TikTok\Models\TikTokStore $store): int
     {
         $raw = $store;
 
@@ -69,7 +69,7 @@ class TikTokSyncOrders extends Command implements \App\Integrations\Contracts\St
         return 0;
     }
 
-    private function syncReturns(TikTokSetting $raw): void
+    private function syncReturns(TikTokStore $raw): void
     {
         $creds = TikTokReturnSync::credsFrom($raw);
         if (!$creds) {
@@ -93,7 +93,7 @@ class TikTokSyncOrders extends Command implements \App\Integrations\Contracts\St
         }
     }
 
-    private function syncOrders(TikTokSetting $raw): int
+    private function syncOrders(TikTokStore $raw): int
     {
 
         $s = $raw->decrypted();
@@ -385,7 +385,7 @@ class TikTokSyncOrders extends Command implements \App\Integrations\Contracts\St
         $returnsOnly = ! empty($args['--returns']);
         $skipReturns = ! empty($args['--no-returns']);
         $units = [];
-        foreach (TikTokSetting::enabledStores() as $store) {
+        foreach (TikTokStore::enabledStores() as $store) {
             foreach (array_values(array_filter(['orders', 'returns'], fn ($p) => $returnsOnly ? $p === 'returns' : ($p !== 'returns' || ! $skipReturns))) as $phase) {
                 $units[] = $store->id . ':' . $phase;
             }
@@ -407,7 +407,7 @@ class TikTokSyncOrders extends Command implements \App\Integrations\Contracts\St
         $notes = [];
         foreach ($units as $unit) {
             [$sid, $phase] = array_pad(explode(':', (string) $unit, 2), 2, '');
-            $store = TikTokSetting::query()->find((int) $sid);
+            $store = TikTokStore::query()->find((int) $sid);
             if (! $store) {
                 $failed++;
                 continue;

@@ -1,6 +1,6 @@
 <?php
 
-namespace Extensions\ventacart\Models;
+namespace Extensions\VentaCart\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -8,11 +8,11 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class VentaCartProductGroup extends Model
 {
-    protected $table = 'ventacart_product_groups';
+    protected $table = 'ch_ventacart_product_groups';
 
     protected $fillable = [
         'watermark_template_id',
-        'ventacart_setting_id',
+        'store_id',
         'name',
         'ventacart_category_id',
         'ventacart_brand_id',
@@ -25,9 +25,9 @@ class VentaCartProductGroup extends Model
         'markup_fixed'         => 'decimal:2',
     ];
 
-    public function setting(): BelongsTo
+    public function store(): BelongsTo
     {
-        return $this->belongsTo(VentaCartSetting::class, 'ventacart_setting_id');
+        return $this->belongsTo(VentaCartStore::class, 'store_id');
     }
 
     public function products(): HasMany

@@ -13,12 +13,12 @@
     $storeHost = parse_url((string) $store->base_url, PHP_URL_HOST) ?: $store->base_url;
 
     $statusMap = $orderStatusMaps->get($store->id, collect());
-    $storeSyncLogs = $recentLogs->where('opencart_setting_id', $store->id);
+    $storeSyncLogs = $recentLogs->where('store_id', $store->id);
 
     $importSteps = [
         ['entity' => 'categories',    'label' => 'Categories',    'note' => 'Products need somewhere to land.'],
-        ['entity' => 'manufacturers', 'label' => 'Manufacturers', 'note' => 'Pulled alongside categories.'],
-        ['entity' => 'options',       'label' => 'Variations',    'note' => 'Needs categories and manufacturers first.'],
+        ['entity' => 'brands', 'label' => 'Brands', 'note' => 'Pulled alongside categories.'],
+        ['entity' => 'variations',    'label' => 'Variations',    'note' => 'Needs categories and brands first.'],
         ['entity' => 'products',      'label' => 'Products',      'note' => 'Needs variations first.'],
         ['entity' => 'status_map',    'label' => 'Order statuses','note' => 'Map them before orders arrive, or every order lands on a raw numeric status.'],
         ['entity' => 'orders',        'label' => 'Orders',        'note' => 'Last. Stock is not adjusted for a historical import.'],
@@ -113,15 +113,15 @@
                         :can-reveal="$canManageOpencart"
                         :disabled="!$canManageOpencart" />
 
-                    <x-ui.field label="Colour" for="oc-brand-color" name="brand_color"
+                    <x-ui.field label="Color" for="oc-brand-color" name="brand_color"
                                 hint="Used wherever this store appears in a chart or a report.">
-                        <div class="cs-colour" data-colour-pair>
-                            <input type="color" id="oc-brand-color" name="brand_color" class="cs-colour__swatch"
-                                   value="{{ $store->brand_color ?: '#16a34a' }}" data-colour-input
-                                   @disabled(!$canManageOpencart) aria-label="Store colour">
-                            <x-ui.input class="cs-colour__hex fm-input--num" maxlength="7" data-colour-hex
+                        <div class="cs-color" data-color-pair>
+                            <input type="color" id="oc-brand-color" name="brand_color" class="cs-color__swatch"
+                                   value="{{ $store->brand_color ?: '#16a34a' }}" data-color-input
+                                   @disabled(!$canManageOpencart) aria-label="Store color">
+                            <x-ui.input class="cs-color__hex fm-input--num" maxlength="7" data-color-hex
                                         value="{{ $store->brand_color ?: '#16a34a' }}"
-                                        aria-label="Store colour as a hex value" :disabled="!$canManageOpencart" />
+                                        aria-label="Store color as a hex value" :disabled="!$canManageOpencart" />
                         </div>
                     </x-ui.field>
 
@@ -352,7 +352,7 @@
             <x-ui.hint label="About the scheduled jobs">How often each OpenCart sync runs for {{ $store->store_name ?: $store->base_url }}. Changes take effect the next time the scheduler wakes up.</x-ui.hint>
         </div>
 
-        @include('partials._automations_tab', ['integration' => 'opencart', 'storeId' => $store->id])
+        @include('partials._automations_tab', ['extension' => 'opencart', 'storeId' => $store->id])
     </section>
 </div>
 
@@ -402,13 +402,13 @@
 
     <section class="fm-section" data-import-push hidden>
         <div class="fm-section__head">
-            <h2 class="fm-section__title">Send the catalog the other way</h2>
+            <h2 class="fm-section__title">Send the Master Catalog the other way</h2>
         </div>
-        <p class="fm-section__note">Pushes every catalog product to {{ $storeName }}, overwriting the store's own copy of each one. This is the opposite direction to the checklist above and is not part of it.</p>
+        <p class="fm-section__note">Pushes every Master Catalog product to {{ $storeName }}, overwriting the store's own copy of each one. This is the opposite direction to the checklist above and is not part of it.</p>
 
         <div class="cs-actions">
             <x-ui.button type="button" variant="danger" data-push-all
-                         data-confirm-message="Push every catalog product to {{ $storeName }}? Product data on the OpenCart store is overwritten.">Push all products</x-ui.button>
+                         data-confirm-message="Push every Master Catalog product to {{ $storeName }}? Product data on the OpenCart store is overwritten.">Push all products</x-ui.button>
         </div>
     </section>
 </div>

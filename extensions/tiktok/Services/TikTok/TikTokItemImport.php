@@ -1,9 +1,9 @@
 <?php
 
-namespace Extensions\tiktok\Services\TikTok;
+namespace Extensions\TikTok\Services\TikTok;
 
 use App\Support\MarketplaceAnswer;
-use Extensions\tiktok\Models\TikTokListing;
+use Extensions\TikTok\Models\TikTokListing;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -41,8 +41,6 @@ class TikTokItemImport
 
         $categoryId = (string) (collect((array) data_get($d, 'category_chains', []))
             ->firstWhere('is_leaf', true)['id'] ?? data_get($d, 'category_chains.0.id') ?? data_get($d, 'category_id') ?? '');
-
-        $pfx = (string) config('catalog.prefix');
         $langId = (int) config('catalog.default_language_id');
 
         try {
@@ -53,8 +51,8 @@ class TikTokItemImport
                 }
             }
 
-            $productId = DB::transaction(function () use ($pfx, $langId, $d, $skus, $name, $price, $qty, $sellerSku, $hasVariations, $tiktokProductId, $categoryId) {
-                $productId = DB::table($pfx . 'product')->insertGetId([
+            $productId = DB::transaction(function () use ( $langId, $d, $skus, $name, $price, $qty, $sellerSku, $hasVariations, $tiktokProductId, $categoryId) {
+                $productId = DB::table('products')->insertGetId([
                     'model' => ($hasVariations ? '' : $sellerSku) ?: ('TTS-' . $tiktokProductId),
                     'sku' => $hasVariations ? '' : $sellerSku,
                     'quantity' => $qty,
@@ -65,11 +63,11 @@ class TikTokItemImport
                     'length' => (float) (data_get($d, 'package_dimensions.length') ?? 0),
                     'width' => (float) (data_get($d, 'package_dimensions.width') ?? 0),
                     'height' => (float) (data_get($d, 'package_dimensions.height') ?? 0),
-                    'manufacturer_id' => 0,
+                    'brand_id' => 0,
                     'date_added' => now(), 'date_modified' => now(), 'date_available' => now(),
                 ]);
 
-                DB::table($pfx . 'product_description')->insert([
+                DB::table('product_descriptions')->insert([
                     'product_id' => $productId,
                     'language_id' => $langId,
                     'name' => Str::limit($name, 250, ''),
@@ -83,9 +81,9 @@ class TikTokItemImport
                     ->filter()->values()->all();
                 $paths = $this->downloadImages($imageUrls, $tiktokProductId);
                 if ($paths !== []) {
-                    DB::table($pfx . 'product')->where('product_id', $productId)->update(['image' => $paths[0]]);
+                    DB::table('products')->where('product_id', $productId)->update(['image' => $paths[0]]);
                     foreach (array_slice($paths, 1) as $i => $path) {
-                        DB::table($pfx . 'product_image')->insert([
+                        DB::table('product_images')->insert([
                             'product_id' => $productId, 'image' => $path, 'sort_order' => $i,
                         ]);
                     }
@@ -134,7 +132,7 @@ class TikTokItemImport
         return [
             'ok' => true,
             'product_id' => $productId,
-            'message' => "Imported \"{$name}\" as catalog product #{$productId}"
+            'message' => "Imported \"{$name}\" as Master Catalog product #{$productId}"
                 . ($hasVariations ? ' with ' . count($skus) . ' variations' : '')
                 . ', linked to TikTok Shop product ' . $tiktokProductId . '.' . (\App\Support\Catalog\SkuFallback::note($minted) !== '' ? ' ' . \App\Support\Catalog\SkuFallback::note($minted) : ''),
         ];
@@ -184,23 +182,23 @@ class TikTokItemImport
         $data = ['sku' => ''];
         if (count($axes) === 2) {
             $uniq = fn (string $axis) => array_values(array_unique(array_filter(array_map(fn ($s) => $valueOf($s, $axis), $skus))));
-            $data['option1_name'] = $axes[0];
-            $data['option2_name'] = $axes[1];
-            $data['option1_values'] = $uniq($axes[0]);
-            $data['option2_values'] = $uniq($axes[1]);
+            $data['type1_name'] = $axes[0];
+            $data['type2_name'] = $axes[1];
+            $data['type1_values'] = $uniq($axes[0]);
+            $data['type2_values'] = $uniq($axes[1]);
             $data['combinations'] = array_map(fn ($s) => $rowFor($s) + [
                 'opt1' => $valueOf($s, $axes[0]),
                 'opt2' => $valueOf($s, $axes[1]),
             ], $skus);
         } else {
-            $data['option_name'] = $axes[0];
+            $data['variation_type_name'] = $axes[0];
             $data['values'] = array_map(function ($s, $i) use ($rowFor, $valueOf, $axes) {
                 return $rowFor($s) + ['name' => $valueOf($s, $axes[0]) ?: trim((string) ($s['seller_sku'] ?? '')) ?: ('Variation ' . ($i + 1))];
             }, $skus, array_keys($skus));
         }
 
         app(\App\Http\Controllers\Catalog\ProductController::class)
-            ->saveAbsoluteOptions($productId, Request::create('/', 'POST', $data));
+            ->saveAbsoluteVariations($productId, Request::create('/', 'POST', $data));
     }
 
     private function downloadImages(array $urls, string $productId): array

@@ -20,7 +20,7 @@ class ProductVideoController extends Controller
 
         $productId = (int) ($data['product_id'] ?? 0);
         if ($productId > 0) {
-            abort_unless(\Illuminate\Support\Facades\DB::table((string) config('catalog.prefix') . 'product')->where('product_id', $productId)->exists(), 404);
+            abort_unless(\Illuminate\Support\Facades\DB::table('products')->where('product_id', $productId)->exists(), 404);
         }
 
         $stored = ProductVideoFile::put($request->file('video'), $productId, ProductVideoFile::stagingKey((string) ($data['token'] ?? '')));

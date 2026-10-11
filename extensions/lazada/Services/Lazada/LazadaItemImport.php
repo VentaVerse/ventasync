@@ -1,9 +1,9 @@
 <?php
 
-namespace Extensions\lazada\Services\Lazada;
+namespace Extensions\Lazada\Services\Lazada;
 
-use Extensions\lazada\Models\LazadaProduct;
-use Extensions\lazada\Models\LazadaProductAttribute;
+use Extensions\Lazada\Models\LazadaListing;
+use Extensions\Lazada\Models\LazadaListingAttribute;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -18,14 +18,14 @@ class LazadaItemImport
     ) {
     }
 
-    public function import(object $setting, array $creds, string $itemId): array
+    public function import(object $store, array $creds, string $itemId): array
     {
         if ($refused = \App\Plans\Quota::importRefusal()) {
             return $refused;
         }
 
         try {
-            $data = $this->live->raw($setting, $creds, $itemId);
+            $data = $this->live->raw($store, $creds, $itemId);
         } catch (\RuntimeException $e) {
             return ['ok' => false, 'message' => 'Lazada did not hand the item over: ' . $e->getMessage()];
         }
@@ -44,21 +44,19 @@ class LazadaItemImport
 
         $axes = $this->axes($skus);
         $hasVariations = count($skus) > 1 && $axes !== [];
-
-        $pfx = (string) config('catalog.prefix');
         $langId = (int) config('catalog.default_language_id');
 
         try {
             $categoryId = (int) ($data['primary_category'] ?? 0);
-            if ($categoryId > 0 && ! \Extensions\lazada\Models\LazadaCategoryTemplate::query()->where('primary_category_id', $categoryId)->exists()) {
+            if ($categoryId > 0 && ! \Extensions\Lazada\Models\LazadaCategoryTemplate::query()->where('primary_category_id', $categoryId)->exists()) {
                 try {
-                    app(\Extensions\lazada\Controllers\LazadaProductController::class)->readCategoryTemplate($categoryId, $this->client);
+                    app(\Extensions\Lazada\Controllers\LazadaProductController::class)->readCategoryTemplate($categoryId, $this->client);
                 } catch (\Throwable) {
                 }
             }
 
-            $productId = DB::transaction(function () use ($pfx, $langId, $data, $attrs, $skus, $first, $name, $sku, $price, $qty, $itemId, $axes, $hasVariations, $setting, $creds) {
-                $productId = DB::table($pfx . 'product')->insertGetId([
+            $productId = DB::transaction(function () use ( $langId, $data, $attrs, $skus, $first, $name, $sku, $price, $qty, $itemId, $axes, $hasVariations, $store, $creds) {
+                $productId = DB::table('products')->insertGetId([
                     'model' => ($hasVariations ? '' : $sku) ?: ('LZD-' . $itemId),
                     'sku' => $hasVariations ? '' : $sku,
                     'quantity' => $qty,
@@ -69,11 +67,11 @@ class LazadaItemImport
                     'length' => (float) ($first['package_length'] ?? 0),
                     'width' => (float) ($first['package_width'] ?? 0),
                     'height' => (float) ($first['package_height'] ?? 0),
-                    'manufacturer_id' => 0,
+                    'brand_id' => 0,
                     'date_added' => now(), 'date_modified' => now(), 'date_available' => now(),
                 ]);
 
-                DB::table($pfx . 'product_description')->insert([
+                DB::table('product_descriptions')->insert([
                     'product_id' => $productId,
                     'language_id' => $langId,
                     'name' => Str::limit($name, 250, ''),
@@ -85,9 +83,9 @@ class LazadaItemImport
                 $imageUrls = LazadaImages::ofItem($data);
                 $paths = $this->downloadImages($imageUrls, $itemId);
                 if ($paths !== []) {
-                    DB::table($pfx . 'product')->where('product_id', $productId)->update(['image' => $paths[0]]);
+                    DB::table('products')->where('product_id', $productId)->update(['image' => $paths[0]]);
                     foreach (array_slice($paths, 1) as $i => $path) {
-                        DB::table($pfx . 'product_image')->insert([
+                        DB::table('product_images')->insert([
                             'product_id' => $productId, 'image' => $path, 'sort_order' => $i,
                         ]);
                     }
@@ -97,7 +95,7 @@ class LazadaItemImport
                     $this->writeVariations($productId, $skus, $axes, $itemId);
                 }
 
-                $listing = LazadaProduct::create([
+                $listing = LazadaListing::create([
                     'product_id' => $productId,
                     'primary_category_id' => (int) ($data['primary_category'] ?? 0) ?: null,
                     'lazada_item_id' => (string) ($data['item_id'] ?? $itemId),
@@ -109,14 +107,14 @@ class LazadaItemImport
                     if (in_array($key, ['name', 'description', 'short_description'], true) || ! is_scalar($value) || trim((string) $value) === '') {
                         continue;
                     }
-                    LazadaProductAttribute::create([
-                        'lazada_product_id' => $listing->id,
+                    LazadaListingAttribute::create([
+                        'lazada_listing_id' => $listing->id,
                         'attribute_key' => (string) $key,
                         'value' => Str::limit((string) $value, 2000, ''),
                     ]);
                 }
 
-                $this->itemCache->fetchAndCacheVariants($listing, $setting, $this->client, 'lazada.product.item.get.import');
+                $this->itemCache->fetchAndCacheVariants($listing, $store, $this->client, 'lazada.product.item.get.import');
 
                 return $productId;
             });
@@ -130,7 +128,7 @@ class LazadaItemImport
         return [
             'ok' => true,
             'product_id' => $productId,
-            'message' => "Imported \"{$name}\" as catalog product #{$productId}"
+            'message' => "Imported \"{$name}\" as Master Catalog product #{$productId}"
                 . ($hasVariations ? ' with ' . count($skus) . ' variations' : '')
                 . ', linked to Lazada item ' . $itemId . '.' . (\App\Support\Catalog\SkuFallback::note($minted) !== '' ? ' ' . \App\Support\Catalog\SkuFallback::note($minted) : ''),
         ];
@@ -176,23 +174,23 @@ class LazadaItemImport
 
         $data = ['sku' => ''];
         if (count($axes) === 2) {
-            $data['option1_name'] = ucfirst(str_replace('_', ' ', $axes[0]));
-            $data['option2_name'] = ucfirst(str_replace('_', ' ', $axes[1]));
-            $data['option1_values'] = $axisValues($axes[0]);
-            $data['option2_values'] = $axisValues($axes[1]);
+            $data['type1_name'] = ucfirst(str_replace('_', ' ', $axes[0]));
+            $data['type2_name'] = ucfirst(str_replace('_', ' ', $axes[1]));
+            $data['type1_values'] = $axisValues($axes[0]);
+            $data['type2_values'] = $axisValues($axes[1]);
             $data['combinations'] = array_map(fn ($s) => $rowFor($s) + [
                 'opt1' => trim((string) data_get($s, 'saleProp.' . $axes[0], '')),
                 'opt2' => trim((string) data_get($s, 'saleProp.' . $axes[1], '')),
             ], $skus);
         } else {
-            $data['option_name'] = ucfirst(str_replace('_', ' ', $axes[0]));
+            $data['variation_type_name'] = ucfirst(str_replace('_', ' ', $axes[0]));
             $data['values'] = array_map(fn ($s) => $rowFor($s) + [
                 'name' => trim((string) data_get($s, 'saleProp.' . $axes[0], '')) ?: trim((string) ($s['SellerSku'] ?? '')),
             ], $skus);
         }
 
         app(\App\Http\Controllers\Catalog\ProductController::class)
-            ->saveAbsoluteOptions($productId, Request::create('/', 'POST', $data));
+            ->saveAbsoluteVariations($productId, Request::create('/', 'POST', $data));
     }
 
     private function downloadImages(array $urls, string $itemId, string $suffix = ''): array

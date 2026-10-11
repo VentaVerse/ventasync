@@ -2,11 +2,11 @@
 
 namespace App\Http\Controllers;
 
-use App\Integrations\IntegrationRegistry;
+use App\Channels\ChannelRegistry;
 use App\Models\Catalog\Order;
 use App\Models\Catalog\Product;
 use App\Models\Catalog\Category;
-use App\Models\Catalog\Manufacturer;
+use App\Models\Catalog\Brand;
 use App\Models\Catalog\OrderStatus;
 use App\Support\StoreKey;
 use Illuminate\Http\Request;
@@ -64,14 +64,13 @@ class DashboardController extends Controller
 
     public function index(Request $request)
     {
-        $pfx = (string) config('catalog.prefix');
         $langId = (int) config('catalog.default_language_id');
 
         $range = array_key_exists((string) $request->query('range'), self::RANGES)
             ? (string) $request->query('range')
             : '30d';
 
-        $storeOptions = app(IntegrationRegistry::class)->visibleStoreOptions($request->user());
+        $storeOptions = app(ChannelRegistry::class)->visibleStoreOptions($request->user());
         $storeKey = (string) $request->query('store', '');
         if (! in_array($storeKey, array_column($storeOptions, 'key'), true)) {
             $storeKey = '';
@@ -83,13 +82,13 @@ class DashboardController extends Controller
 
         $ordersBySource = $this->orders($storeKey)
             ->select(
-                'marketplace_source',
+                'channel',
                 DB::raw('COUNT(*) as cnt'),
                 DB::raw('SUM(CASE WHEN order_status_id IN (' . ($revenueStatusIds->isNotEmpty() ? $revenueStatusIds->implode(',') : '0') . ') THEN total ELSE 0 END) as rev')
             )
-            ->groupBy('marketplace_source')
+            ->groupBy('channel')
             ->get()
-            ->keyBy(fn ($r) => $r->marketplace_source ?: 'direct');
+            ->keyBy(fn ($r) => $r->channel ?: 'direct');
 
         $todayStart = now()->startOfDay();
         $rolling7 = now()->startOfWeek(\Carbon\Carbon::MONDAY);
@@ -123,13 +122,13 @@ class DashboardController extends Controller
         $platformSlices = $this->buildPlatformData($range, $storeKey);
 
         $recentOrders = $this->orders($storeKey, 'o')
-            ->leftJoin($pfx . 'order_status as os', function ($j) use ($langId) {
+            ->leftJoin('order_statuses as os', function ($j) use ($langId) {
                 $j->on('o.order_status_id', '=', 'os.order_status_id')
                     ->where('os.language_id', '=', $langId);
             })
             ->orderByDesc('o.date_added')
             ->limit(10)
-            ->get(['o.order_id', 'o.firstname', 'o.lastname', 'o.total', 'o.foreign_total', 'o.currency_code', 'o.date_added', 'os.name as status_name', 'o.marketplace_source']);
+            ->get(['o.order_id', 'o.firstname', 'o.lastname', 'o.total', 'o.foreign_total', 'o.currency_code', 'o.date_added', 'os.name as status_name', 'o.channel']);
 
         $extensionDashboardData = [
             'lazadaProducts' => 0,
@@ -146,7 +145,7 @@ class DashboardController extends Controller
             'monthlyPoSpend' => 0,
         ];
 
-        $invRow = DB::table($pfx . 'product')
+        $invRow = DB::table('products')
             ->where('status', 1)
             ->selectRaw('COUNT(*) as products, SUM(quantity * cost) as at_cost, SUM(quantity * price) as at_sale')
             ->first();
@@ -155,7 +154,7 @@ class DashboardController extends Controller
         $inventoryAtSale = (float) ($invRow->at_sale ?? 0);
         $inventoryMargin = $inventoryAtSale > 0 ? round(($inventoryAtSale - $inventoryAtCost) / $inventoryAtSale * 100, 1) : 0;
 
-        $registry = app(IntegrationRegistry::class);
+        $registry = app(ChannelRegistry::class);
 
         $merged = ['channelSyncStatuses' => [], 'channelPending' => []];
         foreach ($registry->dashboardContributors() as $contributor) {
@@ -169,7 +168,7 @@ class DashboardController extends Controller
         $extensionDashboardData = array_merge($extensionDashboardData, $merged);
 
         $sourceLabelsMap = [];
-        foreach ($registry->availableMarketplaceSourceOptions() as $opt) {
+        foreach ($registry->availableChannelOptions() as $opt) {
             $sourceLabelsMap[$opt['value']] = $opt;
         }
 
@@ -231,7 +230,7 @@ class DashboardController extends Controller
 
     private function orders(string $storeKey, string $alias = ''): \Illuminate\Database\Query\Builder
     {
-        $table = (string) config('catalog.prefix') . 'order';
+        $table = 'orders';
         $q = DB::table($alias !== '' ? $table . ' as ' . $alias : $table);
         if ($storeKey !== '') {
             StoreKey::apply($q, [$storeKey], $alias !== '' ? $alias : $table);
@@ -242,7 +241,6 @@ class DashboardController extends Controller
 
     private function buildPlatformData(string $range, string $storeKey = ''): array
     {
-        $pfx = (string) config('catalog.prefix');
         $revIds = OrderStatus::where('add_revenue', 1)->pluck('order_status_id');
 
         $window = $this->rangeWindow($range);
@@ -250,31 +248,31 @@ class DashboardController extends Controller
         $rows = $this->orders($storeKey)
             ->whereBetween('date_added', [$window['start'], $window['end']])
             ->select(
-                'marketplace_source',
+                'channel',
                 'store_id',
                 'store_name',
                 DB::raw('COUNT(*) as orders'),
                 DB::raw('MAX(date_added) as last_order'),
                 DB::raw('SUM(CASE WHEN order_status_id IN (' . ($revIds->isNotEmpty() ? $revIds->implode(',') : '0') . ') THEN total ELSE 0 END) as revenue')
             )
-            ->groupBy('marketplace_source', 'store_id', 'store_name')
+            ->groupBy('channel', 'store_id', 'store_name')
             ->get();
 
         $liveNames = [];
-        foreach (app(IntegrationRegistry::class)->visibleStoreOptions(auth()->user()) as $opt) {
+        foreach (app(ChannelRegistry::class)->visibleStoreOptions(auth()->user()) as $opt) {
             if (($opt['store_id'] ?? 0) > 0 && ($opt['source'] ?? '') !== '') {
                 $liveNames[$opt['source'] . ':' . (int) $opt['store_id']] = (string) $opt['label'];
             }
         }
 
         $sourceOptionsMap = [];
-        foreach (app(IntegrationRegistry::class)->availableMarketplaceSourceOptions() as $opt) {
+        foreach (app(ChannelRegistry::class)->availableChannelOptions() as $opt) {
             $sourceOptionsMap[$opt['value']] = $opt;
         }
 
         $slices = [];
         foreach ($rows as $row) {
-            $src = trim((string) $row->marketplace_source);
+            $src = trim((string) $row->channel);
 
             if ($src === '') {
                 $label = 'Direct';
@@ -363,7 +361,7 @@ class DashboardController extends Controller
             return $this->firstOrderMonth->copy();
         }
 
-        $first = DB::table((string) config('catalog.prefix') . 'order')->min('date_added');
+        $first = DB::table('orders')->min('date_added');
 
         $this->firstOrderMonth = $first
             ? \Carbon\Carbon::parse($first)->startOfMonth()
@@ -374,7 +372,6 @@ class DashboardController extends Controller
 
     private function buildChartData(string $range, string $storeKey = ''): array
     {
-        $pfx = (string) config('catalog.prefix');
         $revIds = OrderStatus::where('add_revenue', 1)->pluck('order_status_id');
         $revCase = 'SUM(CASE WHEN order_status_id IN (' . ($revIds->isNotEmpty() ? $revIds->implode(',') : '0') . ') THEN total ELSE 0 END) as revenue';
 

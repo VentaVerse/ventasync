@@ -32,7 +32,7 @@ class ListingWatermarkTest extends TestCase
     private function template(string $name): WatermarkTemplate
     {
         return WatermarkTemplate::create([
-            'integration' => 'shopee', 'store_id' => 1,
+            'channel' => 'shopee', 'store_id' => 1,
             'name' => $name, 'image_path' => $this->png('catalog/marks/' . $name . '.png', true),
             'position' => 'bottom-right', 'size_percent' => 20, 'offset_x_percent' => 0, 'offset_y_percent' => 0, 'opacity' => 1,
         ]);
@@ -74,17 +74,17 @@ class ListingWatermarkTest extends TestCase
         $a = $this->template('store-a');
         $b = $this->template('store-b');
         DB::statement('SET FOREIGN_KEY_CHECKS=0');
-        $groupA = DB::table('ventacart_product_groups')->insertGetId(['ventacart_setting_id' => 1, 'name' => 'A', 'watermark_template_id' => $a->id, 'created_at' => now(), 'updated_at' => now()]);
-        $groupB = DB::table('ventacart_product_groups')->insertGetId(['ventacart_setting_id' => 2, 'name' => 'B', 'watermark_template_id' => $b->id, 'created_at' => now(), 'updated_at' => now()]);
-        DB::table('ventacart_product_group_products')->insert([
+        $groupA = DB::table('ch_ventacart_product_groups')->insertGetId(['store_id' => 1, 'name' => 'A', 'watermark_template_id' => $a->id, 'created_at' => now(), 'updated_at' => now()]);
+        $groupB = DB::table('ch_ventacart_product_groups')->insertGetId(['store_id' => 2, 'name' => 'B', 'watermark_template_id' => $b->id, 'created_at' => now(), 'updated_at' => now()]);
+        DB::table('ch_ventacart_product_group_products')->insert([
             ['ventacart_product_group_id' => $groupA, 'product_id' => 77, 'created_at' => now(), 'updated_at' => now()],
             ['ventacart_product_group_id' => $groupB, 'product_id' => 77, 'created_at' => now(), 'updated_at' => now()],
         ]);
         DB::statement('SET FOREIGN_KEY_CHECKS=1');
 
-        $args = ['ventacart_product_groups', 'ventacart_product_group_products', 'ventacart_product_group_id', 77, 'ventacart_setting_id'];
+        $args = ['ch_ventacart_product_groups', 'ch_ventacart_product_group_products', 'ventacart_product_group_id', 77, 'store_id'];
         $this->assertSame($a->id, ListingWatermark::groupTemplateId(...[...$args, 1]));
         $this->assertSame($b->id, ListingWatermark::groupTemplateId(...[...$args, 2]));
-        $this->assertNull(ListingWatermark::groupTemplateId('ventacart_product_groups', 'ventacart_product_group_products', 'ventacart_product_group_id', 999, 'ventacart_setting_id', 1));
+        $this->assertNull(ListingWatermark::groupTemplateId('ch_ventacart_product_groups', 'ch_ventacart_product_group_products', 'ventacart_product_group_id', 999, 'store_id', 1));
     }
 }

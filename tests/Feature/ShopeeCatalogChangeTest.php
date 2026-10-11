@@ -6,9 +6,9 @@ use App\Extensions\ExtensionManager;
 use App\Models\Admin\Permission;
 use App\Models\Admin\UserGroup;
 use App\Models\User;
-use Extensions\shopee\Models\ShopeeListing;
-use Extensions\shopee\Models\ShopeeSetting;
-use Extensions\shopee\Services\Shopee\ShopeeClient;
+use Extensions\Shopee\Models\ShopeeListing;
+use Extensions\Shopee\Models\ShopeeStore;
+use Extensions\Shopee\Services\Shopee\ShopeeClient;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
@@ -26,11 +26,11 @@ class ShopeeCatalogChangeTest extends TestCase
         $manager = $this->app->make(ExtensionManager::class);
         $manager->install('shopee');
         $manager->enable('shopee');
-        $this->app->register(\Extensions\shopee\ShopeeExtension::class);
+        $this->app->register(\Extensions\Shopee\ShopeeExtension::class);
         $this->app['router']->getRoutes()->refreshNameLookups();
-        $this->artisan('permissions:sync-catalogue');
+        $this->artisan('permissions:sync-catalog');
 
-        ShopeeSetting::query()->create([
+        ShopeeStore::query()->create([
             'partner_id' => 1001, 'partner_key' => 'k', 'shop_id' => 2002, 'store_name' => 'Main shop',
             'access_token' => 't', 'refresh_token' => 'r', 'mode' => 'production',
         ]);
@@ -61,14 +61,13 @@ class ShopeeCatalogChangeTest extends TestCase
 
     private function product(string $name, string $description): int
     {
-        $pfx = (string) config('catalog.prefix');
-        $id = DB::table($pfx . 'product')->insertGetId([
+        $id = DB::table('products')->insertGetId([
             'model' => 'SCC', 'sku' => 'SCC-' . uniqid(), 'quantity' => 5, 'price' => 130,
             'status' => 1, 'image' => 'catalog/plug.jpg', 'weight' => 0.05, 'length' => 2, 'width' => 2, 'height' => 1,
-            'manufacturer_id' => 0,
+            'brand_id' => 0,
             'date_added' => now(), 'date_modified' => now()->subMinute(), 'date_available' => now(),
         ]);
-        DB::table($pfx . 'product_description')->insert([
+        DB::table('product_descriptions')->insert([
             'product_id' => $id, 'language_id' => (int) config('catalog.default_language_id'),
             'name' => $name, 'description' => $description,
             'meta_title' => '', 'meta_description' => '', 'meta_keyword' => '', 'tag' => '',
@@ -79,11 +78,10 @@ class ShopeeCatalogChangeTest extends TestCase
 
     private function editCatalog(int $productId, array $words = []): void
     {
-        $pfx = (string) config('catalog.prefix');
         if ($words !== []) {
-            DB::table($pfx . 'product_description')->where('product_id', $productId)->update($words);
+            DB::table('product_descriptions')->where('product_id', $productId)->update($words);
         }
-        DB::table($pfx . 'product')->where('product_id', $productId)->update(['date_modified' => now()->addMinute()]);
+        DB::table('products')->where('product_id', $productId)->update(['date_modified' => now()->addMinute()]);
     }
 
     public function test_the_listing_page_shows_the_catalog_change_when_the_catalog_moved(): void
@@ -143,9 +141,7 @@ class ShopeeCatalogChangeTest extends TestCase
             'catalog' => ['title' => 'Plug, catalog name', 'description_edited' => '0'],
         ])->assertRedirect(route('ext.shopee.listings.edit', $pid) . '?back=' . urlencode('/channels'))
             ->assertSessionHas('status', 'Saved.');
-
-        $pfx = (string) config('catalog.prefix');
-        $this->assertSame('Plug, catalog name', DB::table($pfx . 'product_description')->where('product_id', $pid)->value('name'));
+        $this->assertSame('Plug, catalog name', DB::table('product_descriptions')->where('product_id', $pid)->value('name'));
 
         $listing = ShopeeListing::query()->where('product_id', $pid)->first();
         $this->assertSame('Plug for Shopee', $listing->item_name);
@@ -170,8 +166,8 @@ class ShopeeCatalogChangeTest extends TestCase
         $pid = $this->product('Plug', '<p>Words.</p>');
         ShopeeListing::query()->create(['product_id' => $pid]);
         $this->editCatalog($pid, ['name' => 'Plug v2']);
-        $group = \Extensions\shopee\Models\ShopeeProductGroup::create(['name' => 'Plugs', 'shopee_category_id' => 100013, 'logistic_ids' => [41003]]);
-        DB::table('shopee_product_group_products')->insert(['shopee_product_group_id' => $group->id, 'product_id' => $pid]);
+        $group = \Extensions\Shopee\Models\ShopeeProductGroup::create(['name' => 'Plugs', 'shopee_category_id' => 100013, 'logistic_ids' => [41003]]);
+        DB::table('ch_shopee_product_group_products')->insert(['shopee_product_group_id' => $group->id, 'product_id' => $pid]);
 
         $manager = $this->user(false);
         $manager->userGroup->permissions()->attach(Permission::whereIn('key', ['manage_shopee/product_group', 'view_shopee/product_group'])->pluck('id')->all());

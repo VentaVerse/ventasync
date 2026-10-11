@@ -43,17 +43,17 @@ final class StoreKey
             foreach ($parsed as $p) {
                 $q->orWhere(function ($w) use ($p, $col) {
                     if ($p['source'] === '') {
-                        $w->whereNull($col('marketplace_source'))->orWhere($col('marketplace_source'), '');
+                        $w->whereNull($col('channel'))->orWhere($col('channel'), '');
 
                         return;
                     }
                     if (in_array($p['source'], self::SOURCE_NAMES_STORE, true)) {
-                        $w->where($col('marketplace_source'), $p['source'])
-                            ->orWhere($col('marketplace_source'), 'like', $p['source'] . ':%');
+                        $w->where($col('channel'), $p['source'])
+                            ->orWhere($col('channel'), 'like', $p['source'] . ':%');
 
                         return;
                     }
-                    $w->where($col('marketplace_source'), $p['source']);
+                    $w->where($col('channel'), $p['source']);
                     if ($p['store_id'] !== null) {
                         $w->where($col('store_id'), $p['store_id']);
                     }

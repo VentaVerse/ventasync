@@ -1,19 +1,19 @@
 <?php
 
-namespace Extensions\tiktok\Models;
+namespace Extensions\TikTok\Models;
 
 use Illuminate\Database\Eloquent\Model;
-use Extensions\tiktok\Models\Concerns\BelongsToTikTokStore;
+use Extensions\TikTok\Models\Concerns\BelongsToTikTokStore;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class TikTokOrder extends Model
 {
     use BelongsToTikTokStore;
 
-    protected $table = 'tiktok_orders';
+    protected $table = 'ch_tiktok_orders';
 
     protected $fillable = [
-        'tiktok_setting_id', 'region',
+        'store_id', 'region',
         'order_id',
         'status',
         'order_created_at',

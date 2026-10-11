@@ -1,10 +1,10 @@
 <?php
 
-namespace Extensions\shopee\Services\Shopee;
+namespace Extensions\Shopee\Services\Shopee;
 
-use Extensions\shopee\Models\ShopeeListing;
-use Extensions\shopee\Models\ShopeeProductGroup;
-use Extensions\shopee\Models\ShopeeProductGroupAttribute;
+use Extensions\Shopee\Models\ShopeeListing;
+use Extensions\Shopee\Models\ShopeeProductGroup;
+use Extensions\Shopee\Models\ShopeeProductGroupAttribute;
 use Illuminate\Support\Facades\DB;
 
 final class ShopeeInheritedSettings
@@ -16,8 +16,8 @@ final class ShopeeInheritedSettings
             return [];
         }
 
-        $rows = DB::table('shopee_product_group_products as pv')
-            ->joinSub(ShopeeProductGroup::query()->forStore(\Extensions\shopee\Models\ShopeeSetting::defaultStore())->select(['id', 'name', 'shopee_category_id', 'shopee_brand_id', 'logistic_ids', 'markup_fixed', 'markup_percent']), 'g', 'g.id', '=', 'pv.shopee_product_group_id')
+        $rows = DB::table('ch_shopee_product_group_products as pv')
+            ->joinSub(ShopeeProductGroup::query()->forStore(\Extensions\Shopee\Models\ShopeeStore::defaultStore())->select(['id', 'name', 'shopee_category_id', 'shopee_brand_id', 'logistic_ids', 'markup_fixed', 'markup_percent']), 'g', 'g.id', '=', 'pv.shopee_product_group_id')
             ->whereIn('pv.product_id', $productIds)
             ->orderBy('pv.id')
             ->get(['pv.product_id', 'g.id as group_id', 'g.name', 'g.shopee_category_id', 'g.shopee_brand_id', 'g.logistic_ids', 'g.markup_fixed', 'g.markup_percent']);

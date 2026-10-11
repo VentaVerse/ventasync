@@ -8,24 +8,23 @@ final class LineCost
 {
     private const EPSILON = 0.00005;
 
-    public static function resolve(int $productId, int $optionValueId = 0): float
+    public static function resolve(int $productId, int $variationValueId = 0): float
     {
         if ($productId <= 0) {
             return 0.0;
         }
 
-        $pfx = (string) config('catalog.prefix');
 
-        $parent = (float) (DB::table($pfx . 'product')
+        $parent = (float) (DB::table('products')
             ->where('product_id', $productId)
             ->value('cost') ?? 0);
 
-        if ($optionValueId <= 0) {
+        if ($variationValueId <= 0) {
             return $parent;
         }
 
-        $row = DB::table($pfx . 'product_option_value')
-            ->where('product_option_value_id', $optionValueId)
+        $row = DB::table('product_variation_values')
+            ->where('product_variation_value_id', $variationValueId)
             ->first(['cost', 'cost_prefix', 'cost_amount', 'cost_percentage', 'cost_additional', 'absolute_price', 'absolute_cost']);
 
         if ($row === null) {

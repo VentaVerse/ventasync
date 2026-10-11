@@ -1,18 +1,18 @@
 <?php
 
-namespace Extensions\shopee\Models;
+namespace Extensions\Shopee\Models;
 
 use Illuminate\Database\Eloquent\Model;
 
 class ShopeeProductGroup extends Model
 {
-    use \Extensions\shopee\Models\Concerns\BelongsToShopeeStore;
+    use \Extensions\Shopee\Models\Concerns\BelongsToShopeeStore;
 
-    protected $table = 'shopee_product_groups';
+    protected $table = 'ch_shopee_product_groups';
 
     protected $fillable = [
         'watermark_template_id',
-        'shopee_setting_id',
+        'store_id',
         'name',
         'shopee_category_id', 'shopee_brand_id', 'logistic_ids',
         'markup_fixed', 'markup_percent',

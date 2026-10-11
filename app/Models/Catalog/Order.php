@@ -4,6 +4,8 @@ namespace App\Models\Catalog;
 
 class Order extends BaseModel
 {
+    protected $table = 'orders';
+
     protected static function booted(): void
     {
         static::creating(fn () => \App\Plans\Quota::refuseOrder());
@@ -80,7 +82,7 @@ class Order extends BaseModel
         'date_added',
         'date_modified',
         'oe_import',
-        'marketplace_source',
+        'channel',
         'marketplace_order_id',
         'track_payments',
     ];
@@ -88,11 +90,6 @@ class Order extends BaseModel
     protected $casts = [
         'track_payments' => 'boolean',
     ];
-
-    public function getTable()
-    {
-        return $this->tableName('order');
-    }
 
     public function status()
     {

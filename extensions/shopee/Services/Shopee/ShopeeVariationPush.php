@@ -1,10 +1,10 @@
 <?php
 
-namespace Extensions\shopee\Services\Shopee;
+namespace Extensions\Shopee\Services\Shopee;
 
-use Extensions\shopee\Models\ShopeeApiLog;
-use Extensions\shopee\Models\ShopeeItemCache;
-use Extensions\shopee\Models\ShopeeProductLink;
+use Extensions\Shopee\Models\ShopeeApiLog;
+use Extensions\Shopee\Models\ShopeeItemCache;
+use Extensions\Shopee\Models\ShopeeListingLink;
 use Illuminate\Support\Facades\DB;
 
 class ShopeeVariationPush
@@ -13,23 +13,22 @@ class ShopeeVariationPush
 
     public function refusalFor(int $productId, \Closure $priceFor, int $storeId = 0): ?string
     {
-        $pfx = (string) config('catalog.prefix');
-        $all = DB::table('product_option_combinations')
+        $all = DB::table('product_variations')
             ->where('product_id', $productId)
             ->get(['sku', 'absolute_price']);
         if ($all->isEmpty()) {
             return null;
         }
-        $hidden = \App\Integrations\Listings\ListingVariations::hidden('shopee', $storeId, [$productId]);
-        $combos = $all->filter(fn ($c) => \App\Integrations\Listings\ListingVariations::allows($hidden, $productId, $c->sku))->values();
+        $hidden = \App\Channels\Listings\ListingVariations::hidden('shopee', $storeId, [$productId]);
+        $combos = $all->filter(fn ($c) => \App\Channels\Listings\ListingVariations::allows($hidden, $productId, $c->sku))->values();
         if ($combos->isEmpty()) {
-            return \App\Integrations\Listings\ListingVariations::noneSoldMessage('Shopee');
+            return \App\Channels\Listings\ListingVariations::noneSoldMessage('Shopee');
         }
         if ($combos->count() > 50) {
             return 'Shopee accepts at most 50 variations per item; this product has ' . $combos->count() . '.';
         }
 
-        $base = (float) (DB::table($pfx . 'product')->where('product_id', $productId)->value('price') ?? 0);
+        $base = (float) (DB::table('products')->where('product_id', $productId)->value('price') ?? 0);
         $prices = $combos->map(function ($c) use ($base, $priceFor) {
             $core = $c->absolute_price !== null ? (float) $c->absolute_price : $base;
 
@@ -75,24 +74,22 @@ class ShopeeVariationPush
         if (empty($shopeeModels)) {
             $r = $this->pushForProduct($client, $auth, $itemId, $productId, $priceFor, $uploadImageId);
             if ($r === null) {
-                return ['ok' => true, 'message' => 'The catalogue has no variations for this product; nothing to add.', 'added' => 0];
+                return ['ok' => true, 'message' => 'The Master Catalog has no variations for this product; nothing to add.', 'added' => 0];
             }
 
             return ['ok' => (bool) $r['ok'], 'message' => $r['ok']
                 ? 'The item had no variations; its whole structure went up (' . $r['models'] . ' variations).'
                 : $r['message'], 'added' => $r['ok'] ? (int) $r['models'] : 0];
         }
-
-        $pfx = (string) config('catalog.prefix');
         $langId = (int) config('catalog.default_language_id');
-        $combos = DB::table('product_option_combinations')
+        $combos = DB::table('product_variations')
             ->where('product_id', $productId)
             ->orderBy('sort_order')
             ->get(['id', 'sku', 'quantity', 'absolute_price', 'image']);
-        $hidden = \App\Integrations\Listings\ListingVariations::hidden('shopee', (int) ($auth['store_id'] ?? 0), [$productId]);
-        $combos = $combos->filter(fn ($c) => \App\Integrations\Listings\ListingVariations::allows($hidden, $productId, $c->sku))->values();
+        $hidden = \App\Channels\Listings\ListingVariations::hidden('shopee', (int) ($auth['store_id'] ?? 0), [$productId]);
+        $combos = $combos->filter(fn ($c) => \App\Channels\Listings\ListingVariations::allows($hidden, $productId, $c->sku))->values();
         if ($combos->isEmpty()) {
-            return ['ok' => true, 'message' => 'The catalogue has no variations for this product; nothing to add.', 'added' => 0];
+            return ['ok' => true, 'message' => 'The Master Catalog has no variations for this product; nothing to add.', 'added' => 0];
         }
 
         $existingSkus = [];
@@ -108,34 +105,34 @@ class ShopeeVariationPush
             return $sku !== '' && !isset($existingSkus[$sku]);
         })->values();
         if ($missing->isEmpty()) {
-            return ['ok' => true, 'message' => 'Every catalogue variation is already on Shopee.', 'added' => 0];
+            return ['ok' => true, 'message' => 'Every Master Catalog variation is already on Shopee.', 'added' => 0];
         }
 
-        $values = DB::table('product_option_combination_values as cv')
-            ->join($pfx . 'product_option_value as pov', 'cv.product_option_value_id', '=', 'pov.product_option_value_id')
-            ->join($pfx . 'option_value_description as ovd', function ($j) use ($langId) {
-                $j->on('pov.option_value_id', '=', 'ovd.option_value_id')
+        $values = DB::table('product_variation_parts as cv')
+            ->join('product_variation_values as pov', 'cv.product_variation_value_id', '=', 'pov.product_variation_value_id')
+            ->join('variation_value_descriptions as ovd', function ($j) use ($langId) {
+                $j->on('pov.variation_value_id', '=', 'ovd.variation_value_id')
                   ->where('ovd.language_id', '=', $langId);
             })
-            ->whereIn('cv.combination_id', $combos->pluck('id')->all())
-            ->orderBy('pov.product_option_id')
-            ->get(['cv.combination_id', 'pov.product_option_id', 'ovd.name as value_name']);
+            ->whereIn('cv.product_variation_id', $combos->pluck('id')->all())
+            ->orderBy('pov.product_variation_type_id')
+            ->get(['cv.product_variation_id', 'pov.product_variation_type_id', 'ovd.name as value_name']);
         $comboValues = [];
         $axisSet = [];
         foreach ($values as $v) {
-            $comboValues[(int) $v->combination_id][(int) $v->product_option_id] =
+            $comboValues[(int) $v->product_variation_id][(int) $v->product_variation_type_id] =
                 html_entity_decode((string) $v->value_name, ENT_QUOTES | ENT_HTML5, 'UTF-8');
-            $axisSet[(int) $v->product_option_id] = true;
+            $axisSet[(int) $v->product_variation_type_id] = true;
         }
         $axisIds = array_keys($axisSet);
 
         if (count($axisIds) !== count($shopeeTiers)) {
-            return ['ok' => false, 'message' => 'The catalogue arranges this product in ' . count($axisIds)
-                . ' option ' . (count($axisIds) === 1 ? 'axis' : 'axes') . ' but the Shopee listing has ' . count($shopeeTiers)
+            return ['ok' => false, 'message' => 'The Master Catalog arranges this product in ' . count($axisIds)
+                . ' variation type' . (count($axisIds) === 1 ? '' : 's') . ' but the Shopee listing has ' . count($shopeeTiers)
                 . ' tier' . (count($shopeeTiers) === 1 ? '' : 's') . '. Restructuring a live listing is not safe to do blind - adjust it in Seller Centre, then press Re-read variations.', 'added' => 0];
         }
 
-        $parentPrice = (float) (DB::table($pfx . 'product')->where('product_id', $productId)->value('price') ?? 0);
+        $parentPrice = (float) (DB::table('products')->where('product_id', $productId)->value('price') ?? 0);
         $prices = [];
         foreach ($shopeeModels as $m) {
             $existing = (float) ($m['price_info'][0]['original_price'] ?? 0);
@@ -168,7 +165,7 @@ class ShopeeVariationPush
                 $valueName = trim((string) ($comboValues[(int) $combo->id][$axisId] ?? ''));
                 if ($valueName === '') {
                     return ['ok' => false, 'message' => 'Variation ' . trim((string) $combo->sku)
-                        . ' is missing a value on one of its option axes, so it cannot be placed on the tiers. Fix the variation in the catalogue first.', 'added' => 0];
+                        . ' is missing a value on one of its variation types, so it cannot be placed on the tiers. Fix the variation in the Master Catalog first.', 'added' => 0];
                 }
                 $found = null;
                 foreach ($newTiers[$tierN]['option_list'] as $i => $entry) {
@@ -288,7 +285,7 @@ class ShopeeVariationPush
         $ok = ($result['ok'] ?? false) && (($result['body']['error'] ?? '') === '' || ($result['body']['error'] ?? null) === null);
 
         if ($ok && $this->itemIsGone($client, $auth, $itemId)) {
-            ShopeeProductLink::query()->where('product_id', $productId)->where('shopee_item_id', $itemId)->delete();
+            ShopeeListingLink::query()->where('product_id', $productId)->where('shopee_item_id', $itemId)->delete();
             ShopeeItemCache::query()->where('shopee_item_id', $itemId)->delete();
         }
 
@@ -405,7 +402,7 @@ class ShopeeVariationPush
 
         $stored = 0;
         if (!empty($skuToModel)) {
-            ShopeeProductLink::query()
+            ShopeeListingLink::query()
                 ->where('product_id', $productId)
                 ->whereNull('shopee_model_id')
                 ->delete();
@@ -415,7 +412,7 @@ class ShopeeVariationPush
                 if ($modelId === null) {
                     continue;
                 }
-                ShopeeProductLink::query()->updateOrCreate(
+                ShopeeListingLink::query()->updateOrCreate(
                     ['product_id' => $productId, 'shopee_item_id' => $itemId, 'shopee_model_id' => $modelId],
                     ['sku' => $sku]
                 );
@@ -428,7 +425,7 @@ class ShopeeVariationPush
         }
         if ($answered !== []) {
             ShopeeListingStates::rememberHeld(
-                (int) ($auth['store_id'] ?? 0) ?: (int) (\Extensions\shopee\Models\ShopeeSetting::defaultStore()?->id ?? 0),
+                (int) ($auth['store_id'] ?? 0) ?: (int) (\Extensions\Shopee\Models\ShopeeStore::defaultStore()?->id ?? 0),
                 $productId,
                 array_map(fn ($m) => (string) ($m['model_sku'] ?? ''), $answered)
             );
@@ -439,10 +436,9 @@ class ShopeeVariationPush
 
     private function build(int $productId, \Closure $priceFor, ?\Closure $uploadImageId, int $storeId = 0): ?array
     {
-        $pfx = (string) config('catalog.prefix');
         $langId = (int) config('catalog.default_language_id');
 
-        $all = DB::table('product_option_combinations')
+        $all = DB::table('product_variations')
             ->where('product_id', $productId)
             ->orderBy('sort_order')
             ->get(['id', 'sku', 'quantity', 'absolute_price', 'image', 'status']);
@@ -450,63 +446,63 @@ class ShopeeVariationPush
         if ($all->isEmpty()) {
             return null;
         }
-        $hidden = \App\Integrations\Listings\ListingVariations::hidden('shopee', $storeId, [$productId]);
-        $combos = $all->filter(fn ($c) => \App\Integrations\Listings\ListingVariations::allows($hidden, $productId, $c->sku))->values();
+        $hidden = \App\Channels\Listings\ListingVariations::hidden('shopee', $storeId, [$productId]);
+        $combos = $all->filter(fn ($c) => \App\Channels\Listings\ListingVariations::allows($hidden, $productId, $c->sku))->values();
         if ($combos->isEmpty()) {
-            return ['refused' => \App\Integrations\Listings\ListingVariations::noneSoldMessage('Shopee')];
+            return ['refused' => \App\Channels\Listings\ListingVariations::noneSoldMessage('Shopee')];
         }
         if ($combos->count() > 50) {
             return ['refused' => 'Shopee accepts at most 50 variations per item; this product has ' . $combos->count() . '.'];
         }
 
-        $values = DB::table('product_option_combination_values as cv')
-            ->join($pfx . 'product_option_value as pov', 'cv.product_option_value_id', '=', 'pov.product_option_value_id')
-            ->join($pfx . 'option_value_description as ovd', function ($j) use ($langId) {
-                $j->on('pov.option_value_id', '=', 'ovd.option_value_id')
+        $values = DB::table('product_variation_parts as cv')
+            ->join('product_variation_values as pov', 'cv.product_variation_value_id', '=', 'pov.product_variation_value_id')
+            ->join('variation_value_descriptions as ovd', function ($j) use ($langId) {
+                $j->on('pov.variation_value_id', '=', 'ovd.variation_value_id')
                   ->where('ovd.language_id', '=', $langId);
             })
-            ->join($pfx . 'option_description as od', function ($j) use ($langId) {
-                $j->on('pov.option_id', '=', 'od.option_id')
+            ->join('variation_type_descriptions as od', function ($j) use ($langId) {
+                $j->on('pov.variation_type_id', '=', 'od.variation_type_id')
                   ->where('od.language_id', '=', $langId);
             })
-            ->whereIn('cv.combination_id', $combos->pluck('id')->all())
-            ->orderBy('pov.product_option_id')
-            ->orderBy('pov.product_option_value_id')
+            ->whereIn('cv.product_variation_id', $combos->pluck('id')->all())
+            ->orderBy('pov.product_variation_type_id')
+            ->orderBy('pov.product_variation_value_id')
             ->get([
-                'cv.combination_id', 'pov.product_option_id', 'pov.product_option_value_id',
-                'ovd.name as value_name', 'od.name as option_name',
+                'cv.product_variation_id', 'pov.product_variation_type_id', 'pov.product_variation_value_id',
+                'ovd.name as value_name', 'od.name as variation_type_name',
             ]);
 
         $axes = [];
         $comboTiers = [];
         foreach ($values as $v) {
-            $axisId = (int) $v->product_option_id;
+            $axisId = (int) $v->product_variation_type_id;
             if (!isset($axes[$axisId])) {
                 $axes[$axisId] = [
-                    'name' => html_entity_decode((string) $v->option_name, ENT_QUOTES | ENT_HTML5, 'UTF-8') ?: 'Variation',
+                    'name' => html_entity_decode((string) $v->variation_type_name, ENT_QUOTES | ENT_HTML5, 'UTF-8') ?: 'Variation',
                     'options' => [],
                 ];
             }
-            $povId = (int) $v->product_option_value_id;
+            $povId = (int) $v->product_variation_value_id;
             if (!isset($axes[$axisId]['options'][$povId])) {
                 $axes[$axisId]['options'][$povId] = [
                     'name' => html_entity_decode((string) $v->value_name, ENT_QUOTES | ENT_HTML5, 'UTF-8') ?: 'Unnamed',
                     'index' => count($axes[$axisId]['options']),
                 ];
             }
-            $comboTiers[(int) $v->combination_id][$axisId] = $povId;
+            $comboTiers[(int) $v->product_variation_id][$axisId] = $povId;
         }
 
         if (count($axes) === 0) {
             return null;
         }
         if (count($axes) > 2) {
-            return ['refused' => 'Shopee supports at most two variation tiers; this product has ' . count($axes) . ' option axes.'];
+            return ['refused' => 'Shopee supports at most two variation tiers; this product has ' . count($axes) . ' variation types.'];
         }
 
         $axisIds = array_keys($axes);
 
-        $itemName = html_entity_decode((string) (DB::table($pfx . 'product_description')
+        $itemName = html_entity_decode((string) (DB::table('product_descriptions')
             ->where('product_id', $productId)->where('language_id', $langId)
             ->value('name') ?? ''), ENT_QUOTES | ENT_HTML5, 'UTF-8');
 
@@ -541,7 +537,7 @@ class ShopeeVariationPush
             ];
         }
 
-        $parentPrice = (float) (DB::table($pfx . 'product')->where('product_id', $productId)->value('price') ?? 0);
+        $parentPrice = (float) (DB::table('products')->where('product_id', $productId)->value('price') ?? 0);
 
         $models = [];
         $modelSkus = [];

@@ -2,8 +2,8 @@
 
 namespace Tests\Feature;
 
-use Extensions\tiktok\Models\TikTokOrder;
-use Extensions\tiktok\Models\TikTokSetting;
+use Extensions\TikTok\Models\TikTokOrder;
+use Extensions\TikTok\Models\TikTokStore;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -18,23 +18,23 @@ class TikTokMultistoreTest extends TestCase
         $manager = $this->app->make(\App\Extensions\ExtensionManager::class);
         $manager->install('tiktok');
         $manager->enable('tiktok');
-        $this->app->register(\Extensions\tiktok\TiktokExtension::class);
+        $this->app->register(\Extensions\TikTok\TikTokExtension::class);
         $this->app['router']->getRoutes()->refreshNameLookups();
     }
 
     public function test_default_store_is_the_first_enabled_row(): void
     {
-        TikTokSetting::create(['mode' => 'live', 'store_name' => 'Closed shop', 'enabled' => false]);
-        $first = TikTokSetting::create(['mode' => 'live', 'store_name' => 'Main store']);
-        TikTokSetting::create(['mode' => 'live', 'store_name' => 'Outlet']);
+        TikTokStore::create(['mode' => 'live', 'store_name' => 'Closed shop', 'enabled' => false]);
+        $first = TikTokStore::create(['mode' => 'live', 'store_name' => 'Main store']);
+        TikTokStore::create(['mode' => 'live', 'store_name' => 'Outlet']);
 
-        $this->assertSame($first->id, TikTokSetting::defaultStore()?->id,
+        $this->assertSame($first->id, TikTokStore::defaultStore()?->id,
             'defaultStore must return the first ENABLED row - a disabled store must never answer for the channel.');
     }
 
     public function test_no_store_at_all_answers_null_not_an_error(): void
     {
-        $this->assertNull(TikTokSetting::defaultStore());
+        $this->assertNull(TikTokStore::defaultStore());
     }
 
     public function test_nothing_reads_the_settings_singleton_raw(): void
@@ -53,46 +53,46 @@ class TikTokMultistoreTest extends TestCase
         foreach ($scan as $path) {
             $source = file_get_contents($path);
             $this->assertNotFalse($source, "unreadable: {$path}");
-            if (str_contains($source, 'TikTokSetting::query()->first()') || str_contains($source, 'TikTokSetting::first()')) {
+            if (str_contains($source, 'TikTokStore::query()->first()') || str_contains($source, 'TikTokStore::first()')) {
                 $offenders[] = str_replace(base_path() . '/', '', $path);
             }
         }
 
         $this->assertSame([], $offenders,
-            'These files read the TikTok settings singleton raw instead of TikTokSetting::defaultStore(): '
+            'These files read the TikTok settings singleton raw instead of TikTokStore::defaultStore(): '
             . implode(', ', $offenders));
     }
 
     public function test_a_write_that_names_no_store_lands_on_the_default(): void
     {
-        $store = TikTokSetting::create(['mode' => 'live', 'store_name' => 'Main store']);
+        $store = TikTokStore::create(['mode' => 'live', 'store_name' => 'Main store']);
 
         $order = TikTokOrder::create(['region' => 'PH', 'order_id' => 'STAMP-1']);
 
-        $this->assertSame($store->id, (int) $order->tiktok_setting_id,
+        $this->assertSame($store->id, (int) $order->store_id,
             'the creating hook must stamp the default store so an un-threaded write path never lands storeless');
     }
 
     public function test_two_stores_may_hold_the_same_order_id(): void
     {
-        $one = TikTokSetting::create(['mode' => 'live', 'store_name' => 'Main store']);
-        $two = TikTokSetting::create(['mode' => 'live', 'store_name' => 'Outlet']);
+        $one = TikTokStore::create(['mode' => 'live', 'store_name' => 'Main store']);
+        $two = TikTokStore::create(['mode' => 'live', 'store_name' => 'Outlet']);
 
-        TikTokOrder::create(['tiktok_setting_id' => $one->id, 'region' => 'PH', 'order_id' => 'SAME-ID']);
-        TikTokOrder::create(['tiktok_setting_id' => $two->id, 'region' => 'PH', 'order_id' => 'SAME-ID']);
+        TikTokOrder::create(['store_id' => $one->id, 'region' => 'PH', 'order_id' => 'SAME-ID']);
+        TikTokOrder::create(['store_id' => $two->id, 'region' => 'PH', 'order_id' => 'SAME-ID']);
 
         $this->assertSame(2, TikTokOrder::withoutGlobalScope('tiktokStore')->where('order_id', 'SAME-ID')->count());
 
         $this->expectException(\Illuminate\Database\UniqueConstraintViolationException::class);
-        TikTokOrder::create(['tiktok_setting_id' => $two->id, 'region' => 'PH', 'order_id' => 'SAME-ID']);
+        TikTokOrder::create(['store_id' => $two->id, 'region' => 'PH', 'order_id' => 'SAME-ID']);
     }
 
     public function test_the_global_scope_fences_reads_to_the_bound_store(): void
     {
-        $one = TikTokSetting::create(['mode' => 'live', 'store_name' => 'Main store']);
-        $two = TikTokSetting::create(['mode' => 'live', 'store_name' => 'Outlet']);
-        TikTokOrder::create(['tiktok_setting_id' => $one->id, 'region' => 'PH', 'order_id' => 'ONE-1']);
-        TikTokOrder::create(['tiktok_setting_id' => $two->id, 'region' => 'PH', 'order_id' => 'TWO-1']);
+        $one = TikTokStore::create(['mode' => 'live', 'store_name' => 'Main store']);
+        $two = TikTokStore::create(['mode' => 'live', 'store_name' => 'Outlet']);
+        TikTokOrder::create(['store_id' => $one->id, 'region' => 'PH', 'order_id' => 'ONE-1']);
+        TikTokOrder::create(['store_id' => $two->id, 'region' => 'PH', 'order_id' => 'TWO-1']);
 
         app()->instance('tiktok.route-store', $one);
         $this->assertSame(['ONE-1'], TikTokOrder::pluck('order_id')->all(),
@@ -102,11 +102,11 @@ class TikTokMultistoreTest extends TestCase
 
     public function test_a_store_page_lives_under_its_store_and_an_unknown_store_is_404(): void
     {
-        $this->artisan('permissions:sync-catalogue');
+        $this->artisan('permissions:sync-catalog');
         $g = \App\Models\Admin\UserGroup::create(['name' => 'TT walker']);
         $g->permissions()->attach(\App\Models\Admin\Permission::whereIn('key', ['view_tiktok/product'])->pluck('id')->all());
         $u = \App\Models\User::factory()->create(['user_group_id' => $g->id]);
-        $store = TikTokSetting::create(['mode' => 'live', 'store_name' => 'Main store']);
+        $store = TikTokStore::create(['mode' => 'live', 'store_name' => 'Main store']);
 
         $this->actingAs($u)->get('/channels/tiktok/' . $store->id . '/products')->assertOk();
         $this->actingAs($u)->get('/channels/tiktok/' . ($store->id + 99) . '/products')->assertNotFound();
@@ -114,11 +114,11 @@ class TikTokMultistoreTest extends TestCase
 
     public function test_a_single_store_era_url_rides_the_301_onto_the_default_store(): void
     {
-        $this->artisan('permissions:sync-catalogue');
+        $this->artisan('permissions:sync-catalog');
         $g = \App\Models\Admin\UserGroup::create(['name' => 'TT legacy']);
         $g->permissions()->attach(\App\Models\Admin\Permission::whereIn('key', ['view_tiktok/product'])->pluck('id')->all());
         $u = \App\Models\User::factory()->create(['user_group_id' => $g->id]);
-        $store = TikTokSetting::create(['mode' => 'live', 'store_name' => 'Main store']);
+        $store = TikTokStore::create(['mode' => 'live', 'store_name' => 'Main store']);
 
         $this->actingAs($u)->get('/channels/tiktok/products?q=find-me')
             ->assertRedirect('/channels/tiktok/' . $store->id . '/products?q=find-me')
@@ -127,7 +127,7 @@ class TikTokMultistoreTest extends TestCase
 
     public function test_route_generation_fills_the_store_from_the_default(): void
     {
-        $store = TikTokSetting::create(['mode' => 'live', 'store_name' => 'Main store']);
+        $store = TikTokStore::create(['mode' => 'live', 'store_name' => 'Main store']);
 
         $this->assertStringContainsString(
             '/channels/tiktok/' . $store->id . '/products',
@@ -138,15 +138,15 @@ class TikTokMultistoreTest extends TestCase
 
     public function test_add_store_creates_a_disabled_row_and_lands_on_its_settings(): void
     {
-        $this->artisan('permissions:sync-catalogue');
+        $this->artisan('permissions:sync-catalog');
         $g = \App\Models\Admin\UserGroup::create(['name' => 'TT creator']);
         $g->permissions()->attach(\App\Models\Admin\Permission::whereIn('key', ['manage_tiktok/settings', 'view_tiktok/settings'])->pluck('id')->all());
         $u = \App\Models\User::factory()->create(['user_group_id' => $g->id]);
-        TikTokSetting::create(['mode' => 'live', 'store_name' => 'Main store']);
+        TikTokStore::create(['mode' => 'live', 'store_name' => 'Main store']);
 
         $r = $this->actingAs($u)->post(route('ext.tiktok.stores.store'), ['store_name' => 'Outlet']);
 
-        $outlet = TikTokSetting::query()->where('store_name', 'Outlet')->first();
+        $outlet = TikTokStore::query()->where('store_name', 'Outlet')->first();
         $this->assertNotNull($outlet);
         $this->assertFalse((bool) $outlet->enabled, 'a new store is setup_pending until the operator switches it on');
         $r->assertRedirect(route('ext.tiktok.index', ['store' => $outlet->id]));
@@ -157,7 +157,7 @@ class TikTokMultistoreTest extends TestCase
         $one = $this->storeWithCreds('Main store');
         $two = $this->storeWithCreds('Outlet');
 
-        $fake = new class extends \Extensions\tiktok\Services\TikTok\TikTokClient {
+        $fake = new class extends \Extensions\TikTok\Services\TikTok\TikTokClient {
             public function __construct() {}
             public function getToken(string $appKey, string $appSecret, string $authCode): array
             {
@@ -169,9 +169,9 @@ class TikTokMultistoreTest extends TestCase
                 ]]];
             }
         };
-        $this->app->instance(\Extensions\tiktok\Services\TikTok\TikTokClient::class, $fake);
+        $this->app->instance(\Extensions\TikTok\Services\TikTok\TikTokClient::class, $fake);
 
-        $state = \Extensions\tiktok\Controllers\TikTokController::oauthStateToken($two->id, false);
+        $state = \Extensions\TikTok\Controllers\TikTokController::oauthStateToken($two->id, false);
         $this->get(route('ext.tiktok.callback', ['code' => 'the-code', 'state' => $state]));
 
         $this->assertSame('granted-token', decrypt($two->fresh()->access_token),
@@ -194,13 +194,13 @@ class TikTokMultistoreTest extends TestCase
 
     public function test_a_settings_write_acts_for_the_store_in_the_url_and_returns_to_it(): void
     {
-        $this->artisan('permissions:sync-catalogue');
+        $this->artisan('permissions:sync-catalog');
         $g = \App\Models\Admin\UserGroup::create(['name' => 'TT settings']);
         $g->permissions()->attach(\App\Models\Admin\Permission::whereIn('key', ['view_tiktok/settings', 'manage_tiktok/settings'])->pluck('id')->all());
         $u = \App\Models\User::factory()->create(['user_group_id' => $g->id]);
 
-        $one = TikTokSetting::create(['mode' => 'live', 'store_name' => 'Main store']);
-        $two = TikTokSetting::create(['mode' => 'live', 'store_name' => 'Outlet']);
+        $one = TikTokStore::create(['mode' => 'live', 'store_name' => 'Main store']);
+        $two = TikTokStore::create(['mode' => 'live', 'store_name' => 'Outlet']);
 
         $this->actingAs($u)
             ->post(route('ext.tiktok.toggle_mode', ['store' => $two->id]), ['mode' => 'sandbox'])
@@ -219,22 +219,22 @@ class TikTokMultistoreTest extends TestCase
 
     public function test_each_store_reports_its_own_waiting_count_to_the_dashboard(): void
     {
-        $one = TikTokSetting::create(['mode' => 'live', 'store_name' => 'Main store']);
-        $two = TikTokSetting::create(['mode' => 'live', 'store_name' => 'Outlet']);
-        TikTokOrder::create(['tiktok_setting_id' => $one->id, 'region' => 'PH', 'order_id' => 'W-1', 'status' => 'AWAITING_SHIPMENT']);
-        TikTokOrder::create(['tiktok_setting_id' => $two->id, 'region' => 'PH', 'order_id' => 'W-2', 'status' => 'AWAITING_SHIPMENT']);
-        TikTokOrder::create(['tiktok_setting_id' => $two->id, 'region' => 'PH', 'order_id' => 'W-3', 'status' => 'AWAITING_SHIPMENT']);
+        $one = TikTokStore::create(['mode' => 'live', 'store_name' => 'Main store']);
+        $two = TikTokStore::create(['mode' => 'live', 'store_name' => 'Outlet']);
+        TikTokOrder::create(['store_id' => $one->id, 'region' => 'PH', 'order_id' => 'W-1', 'status' => 'AWAITING_SHIPMENT']);
+        TikTokOrder::create(['store_id' => $two->id, 'region' => 'PH', 'order_id' => 'W-2', 'status' => 'AWAITING_SHIPMENT']);
+        TikTokOrder::create(['store_id' => $two->id, 'region' => 'PH', 'order_id' => 'W-3', 'status' => 'AWAITING_SHIPMENT']);
 
-        $data = $this->app->make(\Extensions\tiktok\TiktokExtension::class, ['app' => $this->app])->dashboardData();
+        $data = $this->app->make(\Extensions\TikTok\TikTokExtension::class, ['app' => $this->app])->dashboardData();
 
         $this->assertSame(1, $data['channelPending']['tiktok:' . $one->id] ?? null, "the first store reports its own waiting count");
         $this->assertSame(2, $data['channelPending']['tiktok:' . $two->id] ?? null, "the second store reports its own");
         $this->assertArrayHasKey('tiktok:' . $two->id, $data['channelSyncStatuses'], 'each store carries its own freshness');
     }
 
-    private function storeWithCreds(string $name): TikTokSetting
+    private function storeWithCreds(string $name): TikTokStore
     {
-        return TikTokSetting::create([
+        return TikTokStore::create([
             'mode' => 'live',
             'store_name' => $name,
             'region' => 'PH',
@@ -248,26 +248,26 @@ class TikTokMultistoreTest extends TestCase
 
     public function test_a_product_sits_in_one_group_on_each_store(): void
     {
-        $one = TikTokSetting::create(['mode' => 'live', 'store_name' => 'Main store']);
-        $two = TikTokSetting::create(['mode' => 'live', 'store_name' => 'Outlet']);
-        $group = fn ($store, string $name) => tap((new \Extensions\tiktok\Models\TikTokProductGroup())->forceFill(['tiktok_setting_id' => $store->id, 'name' => $name, 'tiktok_category_id' => '900001']))->save();
+        $one = TikTokStore::create(['mode' => 'live', 'store_name' => 'Main store']);
+        $two = TikTokStore::create(['mode' => 'live', 'store_name' => 'Outlet']);
+        $group = fn ($store, string $name) => tap((new \Extensions\TikTok\Models\TikTokProductGroup())->forceFill(['store_id' => $store->id, 'name' => $name, 'tiktok_category_id' => '900001']))->save();
         $x = $group($one, 'Group X');
         $y = $group($one, 'Group Y');
         $onOutlet = $group($two, 'Group Y outlet');
-        $shape = fn ($store) => ['pivot' => 'tiktok_product_group_products', 'fk' => 'tiktok_product_group_id', 'groups' => 'tiktok_product_groups', 'storeFk' => 'tiktok_setting_id', 'storeId' => (int) $store->id];
+        $shape = fn ($store) => ['pivot' => 'ch_tiktok_product_group_products', 'fk' => 'tiktok_product_group_id', 'groups' => 'ch_tiktok_product_groups', 'storeFk' => 'store_id', 'storeId' => (int) $store->id];
         $pid = 77;
 
-        \App\Integrations\Listings\ListingGroup::assign($shape($one), $pid, (int) $x->id);
-        \App\Integrations\Listings\ListingGroup::assign($shape($two), $pid, (int) $onOutlet->id);
+        \App\Channels\Listings\ListingGroup::assign($shape($one), $pid, (int) $x->id);
+        \App\Channels\Listings\ListingGroup::assign($shape($two), $pid, (int) $onOutlet->id);
 
-        $this->assertSame((int) $x->id, \App\Integrations\Listings\ListingGroup::current($shape($one), $pid));
-        $this->assertSame((int) $onOutlet->id, \App\Integrations\Listings\ListingGroup::current($shape($two), $pid), 'the other store groups it too');
+        $this->assertSame((int) $x->id, \App\Channels\Listings\ListingGroup::current($shape($one), $pid));
+        $this->assertSame((int) $onOutlet->id, \App\Channels\Listings\ListingGroup::current($shape($two), $pid), 'the other store groups it too');
 
-        $claim = \App\Integrations\OneGroupRule::claim('tiktok_product_group_products', 'tiktok_product_group_id', 'tiktok_product_groups', 'tiktok_setting_id', (int) $y->id, [$pid]);
+        $claim = \App\Channels\OneGroupRule::claim('ch_tiktok_product_group_products', 'tiktok_product_group_id', 'ch_tiktok_product_groups', 'store_id', (int) $y->id, [$pid]);
         $this->assertSame([$pid => 'Group X'], $claim['held'], 'a second group on the same store is held');
 
-        \App\Integrations\Listings\ListingGroup::assign($shape($one), $pid, null);
-        $this->assertNull(\App\Integrations\Listings\ListingGroup::current($shape($one), $pid));
-        $this->assertSame((int) $onOutlet->id, \App\Integrations\Listings\ListingGroup::current($shape($two), $pid), 'No group on one store leaves the other store alone');
+        \App\Channels\Listings\ListingGroup::assign($shape($one), $pid, null);
+        $this->assertNull(\App\Channels\Listings\ListingGroup::current($shape($one), $pid));
+        $this->assertSame((int) $onOutlet->id, \App\Channels\Listings\ListingGroup::current($shape($two), $pid), 'No group on one store leaves the other store alone');
     }
 }

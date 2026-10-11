@@ -1,23 +1,23 @@
 <?php
 
-namespace Extensions\lazada\Services;
+namespace Extensions\Lazada\Services;
 
-use Extensions\lazada\Models\LazadaReverseOrder;
-use Extensions\lazada\Models\LazadaSetting;
+use Extensions\Lazada\Models\LazadaReverseOrder;
+use Extensions\Lazada\Models\LazadaStore;
 use Illuminate\Http\Request;
 
 class LazadaReturnsPanel
 {
     public function build(Request $request, ?int $storeId = null): array
     {
-        $setting = $storeId !== null
-            ? LazadaSetting::query()->find($storeId)
-            : LazadaSetting::defaultStore();
-        if ($storeId !== null && $setting !== null) {
-            app()->instance('lazada.route-store', $setting);
-            \Illuminate\Support\Facades\URL::defaults(['store' => (int) $setting->id]);
+        $store = $storeId !== null
+            ? LazadaStore::query()->find($storeId)
+            : LazadaStore::defaultStore();
+        if ($storeId !== null && $store !== null) {
+            app()->instance('lazada.route-store', $store);
+            \Illuminate\Support\Facades\URL::defaults(['store' => (int) $store->id]);
         }
-        $region = $setting->region ?? 'ph';
+        $region = $store->region ?? 'ph';
 
         $filters = $request->validate([
             'q' => ['nullable', 'string', 'max:120'],
@@ -83,22 +83,20 @@ class LazadaReturnsPanel
         if ($find !== '') {
             $like = '%' . $find . '%';
 
-            $skus = collect(\DB::table('lazada_order_products')
+            $skus = collect(\DB::table('ch_lazada_order_products')
                 ->where('name', 'like', $like)
                 ->limit(400)
                 ->pluck('sku'));
 
-            $pfx = (string) config('catalog.prefix');
-
-            $skus = $skus->merge(\DB::table($pfx . 'product_description as pd')
-                ->join($pfx . 'product as p', 'p.product_id', '=', 'pd.product_id')
+            $skus = $skus->merge(\DB::table('product_descriptions as pd')
+                ->join('products as p', 'p.product_id', '=', 'pd.product_id')
                 ->where('pd.name', 'like', $like)
                 ->limit(400)
                 ->pluck('p.sku'));
 
-            $skus = $skus->merge(\DB::table($pfx . 'product_description as pd')
-                ->join($pfx . 'product as p', 'p.product_id', '=', 'pd.product_id')
-                ->join($pfx . 'product_option_value as pov', 'pov.product_id', '=', 'p.product_id')
+            $skus = $skus->merge(\DB::table('product_descriptions as pd')
+                ->join('products as p', 'p.product_id', '=', 'pd.product_id')
+                ->join('product_variation_values as pov', 'pov.product_id', '=', 'p.product_id')
                 ->where('pd.name', 'like', $like)
                 ->limit(400)
                 ->pluck('pov.sku'));
@@ -155,29 +153,28 @@ class LazadaReturnsPanel
             ->appends($request->query());
 
         $tradeIds = collect($orders->items())->pluck('trade_order_id')->filter()->unique()->values();
-        $erpMap = $tradeIds->isEmpty() ? collect() : \DB::table('lazada_orders')
+        $erpMap = $tradeIds->isEmpty() ? collect() : \DB::table('ch_lazada_orders')
             ->whereIn('order_id', $tradeIds->all())
             ->whereNotNull('catalog_order_id')
-            ->when(app()->bound('lazada.route-store'), fn ($q) => $q->where('lazada_setting_id', app('lazada.route-store')->id))
+            ->when(app()->bound('lazada.route-store'), fn ($q) => $q->where('store_id', app('lazada.route-store')->id))
             ->pluck('catalog_order_id', 'order_id');
 
         $skus = collect($orders->items())
             ->flatMap(fn ($o) => collect(is_array($o->items) ? $o->items : [])
                 ->map(fn ($it) => $it['seller_sku_id'] ?? ($it['product']['product_sku'] ?? null)))
             ->filter()->unique()->values();
-        $imgMap = $skus->isEmpty() ? collect() : \DB::table('lazada_order_products')
+        $imgMap = $skus->isEmpty() ? collect() : \DB::table('ch_lazada_order_products')
             ->whereIn('sku', $skus->all())
             ->whereNotNull('image')->where('image', '!=', '')
             ->pluck('image', 'sku');
 
         if ($skus->isNotEmpty()) {
-            $pfx = (string) config('catalog.prefix');
-            $catImg = \DB::table($pfx . 'product')
+            $catImg = \DB::table('products')
                 ->whereIn('sku', $skus->all())
                 ->whereNotNull('image')->where('image', '!=', '')
                 ->pluck('image', 'sku');
-            $ovImg = \DB::table($pfx . 'product_option_value as pov')
-                ->join($pfx . 'product as p', 'p.product_id', '=', 'pov.product_id')
+            $ovImg = \DB::table('product_variation_values as pov')
+                ->join('products as p', 'p.product_id', '=', 'pov.product_id')
                 ->whereIn('pov.sku', $skus->all())
                 ->whereNotNull('p.image')->where('p.image', '!=', '')
                 ->pluck('p.image', 'pov.sku');
@@ -188,22 +185,21 @@ class LazadaReturnsPanel
         $nameMap = collect();
 
         if ($skus->isNotEmpty()) {
-            $pfx = (string) config('catalog.prefix');
 
-            $catName = \DB::table($pfx . 'product as p')
-                ->join($pfx . 'product_description as pd', 'pd.product_id', '=', 'p.product_id')
+            $catName = \DB::table('products as p')
+                ->join('product_descriptions as pd', 'pd.product_id', '=', 'p.product_id')
                 ->whereIn('p.sku', $skus->all())
                 ->whereNotNull('pd.name')->where('pd.name', '!=', '')
                 ->pluck('pd.name', 'p.sku');
 
-            $ovName = \DB::table($pfx . 'product_option_value as pov')
-                ->join($pfx . 'product as p', 'p.product_id', '=', 'pov.product_id')
-                ->join($pfx . 'product_description as pd', 'pd.product_id', '=', 'p.product_id')
+            $ovName = \DB::table('product_variation_values as pov')
+                ->join('products as p', 'p.product_id', '=', 'pov.product_id')
+                ->join('product_descriptions as pd', 'pd.product_id', '=', 'p.product_id')
                 ->whereIn('pov.sku', $skus->all())
                 ->whereNotNull('pd.name')->where('pd.name', '!=', '')
                 ->pluck('pd.name', 'pov.sku');
 
-            $orderName = \DB::table('lazada_order_products')
+            $orderName = \DB::table('ch_lazada_order_products')
                 ->whereIn('sku', $skus->all())
                 ->whereNotNull('name')->where('name', '!=', '')
                 ->pluck('name', 'sku');
@@ -212,7 +208,7 @@ class LazadaReturnsPanel
         }
 
         return [
-            'setting' => $setting,
+            'setting' => $store,
             'orders' => $orders,
             'erpMap' => $erpMap,
             'imgMap' => $imgMap,

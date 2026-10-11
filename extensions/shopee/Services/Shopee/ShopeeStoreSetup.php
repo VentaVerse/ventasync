@@ -1,10 +1,10 @@
 <?php
 
-namespace Extensions\shopee\Services\Shopee;
+namespace Extensions\Shopee\Services\Shopee;
 
 use App\Support\MarketplaceAnswer;
-use Extensions\shopee\Models\ShopeeApiLog;
-use Extensions\shopee\Models\ShopeeLogistic;
+use Extensions\Shopee\Models\ShopeeApiLog;
+use Extensions\Shopee\Models\ShopeeLogistic;
 use Illuminate\Support\Facades\DB;
 
 class ShopeeStoreSetup
@@ -54,9 +54,9 @@ class ShopeeStoreSetup
         unset($r);
 
         DB::transaction(function () use ($rows) {
-            DB::table('shopee_categories')->delete();
+            DB::table('ch_shopee_categories')->delete();
             foreach (array_chunk($rows, 1000) as $chunk) {
-                DB::table('shopee_categories')->insert($chunk);
+                DB::table('ch_shopee_categories')->insert($chunk);
             }
         });
 

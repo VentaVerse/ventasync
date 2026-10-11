@@ -4,6 +4,8 @@ namespace App\Models\Catalog;
 
 class OrderProduct extends BaseModel
 {
+    protected $table = 'order_products';
+
     protected $primaryKey = 'order_product_id';
 
     protected $fillable = [
@@ -23,18 +25,13 @@ class OrderProduct extends BaseModel
         'supplier_id',
     ];
 
-    public function getTable()
-    {
-        return $this->tableName('order_product');
-    }
-
     public function order()
     {
         return $this->belongsTo(Order::class, 'order_id', 'order_id');
     }
 
-    public function options()
+    public function variations()
     {
-        return $this->hasMany(OrderOption::class, 'order_product_id', 'order_product_id');
+        return $this->hasMany(OrderVariation::class, 'order_product_id', 'order_product_id');
     }
 }

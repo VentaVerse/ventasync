@@ -1,22 +1,22 @@
 <?php
 
-namespace Extensions\ventacart\Services\VentaCart;
+namespace Extensions\VentaCart\Services\VentaCart;
 
 use App\Models\ScheduledJob;
-use Extensions\ventacart\Models\VentaCartProductLink;
-use Extensions\ventacart\Models\VentaCartSetting;
+use Extensions\VentaCart\Models\VentaCartListingLink;
+use Extensions\VentaCart\Models\VentaCartStore;
 
 final class VentaCartPushSteps
 {
     public static function units(ScheduledJob $job): array
     {
-        $stores = VentaCartSetting::query()->where('enabled', true);
+        $stores = VentaCartStore::query()->where('enabled', true);
         if ($job->getOption('store')) {
             $stores->where('id', (int) $job->getOption('store'));
         }
         $units = [];
         foreach ($stores->orderBy('id')->get() as $store) {
-            $pids = VentaCartProductLink::query()->where('ventacart_setting_id', $store->id)->whereNotNull('ventacart_product_id')
+            $pids = VentaCartListingLink::query()->where('store_id', $store->id)->whereNotNull('ventacart_product_id')
                 ->orderBy('product_id')->pluck('product_id')->map(fn ($v) => (int) $v)->unique()->values()->all();
             foreach ($pids as $pid) {
                 $units[] = $store->id . ':' . $pid;
@@ -37,7 +37,7 @@ final class VentaCartPushSteps
         $failed = 0;
         $notes = [];
         foreach ($byStore as $storeId => $pids) {
-            $store = VentaCartSetting::query()->where('enabled', true)->find($storeId);
+            $store = VentaCartStore::query()->where('enabled', true)->find($storeId);
             if (! $store) {
                 $failed += count($pids);
                 continue;

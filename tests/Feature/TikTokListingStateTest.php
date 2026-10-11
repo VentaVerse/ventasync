@@ -3,17 +3,17 @@
 namespace Tests\Feature;
 
 use App\Extensions\ExtensionManager;
-use App\Integrations\IntegrationRegistry;
-use App\Integrations\Listings\ListingState;
+use App\Channels\ChannelRegistry;
+use App\Channels\Listings\ListingState;
 use App\Models\Admin\Permission;
 use App\Models\Admin\UserGroup;
 use App\Models\User;
-use Extensions\tiktok\Models\TikTokListing;
-use Extensions\tiktok\Models\TikTokProductGroup;
-use Extensions\tiktok\Models\TikTokProductGroupProduct;
-use Extensions\tiktok\Models\TikTokSetting;
-use Extensions\tiktok\Services\TikTok\TikTokListingStates;
-use Extensions\tiktok\TiktokExtension;
+use Extensions\TikTok\Models\TikTokListing;
+use Extensions\TikTok\Models\TikTokProductGroup;
+use Extensions\TikTok\Models\TikTokProductGroupProduct;
+use Extensions\TikTok\Models\TikTokStore;
+use Extensions\TikTok\Services\TikTok\TikTokListingStates;
+use Extensions\TikTok\TikTokExtension;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
@@ -30,11 +30,11 @@ class TikTokListingStateTest extends TestCase
         $manager = $this->app->make(ExtensionManager::class);
         $manager->install('tiktok');
         $manager->enable('tiktok');
-        $this->app->register(TiktokExtension::class);
+        $this->app->register(TikTokExtension::class);
         $this->app['router']->getRoutes()->refreshNameLookups();
-        $this->artisan('permissions:sync-catalogue');
+        $this->artisan('permissions:sync-catalog');
 
-        TikTokSetting::create([
+        TikTokStore::create([
             'mode' => 'production', 'app_key' => 'k', 'app_secret' => 's',
             'access_token' => 't', 'refresh_token' => 'r', 'shop_cipher' => 'c', 'expires_at' => now()->addDays(3),
         ]);
@@ -58,16 +58,15 @@ class TikTokListingStateTest extends TestCase
 
     private function seedProduct(string $name, string $sku, string $image = 'catalog/x.png'): int
     {
-        $pfx = (string) config('catalog.prefix');
         $langId = (int) config('catalog.default_language_id');
 
-        $productId = DB::table($pfx . 'product')->insertGetId([
+        $productId = DB::table('products')->insertGetId([
             'model' => $sku, 'sku' => $sku, 'quantity' => 5, 'price' => 100,
             'status' => 1, 'image' => $image, 'weight' => 1, 'length' => 1, 'width' => 1, 'height' => 1,
-            'manufacturer_id' => 0,
+            'brand_id' => 0,
             'date_added' => now()->subDays(30), 'date_modified' => now()->subDays(30), 'date_available' => now()->subDays(30),
         ]);
-        DB::table($pfx . 'product_description')->insert([
+        DB::table('product_descriptions')->insert([
             'product_id' => $productId, 'language_id' => $langId,
             'name' => $name, 'description' => '',
             'meta_title' => '', 'meta_description' => '', 'meta_keyword' => '', 'tag' => '',
@@ -148,21 +147,20 @@ class TikTokListingStateTest extends TestCase
 
     public function test_drift_true_false_and_null(): void
     {
-        $pfx = (string) config('catalog.prefix');
 
         $inSync = $this->seedProduct('In sync', 'DR-1');
         TikTokListing::create(['product_id' => $inSync, 'tiktok_product_id' => 'tt-801', 'live_status' => 'ACTIVATE', 'live_checked_at' => now(), 'last_pushed_at' => now()]);
-        DB::table($pfx . 'product')->where('product_id', $inSync)->update(['date_modified' => now()->addMinute()]);
+        DB::table('products')->where('product_id', $inSync)->update(['date_modified' => now()->addMinute()]);
 
         $behind = $this->seedProduct('Behind', 'DR-2');
         TikTokListing::create(['product_id' => $behind, 'tiktok_product_id' => 'tt-802', 'live_status' => 'ACTIVATE', 'live_checked_at' => now(), 'last_pushed_at' => now()]);
-        DB::table($pfx . 'product_description')->where('product_id', $behind)->update(['name' => 'Behind, renamed']);
-        DB::table($pfx . 'product')->where('product_id', $behind)->update(['date_modified' => now()->addMinute()]);
+        DB::table('product_descriptions')->where('product_id', $behind)->update(['name' => 'Behind, renamed']);
+        DB::table('products')->where('product_id', $behind)->update(['date_modified' => now()->addMinute()]);
 
         $notListed = $this->seedProduct('Not listed yet', 'DR-3');
         TikTokListing::create(['product_id' => $notListed]);
-        DB::table($pfx . 'product_description')->where('product_id', $notListed)->update(['name' => 'Not listed, renamed']);
-        DB::table($pfx . 'product')->where('product_id', $notListed)->update(['date_modified' => now()->addMinute()]);
+        DB::table('product_descriptions')->where('product_id', $notListed)->update(['name' => 'Not listed, renamed']);
+        DB::table('products')->where('product_id', $notListed)->update(['date_modified' => now()->addMinute()]);
 
         $pivotOnly = $this->seedProduct('Pivot only', 'DR-4');
         $grp = TikTokProductGroup::create(['name' => 'Drift group', 'tiktok_category_id' => '900009']);
@@ -172,7 +170,7 @@ class TikTokListingStateTest extends TestCase
 
         $this->assertTrue($states[$inSync]->inSync, 'a catalog save that changed nothing is not a change');
         $this->assertFalse($states[$behind]->inSync);
-        $this->assertSame('Catalog change', $states[$behind]->driftLabel());
+        $this->assertSame('Master Catalog change', $states[$behind]->driftLabel());
         $this->assertSame([], $states[$behind]->reasons, 'the button says it; no reason line repeats it');
         $this->assertFalse($states[$notListed]->inSync, 'a listing not on TikTok yet keeps its own copy too');
         $this->assertNull($states[$pivotOnly]->inSync, 'no listing row: nothing to compare');
@@ -215,7 +213,6 @@ class TikTokListingStateTest extends TestCase
 
     public function test_summary_counts_attention_and_drift(): void
     {
-        $pfx = (string) config('catalog.prefix');
 
         $frozen = $this->seedProduct('Frozen', 'SM-1');
         TikTokListing::create(['product_id' => $frozen, 'tiktok_product_id' => 'tt-601', 'live_status' => 'FREEZE', 'live_checked_at' => now()]);
@@ -225,12 +222,12 @@ class TikTokListingStateTest extends TestCase
 
         $behind = $this->seedProduct('Behind', 'SM-3');
         TikTokListing::create(['product_id' => $behind, 'tiktok_product_id' => 'tt-603', 'live_status' => 'ACTIVATE', 'live_checked_at' => now(), 'last_pushed_at' => now()]);
-        DB::table($pfx . 'product_description')->where('product_id', $behind)->update(['name' => 'Behind, renamed']);
-        DB::table($pfx . 'product')->where('product_id', $behind)->update(['date_modified' => now()->addMinute()]);
+        DB::table('product_descriptions')->where('product_id', $behind)->update(['name' => 'Behind, renamed']);
+        DB::table('products')->where('product_id', $behind)->update(['date_modified' => now()->addMinute()]);
 
         $touched = $this->seedProduct('Touched', 'SM-5');
         TikTokListing::create(['product_id' => $touched, 'tiktok_product_id' => 'tt-605', 'live_status' => 'ACTIVATE', 'live_checked_at' => now()]);
-        DB::table($pfx . 'product')->where('product_id', $touched)->update(['date_modified' => now()->addMinute()]);
+        DB::table('products')->where('product_id', $touched)->update(['date_modified' => now()->addMinute()]);
 
         $unlinked = $this->seedProduct('Unlinked leftover', 'SM-4');
         TikTokListing::create(['product_id' => $unlinked, 'tiktok_product_id' => null, 'live_status' => 'FREEZE', 'live_checked_at' => now()]);
@@ -245,7 +242,7 @@ class TikTokListingStateTest extends TestCase
         $failed = $this->seedProduct('Failed', 'DB-1');
         TikTokListing::create(['product_id' => $failed, 'tiktok_product_id' => 'tt-501', 'live_status' => 'FAILED', 'live_checked_at' => now()]);
 
-        $data = (new TiktokExtension(app()))->dashboardData();
+        $data = (new TikTokExtension(app()))->dashboardData();
 
         $this->assertNotNull($data['tiktokSyncStatus']);
         $flags = $data['tiktokSyncStatus']->listing_flags;
@@ -274,10 +271,10 @@ class TikTokListingStateTest extends TestCase
         $productId = $this->seedProduct('Contracted', 'CT-1');
         TikTokListing::create(['product_id' => $productId, 'tiktok_product_id' => 'tt-401', 'live_status' => 'ACTIVATE', 'live_checked_at' => now()]);
 
-        $sources = $this->app->make(IntegrationRegistry::class)->listingStateSources();
-        $tiktok = collect($sources)->first(fn ($src) => $src instanceof TiktokExtension);
+        $sources = $this->app->make(ChannelRegistry::class)->listingStateSources();
+        $tiktok = collect($sources)->first(fn ($src) => $src instanceof TikTokExtension);
 
-        $this->assertNotNull($tiktok, 'TiktokExtension must register as a ListingStateSource');
+        $this->assertNotNull($tiktok, 'TikTokExtension must register as a ListingStateSource');
         $this->assertSame(ListingState::LIVE, $tiktok->listingStates([$productId])[$productId]->state);
         $this->assertSame(route('ext.tiktok.listings.edit', $productId), $tiktok->listingUrls([$productId])[$productId]);
     }
@@ -285,17 +282,17 @@ class TikTokListingStateTest extends TestCase
     public function test_the_last_push_refusal_and_the_last_sync_are_one_answer(): void
     {
         $pid = $this->seedProduct('Refused one', 'RF-1');
-        \Extensions\tiktok\Models\TikTokListing::query()->create(['product_id' => $pid]);
+        \Extensions\TikTok\Models\TikTokListing::query()->create(['product_id' => $pid]);
 
-        app(\Extensions\tiktok\Services\TikTok\TikTokListingStates::class)->recordOutcome($pid, 'Main image is required.');
-        $states = app(\Extensions\tiktok\Services\TikTok\TikTokListingStates::class);
+        app(\Extensions\TikTok\Services\TikTok\TikTokListingStates::class)->recordOutcome($pid, 'Main image is required.');
+        $states = app(\Extensions\TikTok\Services\TikTok\TikTokListingStates::class);
         $s = $states->forProducts([$pid])[$pid];
         $this->assertStringContainsString('failed: Main image is required', implode(' ', $s->reasons));
         $this->assertStringContainsString('Main image is required', (string) $states->errors([$pid])[$pid]);
 
-        \Extensions\tiktok\Models\TikTokListing::recordPush($pid, 'tt-1', null, 'listing');
+        \Extensions\TikTok\Models\TikTokListing::recordPush($pid, 'tt-1', null, 'listing');
         $this->assertNull($states->errors([$pid])[$pid]);
-        $this->assertNull(\Extensions\tiktok\Models\TikTokListing::query()->where('product_id', $pid)->value('last_push_error'));
+        $this->assertNull(\Extensions\TikTok\Models\TikTokListing::query()->where('product_id', $pid)->value('last_push_error'));
 
         $never = $this->seedProduct('Never one', 'NV-1');
         $this->assertNull($states->errors([$never])[$never]);
@@ -305,20 +302,20 @@ class TikTokListingStateTest extends TestCase
     {
         $pid = $this->seedProduct('Three sizes', 'EXL110');
         foreach (['EXL110-1046', 'EXL110-0942', 'EXL110-1149'] as $i => $sku) {
-            DB::table('product_option_combinations')->insert([
+            DB::table('product_variations')->insert([
                 'product_id' => $pid, 'sku' => $sku, 'quantity' => 3, 'absolute_price' => 100, 'status' => 1, 'sort_order' => $i,
             ]);
         }
         TikTokListing::query()->create(['product_id' => $pid, 'tiktok_product_id' => 'tt-9', 'live_status' => 'ACTIVATE', 'live_checked_at' => now()]);
-        $storeId = (int) TikTokSetting::defaultStore()->id;
-        \App\Integrations\Listings\ListingVariations::remember('tiktok', $storeId, $pid, ['EXL110-1046', 'EXL110-0942']);
+        $storeId = (int) TikTokStore::defaultStore()->id;
+        \App\Channels\Listings\ListingVariations::remember('tiktok', $storeId, $pid, ['EXL110-1046', 'EXL110-0942']);
 
         $line = (string) $this->engine()->errors([$pid])[$pid];
         $this->assertStringContainsString('Not on TikTok Shop:', $line);
         $this->assertStringContainsString('EXL110-1149', $line);
         $this->assertStringNotContainsString('EXL110-0942', $line);
 
-        DB::table(\App\Integrations\Listings\ListingVariations::TABLE)->insert([
+        DB::table(\App\Channels\Listings\ListingVariations::TABLE)->insert([
             'channel' => 'tiktok', 'store_id' => $storeId, 'product_id' => $pid, 'sku' => 'exl110-1149',
         ]);
         $this->assertNull($this->engine()->errors([$pid])[$pid]);
@@ -334,15 +331,15 @@ class TikTokListingStateTest extends TestCase
             'sync_status' => 'pending',
         ]);
 
-        $inherit = app(\Extensions\tiktok\Services\TikTok\TikTokInheritedSettings::class);
+        $inherit = app(\Extensions\TikTok\Services\TikTok\TikTokInheritedSettings::class);
         $filled = $inherit->fill($listing, $inherit->forProducts([$pid])[$pid] ?? null);
         $this->assertSame('900009', $filled['listing']->tiktok_category_id);
         $this->assertSame(['category' => 'Preset group'], $filled['inherited']);
 
-        $codes = array_column(app(\Extensions\tiktok\Services\TikTok\TikTokListingReadiness::class)
+        $codes = array_column(app(\Extensions\TikTok\Services\TikTok\TikTokListingReadiness::class)
             ->forProducts([$pid])[$pid]['gaps'], 'code');
-        $this->assertNotContains(\App\Integrations\Listings\ListingState::GAP_CATEGORY, $codes);
-        $this->assertContains(\App\Integrations\Listings\ListingState::GAP_SHEET, $codes, 'the inherited category is judged like its own: its sheet is still unread');
+        $this->assertNotContains(\App\Channels\Listings\ListingState::GAP_CATEGORY, $codes);
+        $this->assertContains(\App\Channels\Listings\ListingState::GAP_SHEET, $codes, 'the inherited category is judged like its own: its sheet is still unread');
 
         $this->assertNull(TikTokListing::query()->where('product_id', $pid)->value('tiktok_category_id'));
         $this->assertNull($listing->tiktok_category_id);
@@ -469,15 +466,15 @@ class TikTokListingStateTest extends TestCase
 
     public function test_the_error_filter_lists_exactly_the_rows_with_an_error_line(): void
     {
-        $storeId = (int) TikTokSetting::defaultStore()->id;
+        $storeId = (int) TikTokStore::defaultStore()->id;
 
         $short = $this->linkedSingle('Short a variation', 'MV1', 'tt-701');
         foreach (['MV1-A', 'MV1-B'] as $i => $sku) {
-            DB::table('product_option_combinations')->insert([
+            DB::table('product_variations')->insert([
                 'product_id' => $short, 'sku' => $sku, 'quantity' => 3, 'absolute_price' => 100, 'status' => 1, 'sort_order' => $i,
             ]);
         }
-        \App\Integrations\Listings\ListingVariations::remember('tiktok', $storeId, $short, ['MV1-A']);
+        \App\Channels\Listings\ListingVariations::remember('tiktok', $storeId, $short, ['MV1-A']);
 
         $refused = $this->linkedSingle('Refused then fixed', 'RT-1', 'tt-702');
         $this->engine()->recordOutcome($refused, 'Stock push: refused.');
@@ -508,8 +505,8 @@ class TikTokListingStateTest extends TestCase
 
     public function test_an_outcome_lands_on_the_store_it_is_about(): void
     {
-        $one = TikTokSetting::defaultStore();
-        $two = TikTokSetting::create([
+        $one = TikTokStore::defaultStore();
+        $two = TikTokStore::create([
             'mode' => 'production', 'app_key' => 'k2', 'app_secret' => 's2',
             'access_token' => 't2', 'refresh_token' => 'r2', 'shop_cipher' => 'c2', 'expires_at' => now()->addDays(3),
         ]);
@@ -553,7 +550,7 @@ class TikTokListingStateTest extends TestCase
         $pid = $this->linkedSingle('Cron cleared', 'CC-1', 'tt-401');
         $this->engine()->recordOutcome($pid, 'Update refused.');
 
-        \Extensions\tiktok\Services\TikTok\TikTokStockPricePush::recordOutcomes('stock', [$pid => ['ok' => true, 'error' => null]], TikTokSetting::defaultStore());
+        \Extensions\TikTok\Services\TikTok\TikTokStockPricePush::recordOutcomes('stock', [$pid => ['ok' => true, 'error' => null]], TikTokStore::defaultStore());
 
         $this->assertNull($this->engine()->errors([$pid])[$pid]);
         $this->assertNull(TikTokListing::query()->where('product_id', $pid)->value('last_push_error'));

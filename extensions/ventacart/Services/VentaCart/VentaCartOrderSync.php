@@ -1,35 +1,35 @@
 <?php
 
-namespace Extensions\ventacart\Services\VentaCart;
+namespace Extensions\VentaCart\Services\VentaCart;
 
 use App\Models\Catalog\Order;
 use App\Models\Catalog\OrderHistory;
-use App\Models\Catalog\OrderOption;
+use App\Models\Catalog\OrderVariation;
 use App\Models\Catalog\OrderProduct;
 use App\Models\Catalog\OrderTotal;
 use App\Services\OrderStockService;
 use App\Events\OrderStatusChanged;
 use App\Services\ActivityLogger;
-use Extensions\ventacart\Models\VentaCartOrder;
-use Extensions\ventacart\Models\VentaCartOrderProduct;
-use Extensions\ventacart\Models\VentaCartOrderStatusMap;
-use Extensions\ventacart\Models\VentaCartSetting;
-use Extensions\ventacart\Models\VentaCartSyncLog;
+use Extensions\VentaCart\Models\VentaCartOrder;
+use Extensions\VentaCart\Models\VentaCartOrderProduct;
+use Extensions\VentaCart\Models\VentaCartOrderStatusMap;
+use Extensions\VentaCart\Models\VentaCartStore;
+use Extensions\VentaCart\Models\VentaCartSyncLog;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
 class VentaCartOrderSync
 {
     private VentaCartClient $client;
-    private VentaCartSetting $setting;
+    private VentaCartStore $store;
     private bool $skipStockAdjust = false;
 
     private bool $feesOnly = false;
 
-    public function __construct(VentaCartClient $client, VentaCartSetting $setting)
+    public function __construct(VentaCartClient $client, VentaCartStore $store)
     {
         $this->client = $client;
-        $this->setting = $setting;
+        $this->store = $store;
     }
 
     public function setSkipStockAdjust(bool $skip = true): self
@@ -55,7 +55,7 @@ class VentaCartOrderSync
         int $startPage = 1
     ): VentaCartSyncLog {
         $log = VentaCartSyncLog::create([
-            'ventacart_setting_id' => $this->setting->id,
+            'store_id' => $this->store->id,
             'entity_type'      => 'order',
             'direction'        => 'pull',
             'status'           => 'started',
@@ -124,7 +124,7 @@ class VentaCartOrderSync
                 }
             } while ($hasMore);
 
-            $this->setting->update(['last_order_sync_at' => now()]);
+            $this->store->update(['last_order_sync_at' => now()]);
 
             $log->update([
                 'status'            => 'completed',
@@ -142,7 +142,7 @@ class VentaCartOrderSync
                 'completed_at'  => now(),
             ]);
             Log::error('VentaCart order sync failed', [
-                'store' => $this->setting->store_name,
+                'store' => $this->store->store_name,
                 'error' => $e->getMessage(),
             ]);
         }
@@ -152,12 +152,12 @@ class VentaCartOrderSync
 
     private function resolveSinceDate(): ?string
     {
-        if ($this->setting->sync_last_days && $this->setting->sync_last_days > 0) {
-            return now()->subDays($this->setting->sync_last_days)->startOfDay()->toIso8601String();
+        if ($this->store->sync_last_days && $this->store->sync_last_days > 0) {
+            return now()->subDays($this->store->sync_last_days)->startOfDay()->toIso8601String();
         }
 
-        if ($this->setting->sync_orders_from) {
-            return $this->setting->sync_orders_from->startOfDay()->toIso8601String();
+        if ($this->store->sync_orders_from) {
+            return $this->store->sync_orders_from->startOfDay()->toIso8601String();
         }
 
         return null;
@@ -165,17 +165,16 @@ class VentaCartOrderSync
 
     private function buildStatusMap(): array
     {
-        $pfx = (string) config('catalog.prefix');
         $langId = (int) config('catalog.default_language_id');
 
         $idMap = [];
-        $storeMap = VentaCartOrderStatusMap::where('ventacart_setting_id', $this->setting->id)->get();
+        $storeMap = VentaCartOrderStatusMap::where('store_id', $this->store->id)->get();
         foreach ($storeMap as $row) {
             $idMap[(int) $row->ventacart_status_id] = (int) $row->order_status_id;
         }
 
         $nameMap = [];
-        $rows = DB::table($pfx . 'order_status')
+        $rows = DB::table('order_statuses')
             ->where('language_id', $langId)
             ->select('order_status_id', 'name')
             ->get();
@@ -215,7 +214,7 @@ class VentaCartOrderSync
 
         $this->upsertOrder($raw, $this->buildStatusMap());
 
-        return VentaCartOrder::where('ventacart_setting_id', $this->setting->id)
+        return VentaCartOrder::where('store_id', $this->store->id)
             ->where('ventacart_order_id', $ventaCartOrderId)
             ->first();
     }
@@ -223,10 +222,10 @@ class VentaCartOrderSync
     private function refreshPlacements(): void
     {
         try {
-            VentaCartStatusPlacements::refresh($this->setting, $this->client);
+            VentaCartStatusPlacements::refresh($this->store, $this->client);
         } catch (\Throwable $e) {
             Log::warning('VentaCart status placements could not be refreshed', [
-                'store' => $this->setting->id,
+                'store' => $this->store->id,
                 'error' => $e->getMessage(),
             ]);
         }
@@ -253,7 +252,6 @@ class VentaCartOrderSync
 
     private function upsertOrder(array $raw, array $statusMap): bool
     {
-        $pfx = (string) config('catalog.prefix');
         $ventaCartOrderId = (int) ($raw['id'] ?? 0);
         if ($ventaCartOrderId <= 0) {
             throw new \RuntimeException('Missing order id');
@@ -263,11 +261,11 @@ class VentaCartOrderSync
         $statusName = trim($raw['status'] ?? '');
         $coreStatusId = $this->resolveOrderStatus($statusMap, $ventaCartStatusId, $statusName);
 
-        $marketplaceSource = 'ventacart:' . $this->setting->id;
+        $orderChannel = 'ventacart:' . $this->store->id;
 
         $ventaCartOrder = VentaCartOrder::updateOrCreate(
             [
-                'ventacart_setting_id' => $this->setting->id,
+                'store_id' => $this->store->id,
                 'ventacart_order_id'   => $ventaCartOrderId,
             ],
             [
@@ -312,14 +310,13 @@ class VentaCartOrderSync
             return $wasCreated;
         }
 
-        $this->syncToCatalog($ventaCartOrder, $raw, $coreStatusId, $marketplaceSource, $statusMap);
+        $this->syncToCatalog($ventaCartOrder, $raw, $coreStatusId, $orderChannel, $statusMap);
 
         return $wasCreated;
     }
 
-    private function syncToCatalog(VentaCartOrder $ventaCartOrder, array $raw, int $coreStatusId, string $marketplaceSource, array $statusMap): void
+    private function syncToCatalog(VentaCartOrder $ventaCartOrder, array $raw, int $coreStatusId, string $orderChannel, array $statusMap): void
     {
-        $pfx = (string) config('catalog.prefix');
         $ventaCartOrderId = (string) $ventaCartOrder->ventacart_order_id;
 
         $contact = $raw['contact'] ?? [];
@@ -338,13 +335,13 @@ class VentaCartOrderSync
         $created = false;
 
         DB::transaction(function () use (
-            $raw, $pfx, $ventaCartOrderId, $coreStatusId, $marketplaceSource,
+            $raw, $ventaCartOrderId, $coreStatusId, $orderChannel,
             $firstname, $lastname, $email, $phone,
             $shipping, $billing, $totals, $ventaCartOrder,
             &$oldStatusId, &$coreOrderId, &$created
         ) {
-            $existing = DB::table($pfx . 'order')
-                ->where('marketplace_source', $marketplaceSource)
+            $existing = DB::table('orders')
+                ->where('channel', $orderChannel)
                 ->where('marketplace_order_id', $ventaCartOrderId)
                 ->first();
 
@@ -363,8 +360,8 @@ class VentaCartOrderSync
                 'invoice_no'             => 0,
                 'invoice_prefix'         => '',
                 'store_id'               => 0,
-                'store_name'             => $this->setting->store_name,
-                'store_url'              => $this->setting->base_url,
+                'store_name'             => $this->store->store_name,
+                'store_url'              => $this->store->base_url,
                 'customer_id'            => 0,
                 'customer_group_id'      => 0,
                 'customer_group'         => self::customerGroupFrom($raw),
@@ -425,7 +422,7 @@ class VentaCartOrderSync
                 'accept_language'        => '',
                 'courier_id'             => 0,
                 'tracking_number'        => $raw['tracking_number'] ?? '',
-                'marketplace_source'     => $marketplaceSource,
+                'channel'     => $orderChannel,
                 'marketplace_order_id'   => $ventaCartOrderId,
                 'oe_import'              => 0,
                 'date_modified'          => isset($raw['updated_at']) ? \Carbon\Carbon::parse($raw['updated_at'])->format('Y-m-d H:i:s') : now()->toDateTimeString(),
@@ -444,19 +441,19 @@ class VentaCartOrderSync
                 }
                 $orderData['date_added'] = $existing->date_added;
                 unset($orderData['shipping_cost']);
-                DB::table($pfx . 'order')
+                DB::table('orders')
                     ->where('order_id', $coreOrderId)
                     ->update($orderData);
             } else {
                 $orderData['date_added'] = isset($raw['created_at']) ? \Carbon\Carbon::parse($raw['created_at'])->format('Y-m-d H:i:s') : now()->toDateTimeString();
                 \App\Plans\Quota::refuseOrder();
-                $coreOrderId = DB::table($pfx . 'order')->insertGetId($orderData, 'order_id');
+                $coreOrderId = DB::table('orders')->insertGetId($orderData, 'order_id');
                 $created = true;
             }
 
             $items = $raw['items'] ?? [];
-            DB::table($pfx . 'order_product')->where('order_id', $coreOrderId)->delete();
-            DB::table($pfx . 'order_option')->where('order_id', $coreOrderId)->delete();
+            DB::table('order_products')->where('order_id', $coreOrderId)->delete();
+            DB::table('order_variations')->where('order_id', $coreOrderId)->delete();
 
             $subTotal = 0;
             foreach ($items as $item) {
@@ -470,34 +467,34 @@ class VentaCartOrderSync
                 $lineTotalBase = \App\Services\OrderCurrencyService::toBase($lineTotal, $rate);
 
                 $resolvedProductId = 0;
-                $resolvedOptionValueId = 0;
+                $resolvedVariationValueId = 0;
 
                 if ($sku !== '') {
-                    $pov = DB::table($pfx . 'product_option_value')
+                    $pov = DB::table('product_variation_values')
                         ->where('sku', $sku)
                         ->first();
                     if ($pov) {
                         $resolvedProductId = (int) $pov->product_id;
-                        $resolvedOptionValueId = (int) $pov->product_option_value_id;
+                        $resolvedVariationValueId = (int) $pov->product_variation_value_id;
                     }
 
                     if ($resolvedProductId === 0) {
-                        $combo = DB::table('product_option_combinations as poc')
+                        $combo = DB::table('product_variations as poc')
                             ->where('poc.sku', $sku)
-                            ->first(['poc.product_id', 'poc.id as combination_id']);
+                            ->first(['poc.product_id', 'poc.id as product_variation_id']);
                         if ($combo) {
                             $resolvedProductId = (int) $combo->product_id;
-                            $comboValue = DB::table('product_option_combination_values')
-                                ->where('combination_id', $combo->combination_id)
-                                ->first(['product_option_value_id']);
+                            $comboValue = DB::table('product_variation_parts')
+                                ->where('product_variation_id', $combo->product_variation_id)
+                                ->first(['product_variation_value_id']);
                             if ($comboValue) {
-                                $resolvedOptionValueId = (int) $comboValue->product_option_value_id;
+                                $resolvedVariationValueId = (int) $comboValue->product_variation_value_id;
                             }
                         }
                     }
 
                     if ($resolvedProductId === 0) {
-                        $prod = DB::table($pfx . 'product')
+                        $prod = DB::table('products')
                             ->where('sku', $sku)
                             ->first(['product_id']);
                         if ($prod) {
@@ -506,8 +503,8 @@ class VentaCartOrderSync
                     }
 
                     if ($resolvedProductId === 0) {
-                        $link = DB::table('ventacart_product_links')
-                            ->where('ventacart_setting_id', $this->setting->id)
+                        $link = DB::table('ch_ventacart_listing_links')
+                            ->where('store_id', $this->store->id)
                             ->where('sku', $sku)
                             ->first();
                         if ($link) {
@@ -516,9 +513,9 @@ class VentaCartOrderSync
                     }
                 }
 
-                $productCost = \App\Support\LineCost::resolve((int) $resolvedProductId, (int) $resolvedOptionValueId);
+                $productCost = \App\Support\LineCost::resolve((int) $resolvedProductId, (int) $resolvedVariationValueId);
 
-                $opId = DB::table($pfx . 'order_product')->insertGetId([
+                $opId = DB::table('order_products')->insertGetId([
                     'order_id'      => $coreOrderId,
                     'product_id'    => $resolvedProductId,
                     'name'          => $item['name'] ?? '',
@@ -535,23 +532,23 @@ class VentaCartOrderSync
 
                 $variantLabel = trim($item['variant_label'] ?? '');
                 if ($variantLabel !== '') {
-                    DB::table($pfx . 'order_option')->insert([
+                    DB::table('order_variations')->insert([
                         'order_id'                 => $coreOrderId,
                         'order_product_id'         => $opId,
-                        'product_option_id'        => 0,
-                        'product_option_value_id'  => $resolvedOptionValueId,
-                        'name'                     => 'Option',
+                        'product_variation_type_id'        => 0,
+                        'product_variation_value_id'  => $resolvedVariationValueId,
+                        'name'                     => 'Variation',
                         'value'                    => $variantLabel,
                         'type'                     => 'text',
                     ]);
                 }
             }
 
-            DB::table($pfx . 'order_total')->where('order_id', $coreOrderId)
+            DB::table('order_totals')->where('order_id', $coreOrderId)
                 ->whereNotIn('code', array_column(\App\Services\Orders\MarketplaceFeeNormalizer::CODES, 0))->delete();
             $sortOrder = 1;
             foreach (VentaCartSaleLines::lines(is_array($totals) ? $totals : [], $subTotal, (float) ($totals['shipping'] ?? 0)) as $line) {
-                DB::table($pfx . 'order_total')->insert([
+                DB::table('order_totals')->insert([
                     'order_id'   => $coreOrderId,
                     'code'       => $line['code'],
                     'title'      => $line['title'],
@@ -561,7 +558,7 @@ class VentaCartOrderSync
             }
 
             if ($created || $oldStatusId !== $coreStatusId) {
-                DB::table($pfx . 'order_history')->insert([
+                DB::table('order_history')->insert([
                     'order_id'        => $coreOrderId,
                     'order_status_id' => $coreStatusId,
                     'notify'          => 0,

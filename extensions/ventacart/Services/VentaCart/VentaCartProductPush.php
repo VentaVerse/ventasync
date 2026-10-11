@@ -1,35 +1,34 @@
 <?php
 
-namespace Extensions\ventacart\Services\VentaCart;
+namespace Extensions\VentaCart\Services\VentaCart;
 
-use Extensions\ventacart\Models\VentaCartListing;
-use Extensions\ventacart\Models\VentaCartProductLink;
-use Extensions\ventacart\Models\VentaCartSetting;
+use Extensions\VentaCart\Models\VentaCartListing;
+use Extensions\VentaCart\Models\VentaCartListingLink;
+use Extensions\VentaCart\Models\VentaCartStore;
 use Illuminate\Support\Facades\DB;
 
 class VentaCartProductPush
 {
     public function __construct(
-        private VentaCartSetting $setting,
+        private VentaCartStore $store,
         private VentaCartClient $client,
     ) {
     }
 
-    public static function for(VentaCartSetting $setting): self
+    public static function for(VentaCartStore $store): self
     {
-        return new self($setting, new VentaCartClient($setting));
+        return new self($store, new VentaCartClient($store));
     }
 
     public function product(int $productId): ?object
     {
-        $pfx = (string) config('catalog.prefix');
         $langId = (int) config('catalog.default_language_id');
 
-        return DB::table($pfx . 'product as p')
-            ->join($pfx . 'product_description as pd', function ($j) use ($langId) {
+        return DB::table('products as p')
+            ->join('product_descriptions as pd', function ($j) use ($langId) {
                 $j->on('p.product_id', '=', 'pd.product_id')->where('pd.language_id', '=', $langId);
             })
-            ->leftJoin($pfx . 'manufacturer as m', 'p.manufacturer_id', '=', 'm.manufacturer_id')
+            ->leftJoin('brands as m', 'p.brand_id', '=', 'm.brand_id')
             ->where('p.product_id', $productId)
             ->first([
                 'p.product_id', 'pd.name', 'pd.description', 'pd.meta_title', 'pd.meta_description',
@@ -46,8 +45,7 @@ class VentaCartProductPush
 
     public function candidateSkus(int $productId): array
     {
-        $pfx = (string) config('catalog.prefix');
-        $prod = DB::table($pfx . 'product')->where('product_id', $productId)->first(['sku', 'model']);
+        $prod = DB::table('products')->where('product_id', $productId)->first(['sku', 'model']);
 
         if (! $prod) {
             return [];
@@ -69,7 +67,7 @@ class VentaCartProductPush
         $pid = (int) $prod->product_id;
         $sku = self::skuOf($prod);
         $price = fn (float $base) => $priceFor ? round((float) $priceFor($base), 2) : $base;
-        $listing = VentaCartListing::query()->where('ventacart_setting_id', $this->setting->id)->where('product_id', $pid)->first();
+        $listing = VentaCartListing::query()->where('store_id', $this->store->id)->where('product_id', $pid)->first();
         $start = VentaCartListing::startFor($listing, (float) $prod->price, VentaCartListing::withVariations([$pid]) !== []);
         $parcel = VentaCartListing::parcelFor($listing, $prod);
 
@@ -84,10 +82,10 @@ class VentaCartProductPush
             'width'       => $parcel['width'],
             'height'      => $parcel['height'],
             'status'      => (bool) $prod->status,
-            'description' => \App\Integrations\Listings\ListingContent::wrapDescription(
+            'description' => \App\Channels\Listings\ListingContent::wrapDescription(
                 (string) ($overrides['description'] ?? ($prod->description ?? '')),
                 'ventacart',
-                (int) $this->setting->id,
+                (int) $this->store->id,
                 $listing
             ),
         ];
@@ -124,30 +122,29 @@ class VentaCartProductPush
 
     private function variants(object $prod, string $sku, callable $price, float $weight): array
     {
-        $pfx = (string) config('catalog.prefix');
         $langId = (int) config('catalog.default_language_id');
         $pid = (int) $prod->product_id;
 
         $fallbackImage = trim((string) ($prod->image ?? '')) !== '' ? self::imageUrl((string) $prod->image) : null;
         $variantImage = fn (?string $path) => trim((string) $path) !== '' ? self::imageUrl((string) $path) : $fallbackImage;
 
-        $combos = DB::table('product_option_combinations as poc')
+        $combos = DB::table('product_variations as poc')
             ->where('poc.product_id', $pid)
             ->orderBy('poc.sort_order')
             ->get();
 
-        $hidden = \App\Integrations\Listings\ListingVariations::hidden('ventacart', (int) $this->setting->id, [$pid]);
+        $hidden = \App\Channels\Listings\ListingVariations::hidden('ventacart', (int) $this->store->id, [$pid]);
 
         if ($combos->isNotEmpty()) {
-            $comboValues = DB::table('product_option_combination_values as pocv')
-                ->join($pfx . 'product_option_value as pov', 'pocv.product_option_value_id', '=', 'pov.product_option_value_id')
-                ->join($pfx . 'option_value_description as ovd', function ($j) use ($langId) {
-                    $j->on('pov.option_value_id', '=', 'ovd.option_value_id')->where('ovd.language_id', '=', $langId);
+            $comboValues = DB::table('product_variation_parts as pocv')
+                ->join('product_variation_values as pov', 'pocv.product_variation_value_id', '=', 'pov.product_variation_value_id')
+                ->join('variation_value_descriptions as ovd', function ($j) use ($langId) {
+                    $j->on('pov.variation_value_id', '=', 'ovd.variation_value_id')->where('ovd.language_id', '=', $langId);
                 })
-                ->whereIn('pocv.combination_id', $combos->pluck('id')->toArray())
-                ->select('pocv.combination_id', 'ovd.name as value_name')
+                ->whereIn('pocv.product_variation_id', $combos->pluck('id')->toArray())
+                ->select('pocv.product_variation_id', 'ovd.name as value_name')
                 ->get()
-                ->groupBy('combination_id');
+                ->groupBy('product_variation_id');
 
             $variants = [];
             foreach ($combos as $c) {
@@ -161,31 +158,31 @@ class VentaCartProductPush
                     'quantity'    => (int) $c->quantity,
                     'weight'      => $weight,
                     'image'       => $variantImage($c->image ?? null),
-                    'status'      => \App\Integrations\Listings\ListingVariations::allows($hidden, $pid, $c->sku),
+                    'status'      => \App\Channels\Listings\ListingVariations::allows($hidden, $pid, $c->sku),
                 ];
             }
 
             return $variants;
         }
 
-        $optionValues = DB::table($pfx . 'product_option_value as pov')
-            ->join($pfx . 'option_value_description as ovd', function ($j) use ($langId) {
-                $j->on('pov.option_value_id', '=', 'ovd.option_value_id')->where('ovd.language_id', '=', $langId);
+        $variationValues = DB::table('product_variation_values as pov')
+            ->join('variation_value_descriptions as ovd', function ($j) use ($langId) {
+                $j->on('pov.variation_value_id', '=', 'ovd.variation_value_id')->where('ovd.language_id', '=', $langId);
             })
-            ->join($pfx . 'option_description as od', function ($j) use ($langId) {
-                $j->on('pov.option_id', '=', 'od.option_id')->where('od.language_id', '=', $langId);
+            ->join('variation_type_descriptions as od', function ($j) use ($langId) {
+                $j->on('pov.variation_type_id', '=', 'od.variation_type_id')->where('od.language_id', '=', $langId);
             })
             ->where('pov.product_id', $pid)
             ->get([
-                'pov.product_option_value_id', 'pov.sku as variant_sku',
+                'pov.product_variation_value_id', 'pov.sku as variant_sku',
                 'pov.quantity as variant_qty', 'pov.price as variant_price',
                 'pov.price_prefix', 'pov.absolute_price',
                 'pov.cost as variant_cost', 'pov.cost_prefix', 'pov.absolute_cost',
-                'ovd.name as option_value_name', 'od.name as option_name',
+                'ovd.name as variation_value_name', 'od.name as variation_type_name',
             ]);
 
         $variants = [];
-        foreach ($optionValues as $ov) {
+        foreach ($variationValues as $ov) {
             if ((float) ($ov->absolute_price ?? 0) > 0) {
                 $variantPrice = (float) $ov->absolute_price;
             } else {
@@ -209,15 +206,15 @@ class VentaCartProductPush
             }
 
             $variants[] = [
-                'sku'         => $ov->variant_sku ?: ($sku . '-' . $ov->product_option_value_id),
-                'name'        => $ov->option_value_name,
-                'option_name' => $ov->option_name,
+                'sku'         => $ov->variant_sku ?: ($sku . '-' . $ov->product_variation_value_id),
+                'name'        => $ov->variation_value_name,
+                'option_name' => $ov->variation_type_name,
                 'price'       => $price($variantPrice),
                 'cost'        => $variantCost,
                 'quantity'    => (int) $ov->variant_qty,
                 'weight'      => $weight,
                 'image'       => $variantImage(null),
-                'status'      => \App\Integrations\Listings\ListingVariations::allows($hidden, $pid, (string) ($ov->variant_sku ?? '')),
+                'status'      => \App\Channels\Listings\ListingVariations::allows($hidden, $pid, (string) ($ov->variant_sku ?? '')),
             ];
         }
 
@@ -250,12 +247,11 @@ class VentaCartProductPush
 
     private function catalogVariationNames(object $prod): array
     {
-        $pfx = (string) config('catalog.prefix');
         $langId = (int) config('catalog.default_language_id');
         $pid = (int) $prod->product_id;
         $sku = self::skuOf($prod);
 
-        $combos = DB::table('product_option_combinations')
+        $combos = DB::table('product_variations')
             ->where('product_id', $pid)
             ->orderBy('sort_order')
             ->get(['id', 'sku']);
@@ -264,19 +260,19 @@ class VentaCartProductPush
             return [];
         }
 
-        $values = DB::table('product_option_combination_values as pocv')
-            ->join($pfx . 'product_option_value as pov', 'pocv.product_option_value_id', '=', 'pov.product_option_value_id')
-            ->join($pfx . 'option_description as od', function ($j) use ($langId) {
-                $j->on('pov.option_id', '=', 'od.option_id')->where('od.language_id', '=', $langId);
+        $values = DB::table('product_variation_parts as pocv')
+            ->join('product_variation_values as pov', 'pocv.product_variation_value_id', '=', 'pov.product_variation_value_id')
+            ->join('variation_type_descriptions as od', function ($j) use ($langId) {
+                $j->on('pov.variation_type_id', '=', 'od.variation_type_id')->where('od.language_id', '=', $langId);
             })
-            ->join($pfx . 'option_value_description as ovd', function ($j) use ($langId) {
-                $j->on('pov.option_value_id', '=', 'ovd.option_value_id')->where('ovd.language_id', '=', $langId);
+            ->join('variation_value_descriptions as ovd', function ($j) use ($langId) {
+                $j->on('pov.variation_value_id', '=', 'ovd.variation_value_id')->where('ovd.language_id', '=', $langId);
             })
-            ->whereIn('pocv.combination_id', $combos->pluck('id')->all())
-            ->get(['pocv.combination_id', 'pov.option_id', 'od.name as option_name', 'ovd.name as value_name'])
-            ->groupBy('combination_id');
+            ->whereIn('pocv.product_variation_id', $combos->pluck('id')->all())
+            ->get(['pocv.product_variation_id', 'pov.variation_type_id', 'od.name as variation_type_name', 'ovd.name as value_name'])
+            ->groupBy('product_variation_id');
 
-        if ($values->flatten(1)->pluck('option_id')->unique()->count() !== 1) {
+        if ($values->flatten(1)->pluck('variation_type_id')->unique()->count() !== 1) {
             return [];
         }
 
@@ -286,12 +282,12 @@ class VentaCartProductPush
             if (! $rows || $rows->count() !== 1) {
                 return [];
             }
-            $option = trim((string) $rows->first()->option_name);
+            $typeName = trim((string) $rows->first()->variation_type_name);
             $value = trim((string) $rows->first()->value_name);
-            if ($option === '' || $value === '') {
+            if ($typeName === '' || $value === '') {
                 return [];
             }
-            $names[$c->sku ?: ($sku . '-' . $c->id)] = ['option_name' => $option, 'name' => $value];
+            $names[$c->sku ?: ($sku . '-' . $c->id)] = ['option_name' => $typeName, 'name' => $value];
         }
 
         return $names;
@@ -299,14 +295,14 @@ class VentaCartProductPush
 
     public function images(int $productId): array
     {
-        $marking = VentaCartListing::query()->where('ventacart_setting_id', $this->setting->id)->where('product_id', $productId)
+        $marking = VentaCartListing::query()->where('store_id', $this->store->id)->where('product_id', $productId)
             ->first(['watermark_template_id', 'watermark_all_images']);
         $paths = \App\Services\Media\ListingWatermark::paths(
             \App\Support\Catalog\ProductImages::paths($productId, $this->ownImageOrder($productId)),
             $marking,
-            \App\Services\Media\ListingWatermark::groupTemplateId('ventacart_product_groups', 'ventacart_product_group_products', 'ventacart_product_group_id', $productId, 'ventacart_setting_id', (int) $this->setting->id),
+            \App\Services\Media\ListingWatermark::groupTemplateId('ch_ventacart_product_groups', 'ch_ventacart_product_group_products', 'ventacart_product_group_id', $productId, 'store_id', (int) $this->store->id),
             'ventacart',
-            (int) $this->setting->id
+            (int) $this->store->id
         );
 
         return array_map([\App\Support\Catalog\ProductImages::class, 'url'], \App\Services\Media\ImageCache::pushPaths($paths));
@@ -315,7 +311,7 @@ class VentaCartProductPush
     private function ownImageOrder(int $productId): ?array
     {
         return VentaCartListing::query()
-            ->where('ventacart_setting_id', $this->setting->id)
+            ->where('store_id', $this->store->id)
             ->where('product_id', $productId)
             ->value('image_order');
     }
@@ -327,8 +323,8 @@ class VentaCartProductPush
 
     public function reconcileLink(int $productId): array
     {
-        $store = (int) $this->setting->id;
-        $link = VentaCartProductLink::where('ventacart_setting_id', $store)->where('product_id', $productId)->first();
+        $store = (int) $this->store->id;
+        $link = VentaCartListingLink::where('store_id', $store)->where('product_id', $productId)->first();
 
         $found = null;
         $foundSku = null;
@@ -399,20 +395,20 @@ class VentaCartProductPush
 
     public function linkProductTo(int $productId, $ventaCartProductId, ?string $sku): ?string
     {
-        $store = (int) $this->setting->id;
+        $store = (int) $this->store->id;
 
-        $conflict = VentaCartProductLink::where('ventacart_setting_id', $store)
+        $conflict = VentaCartListingLink::where('store_id', $store)
             ->where('ventacart_product_id', $ventaCartProductId)
             ->where('product_id', '!=', $productId)
             ->first();
 
         if ($conflict) {
-            return "VentaCart product {$ventaCartProductId} is already linked to catalog product "
+            return "VentaCart product {$ventaCartProductId} is already linked to Master Catalog product "
                 . "#{$conflict->product_id}. Unlink that product first, then try this one again.";
         }
 
-        VentaCartProductLink::updateOrCreate(
-            ['ventacart_setting_id' => $store, 'product_id' => $productId],
+        VentaCartListingLink::updateOrCreate(
+            ['store_id' => $store, 'product_id' => $productId],
             ['ventacart_product_id' => $ventaCartProductId, 'sku' => $sku]
         );
 
@@ -423,16 +419,16 @@ class VentaCartProductPush
     {
         $prod = $this->product($productId);
         if (! $prod) {
-            return self::outcome(false, 'failed', 'The catalog product no longer exists.');
+            return self::outcome(false, 'failed', 'The Master Catalog product no longer exists.');
         }
 
-        if (\App\Integrations\Listings\ListingVariations::noneSold('ventacart', (int) $this->setting->id, $productId)) {
-            return self::outcome(false, 'failed', \App\Integrations\Listings\ListingVariations::noneSoldMessage((string) $this->setting->store_name));
+        if (\App\Channels\Listings\ListingVariations::noneSold('ventacart', (int) $this->store->id, $productId)) {
+            return self::outcome(false, 'failed', \App\Channels\Listings\ListingVariations::noneSoldMessage((string) $this->store->store_name));
         }
 
         $readiness = VentaCartListingReadiness::forProducts([$productId])[$productId] ?? ['ready' => false, 'missing' => []];
         if (! $readiness['ready']) {
-            return self::outcome(false, 'failed', \App\Integrations\Listings\CatalogGaps::refusal($readiness));
+            return self::outcome(false, 'failed', \App\Channels\Listings\CatalogGaps::refusal($readiness));
         }
         $sku = self::skuOf($prod);
 
@@ -443,7 +439,7 @@ class VentaCartProductPush
             return self::outcome(false, $verdict['state'], (string) $verdict['message'], null, [], $data);
         }
 
-        $link = VentaCartProductLink::where('ventacart_setting_id', $this->setting->id)->where('product_id', $productId)->first();
+        $link = VentaCartListingLink::where('store_id', $this->store->id)->where('product_id', $productId)->first();
 
         if ($link && $link->ventacart_product_id) {
             $data = $this->withCatalogNames($prod, $data);
@@ -452,10 +448,10 @@ class VentaCartProductPush
                 return self::outcome(false, 'failed', self::failureText($result, $sku), (int) $link->ventacart_product_id, [], $data);
             }
 
-            $this->setting->update(['last_product_sync_at' => now()]);
+            $this->store->update(['last_product_sync_at' => now()]);
             $this->rememberAnswer($productId, $result);
 
-            return self::outcome(true, 'updated','Updated on ' . $this->setting->store_name . '.', (int) $link->ventacart_product_id, self::imageVerdict($result), $data);
+            return self::outcome(true, 'updated','Updated on ' . $this->store->store_name . '.', (int) $link->ventacart_product_id, self::imageVerdict($result), $data);
         }
 
         $result = $this->client->createProduct($data);
@@ -468,19 +464,18 @@ class VentaCartProductPush
             return self::outcome(false, 'blocked', "Created on the store as {$ventaCartId}, but {$clash}", $ventaCartId, self::imageVerdict($result), $data);
         }
 
-        $this->setting->update(['last_product_sync_at' => now()]);
+        $this->store->update(['last_product_sync_at' => now()]);
         $this->rememberAnswer($productId, $result);
 
-        return self::outcome(true, 'created','Created on ' . $this->setting->store_name . '.', $ventaCartId, self::imageVerdict($result), $data);
+        return self::outcome(true, 'created','Created on ' . $this->store->store_name . '.', $ventaCartId, self::imageVerdict($result), $data);
     }
 
     public function rememberHeld(int $productId, iterable $skus): void
     {
-        $pfx = (string) config('catalog.prefix');
-        if ((\App\Integrations\Push\PushLedger::erpVariationSkus([$productId], $pfx)[$productId] ?? []) === []) {
+        if ((\App\Channels\Push\PushLedger::erpVariationSkus([$productId])[$productId] ?? []) === []) {
             return;
         }
-        $own = DB::table($pfx . 'product')->where('product_id', $productId)->first(['sku', 'model']);
+        $own = DB::table('products')->where('product_id', $productId)->first(['sku', 'model']);
         $parent = array_filter([strtolower(trim((string) ($own->sku ?? ''))), strtolower(trim((string) ($own->model ?? '')))]);
         $held = [];
         foreach ($skus as $sku) {
@@ -489,7 +484,7 @@ class VentaCartProductPush
                 $held[] = $sku;
             }
         }
-        \App\Integrations\Listings\ListingVariations::remember('ventacart', (int) $this->setting->id, $productId, $held);
+        \App\Channels\Listings\ListingVariations::remember('ventacart', (int) $this->store->id, $productId, $held);
     }
 
     private function rememberAnswer(int $productId, array $result): void
@@ -574,8 +569,8 @@ class VentaCartProductPush
         }
 
         return ['ok' => true, 'message' => $active
-            ? 'Relisted on ' . $this->setting->store_name . '. Buyers see it again.'
-            : 'Unlisted on ' . $this->setting->store_name . '. Buyers stop seeing it; it can be relisted at any time.'];
+            ? 'Relisted on ' . $this->store->store_name . '. Buyers see it again.'
+            : 'Unlisted on ' . $this->store->store_name . '. Buyers stop seeing it; it can be relisted at any time.'];
     }
 
     public static function failureText(array $result, string $sku): string
@@ -586,11 +581,11 @@ class VentaCartProductPush
         if (stripos($raw, 'images_unavailable') !== false) {
             return 'VentaCart will not create a product it cannot fetch images for, so nothing was listed. '
                 . 'It reads images over the web from the address this ERP publishes, and that address is a '
-                . 'private one, so the images never reach it. Nothing in the catalog needs fixing.';
+                . 'private one, so the images never reach it. Nothing in the Master Catalog needs fixing.';
         }
 
         if (stripos($raw, 'sku has already been taken') !== false) {
-            return "VentaCart already has a product with SKU {$sku} that this catalog product is not linked to. "
+            return "VentaCart already has a product with SKU {$sku} that this Master Catalog product is not linked to. "
                 . 'Press Send again and it will find that product and link to it.';
         }
 

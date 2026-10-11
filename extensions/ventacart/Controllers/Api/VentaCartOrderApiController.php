@@ -1,17 +1,17 @@
 <?php
 
-namespace Extensions\ventacart\Controllers\Api;
+namespace Extensions\VentaCart\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Support\Fulfilment\AppFulfilment;
 use App\Support\FulfilmentSteps;
 use App\Support\Money;
-use Extensions\ventacart\Models\VentaCartOrder;
-use Extensions\ventacart\Models\VentaCartOrderStatusMap;
-use Extensions\ventacart\Models\VentaCartSetting;
-use Extensions\ventacart\Services\VentaCart\VentaCartFulfilment;
-use Extensions\ventacart\Services\VentaCart\VentaCartStatusPlacements;
-use Extensions\ventacart\VentaCartExtension;
+use Extensions\VentaCart\Models\VentaCartOrder;
+use Extensions\VentaCart\Models\VentaCartOrderStatusMap;
+use Extensions\VentaCart\Models\VentaCartStore;
+use Extensions\VentaCart\Services\VentaCart\VentaCartFulfilment;
+use Extensions\VentaCart\Services\VentaCart\VentaCartStatusPlacements;
+use Extensions\VentaCart\VentaCartExtension;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -22,7 +22,7 @@ class VentaCartOrderApiController extends Controller
 {
     public function stores()
     {
-        $stores = VentaCartSetting::where('enabled', true)
+        $stores = VentaCartStore::where('enabled', true)
             ->orderBy('store_name')
             ->get(['id', 'store_name']);
 
@@ -33,7 +33,7 @@ class VentaCartOrderApiController extends Controller
 
     public function index(Request $request, int $storeId)
     {
-        $store = VentaCartSetting::where('id', $storeId)->where('enabled', true)->first();
+        $store = VentaCartStore::where('id', $storeId)->where('enabled', true)->first();
         if (! $store) {
             return response()->json(['error' => 'Store not found'], 404);
         }
@@ -41,8 +41,8 @@ class VentaCartOrderApiController extends Controller
         $tab = trim((string) $request->query('tab', 'ALL'));
         $search = trim((string) $request->query('q', ''));
 
-        $baseQuery = VentaCartOrder::where('ventacart_setting_id', $storeId);
-        $query = VentaCartOrder::where('ventacart_setting_id', $storeId);
+        $baseQuery = VentaCartOrder::where('store_id', $storeId);
+        $query = VentaCartOrder::where('store_id', $storeId);
 
         $distinctStatuses = (clone $baseQuery)->select('status')
             ->distinct()
@@ -128,7 +128,7 @@ class VentaCartOrderApiController extends Controller
     public function show(int $storeId, int $id)
     {
         $order = VentaCartOrder::with('products')
-            ->where('ventacart_setting_id', $storeId)
+            ->where('store_id', $storeId)
             ->find($id);
 
         if (! $order) {
@@ -141,7 +141,7 @@ class VentaCartOrderApiController extends Controller
     public function payload(VentaCartOrder $order): array
     {
         $order->loadMissing('products');
-        $store = VentaCartSetting::find($order->ventacart_setting_id);
+        $store = VentaCartStore::find($order->store_id);
         $baseUrl = rtrim($store->base_url ?? '', '/');
         $raw = $order->raw ?? [];
         $shippingAddr = $order->shipping_address ?? [];
@@ -194,9 +194,9 @@ class VentaCartOrderApiController extends Controller
 
     public static function fulfilment(VentaCartOrder $order): array
     {
-        $placement = VentaCartStatusPlacements::stepFor((int) $order->ventacart_setting_id, trim((string) $order->status)) ?? 'other';
+        $placement = VentaCartStatusPlacements::stepFor((int) $order->store_id, trim((string) $order->status)) ?? 'other';
         $step = match ($placement) {
-            'to_pack', 'to_handover', 'cancelled' => $placement,
+            'to_pack', 'to_handover', 'canceled' => $placement,
             'shipping' => 'shipped',
             'delivered' => 'done',
             default => 'other',
@@ -217,10 +217,9 @@ class VentaCartOrderApiController extends Controller
             return null;
         }
 
-        $pfx = (string) config('catalog.prefix');
         $productId = null;
 
-        $pov = DB::table($pfx . 'product_option_value')
+        $pov = DB::table('product_variation_values')
             ->where('sku', $sku)
             ->first(['product_id']);
 
@@ -229,7 +228,7 @@ class VentaCartOrderApiController extends Controller
         }
 
         if (! $productId) {
-            $product = DB::table($pfx . 'product')
+            $product = DB::table('products')
                 ->where('sku', $sku)
                 ->first(['product_id', 'image']);
 
@@ -240,7 +239,7 @@ class VentaCartOrderApiController extends Controller
             return null;
         }
 
-        $product = DB::table($pfx . 'product')
+        $product = DB::table('products')
             ->where('product_id', $productId)
             ->first(['image']);
 
@@ -351,7 +350,7 @@ class VentaCartOrderApiController extends Controller
 
         return match ($step) {
             'to_handover', 'shipped', 'done' => AppFulfilment::alreadyDone('This order is already booked.', $this->fresh($order)),
-            'cancelled' => AppFulfilment::refused('This order was cancelled.'),
+            'canceled' => AppFulfilment::refused('This order was canceled.'),
             default => null,
         };
     }
@@ -368,15 +367,15 @@ class VentaCartOrderApiController extends Controller
         return array_filter($data, fn ($v) => $v !== null && $v !== '');
     }
 
-    private function store(int $store): VentaCartSetting
+    private function store(int $store): VentaCartStore
     {
-        return VentaCartSetting::where('id', $store)->where('enabled', true)->firstOrFail();
+        return VentaCartStore::where('id', $store)->where('enabled', true)->firstOrFail();
     }
 
     private function storeAndOrder(int $store, int $id): array
     {
         $setting = $this->store($store);
 
-        return [$setting, VentaCartOrder::where('ventacart_setting_id', $store)->findOrFail($id)];
+        return [$setting, VentaCartOrder::where('store_id', $store)->findOrFail($id)];
     }
 }

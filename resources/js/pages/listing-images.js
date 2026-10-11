@@ -416,7 +416,7 @@
                 list.innerHTML = '';
                 catalog.forEach(function (t) { list.appendChild(tile(t.path, t.url)); });
                 refresh();
-                announce("Following the catalog product's pictures again.");
+                announce("Following the Master Catalog product's pictures again.");
             });
         }
 

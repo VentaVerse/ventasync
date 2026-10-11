@@ -3,15 +3,15 @@
 namespace Tests\Feature;
 
 use App\Extensions\ExtensionManager;
-use App\Integrations\IntegrationRegistry;
-use App\Integrations\Listings\ListingState;
-use Extensions\shopee\Models\ShopeeCategoryTemplate;
-use Extensions\shopee\Models\ShopeeListing;
-use Extensions\shopee\Models\ShopeeProductLink;
-use Extensions\shopee\Models\ShopeeSetting;
-use Extensions\shopee\Services\Shopee\ShopeeClient;
-use Extensions\shopee\Services\Shopee\ShopeeListingStates;
-use Extensions\shopee\Services\Shopee\ShopeeLiveListing;
+use App\Channels\ChannelRegistry;
+use App\Channels\Listings\ListingState;
+use Extensions\Shopee\Models\ShopeeCategoryTemplate;
+use Extensions\Shopee\Models\ShopeeListing;
+use Extensions\Shopee\Models\ShopeeListingLink;
+use Extensions\Shopee\Models\ShopeeStore;
+use Extensions\Shopee\Services\Shopee\ShopeeClient;
+use Extensions\Shopee\Services\Shopee\ShopeeListingStates;
+use Extensions\Shopee\Services\Shopee\ShopeeLiveListing;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
@@ -28,11 +28,11 @@ class ShopeeListingStateTest extends TestCase
         $manager = $this->app->make(ExtensionManager::class);
         $manager->install('shopee');
         $manager->enable('shopee');
-        $this->app->register(\Extensions\shopee\ShopeeExtension::class);
+        $this->app->register(\Extensions\Shopee\ShopeeExtension::class);
         $this->app['router']->getRoutes()->refreshNameLookups();
-        $this->artisan('permissions:sync-catalogue');
+        $this->artisan('permissions:sync-catalog');
 
-        ShopeeSetting::query()->create([
+        ShopeeStore::query()->create([
             'partner_id' => 1001, 'partner_key' => 'k', 'shop_id' => 2002,
             'access_token' => 't', 'refresh_token' => 'r', 'mode' => 'production',
         ]);
@@ -40,16 +40,15 @@ class ShopeeListingStateTest extends TestCase
 
     private function product(string $sku, string $image = 'catalog/x.png', ?string $modified = null): int
     {
-        $pfx = (string) config('catalog.prefix');
 
-        $id = (int) DB::table($pfx . 'product')->insertGetId([
+        $id = (int) DB::table('products')->insertGetId([
             'model' => $sku, 'sku' => $sku, 'quantity' => 5, 'price' => 100,
             'status' => 1, 'image' => $image, 'weight' => 1, 'length' => 1, 'width' => 1, 'height' => 1,
-            'manufacturer_id' => 0,
+            'brand_id' => 0,
             'date_added' => now()->subDays(30), 'date_modified' => $modified ?? now()->subDays(30),
             'date_available' => now()->subDays(30),
         ]);
-        DB::table($pfx . 'product_description')->insert([
+        DB::table('product_descriptions')->insert([
             'product_id' => $id, 'language_id' => (int) config('catalog.default_language_id'),
             'name' => 'Product ' . $sku, 'description' => 'A description.',
             'meta_title' => '', 'meta_description' => '', 'meta_keyword' => '', 'tag' => '',
@@ -60,11 +59,10 @@ class ShopeeListingStateTest extends TestCase
 
     private function editCatalog(int $productId, ?string $name = null): void
     {
-        $pfx = (string) config('catalog.prefix');
         if ($name !== null) {
-            DB::table($pfx . 'product_description')->where('product_id', $productId)->update(['name' => $name]);
+            DB::table('product_descriptions')->where('product_id', $productId)->update(['name' => $name]);
         }
-        DB::table($pfx . 'product')->where('product_id', $productId)->update(['date_modified' => now()->addMinute()]);
+        DB::table('products')->where('product_id', $productId)->update(['date_modified' => now()->addMinute()]);
     }
 
     private function readyListing(int $productId, array $extra = []): ShopeeListing
@@ -105,7 +103,7 @@ class ShopeeListingStateTest extends TestCase
         $this->assertTrue($s->ready, $s->missingSummary());
 
         $unknown = $this->product('UNK');
-        ShopeeProductLink::create(['product_id' => $unknown, 'shopee_item_id' => 111, 'sku' => 'UNK']);
+        ShopeeListingLink::create(['product_id' => $unknown, 'shopee_item_id' => 111, 'sku' => 'UNK']);
         $s = $this->states([$unknown])[$unknown];
         $this->assertSame(ListingState::UNKNOWN, $s->state);
         $this->assertSame('Not checked yet', $s->label());
@@ -118,7 +116,7 @@ class ShopeeListingStateTest extends TestCase
             'MISSING' => [ListingState::ATTENTION, 'Not found on Shopee', 'danger'],
         ] as $raw => [$state, $label, $tone]) {
             $pid = $this->product('S' . $raw);
-            ShopeeProductLink::create([
+            ShopeeListingLink::create([
                 'product_id' => $pid, 'shopee_item_id' => $pid, 'sku' => 'S' . $raw,
                 'live_status' => $raw, 'live_checked_at' => now(),
             ]);
@@ -151,22 +149,22 @@ class ShopeeListingStateTest extends TestCase
 
         $this->assertStringContainsString('between 1 and 9', (string) app(ShopeeListingStates::class)->errors([$pid])[$pid]);
 
-        ShopeeProductLink::create(['product_id' => $pid, 'shopee_item_id' => 777, 'sku' => 'IMG', 'live_status' => 'NORMAL', 'live_checked_at' => now()]);
+        ShopeeListingLink::create(['product_id' => $pid, 'shopee_item_id' => 777, 'sku' => 'IMG', 'live_status' => 'NORMAL', 'live_checked_at' => now()]);
         $this->assertStringContainsString('between 1 and 9', implode(' ', $this->states([$pid])[$pid]->reasons));
 
         app(ShopeeListingStates::class)->clearErrors([$pid]);
         $this->assertSame([], $this->states([$pid])[$pid]->reasons);
         $this->assertNull(ShopeeListing::query()->where('product_id', $pid)->value('last_push_error'));
 
-        ShopeeProductLink::query()->where('product_id', $pid)->update(['last_synced_at' => now()->subMinutes(5), 'last_sync_action' => 'stock', 'last_sync_ok' => true]);
+        ShopeeListingLink::query()->where('product_id', $pid)->update(['last_synced_at' => now()->subMinutes(5), 'last_sync_action' => 'stock', 'last_sync_ok' => true]);
         ShopeeListing::query()->where('product_id', $pid)->update(['last_pushed_at' => now()->subHours(3)]);
         $this->assertNull(app(ShopeeListingStates::class)->errors([$pid])[$pid]);
 
-        ShopeeProductLink::query()->where('product_id', $pid)->update(['last_sync_ok' => false, 'last_sync_error_message' => 'Stock update refused: item is under review.']);
+        ShopeeListingLink::query()->where('product_id', $pid)->update(['last_sync_ok' => false, 'last_sync_error_message' => 'Stock update refused: item is under review.']);
         $this->assertSame('Stock update refused: item is under review.', app(ShopeeListingStates::class)->errors([$pid])[$pid]);
 
-        ShopeeProductLink::query()->where('product_id', $pid)->update(['last_sync_error_message' => null]);
-        $this->assertSame(\App\Integrations\Push\PushLedger::NO_REASON, app(ShopeeListingStates::class)->errors([$pid])[$pid]);
+        ShopeeListingLink::query()->where('product_id', $pid)->update(['last_sync_error_message' => null]);
+        $this->assertSame(\App\Channels\Push\PushLedger::NO_REASON, app(ShopeeListingStates::class)->errors([$pid])[$pid]);
 
         $never = $this->product('NEVER');
         $this->assertNull(app(ShopeeListingStates::class)->errors([$never])[$never]);
@@ -176,14 +174,14 @@ class ShopeeListingStateTest extends TestCase
     {
         $pid = $this->product('EXL110');
         foreach (['EXL110-1046', 'EXL110-0942', 'EXL110-1149'] as $i => $sku) {
-            DB::table('product_option_combinations')->insert([
+            DB::table('product_variations')->insert([
                 'product_id' => $pid, 'sku' => $sku, 'quantity' => 3, 'absolute_price' => 100, 'status' => 1, 'sort_order' => $i,
             ]);
         }
         $this->readyListing($pid);
-        ShopeeProductLink::create(['product_id' => $pid, 'shopee_item_id' => 910, 'shopee_model_id' => 1, 'sku' => 'EXL110-1046', 'live_status' => 'NORMAL', 'live_checked_at' => now()]);
-        $storeId = (int) ShopeeSetting::defaultStore()->id;
-        \App\Integrations\Listings\ListingVariations::remember('shopee', $storeId, $pid, ['EXL110-1046', 'EXL110-0942']);
+        ShopeeListingLink::create(['product_id' => $pid, 'shopee_item_id' => 910, 'shopee_model_id' => 1, 'sku' => 'EXL110-1046', 'live_status' => 'NORMAL', 'live_checked_at' => now()]);
+        $storeId = (int) ShopeeStore::defaultStore()->id;
+        \App\Channels\Listings\ListingVariations::remember('shopee', $storeId, $pid, ['EXL110-1046', 'EXL110-0942']);
 
         $line = (string) app(ShopeeListingStates::class)->errors([$pid])[$pid];
         $this->assertStringContainsString('Not on Shopee:', $line);
@@ -197,7 +195,7 @@ class ShopeeListingStateTest extends TestCase
         $this->assertStringContainsString('Not on Shopee:', $html);
         $this->assertStringContainsString('EXL110-1149', $html);
 
-        DB::table(\App\Integrations\Listings\ListingVariations::TABLE)->insert([
+        DB::table(\App\Channels\Listings\ListingVariations::TABLE)->insert([
             'channel' => 'shopee', 'store_id' => $storeId, 'product_id' => $pid, 'sku' => 'exl110-1149',
         ]);
         $this->assertNull(app(ShopeeListingStates::class)->errors([$pid])[$pid]);
@@ -206,12 +204,11 @@ class ShopeeListingStateTest extends TestCase
     public function test_a_push_sends_every_picture_that_is_on_main_first(): void
     {
         $pid = $this->product('MANY', 'catalog/main.png');
-        $pfx = (string) config('catalog.prefix');
         for ($i = 1; $i <= 12; $i++) {
-            \Illuminate\Support\Facades\DB::table($pfx . 'product_image')->insert(['product_id' => $pid, 'image' => "catalog/g{$i}.png", 'sort_order' => $i]);
+            \Illuminate\Support\Facades\DB::table('product_images')->insert(['product_id' => $pid, 'image' => "catalog/g{$i}.png", 'sort_order' => $i]);
         }
-        $product = \Illuminate\Support\Facades\DB::table($pfx . 'product')->where('product_id', $pid)->first();
-        $create = app(\Extensions\shopee\Services\Shopee\ShopeeItemCreate::class);
+        $product = \Illuminate\Support\Facades\DB::table('products')->where('product_id', $pid)->first();
+        $create = app(\Extensions\Shopee\Services\Shopee\ShopeeItemCreate::class);
 
         $paths = $create->catalogImagePaths($product);
 
@@ -235,18 +232,18 @@ class ShopeeListingStateTest extends TestCase
     {
         $moved = $this->product('MOVED');
         $this->readyListing($moved);
-        ShopeeProductLink::create(['product_id' => $moved, 'shopee_item_id' => 900, 'sku' => 'MOVED',
+        ShopeeListingLink::create(['product_id' => $moved, 'shopee_item_id' => 900, 'sku' => 'MOVED',
             'live_status' => 'NORMAL', 'live_checked_at' => now()]);
         $this->editCatalog($moved, 'Product MOVED, renamed');
         $s = $this->states([$moved])[$moved];
         $this->assertSame(ListingState::LIVE, $s->state);
         $this->assertFalse($s->inSync);
-        $this->assertSame('Catalog change', $s->driftLabel());
+        $this->assertSame('Master Catalog change', $s->driftLabel());
         $this->assertSame([], $s->reasons, 'a Catalog change is a button, not a reason');
 
         $steady = $this->product('STEADY');
         $this->readyListing($steady);
-        ShopeeProductLink::create(['product_id' => $steady, 'shopee_item_id' => 901, 'sku' => 'STEADY',
+        ShopeeListingLink::create(['product_id' => $steady, 'shopee_item_id' => 901, 'sku' => 'STEADY',
             'live_status' => 'NORMAL', 'live_checked_at' => now()]);
         $this->editCatalog($steady);
         $s = $this->states([$steady])[$steady];
@@ -259,7 +256,7 @@ class ShopeeListingStateTest extends TestCase
         $this->assertFalse($this->states([$unlisted])[$unlisted]->inSync);
 
         $adopted = $this->product('ADOPTED');
-        ShopeeProductLink::create(['product_id' => $adopted, 'shopee_item_id' => 902, 'sku' => 'ADOPTED',
+        ShopeeListingLink::create(['product_id' => $adopted, 'shopee_item_id' => 902, 'sku' => 'ADOPTED',
             'live_status' => 'NORMAL', 'live_checked_at' => now()]);
         $this->assertNull($this->states([$adopted])[$adopted]->inSync);
     }
@@ -268,7 +265,7 @@ class ShopeeListingStateTest extends TestCase
     {
         $pid = $this->product('MULTI');
         foreach ([['shopee_model_id' => 1, 'live_status' => 'NORMAL'], ['shopee_model_id' => 2, 'live_status' => 'BANNED']] as $row) {
-            ShopeeProductLink::create(array_merge([
+            ShopeeListingLink::create(array_merge([
                 'product_id' => $pid, 'shopee_item_id' => 950, 'sku' => 'MULTI', 'live_checked_at' => now(),
             ], $row));
         }
@@ -291,11 +288,11 @@ class ShopeeListingStateTest extends TestCase
         };
 
         $pid = $this->product('PUSHED');
-        ShopeeProductLink::create(['product_id' => $pid, 'shopee_item_id' => 990077, 'sku' => 'PUSHED']);
+        ShopeeListingLink::create(['product_id' => $pid, 'shopee_item_id' => 990077, 'sku' => 'PUSHED']);
 
         (new ShopeeLiveListing($fake))->confirm(['mode' => 'production', 'partner_id' => 1, 'partner_key' => 'k', 'access_token' => 't', 'shop_id' => 2], [990077]);
 
-        $link = ShopeeProductLink::query()->where('shopee_item_id', 990077)->first();
+        $link = ShopeeListingLink::query()->where('shopee_item_id', 990077)->first();
         $this->assertSame('REVIEWING', $link->live_status);
         $this->assertNotNull($link->live_checked_at);
         $this->assertSame(ListingState::REVIEWING, $this->states([$pid])[$pid]->state);
@@ -312,11 +309,11 @@ class ShopeeListingStateTest extends TestCase
         };
 
         $pid = $this->product('BLIND');
-        ShopeeProductLink::create(['product_id' => $pid, 'shopee_item_id' => 990088, 'sku' => 'BLIND']);
+        ShopeeListingLink::create(['product_id' => $pid, 'shopee_item_id' => 990088, 'sku' => 'BLIND']);
 
         (new ShopeeLiveListing($fake))->confirm(['mode' => 'production', 'partner_id' => 1, 'partner_key' => 'k', 'access_token' => 't', 'shop_id' => 2], [990088]);
 
-        $this->assertNull(ShopeeProductLink::query()->where('shopee_item_id', 990088)->value('live_status'), 'stays honestly blank');
+        $this->assertNull(ShopeeListingLink::query()->where('shopee_item_id', 990088)->value('live_status'), 'stays honestly blank');
     }
 
     public function test_the_summary_counts_trouble_without_walking_every_product(): void
@@ -325,19 +322,19 @@ class ShopeeListingStateTest extends TestCase
             ['BANNED', 1101], ['MISSING', 1102],
         ] as [$status, $item]) {
             $pid = $this->product('SUM' . $item);
-            ShopeeProductLink::create(['product_id' => $pid, 'shopee_item_id' => $item, 'sku' => 'SUM' . $item,
+            ShopeeListingLink::create(['product_id' => $pid, 'shopee_item_id' => $item, 'sku' => 'SUM' . $item,
                 'live_status' => $status, 'live_checked_at' => now()]);
         }
 
         $drift = $this->product('SUMDRIFT');
         $this->readyListing($drift);
-        ShopeeProductLink::create(['product_id' => $drift, 'shopee_item_id' => 1103, 'sku' => 'SUMDRIFT',
+        ShopeeListingLink::create(['product_id' => $drift, 'shopee_item_id' => 1103, 'sku' => 'SUMDRIFT',
             'live_status' => 'NORMAL', 'live_checked_at' => now()]);
         $this->editCatalog($drift, 'Product SUMDRIFT, renamed');
 
         $clean = $this->product('SUMCLEAN');
         $this->readyListing($clean);
-        ShopeeProductLink::create(['product_id' => $clean, 'shopee_item_id' => 1104, 'sku' => 'SUMCLEAN',
+        ShopeeListingLink::create(['product_id' => $clean, 'shopee_item_id' => 1104, 'sku' => 'SUMCLEAN',
             'live_status' => 'NORMAL', 'live_checked_at' => now()]);
         $this->editCatalog($clean);
 
@@ -350,10 +347,10 @@ class ShopeeListingStateTest extends TestCase
     public function test_the_dashboard_chip_carries_the_listing_troubles_in_words(): void
     {
         $pid = $this->product('DASH');
-        ShopeeProductLink::create(['product_id' => $pid, 'shopee_item_id' => 1201, 'sku' => 'DASH',
+        ShopeeListingLink::create(['product_id' => $pid, 'shopee_item_id' => 1201, 'sku' => 'DASH',
             'live_status' => 'BANNED', 'live_checked_at' => now()]);
 
-        $data = (new \Extensions\shopee\ShopeeExtension(app()))->dashboardData();
+        $data = (new \Extensions\Shopee\ShopeeExtension(app()))->dashboardData();
         $flags = $data['shopeeSyncStatus']->listing_flags;
 
         $this->assertCount(1, $flags);
@@ -363,22 +360,22 @@ class ShopeeListingStateTest extends TestCase
         $this->assertStringContainsString('state=attention', (string) $flags[0]['href']);
         $this->assertStringContainsString('/shopee/', (string) $flags[0]['href']);
 
-        ShopeeProductLink::query()->update(['live_status' => 'NORMAL']);
-        $data = (new \Extensions\shopee\ShopeeExtension(app()))->dashboardData();
+        ShopeeListingLink::query()->update(['live_status' => 'NORMAL']);
+        $data = (new \Extensions\Shopee\ShopeeExtension(app()))->dashboardData();
         $this->assertSame([], $data['shopeeSyncStatus']->listing_flags);
     }
 
     public function test_the_listings_page_filters_to_the_figure_the_dashboard_counted(): void
     {
         $troubled = $this->product('SICK');
-        ShopeeProductLink::create(['product_id' => $troubled, 'shopee_item_id' => 1301, 'sku' => 'SICK',
+        ShopeeListingLink::create(['product_id' => $troubled, 'shopee_item_id' => 1301, 'sku' => 'SICK',
             'live_status' => 'BANNED', 'live_checked_at' => now()]);
 
         $fine = $this->product('WELL');
-        ShopeeProductLink::create(['product_id' => $fine, 'shopee_item_id' => 1302, 'sku' => 'WELL',
+        ShopeeListingLink::create(['product_id' => $fine, 'shopee_item_id' => 1302, 'sku' => 'WELL',
             'live_status' => 'NORMAL', 'live_checked_at' => now()]);
 
-        $engine = app(\Extensions\shopee\Services\Shopee\ShopeeListingStates::class);
+        $engine = app(\Extensions\Shopee\Services\Shopee\ShopeeListingStates::class);
         $this->assertSame([$troubled], $engine->productIdsIn('attention'),
             'The rows behind the figure must be the rows the figure counted.');
         $this->assertSame(1, $engine->summary()['attention']);
@@ -400,8 +397,7 @@ class ShopeeListingStateTest extends TestCase
     public function test_a_groupless_never_pushed_product_on_the_store_is_visible_by_default(): void
     {
         $pid = $this->product('FIRSTEVER');
-        $pfx = (string) config('catalog.prefix');
-        DB::table($pfx . 'product_description')->where('product_id', $pid)->update([
+        DB::table('product_descriptions')->where('product_id', $pid)->update([
             'name' => 'My very first product', 'description' => '',
             'meta_title' => '', 'meta_description' => '', 'meta_keyword' => '', 'tag' => '',
         ]);
@@ -424,9 +420,9 @@ class ShopeeListingStateTest extends TestCase
     public function test_the_row_menu_offers_only_the_applicable_toggle(): void
     {
         $live = $this->product('TGL-LIVE');
-        ShopeeProductLink::create(['product_id' => $live, 'shopee_item_id' => 3001, 'sku' => 'TGL-LIVE', 'live_status' => 'NORMAL', 'live_checked_at' => now()]);
+        ShopeeListingLink::create(['product_id' => $live, 'shopee_item_id' => 3001, 'sku' => 'TGL-LIVE', 'live_status' => 'NORMAL', 'live_checked_at' => now()]);
         $off = $this->product('TGL-OFF');
-        ShopeeProductLink::create(['product_id' => $off, 'shopee_item_id' => 3002, 'sku' => 'TGL-OFF', 'live_status' => 'UNLIST', 'live_checked_at' => now()]);
+        ShopeeListingLink::create(['product_id' => $off, 'shopee_item_id' => 3002, 'sku' => 'TGL-OFF', 'live_status' => 'UNLIST', 'live_checked_at' => now()]);
 
         $group = \App\Models\Admin\UserGroup::create(['name' => 'Shopee togglers']);
         $group->permissions()->attach(
@@ -446,13 +442,13 @@ class ShopeeListingStateTest extends TestCase
     public function test_the_group_page_offers_the_toggle_the_listing_page_offers(): void
     {
         $pid = $this->product('TGL-GRP');
-        DB::table((string) config('catalog.prefix') . 'product_description')->where('product_id', $pid)->update([
+        DB::table('product_descriptions')->where('product_id', $pid)->update([
             'name' => 'Togglable in group', 'description' => '',
             'meta_title' => '', 'meta_description' => '', 'meta_keyword' => '', 'tag' => '',
         ]);
-        ShopeeProductLink::create(['product_id' => $pid, 'shopee_item_id' => 3003, 'sku' => 'TGL-GRP', 'live_status' => 'NORMAL', 'live_checked_at' => now()]);
-        $grp = \Extensions\shopee\Models\ShopeeProductGroup::create(['name' => 'Toggle group', 'shopee_category_id' => 100139]);
-        \Extensions\shopee\Models\ShopeeProductGroupProduct::create([
+        ShopeeListingLink::create(['product_id' => $pid, 'shopee_item_id' => 3003, 'sku' => 'TGL-GRP', 'live_status' => 'NORMAL', 'live_checked_at' => now()]);
+        $grp = \Extensions\Shopee\Models\ShopeeProductGroup::create(['name' => 'Toggle group', 'shopee_category_id' => 100139]);
+        \Extensions\Shopee\Models\ShopeeProductGroupProduct::create([
             'shopee_product_group_id' => $grp->id, 'product_id' => $pid,
             'shopee_item_id' => 3003, 'sync_status' => 'pushed',
         ]);
@@ -472,10 +468,10 @@ class ShopeeListingStateTest extends TestCase
     public function test_shopee_answers_the_core_contract_every_channel_will_share(): void
     {
         $pid = $this->product('VIACORE');
-        ShopeeProductLink::create(['product_id' => $pid, 'shopee_item_id' => 970, 'sku' => 'VIACORE',
+        ShopeeListingLink::create(['product_id' => $pid, 'shopee_item_id' => 970, 'sku' => 'VIACORE',
             'live_status' => 'NORMAL', 'live_checked_at' => now()]);
 
-        $sources = app(IntegrationRegistry::class)->listingStateSources();
+        $sources = app(ChannelRegistry::class)->listingStateSources();
         $this->assertNotEmpty($sources, 'the Shopee provider registers as a ListingStateSource');
 
         $states = collect($sources)->map(fn ($s) => $s->listingStates([$pid]))->first();
@@ -508,7 +504,7 @@ class ShopeeListingStateTest extends TestCase
     {
         $pid = $this->product($sku);
         $this->readyListing($pid);
-        ShopeeProductLink::create([
+        ShopeeListingLink::create([
             'product_id' => $pid, 'shopee_item_id' => $itemId, 'sku' => $sku,
             'live_status' => 'NORMAL', 'live_checked_at' => now(),
         ]);
@@ -549,7 +545,7 @@ class ShopeeListingStateTest extends TestCase
         $user = $this->operator();
 
         $this->actingAs($user)->post(route('ext.shopee.products.check'), ['product_ids' => [$pid]])->assertRedirect();
-        $this->assertSame(1, ShopeeProductLink::query()->where('product_id', $pid)->count(), 'the check found the item');
+        $this->assertSame(1, ShopeeListingLink::query()->where('product_id', $pid)->count(), 'the check found the item');
         $this->assertSame('Price is out of range.', $this->line($pid), 'a check that finds the item leaves the failure standing');
 
         $this->artisan('shopee:refresh-listing-status');
@@ -569,7 +565,7 @@ class ShopeeListingStateTest extends TestCase
 
         $this->actingAs($this->operator())->post(route('ext.shopee.products.check'), ['product_ids' => [$pid]])->assertRedirect();
 
-        $this->assertSame(0, ShopeeProductLink::query()->where('product_id', $pid)->count());
+        $this->assertSame(0, ShopeeListingLink::query()->where('product_id', $pid)->count());
         $this->assertSame('Shopee item 5003 is no longer on Shopee.', $this->line($pid));
     }
 
@@ -577,7 +573,7 @@ class ShopeeListingStateTest extends TestCase
     {
         $pid = $this->linkedProduct('UNL', 5004);
         app(ShopeeListingStates::class)->recordOutcome($pid, 'Update failed: Brand information required');
-        ShopeeProductLink::query()->where('product_id', $pid)
+        ShopeeListingLink::query()->where('product_id', $pid)
             ->update(['last_sync_ok' => false, 'last_synced_at' => now(), 'last_sync_error_message' => 'Stock refused.']);
         $this->assertNotNull($this->line($pid));
 
@@ -592,15 +588,15 @@ class ShopeeListingStateTest extends TestCase
     {
         $missing = $this->product('MISSVAR');
         foreach (['MISSVAR-A', 'MISSVAR-B'] as $i => $sku) {
-            DB::table('product_option_combinations')->insert([
+            DB::table('product_variations')->insert([
                 'product_id' => $missing, 'sku' => $sku, 'quantity' => 3, 'absolute_price' => 100, 'status' => 1, 'sort_order' => $i,
             ]);
         }
         $this->readyListing($missing);
-        ShopeeProductLink::create(['product_id' => $missing, 'shopee_item_id' => 6001, 'shopee_model_id' => 1, 'sku' => 'MISSVAR-A',
+        ShopeeListingLink::create(['product_id' => $missing, 'shopee_item_id' => 6001, 'shopee_model_id' => 1, 'sku' => 'MISSVAR-A',
             'live_status' => 'NORMAL', 'live_checked_at' => now()]);
-        $storeId = (int) ShopeeSetting::defaultStore()->id;
-        \App\Integrations\Listings\ListingVariations::remember('shopee', $storeId, $missing, ['MISSVAR-A']);
+        $storeId = (int) ShopeeStore::defaultStore()->id;
+        \App\Channels\Listings\ListingVariations::remember('shopee', $storeId, $missing, ['MISSVAR-A']);
 
         $refused = $this->linkedProduct('PUSHERR', 6002);
         $clean = $this->linkedProduct('CLEANROW', 6003);
@@ -614,11 +610,11 @@ class ShopeeListingStateTest extends TestCase
             ->assertSee('MISSVAR')->assertSee('PUSHERR')->assertDontSee('CLEANROW')
             ->assertSee('products match: Push failed', false);
 
-        $grp = DB::table('shopee_product_groups')->insertGetId([
-            'shopee_setting_id' => $storeId, 'name' => 'Outcome group', 'created_at' => now(), 'updated_at' => now(),
+        $grp = DB::table('ch_shopee_product_groups')->insertGetId([
+            'store_id' => $storeId, 'name' => 'Outcome group', 'created_at' => now(), 'updated_at' => now(),
         ]);
         foreach ([$missing, $refused, $clean] as $p) {
-            DB::table('shopee_product_group_products')->insert(['shopee_product_group_id' => $grp, 'product_id' => $p]);
+            DB::table('ch_shopee_product_group_products')->insert(['shopee_product_group_id' => $grp, 'product_id' => $p]);
         }
         $this->actingAs($user)->get(route('ext.shopee.product-groups.products', ['id' => $grp, 'sync_status' => 'error']))->assertOk()
             ->assertSee('MISSVAR')->assertSee('PUSHERR')->assertDontSee('CLEANROW')
@@ -637,9 +633,9 @@ class ShopeeListingStateTest extends TestCase
         $this->linkedProduct('LISTOK', 7001);
 
         $gap = $this->product('LISTGAP');
-        DB::table((string) config('catalog.prefix') . 'product')->where('product_id', $gap)->update(['weight' => 0]);
+        DB::table('products')->where('product_id', $gap)->update(['weight' => 0]);
         $this->readyListing($gap);
-        ShopeeProductLink::create([
+        ShopeeListingLink::create([
             'product_id' => $gap, 'shopee_item_id' => 7002, 'sku' => 'LISTGAP',
             'live_status' => 'NORMAL', 'live_checked_at' => now(),
         ]);
@@ -674,8 +670,8 @@ class ShopeeListingStateTest extends TestCase
 
     public function test_an_outcome_lands_on_the_store_it_was_about(): void
     {
-        $one = ShopeeSetting::defaultStore();
-        $two = ShopeeSetting::query()->create([
+        $one = ShopeeStore::defaultStore();
+        $two = ShopeeStore::query()->create([
             'partner_id' => 1001, 'partner_key' => 'k', 'shop_id' => 3003,
             'access_token' => 't', 'refresh_token' => 'r', 'mode' => 'production', 'store_name' => 'Second',
         ]);

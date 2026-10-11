@@ -7,14 +7,14 @@ use App\Models\Admin\Permission;
 use App\Models\Admin\UserGroup;
 use App\Models\Setting;
 use App\Models\User;
-use Extensions\lazada\Models\LazadaOrder;
-use Extensions\lazada\Models\LazadaSetting;
-use Extensions\shopee\Models\ShopeeOrder;
-use Extensions\shopee\Models\ShopeeSetting;
-use Extensions\tiktok\Models\TikTokOrder;
-use Extensions\tiktok\Models\TikTokSetting;
-use Extensions\ventacart\Models\VentaCartOrder;
-use Extensions\ventacart\Models\VentaCartSetting;
+use Extensions\Lazada\Models\LazadaOrder;
+use Extensions\Lazada\Models\LazadaStore;
+use Extensions\Shopee\Models\ShopeeOrder;
+use Extensions\Shopee\Models\ShopeeStore;
+use Extensions\TikTok\Models\TikTokOrder;
+use Extensions\TikTok\Models\TikTokStore;
+use Extensions\VentaCart\Models\VentaCartOrder;
+use Extensions\VentaCart\Models\VentaCartStore;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Cache;
 use Tests\TestCase;
@@ -23,25 +23,25 @@ class PackingCheckTest extends TestCase
 {
     use RefreshDatabase;
 
-    private LazadaSetting $lazada;
+    private LazadaStore $lazada;
 
     protected function setUp(): void
     {
         parent::setUp();
 
         $manager = $this->app->make(ExtensionManager::class);
-        foreach (['lazada' => \Extensions\lazada\LazadaExtension::class,
-            'shopee' => \Extensions\shopee\ShopeeExtension::class,
-            'tiktok' => \Extensions\tiktok\TiktokExtension::class,
-            'ventacart' => \Extensions\ventacart\VentaCartExtension::class] as $id => $provider) {
+        foreach (['lazada' => \Extensions\Lazada\LazadaExtension::class,
+            'shopee' => \Extensions\Shopee\ShopeeExtension::class,
+            'tiktok' => \Extensions\TikTok\TikTokExtension::class,
+            'ventacart' => \Extensions\VentaCart\VentaCartExtension::class] as $id => $provider) {
             $manager->install($id);
             $manager->enable($id);
             $this->app->register($provider);
         }
         $this->app['router']->getRoutes()->refreshNameLookups();
-        $this->artisan('permissions:sync-catalogue');
+        $this->artisan('permissions:sync-catalog');
 
-        $this->lazada = LazadaSetting::query()->create(['store_name' => 'Gearshipper', 'enabled' => true, 'mode' => 'live', 'region' => 'ph',
+        $this->lazada = LazadaStore::query()->create(['store_name' => 'Gearshipper', 'enabled' => true, 'mode' => 'live', 'region' => 'ph',
             'app_key' => 'k', 'app_secret' => 's', 'access_token' => 't', 'refresh_token' => 'r']);
         Setting::singleton()->update(['packing_check' => true]);
         Cache::flush();
@@ -57,7 +57,7 @@ class PackingCheckTest extends TestCase
 
     private function lazadaOrder(string $orderId = '1105065607396146'): LazadaOrder
     {
-        $order = LazadaOrder::query()->create(['lazada_setting_id' => $this->lazada->id, 'region' => 'ph', 'order_id' => $orderId,
+        $order = LazadaOrder::query()->create(['store_id' => $this->lazada->id, 'region' => 'ph', 'order_id' => $orderId,
             'status' => 'pending', 'order_created_at' => now(), 'raw' => ['order_id' => $orderId]]);
         foreach ([['QB-TS50', 'Qable TS50 Guitar Cable', 'Cable Length:10 Ft', 1], ['QB-TS50', 'Qable TS50 Guitar Cable', 'Cable Length:10 Ft', 1], ['PEN-1', 'Ballpen', '', 4]] as $i => [$sku, $name, $var, $qty]) {
             $order->products()->create(['order_item_id' => $orderId . $i, 'sku' => $sku, 'name' => $name, 'variation' => $var, 'quantity' => $qty, 'item_price' => 10, 'paid_price' => 10, 'status' => 'pending']);
@@ -204,18 +204,18 @@ class PackingCheckTest extends TestCase
     {
         $packer = $this->packer();
 
-        $shopee = ShopeeSetting::query()->create(['store_name' => 'Main store', 'enabled' => true, 'partner_id' => 1, 'partner_key' => 'k', 'shop_id' => 2, 'access_token' => 't', 'refresh_token' => 'r', 'mode' => 'production']);
-        ShopeeOrder::create(['shopee_setting_id' => $shopee->id, 'region' => 'ph', 'order_sn' => 'SP-1', 'status' => 'READY_TO_SHIP', 'order_created_at' => now(), 'raw' => []]);
+        $shopee = ShopeeStore::query()->create(['store_name' => 'Main store', 'enabled' => true, 'partner_id' => 1, 'partner_key' => 'k', 'shop_id' => 2, 'access_token' => 't', 'refresh_token' => 'r', 'mode' => 'production']);
+        ShopeeOrder::create(['store_id' => $shopee->id, 'region' => 'ph', 'order_sn' => 'SP-1', 'status' => 'READY_TO_SHIP', 'order_created_at' => now(), 'raw' => []]);
         $this->actingAs($packer)->postJson(route('ext.shopee.orders.ship', ['store' => $shopee->id, 'orderSn' => 'SP-1']), ['type' => 'dropoff'])
             ->assertStatus(422)->assertJsonPath('message', 'Count the items before booking this order.');
 
-        $tiktok = TikTokSetting::create(['store_name' => 'Gearshipper', 'enabled' => true, 'mode' => 'production', 'app_key' => 'k', 'app_secret' => 's', 'access_token' => 't', 'refresh_token' => 'r', 'shop_cipher' => 'c']);
-        $tt = TikTokOrder::create(['tiktok_setting_id' => $tiktok->id, 'order_id' => 'TT-1', 'status' => 'AWAITING_SHIPMENT', 'order_created_at' => now(), 'raw' => []]);
+        $tiktok = TikTokStore::create(['store_name' => 'Gearshipper', 'enabled' => true, 'mode' => 'production', 'app_key' => 'k', 'app_secret' => 's', 'access_token' => 't', 'refresh_token' => 'r', 'shop_cipher' => 'c']);
+        $tt = TikTokOrder::create(['store_id' => $tiktok->id, 'order_id' => 'TT-1', 'status' => 'AWAITING_SHIPMENT', 'order_created_at' => now(), 'raw' => []]);
         $this->actingAs($packer)->post(route('ext.tiktok.orders.ship', ['store' => $tiktok->id, 'id' => $tt->id]))
             ->assertSessionHas('error', 'Count the items before booking this order.');
 
-        $ventacart = VentaCartSetting::query()->create(['store_name' => 'New Gear Day', 'enabled' => true, 'base_url' => 'https://shop.test', 'api_token' => 'x']);
-        $vo = VentaCartOrder::query()->create(['ventacart_setting_id' => $ventacart->id, 'ventacart_order_id' => 77, 'ventacart_order_number' => 77, 'status' => 'processing', 'raw' => []]);
+        $ventacart = VentaCartStore::query()->create(['store_name' => 'New Gear Day', 'enabled' => true, 'base_url' => 'https://shop.test', 'api_token' => 'x']);
+        $vo = VentaCartOrder::query()->create(['store_id' => $ventacart->id, 'ventacart_order_id' => 77, 'ventacart_order_number' => 77, 'status' => 'processing', 'raw' => []]);
         foreach (['ext.ventacart.orders.book', 'ext.ventacart.orders.book_manual'] as $name) {
             $this->actingAs($packer)->postJson(route($name, ['store' => $ventacart->id, 'order' => $vo->id]), [])
                 ->assertStatus(422)->assertJsonPath('message', 'Count the items before booking this order.');

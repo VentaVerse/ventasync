@@ -17,7 +17,6 @@ class SetOrderCurrencyRate extends Command
 
     public function handle(OrderCurrencyService $currencies): int
     {
-        $pfx = (string) config('catalog.prefix');
         $orderId = (int) $this->argument('order_id');
         $rate = (float) $this->argument('rate');
         $execute = (bool) $this->option('execute');
@@ -27,7 +26,7 @@ class SetOrderCurrencyRate extends Command
             return self::FAILURE;
         }
 
-        $order = DB::table($pfx.'order')->where('order_id', $orderId)->first();
+        $order = DB::table('orders')->where('order_id', $orderId)->first();
 
         if (!$order) {
             $this->error("Order {$orderId} not found.");
@@ -51,7 +50,7 @@ class SetOrderCurrencyRate extends Command
             return self::FAILURE;
         }
 
-        $products = DB::table($pfx.'order_product')
+        $products = DB::table('order_products')
             ->where('order_id', $orderId)
             ->select('order_product_id', 'name', 'quantity', 'price', 'total', 'cost')
             ->get();
@@ -92,9 +91,9 @@ class SetOrderCurrencyRate extends Command
             return self::SUCCESS;
         }
 
-        DB::transaction(function () use ($pfx, $orderId, $order, $products, $rate) {
+        DB::transaction(function () use ($orderId, $order, $products, $rate) {
             foreach ($products as $op) {
-                DB::table($pfx.'order_product')
+                DB::table('order_products')
                     ->where('order_product_id', $op->order_product_id)
                     ->update([
                         'foreign_price' => round((float) $op->price, OrderCurrencyService::MONEY_SCALE),
@@ -105,7 +104,7 @@ class SetOrderCurrencyRate extends Command
                     ]);
             }
 
-            DB::table($pfx.'order')
+            DB::table('orders')
                 ->where('order_id', $orderId)
                 ->update([
                     'foreign_total'  => round((float) $order->total, OrderCurrencyService::MONEY_SCALE),
@@ -113,11 +112,11 @@ class SetOrderCurrencyRate extends Command
                     'currency_value' => round($rate, OrderCurrencyService::RATE_SCALE),
                 ]);
 
-            DB::table($pfx.'order_total')
+            DB::table('order_totals')
                 ->where('order_id', $orderId)
                 ->get()
-                ->each(function ($t) use ($pfx, $rate) {
-                    DB::table($pfx.'order_total')
+                ->each(function ($t) use ($rate) {
+                    DB::table('order_totals')
                         ->where('order_total_id', $t->order_total_id)
                         ->update(['value' => OrderCurrencyService::toBase((float) $t->value, $rate)]);
                 });

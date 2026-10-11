@@ -2,27 +2,26 @@
 
 namespace App\Services\Orders;
 
-use App\Integrations\IntegrationRegistry;
+use App\Channels\ChannelRegistry;
 use App\Services\OrderCurrencyService;
 use Illuminate\Support\Facades\DB;
 
 final class SaleLinesWriter
 {
-    public function __construct(private readonly IntegrationRegistry $registry)
+    public function __construct(private readonly ChannelRegistry $registry)
     {
     }
 
     public function forOrder(int $coreOrderId): bool
     {
-        $pfx = (string) config('catalog.prefix');
-        $order = DB::table($pfx . 'order')->where('order_id', $coreOrderId)->first(['order_id', 'currency_value']);
+        $order = DB::table('orders')->where('order_id', $coreOrderId)->first(['order_id', 'currency_value']);
         if (! $order) {
             return false;
         }
 
         $rate = (float) ($order->currency_value ?: 1);
-        $items = (float) DB::table($pfx . 'order_product')->where('order_id', $coreOrderId)->sum('total');
-        $shipping = (float) DB::table($pfx . 'order_total')->where('order_id', $coreOrderId)->where('code', 'shipping')->value('value');
+        $items = (float) DB::table('order_products')->where('order_id', $coreOrderId)->sum('total');
+        $shipping = (float) DB::table('order_totals')->where('order_id', $coreOrderId)->where('code', 'shipping')->value('value');
 
         foreach ($this->registry->saleLinesSources() as $source) {
             $lines = $source->saleLinesForOrder(
@@ -34,14 +33,14 @@ final class SaleLinesWriter
                 continue;
             }
 
-            DB::transaction(function () use ($pfx, $coreOrderId, $lines, $rate) {
-                DB::table($pfx . 'order_total')
+            DB::transaction(function () use ( $coreOrderId, $lines, $rate) {
+                DB::table('order_totals')
                     ->where('order_id', $coreOrderId)
                     ->whereNotIn('code', array_column(MarketplaceFeeNormalizer::CODES, 0))
                     ->delete();
                 $sortOrder = 1;
                 foreach ($lines as $line) {
-                    DB::table($pfx . 'order_total')->insert([
+                    DB::table('order_totals')->insert([
                         'order_id' => $coreOrderId,
                         'code' => $line['code'],
                         'title' => $line['title'],

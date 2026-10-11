@@ -1,16 +1,16 @@
 <?php
 
-namespace Extensions\opencart\Commands;
+namespace Extensions\OpenCart\Commands;
 
-use Extensions\opencart\Models\OpenCartSetting;
-use Extensions\opencart\Services\OpenCart\OpenCartClient;
-use Extensions\opencart\Services\OpenCart\OpenCartProductSync;
+use Extensions\OpenCart\Models\OpenCartStore;
+use Extensions\OpenCart\Services\OpenCart\OpenCartClient;
+use Extensions\OpenCart\Services\OpenCart\OpenCartProductSync;
 use Illuminate\Console\Command;
 
 class OpenCartPullQty extends Command
 {
     protected $signature = 'opencart:pull-qty
-        {--store= : Store ID (opencart_settings.id). Omit to pull from all enabled stores}';
+        {--store= : Store ID (ch_opencart_stores.id). Omit to pull from all enabled stores}';
 
     protected $description = 'Pull product quantities from OpenCart stores into the ERP (quantity only, no other fields)';
 
@@ -19,7 +19,7 @@ class OpenCartPullQty extends Command
         $storeId = $this->option('store');
 
         if ($storeId) {
-            $settings = OpenCartSetting::where('id', (int) $storeId)
+            $settings = OpenCartStore::where('id', (int) $storeId)
                 ->where('enabled', true)
                 ->get();
 
@@ -28,7 +28,7 @@ class OpenCartPullQty extends Command
                 return 1;
             }
         } else {
-            $settings = OpenCartSetting::where('enabled', true)->get();
+            $settings = OpenCartStore::where('enabled', true)->get();
 
             if ($settings->isEmpty()) {
                 $this->error('No enabled OpenCart stores configured.');
@@ -36,11 +36,11 @@ class OpenCartPullQty extends Command
             }
         }
 
-        foreach ($settings as $setting) {
+        foreach ($settings as $store) {
             $this->newLine();
-            $this->info("=== Pulling quantities from: {$setting->store_name} (#{$setting->id}) ===");
+            $this->info("=== Pulling quantities from: {$store->store_name} (#{$store->id}) ===");
 
-            $client = new OpenCartClient($setting);
+            $client = new OpenCartClient($store);
 
             $ping = $client->ping();
             if (!$ping['ok']) {
@@ -48,7 +48,7 @@ class OpenCartPullQty extends Command
                 continue;
             }
 
-            $sync = new OpenCartProductSync($client, $setting);
+            $sync = new OpenCartProductSync($client, $store);
             $log = $sync->pullQuantities();
 
             $this->info("  Status: {$log->status}");

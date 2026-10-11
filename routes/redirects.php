@@ -10,8 +10,23 @@ $withQuery = function (string $path): string {
     return $qs ? "{$path}?{$qs}" : $path;
 };
 
-Route::get('/vendors/{any?}', fn (?string $any = null) => redirect($withQuery('/purchasing/vendors'.($any ? '/'.$any : '')), 301))
+Route::get('/vendors/{any?}', fn (?string $any = null) => redirect($withQuery('/purchasing/suppliers'.($any ? '/'.$any : '')), 301))
     ->where('any', '.*');
+
+Route::get('/catalog/manufacturers/{any?}', fn (?string $any = null) => redirect($withQuery('/catalog/brands'.($any ? '/'.$any : '')), 301))
+    ->where('any', '.*');
+
+Route::get('/warehousing/locations/{any?}', fn (?string $any = null) => redirect($withQuery('/warehousing/warehouses'.($any ? '/'.$any : '')), 301))
+    ->where('any', '.*');
+
+Route::get('/catalog/products/{id}/options', fn (string $id) => redirect($withQuery('/catalog/products/'.$id.'/variations'), 301))
+    ->whereNumber('id');
+
+Route::get('/purchasing/vendors/{any?}', fn (?string $any = null) => redirect($withQuery('/purchasing/suppliers'.($any ? '/'.$any : '')), 301))
+    ->where('any', '.*');
+
+Route::get('/catalog/products/{id}/vendors', fn (string $id) => redirect($withQuery('/catalog/products/'.$id.'/suppliers'), 301))
+    ->whereNumber('id');
 
 Route::get('/purchase-orders/{any?}', fn (?string $any = null) => redirect($withQuery('/purchasing/purchase-orders'.($any ? '/'.$any : '')), 301))
     ->where('any', '.*');
@@ -19,11 +34,11 @@ Route::get('/purchase-orders/{any?}', fn (?string $any = null) => redirect($with
 Route::get('/reorder-suggestions/{any?}', fn (?string $any = null) => redirect($withQuery('/purchasing/reorder-suggestions'.($any ? '/'.$any : '')), 301))
     ->where('any', '.*');
 
-Route::get('/api/vendors', fn () => redirect($withQuery('/purchasing/api/vendors'), 301));
+Route::get('/api/vendors', fn () => redirect($withQuery('/purchasing/api/suppliers'), 301));
 
 Route::get('/api/purchase-orders/products', fn () => redirect($withQuery('/purchasing/api/purchase-orders/products'), 301));
 
-Route::get('/products/{id}/vendors', fn (string $id) => redirect($withQuery('/purchasing/api/products/'.$id.'/vendors'), 301))
+Route::get('/products/{id}/vendors', fn (string $id) => redirect($withQuery('/purchasing/api/products/'.$id.'/suppliers'), 301))
     ->whereNumber('id');
 
 Route::get('/api/warehousing/products', fn () => redirect($withQuery('/warehousing/api/products'), 301));

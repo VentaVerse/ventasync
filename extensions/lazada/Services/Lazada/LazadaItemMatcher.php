@@ -1,9 +1,9 @@
 <?php
 
-namespace Extensions\lazada\Services\Lazada;
+namespace Extensions\Lazada\Services\Lazada;
 
-use Extensions\lazada\Models\LazadaApiLog;
-use Extensions\lazada\Models\LazadaSetting;
+use Extensions\Lazada\Models\LazadaApiLog;
+use Extensions\Lazada\Models\LazadaStore;
 use Illuminate\Support\Facades\Log;
 
 class LazadaItemMatcher
@@ -74,18 +74,18 @@ class LazadaItemMatcher
         return [null, $count];
     }
 
-    public function findLazadaItemBySku(object $setting, LazadaClient $client, string $sku): array
+    public function findLazadaItemBySku(object $store, LazadaClient $client, string $sku): array
     {
         $sku = trim($sku);
         if ($sku === '') return [null, 0];
 
-        $result = $this->lazadaProductsGet($setting, $client, ['search' => $sku, 'limit' => '100', 'offset' => '0']);
+        $result = $this->lazadaProductsGet($store, $client, ['search' => $sku, 'limit' => '100', 'offset' => '0']);
         if (!empty($result)) {
             $matched = $this->matchSkuInProducts($result, $sku);
             if ($matched[1] > 0) return $matched;
         }
 
-        $result = $this->lazadaProductsGet($setting, $client, ['sku_seller_list' => json_encode([$sku], JSON_UNESCAPED_SLASHES), 'limit' => '100', 'offset' => '0']);
+        $result = $this->lazadaProductsGet($store, $client, ['sku_seller_list' => json_encode([$sku], JSON_UNESCAPED_SLASHES), 'limit' => '100', 'offset' => '0']);
         if (!empty($result)) {
             $matched = $this->matchSkuInProducts($result, $sku);
             if ($matched[1] > 0) return $matched;
@@ -97,7 +97,7 @@ class LazadaItemMatcher
         $page = 0;
 
         do {
-            $products = $this->lazadaProductsGet($setting, $client, ['limit' => (string) $limit, 'offset' => (string) $offset]);
+            $products = $this->lazadaProductsGet($store, $client, ['limit' => (string) $limit, 'offset' => (string) $offset]);
             if (empty($products)) break;
 
             $totalProducts = $products['_total'] ?? 0;
@@ -112,9 +112,9 @@ class LazadaItemMatcher
         return [null, 0];
     }
 
-    private function lazadaProductsGet(object $setting, LazadaClient $client, array $extra = []): array
+    private function lazadaProductsGet(object $store, LazadaClient $client, array $extra = []): array
     {
-        $creds = LazadaSetting::activeCredentials($setting);
+        $creds = LazadaStore::activeCredentials($store);
 
         $apiPath = '/products/get';
         $timestamp = (string) round(microtime(true) * 1000);
@@ -127,7 +127,7 @@ class LazadaItemMatcher
         ], $extra);
         $params['sign'] = $client->sign($apiPath, $params, (string) $creds['app_secret']);
 
-        $result = $client->get((string) $setting->region, $apiPath, $params);
+        $result = $client->get((string) $store->region, $apiPath, $params);
         if (empty($result['ok'])) return [];
 
         $body = $result['body'] ?? [];
@@ -159,9 +159,9 @@ class LazadaItemMatcher
         return [null, 0];
     }
 
-    public function fetchLazadaSkuMap(object $setting, LazadaClient $client): array
+    public function fetchLazadaSkuMap(object $store, LazadaClient $client): array
     {
-        $creds = LazadaSetting::activeCredentials($setting);
+        $creds = LazadaStore::activeCredentials($store);
 
         $skuMap = [];
         $offset = 0;
@@ -191,7 +191,7 @@ class LazadaItemMatcher
                 $timestamp = (string) round(microtime(true) * 1000);
                 $params['timestamp'] = $timestamp;
                 $params['sign'] = $client->sign($apiPath, $params, (string) $creds['app_secret']);
-                $result = $client->get((string) $setting->region, $apiPath, $params);
+                $result = $client->get((string) $store->region, $apiPath, $params);
                 if (!empty($result['ok'])) break;
                 Log::warning('Lazada fetchLazadaSkuMap API error', ['offset' => $offset, 'attempt' => $attempt, 'result' => $result['body'] ?? '']);
                 if ($attempt < 3) usleep($attempt * 1000000);

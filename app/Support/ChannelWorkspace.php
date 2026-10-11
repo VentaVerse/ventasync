@@ -2,10 +2,10 @@
 
 namespace App\Support;
 
-use App\Integrations\IntegrationCard;
-use App\Integrations\IntegrationRegistry;
-use App\Integrations\MenuItem;
-use App\Integrations\StoreLink;
+use App\Channels\ChannelCard;
+use App\Channels\ChannelRegistry;
+use App\Channels\MenuItem;
+use App\Channels\StoreLink;
 use App\Models\User;
 use App\Support\Money;
 use Illuminate\Support\Carbon;
@@ -16,21 +16,21 @@ class ChannelWorkspace
 {
     public const GROUPS = ['Sell', 'Catalog', 'Channel'];
 
-    public function __construct(private IntegrationRegistry $registry)
+    public function __construct(private ChannelRegistry $registry)
     {
     }
 
-    public function card(string $channel, ?User $user): ?IntegrationCard
+    public function card(string $channel, ?User $user): ?ChannelCard
     {
         return $this->resolve($this->registry->visibleCards($user), $channel);
     }
 
-    public function cardForAuthorisedPage(string $channel, ?User $user): ?IntegrationCard
+    public function cardForAuthorisedPage(string $channel, ?User $user): ?ChannelCard
     {
         return $this->resolve($this->registry->cardsForAuthorisedRequest($user), $channel);
     }
 
-    private function resolve(array $cards, string $channel): ?IntegrationCard
+    private function resolve(array $cards, string $channel): ?ChannelCard
     {
         $parsed = $this->parseKey($channel);
 
@@ -103,7 +103,7 @@ class ChannelWorkspace
         return [$channelId, (int) $storeId];
     }
 
-    private function storeOn(IntegrationCard $card, ?int $storeId): ?StoreLink
+    private function storeOn(ChannelCard $card, ?int $storeId): ?StoreLink
     {
         if ($storeId === null) {
             return null;
@@ -118,7 +118,7 @@ class ChannelWorkspace
         return null;
     }
 
-    public function store(IntegrationCard $card, ?string $channel): ?StoreLink
+    public function store(ChannelCard $card, ?string $channel): ?StoreLink
     {
         if ($channel === null) {
             return null;
@@ -133,12 +133,12 @@ class ChannelWorkspace
         return $this->storeOn($card, $parsed[1]);
     }
 
-    private function menuFor(IntegrationCard $card, ?string $channel): array
+    private function menuFor(ChannelCard $card, ?string $channel): array
     {
         return $this->store($card, $channel)?->menu ?? $card->menu;
     }
 
-    public function hasWorkspace(IntegrationCard $card): bool
+    public function hasWorkspace(ChannelCard $card): bool
     {
         if ($card->stores !== []) {
             foreach ($card->stores as $store) {
@@ -161,12 +161,12 @@ class ChannelWorkspace
         return false;
     }
 
-    public function state(IntegrationCard $card, ?string $channel = null): string
+    public function state(ChannelCard $card, ?string $channel = null): string
     {
         return $this->stateWithReason($card, $channel)['state'];
     }
 
-    public function stateWithReason(IntegrationCard $card, ?string $channel = null): array
+    public function stateWithReason(ChannelCard $card, ?string $channel = null): array
     {
         $store = $this->store($card, $channel);
 
@@ -219,7 +219,7 @@ class ChannelWorkspace
         };
     }
 
-    public function waiting(IntegrationCard $card, ?User $user, ?string $channel = null): array
+    public function waiting(ChannelCard $card, ?User $user, ?string $channel = null): array
     {
         $tab = null;
 
@@ -258,7 +258,7 @@ class ChannelWorkspace
         ];
     }
 
-    public function health(IntegrationCard $card, ?string $channel = null): array
+    public function health(ChannelCard $card, ?string $channel = null): array
     {
         $figures = $this->tokenFigures($card->id, $this->storeIdOf($this->store($card, $channel)));
 
@@ -310,7 +310,7 @@ class ChannelWorkspace
         ];
     }
 
-    public function action(IntegrationCard $card, string $state, ?User $user, ?string $channel = null): ?array
+    public function action(ChannelCard $card, string $state, ?User $user, ?string $channel = null): ?array
     {
         if ($state === 'setup') {
             if ($card->id === 'shopee' && Route::has('ext.shopee.authorize')) {
@@ -376,7 +376,7 @@ class ChannelWorkspace
             return ['hasToken' => null, 'tokenExpiresAt' => null, 'lastSyncAt' => null, 'errors24h' => null];
         }
 
-        $row = DB::table($channelId . '_settings')->first();
+        $row = DB::table('ch_' . $channelId . '_stores')->first();
         $isSandbox = ($row?->mode ?? 'live') === 'sandbox';
 
         $lastSyncRaw = $row?->last_order_sync_at;
@@ -387,7 +387,7 @@ class ChannelWorkspace
             'tokenExpiresAt' => self::signInExpiry($row, $isSandbox),
             'lastSyncAt' => $lastSyncRaw ? Carbon::parse($lastSyncRaw) : null,
             'errors24h' => $loggingOn
-                ? DB::table($channelId . '_api_logs')->where('created_at', '>=', Carbon::now()->subHours(24))->where('ok', 0)->count()
+                ? DB::table('ch_' . $channelId . '_api_logs')->where('created_at', '>=', Carbon::now()->subHours(24))->where('ok', 0)->count()
                 : null,
         ];
     }
@@ -395,7 +395,7 @@ class ChannelWorkspace
     private function storeFigures(string $channelId, int $storeId): array
     {
         if ($channelId === 'shopee') {
-            $row = DB::table('shopee_settings')->where('id', $storeId)->first();
+            $row = DB::table('ch_shopee_stores')->where('id', $storeId)->first();
             $isSandbox = ($row?->mode ?? 'live') === 'sandbox';
             $lastSyncRaw = $row?->last_order_sync_at;
             $loggingOn = (($row?->api_log_mode ?? 'off') !== 'off');
@@ -405,8 +405,8 @@ class ChannelWorkspace
                 'tokenExpiresAt' => self::signInExpiry($row, $isSandbox),
                 'lastSyncAt' => $lastSyncRaw ? Carbon::parse($lastSyncRaw) : null,
                 'errors24h' => $loggingOn
-                    ? DB::table('shopee_api_logs')
-                        ->where('shopee_setting_id', $storeId)
+                    ? DB::table('ch_shopee_api_logs')
+                        ->where('store_id', $storeId)
                         ->where('created_at', '>=', Carbon::now()->subHours(24))
                         ->where('ok', 0)->count()
                     : null,
@@ -424,7 +424,7 @@ class ChannelWorkspace
             return ['hasToken' => null, 'tokenExpiresAt' => null, 'lastSyncAt' => null, 'errors24h' => null];
         }
 
-        $row = DB::table($channelId . '_settings')->where('id', $storeId)->first();
+        $row = DB::table('ch_' . $channelId . '_stores')->where('id', $storeId)->first();
         $lastSyncRaw = $row?->last_order_sync_at;
         $since = Carbon::now()->subHours(24);
 
@@ -432,22 +432,22 @@ class ChannelWorkspace
 
         if ($row && $channelId === 'ventacart') {
             $errors24h = ((($row->api_log_mode ?? 'off') !== 'off'))
-                ? DB::table('ventacart_api_logs')
-                    ->where('ventacart_setting_id', $row->id)
+                ? DB::table('ch_ventacart_api_logs')
+                    ->where('store_id', $row->id)
                     ->where('created_at', '>=', $since)
                     ->where('ok', 0)
                     ->count()
                 : null;
         } elseif ($row && $channelId === 'opencart') {
-            $errors24h = DB::table('opencart_sync_log')
-                ->where('opencart_setting_id', $row->id)
+            $errors24h = DB::table('ch_opencart_sync_log')
+                ->where('store_id', $row->id)
                 ->where('created_at', '>=', $since)
                 ->where('status', 'failed')
                 ->count();
         } elseif ($row && $channelId === 'shopify') {
             $errors24h = ((($row->api_log_mode ?? 'off') !== 'off'))
-                ? DB::table('shopify_api_logs')
-                    ->where('shopify_setting_id', $row->id)
+                ? DB::table('ch_shopify_api_logs')
+                    ->where('store_id', $row->id)
                     ->where('created_at', '>=', $since)
                     ->where('ok', 0)
                     ->count()
@@ -464,7 +464,7 @@ class ChannelWorkspace
 
     private function pedallionFigures(): array
     {
-        $row = DB::table('pedallion_settings')->first();
+        $row = DB::table('ch_pedallion_stores')->first();
         $lastSyncRaw = $row?->last_order_sync_at;
 
         return [
@@ -472,7 +472,7 @@ class ChannelWorkspace
             'tokenExpiresAt' => null,
             'lastSyncAt' => $lastSyncRaw ? Carbon::parse($lastSyncRaw) : null,
             'errors24h' => ((($row?->api_log_mode ?? 'off') !== 'off'))
-                ? DB::table('pedallion_api_logs')
+                ? DB::table('ch_pedallion_api_logs')
                     ->where('created_at', '>=', Carbon::now()->subHours(24))
                     ->where('status_code', '>=', 400)
                     ->count()
@@ -497,7 +497,7 @@ class ChannelWorkspace
         return ctype_digit($suffix) ? (int) $suffix : null;
     }
 
-    public function groups(IntegrationCard $card, ?User $user, ?string $channel = null): array
+    public function groups(ChannelCard $card, ?User $user, ?string $channel = null): array
     {
         $buckets = array_fill_keys(self::GROUPS, []);
 
@@ -565,7 +565,7 @@ class ChannelWorkspace
         }
 
         [$class] = explode('@', $action);
-        $catalog = app(\App\Services\PermissionCatalogue::class);
+        $catalog = app(\App\Services\PermissionCatalog::class);
         $key = $catalog->keyForController($class);
 
         if ($key === null) {

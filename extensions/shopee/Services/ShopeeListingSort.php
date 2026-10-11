@@ -1,8 +1,8 @@
 <?php
 
-namespace Extensions\shopee\Services;
+namespace Extensions\Shopee\Services;
 
-use App\Integrations\Listings\ListingSort;
+use App\Channels\Listings\ListingSort;
 use App\Support\StoreKey;
 use Illuminate\Database\Query\Builder;
 
@@ -26,7 +26,7 @@ final class ShopeeListingSort
 
     public static function join(Builder $query, int $storeId): void
     {
-        ListingSort::joinStore($query, $storeId, ['table' => 'shopee_listings', 'store' => 'shopee_setting_id'], self::GROUP);
+        ListingSort::joinStore($query, $storeId, ['table' => 'ch_shopee_listings', 'store' => 'store_id'], self::GROUP);
     }
 
     public static function joinGroup(Builder $query, int $storeId): void
@@ -34,5 +34,5 @@ final class ShopeeListingSort
         ListingSort::joinGroupMarkup($query, $storeId, self::GROUP);
     }
 
-    private const GROUP = ['pivot' => 'shopee_product_group_products', 'table' => 'shopee_product_groups', 'key' => 'shopee_product_group_id', 'store' => 'shopee_setting_id'];
+    private const GROUP = ['pivot' => 'ch_shopee_product_group_products', 'table' => 'ch_shopee_product_groups', 'key' => 'shopee_product_group_id', 'store' => 'store_id'];
 }

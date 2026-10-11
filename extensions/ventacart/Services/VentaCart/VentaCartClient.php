@@ -1,9 +1,9 @@
 <?php
 
-namespace Extensions\ventacart\Services\VentaCart;
+namespace Extensions\VentaCart\Services\VentaCart;
 
-use Extensions\ventacart\Models\VentaCartApiLog;
-use Extensions\ventacart\Models\VentaCartSetting;
+use Extensions\VentaCart\Models\VentaCartApiLog;
+use Extensions\VentaCart\Models\VentaCartStore;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\RequestException;
@@ -11,32 +11,32 @@ use Illuminate\Support\Facades\Log;
 
 class VentaCartClient
 {
-    private VentaCartSetting $setting;
+    private VentaCartStore $store;
 
-    public function __construct(VentaCartSetting $setting)
+    public function __construct(VentaCartStore $store)
     {
-        $this->setting = $setting;
+        $this->store = $store;
     }
 
     private function http(): PendingRequest
     {
-        return \App\Support\Net\StoreRequest::to((string) $this->setting->base_url)->timeout(30)->connectTimeout(5)
+        return \App\Support\Net\StoreRequest::to((string) $this->store->base_url)->timeout(30)->connectTimeout(5)
             ->retry(2, 300, function ($exception) {
                 return $exception instanceof ConnectionException
                     || ($exception instanceof RequestException && $exception->response->status() >= 500);
             }, throw: false)
-            ->withToken($this->setting->api_token)
+            ->withToken($this->store->api_token)
             ->acceptJson();
     }
 
     private function url(string $path): string
     {
-        return rtrim($this->setting->base_url, '/') . '/api/v1/' . ltrim($path, '/');
+        return rtrim($this->store->base_url, '/') . '/api/v1/' . ltrim($path, '/');
     }
 
     private function logCall(string $method, string $path, ?array $requestBody, array $result, int $durationMs): void
     {
-        if (! \App\Support\ApiLogMode::shouldLog($this->setting?->api_log_mode, (bool) ($result['ok'] ?? false))) {
+        if (! \App\Support\ApiLogMode::shouldLog($this->store?->api_log_mode, (bool) ($result['ok'] ?? false))) {
             return;
         }
 
@@ -52,7 +52,7 @@ class VentaCartClient
         }
 
         VentaCartApiLog::safeCreate([
-            'ventacart_setting_id' => $this->setting->id ?? null,
+            'store_id' => $this->store->id ?? null,
             'method'           => $method,
             'endpoint'         => $path,
             'status_code'      => $result['status'] ?? 0,
@@ -77,7 +77,7 @@ class VentaCartClient
         } catch (\Throwable $e) {
             Log::error('VentaCart API GET failed', [
                 'path'  => $path,
-                'store' => $this->setting->store_name,
+                'store' => $this->store->store_name,
                 'error' => $e->getMessage(),
             ]);
 
@@ -108,7 +108,7 @@ class VentaCartClient
         } catch (\Throwable $e) {
             Log::error('VentaCart API POST failed', [
                 'path'  => $path,
-                'store' => $this->setting->store_name,
+                'store' => $this->store->store_name,
                 'error' => $e->getMessage(),
             ]);
 
@@ -139,7 +139,7 @@ class VentaCartClient
         } catch (\Throwable $e) {
             Log::error('VentaCart API PUT failed', [
                 'path'  => $path,
-                'store' => $this->setting->store_name,
+                'store' => $this->store->store_name,
                 'error' => $e->getMessage(),
             ]);
 
@@ -170,7 +170,7 @@ class VentaCartClient
         } catch (\Throwable $e) {
             Log::error('VentaCart API DELETE failed', [
                 'path'  => $path,
-                'store' => $this->setting->store_name,
+                'store' => $this->store->store_name,
                 'error' => $e->getMessage(),
             ]);
 
@@ -317,7 +317,7 @@ class VentaCartClient
         } catch (\Throwable $e) {
             Log::error('VentaCart API label failed', [
                 'path'  => $path,
-                'store' => $this->setting->store_name,
+                'store' => $this->store->store_name,
                 'error' => $e->getMessage(),
             ]);
 

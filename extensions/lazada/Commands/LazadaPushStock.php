@@ -1,28 +1,28 @@
 <?php
 
-namespace Extensions\lazada\Commands;
+namespace Extensions\Lazada\Commands;
 
-use Extensions\lazada\Models\LazadaApiLog;
-use Extensions\lazada\Models\LazadaProduct;
-use Extensions\lazada\Models\LazadaProductVariant;
-use Extensions\lazada\Models\LazadaSetting;
-use Extensions\lazada\Services\Lazada\LazadaClient;
-use Extensions\lazada\Services\LazadaStockPushService;
+use Extensions\Lazada\Models\LazadaApiLog;
+use Extensions\Lazada\Models\LazadaListing;
+use Extensions\Lazada\Models\LazadaListingVariation;
+use Extensions\Lazada\Models\LazadaStore;
+use Extensions\Lazada\Services\Lazada\LazadaClient;
+use Extensions\Lazada\Services\LazadaStockPushService;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
-class LazadaPushStock extends Command implements \App\Integrations\Contracts\SteppableAutomation
+class LazadaPushStock extends Command implements \App\Channels\Contracts\SteppableAutomation
 {
     protected $signature = 'lazada:push-stock
-        {--product-ids= : Comma-separated Lazada listing IDs to push (lazada_products.id)}';
+        {--product-ids= : Comma-separated Lazada listing IDs to push (ch_lazada_listings.id)}';
 
     protected $description = 'Push ERP product quantities to Lazada for all linked products';
 
     public function handle(LazadaClient $client): int
     {
-        $stores = \Extensions\lazada\Models\LazadaSetting::enabledStores();
+        $stores = \Extensions\Lazada\Models\LazadaStore::enabledStores();
         if ($stores->isEmpty()) { $this->error('No enabled Lazada store. Configure Lazada settings first.'); return 1; }
         $worst = 0;
         foreach ($stores as $store) {
@@ -41,20 +41,18 @@ class LazadaPushStock extends Command implements \App\Integrations\Contracts\Ste
         return $worst;
     }
 
-    private function handleStore(LazadaClient $client, \Extensions\lazada\Models\LazadaSetting $store): int
+    private function handleStore(LazadaClient $client, \Extensions\Lazada\Models\LazadaStore $store): int
     {
         $setting = $store->decrypted();
-        $creds = LazadaSetting::activeCredentials($setting);
+        $creds = LazadaStore::activeCredentials($setting);
         if (!$setting || !$setting->region || !$creds['app_key'] || !$creds['app_secret'] || !$creds['access_token']) {
             $this->error('Missing Lazada credentials/token. Configure Lazada settings first.');
             return 1;
         }
 
-        $pfx = (string) config('catalog.prefix');
+        $this->resolveUnknownVariants($setting, $client);
 
-        $this->resolveUnknownVariants($setting, $client, $pfx);
-
-        $query = LazadaProduct::query()
+        $query = LazadaListing::query()
             ->where('product_id', '>', 0)
             ->whereNotNull('lazada_item_id')
             ->where('lazada_item_id', '!=', '')
@@ -78,7 +76,7 @@ class LazadaPushStock extends Command implements \App\Integrations\Contracts\Ste
         $skipped = 0;
 
         foreach ($listings as $listing) {
-            $product = DB::table($pfx . 'product')
+            $product = DB::table('products')
                 ->where('product_id', (int) $listing->product_id)
                 ->first(['product_id', 'sku', 'quantity', 'status']);
 
@@ -92,7 +90,7 @@ class LazadaPushStock extends Command implements \App\Integrations\Contracts\Ste
                 continue;
             }
 
-            $items = $this->buildPushItems($pfx, $listing, $product);
+            $items = $this->buildPushItems( $listing, $product);
             if (empty($items)) {
                 $skipped++;
                 continue;
@@ -150,14 +148,14 @@ class LazadaPushStock extends Command implements \App\Integrations\Contracts\Ste
                     $errCode = $d['code'] ?? '';
                     $staleSkuId = $d['sku_id'] ?? null;
                     if ($errCode === 'E0207' && $staleSkuId) {
-                        LazadaProductVariant::where('sku_id', (int) $staleSkuId)->update(['sku_id' => null]);
+                        LazadaListingVariation::where('sku_id', (int) $staleSkuId)->update(['sku_id' => null]);
                         $this->warn("Invalidated stale sku_id {$staleSkuId} (SKU not exist on Lazada)");
                     }
                 }
             }
         }
 
-        $states = \Extensions\lazada\Services\Lazada\LazadaListingStates::on($store);
+        $states = \Extensions\Lazada\Services\Lazada\LazadaListingStates::on($store);
         foreach (array_keys($sentProducts) as $pid) {
             $states->recordOutcome((int) $pid, isset($failedProducts[$pid]) ? 'Stock push: ' . $failedProducts[$pid] : null);
         }
@@ -169,12 +167,12 @@ class LazadaPushStock extends Command implements \App\Integrations\Contracts\Ste
         return $totalErr > 0 ? 1 : 0;
     }
 
-    private function resolveUnknownVariants(object $setting, LazadaClient $client, string $pfx): void
+    private function resolveUnknownVariants(object $store, LazadaClient $client): void
     {
         $maxFetches = 20;
         $fetched = 0;
 
-        $noVariants = LazadaProduct::query()
+        $noVariants = LazadaListing::query()
             ->where('product_id', '>', 0)
             ->whereNotNull('lazada_item_id')
             ->where('lazada_item_id', '!=', '')
@@ -185,7 +183,7 @@ class LazadaPushStock extends Command implements \App\Integrations\Contracts\Ste
         if ($noVariants->isNotEmpty()) {
             $this->info("Resolving variants for {$noVariants->count()} listing(s) with no cached variants...");
             foreach ($noVariants as $listing) {
-                app(\Extensions\lazada\Services\Lazada\LazadaItemCache::class)->fetchAndCacheVariants($listing, $setting, $client, 'lazada.product.item.get.cron');
+                app(\Extensions\Lazada\Services\Lazada\LazadaItemCache::class)->fetchAndCacheVariants($listing, $store, $client, 'lazada.product.item.get.cron');
                 $fetched++;
             }
         }
@@ -193,7 +191,7 @@ class LazadaPushStock extends Command implements \App\Integrations\Contracts\Ste
         $remaining = $maxFetches - $fetched;
         if ($remaining <= 0) return;
 
-        $staleListings = LazadaProduct::query()
+        $staleListings = LazadaListing::query()
             ->where('product_id', '>', 0)
             ->whereNotNull('lazada_item_id')
             ->where('lazada_item_id', '!=', '')
@@ -203,19 +201,19 @@ class LazadaPushStock extends Command implements \App\Integrations\Contracts\Ste
 
         $refreshed = 0;
         foreach ($staleListings as $listing) {
-            $cachedSkus = LazadaProductVariant::where('lazada_product_id', $listing->id)
+            $cachedSkus = LazadaListingVariation::where('lazada_listing_id', $listing->id)
                 ->whereNotNull('sku_id')
                 ->pluck('seller_sku')
                 ->map(fn ($s) => trim((string) $s))
                 ->toArray();
 
-            $erpSkus = \App\Integrations\Listings\ListingVariations::sold('lazada', (int) ($listing->lazada_setting_id ?? 0), [(int) $listing->product_id], $pfx)[(int) $listing->product_id] ?? [];
+            $erpSkus = \App\Channels\Listings\ListingVariations::sold('lazada', (int) ($listing->store_id ?? 0), [(int) $listing->product_id])[(int) $listing->product_id] ?? [];
 
             if (empty($erpSkus) || empty(array_diff($erpSkus, $cachedSkus))) {
                 continue;
             }
 
-            app(\Extensions\lazada\Services\Lazada\LazadaItemCache::class)->fetchAndCacheVariants($listing, $setting, $client, 'lazada.product.item.get.cron');
+            app(\Extensions\Lazada\Services\Lazada\LazadaItemCache::class)->fetchAndCacheVariants($listing, $store, $client, 'lazada.product.item.get.cron');
             $refreshed++;
             if ($refreshed >= $remaining) break;
         }
@@ -225,11 +223,11 @@ class LazadaPushStock extends Command implements \App\Integrations\Contracts\Ste
         }
     }
 
-    private function buildPushItems(string $pfx, LazadaProduct $listing, object $product): array
+    private function buildPushItems( LazadaListing $listing, object $product): array
     {
         $service = app(LazadaStockPushService::class);
-        $rows = $service->buildPushItems($listing, $product, $pfx);
-        $hasVariations = !empty(\App\Integrations\Push\PushLedger::erpVariationSkus([(int) $listing->product_id], $pfx)[(int) $listing->product_id] ?? []);
+        $rows = $service->buildPushItems($listing, $product);
+        $hasVariations = !empty(\App\Channels\Push\PushLedger::erpVariationSkus([(int) $listing->product_id])[(int) $listing->product_id] ?? []);
         if ($hasVariations) {
             $rows = array_values(array_filter($rows, fn ($r) => $r['matched'] ?? true));
         }
@@ -260,12 +258,12 @@ class LazadaPushStock extends Command implements \App\Integrations\Contracts\Ste
         return '<Request><Product><Skus>' . $skuXml . '</Skus></Product></Request>';
     }
 
-    private function pushToLazada(LazadaClient $client, object $setting, string $apiPath, string $payloadXml): array
+    private function pushToLazada(LazadaClient $client, object $store, string $apiPath, string $payloadXml): array
     {
-        $creds = LazadaSetting::activeCredentials($setting);
+        $creds = LazadaStore::activeCredentials($store);
 
-        $rateKey = 'lazada_api_last_call:' . $setting->region . ':' . $creds['app_key'];
-        $lockKey = 'lazada_api_lock:' . $setting->region . ':' . $creds['app_key'];
+        $rateKey = 'lazada_api_last_call:' . $store->region . ':' . $creds['app_key'];
+        $lockKey = 'lazada_api_lock:' . $store->region . ':' . $creds['app_key'];
         $minIntervalMs = 500;
 
         $params = [
@@ -276,9 +274,9 @@ class LazadaPushStock extends Command implements \App\Integrations\Contracts\Ste
             'payload'      => $payloadXml,
         ];
 
-        $callOnce = function () use ($client, $setting, $apiPath, &$params, $creds) {
+        $callOnce = function () use ($client, $store, $apiPath, &$params, $creds) {
             $params['sign'] = $client->sign($apiPath, $params, (string) $creds['app_secret']);
-            return $client->post($setting->region, $apiPath, $params);
+            return $client->post($store->region, $apiPath, $params);
         };
 
         $result = null;
@@ -338,11 +336,11 @@ class LazadaPushStock extends Command implements \App\Integrations\Contracts\Ste
 
     public function automationUnits(\App\Models\ScheduledJob $job): array
     {
-        return ['label' => 'products', 'units' => \Extensions\lazada\Services\Lazada\LazadaPushSteps::units()];
+        return ['label' => 'products', 'units' => \Extensions\Lazada\Services\Lazada\LazadaPushSteps::units()];
     }
 
     public function automationStep(\App\Models\ScheduledJob $job, array $units): array
     {
-        return \Extensions\lazada\Services\Lazada\LazadaPushSteps::step('stock', $units);
+        return \Extensions\Lazada\Services\Lazada\LazadaPushSteps::step('stock', $units);
     }
 }

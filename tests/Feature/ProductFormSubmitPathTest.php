@@ -7,14 +7,14 @@ use Tests\TestCase;
 
 class ProductFormSubmitPathTest extends TestCase
 {
-    private function optionsSource(): string
+    private function variationsSource(): string
     {
-        return File::get(base_path('resources/views/catalog/products/partials/options_fields.blade.php'));
+        return File::get(base_path('resources/views/catalog/products/partials/variations_fields.blade.php'));
     }
 
     public function test_the_variations_module_resubmits_through_the_event(): void
     {
-        $source = $this->optionsSource();
+        $source = $this->variationsSource();
 
         $this->assertStringContainsString('form.requestSubmit()', $source,
             'requestSubmit fires the submit event; form.submit() does not');
@@ -33,36 +33,36 @@ class ProductFormSubmitPathTest extends TestCase
 
     public function test_the_resubmit_cannot_loop(): void
     {
-        $source = $this->optionsSource();
+        $source = $this->variationsSource();
 
-        $this->assertStringContainsString('form._optionsValidated = true;', $source);
+        $this->assertStringContainsString('form._variationsValidated = true;', $source);
         $this->assertMatchesRegularExpression(
-            '/if \(form\._optionsValidated\) \{\s*form\._optionsValidated = false;\s*return;/',
+            '/if \(form\._variationsValidated\) \{\s*form\._variationsValidated = false;\s*return;/',
             $source,
             'the listener must clear the flag and return, not preventDefault'
         );
     }
 
-    public function test_the_manufacturer_guard_is_retired(): void
+    public function test_the_brand_guard_is_retired(): void
     {
         $js = File::get(resource_path('js/pages/product-form.js'));
 
-        $this->assertStringNotContainsString("err.textContent = 'Choose a manufacturer from the list.'", $js,
+        $this->assertStringNotContainsString("err.textContent = 'Choose a brand from the list.'", $js,
             'the guard is retired');
 
-        $this->assertStringContainsString("inputId: 'manufacturer_search'", $js);
+        $this->assertStringContainsString("inputId: 'brand_search'", $js);
     }
 
-    public function test_the_controller_still_treats_manufacturer_as_optional(): void
+    public function test_the_controller_still_treats_brand_as_optional(): void
     {
         $controller = File::get(base_path('app/Http/Controllers/Catalog/ProductController.php'));
 
-        $this->assertStringContainsString("'manufacturer_id' => 'nullable|integer'", $controller);
+        $this->assertStringContainsString("'brand_id' => 'nullable|integer'", $controller);
     }
 
     public function test_every_editable_grid_field_is_serialised_into_the_payload(): void
     {
-        $source = $this->optionsSource();
+        $source = $this->variationsSource();
 
         $fields = [
             'js-sku' => 'sku',

@@ -1,6 +1,6 @@
 <?php
 
-namespace Extensions\lazada\Services;
+namespace Extensions\Lazada\Services;
 
 use App\Services\Orders\SaleLines\AbstractSaleLines;
 

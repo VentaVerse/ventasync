@@ -19,7 +19,7 @@ class AppServiceProvider extends ServiceProvider
     {
         \Laravel\Passport\Passport::$deviceCodeGrantEnabled = false;
         \Laravel\Passport\Passport::ignoreRoutes();
-        $this->app->singleton(\App\Integrations\IntegrationRegistry::class);
+        $this->app->singleton(\App\Channels\ChannelRegistry::class);
         $this->app->singleton(\App\Services\Payouts\PayoutRegistry::class);
     }
 

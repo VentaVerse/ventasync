@@ -1,8 +1,8 @@
 <?php
 
-namespace Extensions\shopee\Services\Shopee;
+namespace Extensions\Shopee\Services\Shopee;
 
-use Extensions\shopee\Models\ShopeeApiLog;
+use Extensions\Shopee\Models\ShopeeApiLog;
 use Illuminate\Support\Facades\DB;
 
 class ShopeeVariationRename
@@ -53,7 +53,7 @@ class ShopeeVariationRename
 
         $axisIds = array_keys($catalog['axes']);
         if (count($axisIds) !== count($tiers)) {
-            return $this->refuse('the catalog has ' . count($axisIds) . ' variation ' . (count($axisIds) === 1 ? 'type' : 'types')
+            return $this->refuse('the Master Catalog has ' . count($axisIds) . ' variation ' . (count($axisIds) === 1 ? 'type' : 'types')
                 . ' and the Shopee item has ' . count($tiers));
         }
         if (!in_array(false, array_column($tiers, 'standard'), true)) {
@@ -188,7 +188,7 @@ class ShopeeVariationRename
             $evidence[] = ['index' => array_map('intval', $index), 'values' => $catalog['combos'][$sku]];
         }
         if ($evidence === []) {
-            return ['refused' => 'none of the item\'s variations on Shopee carries a SKU the catalog holds'];
+            return ['refused' => 'none of the item\'s variations on Shopee carries a SKU the Master Catalog holds'];
         }
 
         $fits = [];
@@ -237,7 +237,7 @@ class ShopeeVariationRename
             return $fits[$best];
         }
 
-        return ['refused' => 'the item\'s SKUs do not show which of its variation types is which catalog option'];
+        return ['refused' => 'the item\'s SKUs do not show which of its variation types is which Master Catalog variation type'];
     }
 
     private function orders(array $axisIds): array
@@ -251,32 +251,31 @@ class ShopeeVariationRename
 
     private function catalog(int $productId): ?array
     {
-        $pfx = (string) config('catalog.prefix');
         $langId = (int) config('catalog.default_language_id');
 
-        $combos = DB::table('product_option_combinations')
+        $combos = DB::table('product_variations')
             ->where('product_id', $productId)
             ->get(['id', 'sku']);
         if ($combos->isEmpty()) {
             return null;
         }
 
-        $rows = DB::table('product_option_combination_values as cv')
-            ->join($pfx . 'product_option_value as pov', 'cv.product_option_value_id', '=', 'pov.product_option_value_id')
-            ->join($pfx . 'option_value_description as ovd', function ($j) use ($langId) {
-                $j->on('pov.option_value_id', '=', 'ovd.option_value_id')
+        $rows = DB::table('product_variation_parts as cv')
+            ->join('product_variation_values as pov', 'cv.product_variation_value_id', '=', 'pov.product_variation_value_id')
+            ->join('variation_value_descriptions as ovd', function ($j) use ($langId) {
+                $j->on('pov.variation_value_id', '=', 'ovd.variation_value_id')
                   ->where('ovd.language_id', '=', $langId);
             })
-            ->join($pfx . 'option_description as od', function ($j) use ($langId) {
-                $j->on('pov.option_id', '=', 'od.option_id')
+            ->join('variation_type_descriptions as od', function ($j) use ($langId) {
+                $j->on('pov.variation_type_id', '=', 'od.variation_type_id')
                   ->where('od.language_id', '=', $langId);
             })
-            ->whereIn('cv.combination_id', $combos->pluck('id')->all())
-            ->orderBy('pov.product_option_id')
-            ->orderBy('pov.product_option_value_id')
+            ->whereIn('cv.product_variation_id', $combos->pluck('id')->all())
+            ->orderBy('pov.product_variation_type_id')
+            ->orderBy('pov.product_variation_value_id')
             ->get([
-                'cv.combination_id', 'pov.product_option_id', 'pov.product_option_value_id',
-                'ovd.name as value_name', 'od.name as option_name',
+                'cv.product_variation_id', 'pov.product_variation_type_id', 'pov.product_variation_value_id',
+                'ovd.name as value_name', 'od.name as variation_type_name',
             ]);
 
         $skuOf = [];
@@ -291,12 +290,12 @@ class ShopeeVariationRename
         $values = [];
         $bySku = [];
         foreach ($rows as $r) {
-            $axisId = (int) $r->product_option_id;
-            $povId = (int) $r->product_option_value_id;
-            $axes[$axisId] ??= html_entity_decode((string) $r->option_name, ENT_QUOTES | ENT_HTML5, 'UTF-8') ?: 'Variation';
+            $axisId = (int) $r->product_variation_type_id;
+            $povId = (int) $r->product_variation_value_id;
+            $axes[$axisId] ??= html_entity_decode((string) $r->variation_type_name, ENT_QUOTES | ENT_HTML5, 'UTF-8') ?: 'Variation';
             $values[$axisId][$povId] ??= html_entity_decode((string) $r->value_name, ENT_QUOTES | ENT_HTML5, 'UTF-8') ?: 'Unnamed';
-            if (isset($skuOf[(int) $r->combination_id])) {
-                $bySku[$skuOf[(int) $r->combination_id]][$axisId] = $povId;
+            if (isset($skuOf[(int) $r->product_variation_id])) {
+                $bySku[$skuOf[(int) $r->product_variation_id]][$axisId] = $povId;
             }
         }
 

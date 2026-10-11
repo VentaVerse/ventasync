@@ -1,11 +1,11 @@
 <?php
 
-namespace Extensions\lazada\Services\Lazada;
+namespace Extensions\Lazada\Services\Lazada;
 
-use App\Integrations\Push\PushLedger;
-use Extensions\lazada\Models\LazadaApiLog;
-use Extensions\lazada\Models\LazadaProduct;
-use Extensions\lazada\Services\LazadaStockPushService;
+use App\Channels\Push\PushLedger;
+use Extensions\Lazada\Models\LazadaApiLog;
+use Extensions\Lazada\Models\LazadaListing;
+use Extensions\Lazada\Services\LazadaStockPushService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
@@ -21,7 +21,7 @@ class LazadaStockPricePush
 
     private const SKU_ERROR = '/E0207|sku.*(?:not|doesn\'?t).*exist|invalid.*sku|SellerSku.*not.*found/i';
 
-    public function push(string $kind, object $setting, array $creds, $listings, string $pfx, ?callable $priceFor = null): array
+    public function push(string $kind, object $store, array $creds, $listings, ?callable $priceFor = null): array
     {
         $listings = collect($listings)->values();
         $out = [
@@ -33,8 +33,8 @@ class LazadaStockPricePush
         }
 
         $productIds = $listings->pluck('product_id')->map(fn ($v) => (int) $v)->unique()->values()->all();
-        $erpSkus = PushLedger::erpVariationSkus($productIds, $pfx);
-        $products = DB::table($pfx . 'product')
+        $erpSkus = PushLedger::erpVariationSkus($productIds);
+        $products = DB::table('products')
             ->whereIn('product_id', $productIds)
             ->get(['product_id', 'sku', 'price', 'quantity', 'status'])
             ->keyBy('product_id');
@@ -58,13 +58,13 @@ class LazadaStockPricePush
                 continue;
             }
 
-            $this->itemCache->resolveSkuIds($listing, $setting, $this->client, 'lazada.product.item.get.variants');
+            $this->itemCache->resolveSkuIds($listing, $store, $this->client, 'lazada.product.item.get.variants');
             $listing->load('variants');
 
-            $this->pushListing($kind, $setting, $creds, $listing, $product, $pfx, $priceFor, $erpSkus, $out, true);
+            $this->pushListing($kind, $store, $creds, $listing, $product, $priceFor, $erpSkus, $out, true);
         }
 
-        $states = LazadaListingStates::on($setting);
+        $states = LazadaListingStates::on($store);
         $label = $kind === 'price' ? 'Price push: ' : 'Stock push: ';
         foreach ($out['outcomes'] as $pid => $outcome) {
             $states->recordOutcome((int) $pid, $outcome['ok'] ? null : $label . (string) $outcome['error']);
@@ -73,10 +73,10 @@ class LazadaStockPricePush
         return $out;
     }
 
-    private function pushListing(string $kind, object $setting, array $creds, LazadaProduct $listing, object $product, string $pfx, ?callable $priceFor, array $erpSkus, array &$out, bool $mayHeal): void
+    private function pushListing(string $kind, object $store, array $creds, LazadaListing $listing, object $product, ?callable $priceFor, array $erpSkus, array &$out, bool $mayHeal): void
     {
         $pid = (int) $listing->product_id;
-        $rows = $this->resolver->buildPushItems($listing, $product, $pfx);
+        $rows = $this->resolver->buildPushItems($listing, $product);
 
         $sendRows = !empty($erpSkus[$pid])
             ? array_values(array_filter($rows, fn ($row) => $row['matched'] ?? true))
@@ -126,7 +126,7 @@ class LazadaStockPricePush
                 'payload' => $xml,
             ];
             $params['sign'] = $this->client->sign($apiPath, $params, (string) $creds['app_secret']);
-            $result = $this->client->post((string) $setting->region, $apiPath, $params);
+            $result = $this->client->post((string) $store->region, $apiPath, $params);
 
             LazadaApiLog::safeCreate([
                 'pack' => $kind === 'price' ? 'lazada.product.price.update' : 'lazada.product.quantity.update',
@@ -145,10 +145,10 @@ class LazadaStockPricePush
             $reason = (string) ($e['message'] ?? $e['code'] ?? 'refused');
 
             if ($mayHeal && preg_match(self::SKU_ERROR, $reason . ' ' . (string) ($e['code'] ?? ''))) {
-                $this->itemCache->fetchAndCacheVariants($listing, $setting, $this->client, 'lazada.product.item.get.variants');
+                $this->itemCache->fetchAndCacheVariants($listing, $store, $this->client, 'lazada.product.item.get.variants');
                 $listing->load('variants');
                 $out['healed_listings'][] = (int) $listing->id;
-                $this->pushListing($kind, $setting, $creds, $listing, $product, $pfx, $priceFor, $erpSkus, $out, false);
+                $this->pushListing($kind, $store, $creds, $listing, $product, $priceFor, $erpSkus, $out, false);
 
                 return;
             }
@@ -172,7 +172,7 @@ class LazadaStockPricePush
         }
     }
 
-    private function stamp(LazadaProduct $listing, string $kind, bool $ok, ?string $code, ?string $message): void
+    private function stamp(LazadaListing $listing, string $kind, bool $ok, ?string $code, ?string $message): void
     {
         $listing->forceFill([
             'last_synced_at' => now(),

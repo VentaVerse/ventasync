@@ -6,9 +6,9 @@ use App\Extensions\ExtensionManager;
 use App\Models\Admin\Permission;
 use App\Models\Admin\UserGroup;
 use App\Models\User;
-use Extensions\ventacart\Models\VentaCartOrder;
-use Extensions\ventacart\Models\VentaCartSetting;
-use Extensions\ventacart\VentaCartExtension;
+use Extensions\VentaCart\Models\VentaCartOrder;
+use Extensions\VentaCart\Models\VentaCartStore;
+use Extensions\VentaCart\VentaCartExtension;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -41,9 +41,9 @@ class VentaCartOrdersPanelTest extends TestCase
         return User::factory()->create(['user_group_id' => $group->id]);
     }
 
-    private function store(): VentaCartSetting
+    private function store(): VentaCartStore
     {
-        return VentaCartSetting::create([
+        return VentaCartStore::create([
             'store_name' => 'Gear Depot',
             'base_url' => 'https://one.ventacart.test',
             'api_token' => 'ventacart-token-one',
@@ -51,12 +51,12 @@ class VentaCartOrdersPanelTest extends TestCase
         ]);
     }
 
-    private function order(VentaCartSetting $store, string $status, string $customer = 'Depot Buyer'): VentaCartOrder
+    private function order(VentaCartStore $store, string $status, string $customer = 'Depot Buyer'): VentaCartOrder
     {
         $seq = ++$this->seq;
 
         return VentaCartOrder::create([
-            'ventacart_setting_id' => $store->id,
+            'store_id' => $store->id,
             'ventacart_order_id' => 700000 + $seq,
             'ventacart_order_number' => 700000 + $seq,
             'status' => $status,
@@ -84,7 +84,7 @@ class VentaCartOrdersPanelTest extends TestCase
         $response->assertOk();
         $strip = $this->strip($response->getContent());
 
-        foreach (['All', 'Unpaid', 'To Ship', 'Shipping', 'Delivered', 'Cancelled', 'Failed Delivery'] as $label) {
+        foreach (['All', 'Unpaid', 'To Ship', 'Shipping', 'Delivered', 'Canceled', 'Failed Delivery'] as $label) {
             $this->assertStringContainsString('<span>' . $label . '</span>', $strip, $label . ' is missing from the strip');
         }
 

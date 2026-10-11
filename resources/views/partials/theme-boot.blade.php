@@ -12,9 +12,6 @@
     var stored = null;
     try {
         stored = localStorage.getItem(KEY);
-        var earlier = localStorage.getItem('xenon-theme');
-        if (!stored && earlier) { localStorage.setItem(KEY, earlier); stored = earlier; }
-        if (earlier !== null) localStorage.removeItem('xenon-theme');
     } catch (e) {}
     apply(stored || 'light');
 

@@ -1,9 +1,9 @@
 <?php
 
-namespace Extensions\tiktok\Services\TikTok;
+namespace Extensions\TikTok\Services\TikTok;
 
-use Extensions\tiktok\Models\TikTokListing;
-use Extensions\tiktok\Models\TikTokProductGroup;
+use Extensions\TikTok\Models\TikTokListing;
+use Extensions\TikTok\Models\TikTokProductGroup;
 use Illuminate\Support\Facades\DB;
 
 final class TikTokInheritedSettings
@@ -15,8 +15,8 @@ final class TikTokInheritedSettings
             return [];
         }
 
-        $rows = DB::table('tiktok_product_group_products as pv')
-            ->joinSub(TikTokProductGroup::query()->forStore(\Extensions\tiktok\Models\TikTokSetting::defaultStore())->select(['id', 'name', 'tiktok_category_id']), 'g', 'g.id', '=', 'pv.tiktok_product_group_id')
+        $rows = DB::table('ch_tiktok_product_group_products as pv')
+            ->joinSub(TikTokProductGroup::query()->forStore(\Extensions\TikTok\Models\TikTokStore::defaultStore())->select(['id', 'name', 'tiktok_category_id']), 'g', 'g.id', '=', 'pv.tiktok_product_group_id')
             ->whereIn('pv.product_id', $productIds)
             ->orderBy('pv.id')
             ->get(['pv.product_id', 'g.id as group_id', 'g.name', 'g.tiktok_category_id']);
@@ -36,7 +36,7 @@ final class TikTokInheritedSettings
         }
         $groupIds = array_values(array_unique(array_map(fn ($g) => $g['group_id'], $out)));
         if ($groupIds !== []) {
-            $answers = \Extensions\tiktok\Models\TikTokProductGroupAttribute::query()->whereIn('tiktok_product_group_id', $groupIds)
+            $answers = \Extensions\TikTok\Models\TikTokProductGroupAttribute::query()->whereIn('tiktok_product_group_id', $groupIds)
                 ->get(['tiktok_product_group_id', 'attribute_key', 'value'])->groupBy('tiktok_product_group_id');
             foreach ($out as $pid => $g) {
                 $out[$pid]['attributes'] = ($answers->get($g['group_id']) ?? collect())->pluck('value', 'attribute_key')->all();

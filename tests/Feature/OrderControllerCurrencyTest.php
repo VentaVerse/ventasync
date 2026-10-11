@@ -14,12 +14,10 @@ class OrderControllerCurrencyTest extends TestCase
 {
     use RefreshDatabase;
 
-    private string $p;
 
     protected function setUp(): void
     {
         parent::setUp();
-        $this->p = (string) config('catalog.prefix');
     }
 
     private function actingAsOrderManager(): User
@@ -74,7 +72,7 @@ class OrderControllerCurrencyTest extends TestCase
         $this->assertEqualsWithDelta($expectedPhpTotal, (float) $order->total, 0.01);
         $this->assertEqualsWithDelta(200.0, (float) $order->foreign_total, 0.0001);
 
-        $line = DB::table($this->p.'order_product')->where('order_id', $order->order_id)->first();
+        $line = DB::table('order_products')->where('order_id', $order->order_id)->first();
         $expectedPhpPrice = round(100 * $usdRate, 4);
         $this->assertEqualsWithDelta($expectedPhpPrice, (float) $line->price, 0.01);
         $this->assertEqualsWithDelta(100.0, (float) $line->foreign_price, 0.0001);
@@ -99,7 +97,7 @@ class OrderControllerCurrencyTest extends TestCase
         $response->assertRedirect(route('orders.index'));
 
         $order = Order::orderByDesc('order_id')->first();
-        $line = DB::table($this->p.'order_product')->where('order_id', $order->order_id)->first();
+        $line = DB::table('order_products')->where('order_id', $order->order_id)->first();
 
         $this->assertEqualsWithDelta(3499.6919, (float) $line->cost, 0.0001);
         $this->assertNotEqualsWithDelta(56.80, (float) $line->cost, 0.001);
@@ -122,7 +120,7 @@ class OrderControllerCurrencyTest extends TestCase
         $this->assertNull($order->foreign_total);
         $this->assertEqualsWithDelta(1000.0, (float) $order->total, 0.0001);
 
-        $line = DB::table($this->p.'order_product')->where('order_id', $order->order_id)->first();
+        $line = DB::table('order_products')->where('order_id', $order->order_id)->first();
         $this->assertNull($line->foreign_price);
         $this->assertNull($line->foreign_total);
         $this->assertEqualsWithDelta(1000.0, (float) $line->total, 0.0001);
@@ -195,7 +193,7 @@ class OrderControllerCurrencyTest extends TestCase
         $this->assertEqualsWithDelta($expectedPhpTotal, (float) $order->total, 0.01);
         $this->assertEqualsWithDelta(200.0, (float) $order->foreign_total, 0.0001);
 
-        $line = DB::table($this->p.'order_product')->where('order_id', $order->order_id)->first();
+        $line = DB::table('order_products')->where('order_id', $order->order_id)->first();
         $this->assertEqualsWithDelta(100.0, (float) $line->foreign_price, 0.0001);
     }
 
@@ -284,14 +282,14 @@ class OrderControllerCurrencyTest extends TestCase
         $create->assertRedirect(route('orders.index'));
         $order = Order::orderByDesc('order_id')->first();
 
-        $lineBefore = DB::table($this->p.'order_product')->where('order_id', $order->order_id)->first();
+        $lineBefore = DB::table('order_products')->where('order_id', $order->order_id)->first();
         $this->assertNotNull($lineBefore, 'sanity: the order must start with a line item');
 
-        $optionId = DB::table($this->p.'order_option')->insertGetId([
+        $variationTypeId = DB::table('order_variations')->insertGetId([
             'order_id'                => $order->order_id,
             'order_product_id'        => $lineBefore->order_product_id,
-            'product_option_id'       => 0,
-            'product_option_value_id' => 999,
+            'product_variation_type_id'       => 0,
+            'product_variation_value_id' => 999,
             'name'                    => 'Color',
             'value'                   => 'Red',
             'type'                    => 'select',
@@ -308,7 +306,7 @@ class OrderControllerCurrencyTest extends TestCase
         $response = $this->put(route('orders.update', $order->order_id), $updatePayload);
         $response->assertRedirect(route('orders.edit', $order->order_id));
 
-        $lineAfter = DB::table($this->p.'order_product')->where('order_id', $order->order_id)->first();
+        $lineAfter = DB::table('order_products')->where('order_id', $order->order_id)->first();
         $this->assertNotNull($lineAfter, 'line item must survive an update that omits products');
         $this->assertSame((int) $lineBefore->order_product_id, (int) $lineAfter->order_product_id);
         $this->assertEqualsWithDelta((float) $lineBefore->price, (float) $lineAfter->price, 0.0001);
@@ -316,8 +314,8 @@ class OrderControllerCurrencyTest extends TestCase
         $this->assertEqualsWithDelta((float) $lineBefore->cost, (float) $lineAfter->cost, 0.0001);
         $this->assertSame((int) $lineBefore->quantity, (int) $lineAfter->quantity);
 
-        $optionAfter = DB::table($this->p.'order_option')->where('order_option_id', $optionId)->first();
-        $this->assertNotNull($optionAfter, 'order_option row must survive an update that omits products');
+        $optionAfter = DB::table('order_variations')->where('order_variation_id', $variationTypeId)->first();
+        $this->assertNotNull($optionAfter, 'order_variation row must survive an update that omits products');
         $this->assertSame('Red', $optionAfter->value);
 
         $order->refresh();
@@ -341,7 +339,7 @@ class OrderControllerCurrencyTest extends TestCase
         $create->assertRedirect(route('orders.index'));
         $order = Order::orderByDesc('order_id')->first();
 
-        $before = DB::table($this->p.'order_product')->where('order_id', $order->order_id)->first();
+        $before = DB::table('order_products')->where('order_id', $order->order_id)->first();
         $totalBefore = (float) $order->total;
 
         $editPage = $this->get(route('orders.edit', $order->order_id));
@@ -366,7 +364,7 @@ class OrderControllerCurrencyTest extends TestCase
         $response->assertRedirect(route('orders.edit', $order->order_id));
 
         $order->refresh();
-        $after = DB::table($this->p.'order_product')->where('order_id', $order->order_id)->first();
+        $after = DB::table('order_products')->where('order_id', $order->order_id)->first();
 
         $this->assertEqualsWithDelta((float) $before->price, (float) $after->price, 0.0001,
             'price must be byte-identical after an unchanged resave, not multiplied by the rate again');
@@ -400,8 +398,8 @@ class OrderControllerCurrencyTest extends TestCase
         $this->post(route('orders.store'), $usdPayload)->assertRedirect(route('orders.index'));
         $usdOrder = Order::orderByDesc('order_id')->first();
 
-        $phpLine = DB::table($this->p.'order_product')->where('order_id', $phpOrder->order_id)->first();
-        $usdLine = DB::table($this->p.'order_product')->where('order_id', $usdOrder->order_id)->first();
+        $phpLine = DB::table('order_products')->where('order_id', $phpOrder->order_id)->first();
+        $usdLine = DB::table('order_products')->where('order_id', $usdOrder->order_id)->first();
         $this->assertEqualsWithDelta((float) $phpLine->price, (float) $usdLine->price, 0.0001,
             'sanity: both orders must store the identical PHP price');
 
@@ -431,7 +429,7 @@ class OrderControllerCurrencyTest extends TestCase
 
         $this->post(route('orders.store'), $payload)->assertRedirect(route('orders.index'));
         $order = Order::orderByDesc('order_id')->first();
-        $before = DB::table($this->p.'order_product')->where('order_id', $order->order_id)->first();
+        $before = DB::table('order_products')->where('order_id', $order->order_id)->first();
         $rawPhpPrice = (float) $before->price;
 
         $newRate = 56.50000000;
@@ -451,7 +449,7 @@ class OrderControllerCurrencyTest extends TestCase
             ->assertRedirect(route('orders.edit', $order->order_id));
 
         $order->refresh();
-        $after = DB::table($this->p.'order_product')->where('order_id', $order->order_id)->first();
+        $after = DB::table('order_products')->where('order_id', $order->order_id)->first();
 
         $this->assertEqualsWithDelta($rawPhpPrice, (float) $after->price, 0.3,
             'switching the rate before an otherwise-unchanged resave must preserve the PHP value');
@@ -485,7 +483,7 @@ class OrderControllerCurrencyTest extends TestCase
         $this->assertEqualsWithDelta(100.0, (float) $order->total, 0.0001,
             'toBase(100, rate=1) is a no-op - total is numerically 100, but it is now PHP100, not USD100');
 
-        $line = DB::table($this->p.'order_product')->where('order_id', $order->order_id)->first();
+        $line = DB::table('order_products')->where('order_id', $order->order_id)->first();
         $this->assertNotNull($line->foreign_price);
         $this->assertEqualsWithDelta(100.0, (float) $line->foreign_price, 0.0001);
     }

@@ -56,7 +56,7 @@ class VentaCartLastRunFiguresTest extends TestCase
     public function test_the_stock_push_records_that_it_ran(): void
     {
         $this->assertStringContainsString(
-            "\$setting->update(['last_stock_push_at' => now()]);",
+            "\$store->update(['last_stock_push_at' => now()]);",
             $this->source('extensions/ventacart/Commands/VentaCartPushStock.php'),
             'Pushing stock leaves no trace, so the settings page says Never after a successful push.'
         );

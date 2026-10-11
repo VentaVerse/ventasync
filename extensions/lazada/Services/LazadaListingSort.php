@@ -1,8 +1,8 @@
 <?php
 
-namespace Extensions\lazada\Services;
+namespace Extensions\Lazada\Services;
 
-use App\Integrations\Listings\ListingSort;
+use App\Channels\Listings\ListingSort;
 use App\Support\StoreKey;
 use Illuminate\Database\Query\Builder;
 
@@ -26,7 +26,7 @@ final class LazadaListingSort
 
     public static function join(Builder $query, int $storeId): void
     {
-        ListingSort::joinStore($query, $storeId, ['table' => 'lazada_products', 'store' => 'lazada_setting_id'], self::GROUP);
+        ListingSort::joinStore($query, $storeId, ['table' => 'ch_lazada_listings', 'store' => 'store_id'], self::GROUP);
     }
 
     public static function joinGroup(Builder $query, int $storeId): void
@@ -34,5 +34,5 @@ final class LazadaListingSort
         ListingSort::joinGroupMarkup($query, $storeId, self::GROUP);
     }
 
-    private const GROUP = ['pivot' => 'lazada_product_group_products', 'table' => 'lazada_product_groups', 'key' => 'lazada_product_group_id', 'store' => 'lazada_setting_id'];
+    private const GROUP = ['pivot' => 'ch_lazada_product_group_products', 'table' => 'ch_lazada_product_groups', 'key' => 'lazada_product_group_id', 'store' => 'store_id'];
 }

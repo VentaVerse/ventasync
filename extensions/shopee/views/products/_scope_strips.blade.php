@@ -16,7 +16,7 @@
                        class="x-segment__item {{ ($shopeeTab ?? 'all') === 'all' ? 'is-active' : '' }}"
                        @if(($shopeeTab ?? 'all') === 'all') aria-current="true" @endif>
                         <span>All</span>
-                        <span class="x-segment__count">{{ number_format((int) ($catalogueTotal ?? $products->total())) }}</span>
+                        <span class="x-segment__count">{{ number_format((int) ($catalogTotal ?? $products->total())) }}</span>
                     </a>
                     @foreach($liveTabDefs as $tabKey => $tabLabel)
                         @php $isActive = ($shopeeTab ?? 'all') === $tabKey; @endphp

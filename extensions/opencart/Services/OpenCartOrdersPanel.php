@@ -1,11 +1,11 @@
 <?php
 
-namespace Extensions\opencart\Services;
+namespace Extensions\OpenCart\Services;
 
 use App\Http\Controllers\Sales\OrderController;
 use App\Models\Catalog\Order;
 use App\Models\Catalog\OrderStatus;
-use Extensions\opencart\Models\OpenCartSetting;
+use Extensions\OpenCart\Models\OpenCartStore;
 use Illuminate\Http\Request;
 
 class OpenCartOrdersPanel
@@ -24,7 +24,7 @@ class OpenCartOrdersPanel
 
         $orders = Order::query()
             ->with(['products', 'latestHistory'])
-            ->where('marketplace_source', 'opencart:' . $storeId)
+            ->where('channel', 'opencart:' . $storeId)
             ->when($q !== '', function ($query) use ($q) {
                 $query->where(function ($sub) use ($q) {
                     $sub->where('firstname', 'like', '%' . $q . '%')
@@ -51,7 +51,7 @@ class OpenCartOrdersPanel
 
         $statuses = OrderStatus::orderBy('order_status_id')->get();
 
-        $storeLabel = (string) (OpenCartSetting::where('id', $storeId)->value('store_name')
+        $storeLabel = (string) (OpenCartStore::where('id', $storeId)->value('store_name')
             ?: ('OpenCart #' . $storeId));
 
         return [

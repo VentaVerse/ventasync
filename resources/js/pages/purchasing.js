@@ -5,7 +5,7 @@ function fmt(n) {
     });
 }
 
-function vendorTypeahead(input, hidden, list, url, onPick) {
+function supplierTypeahead(input, hidden, list, url, onPick) {
     if (!input || !hidden || !list) return;
 
     let timer = null;
@@ -22,7 +22,7 @@ function vendorTypeahead(input, hidden, list, url, onPick) {
         if (!items.length) {
             const empty = document.createElement('div');
             empty.className = 'po-ta__empty';
-            empty.textContent = 'No vendors found';
+            empty.textContent = 'No suppliers found';
             list.appendChild(empty);
             list.classList.add('is-open');
             return;
@@ -75,13 +75,13 @@ function vendorTypeahead(input, hidden, list, url, onPick) {
 }
 
 function initPoHeader(form) {
-    const vendorInput = form.querySelector('[data-po-vendor-input]');
-    const vendorHidden = form.querySelector('[data-po-vendor-id]');
-    const vendorList = form.querySelector('[data-po-vendor-list]');
+    const supplierInput = form.querySelector('[data-po-supplier-input]');
+    const supplierHidden = form.querySelector('[data-po-supplier-id]');
+    const supplierList = form.querySelector('[data-po-supplier-list]');
     const currency = form.querySelector('[data-po-currency]');
     const rate = form.querySelector('[data-po-rate]');
 
-    vendorTypeahead(vendorInput, vendorHidden, vendorList, form.dataset.vendorLookupUrl, function (v) {
+    supplierTypeahead(supplierInput, supplierHidden, supplierList, form.dataset.supplierLookupUrl, function (v) {
         if (v.currency_code && currency) {
             currency.value = v.currency_code;
             currency.dispatchEvent(new Event('change', { bubbles: true }));
@@ -104,6 +104,7 @@ function initPoLines(form) {
     const subtotalEl = form.querySelector('[data-po-subtotal]');
     const discountEl = form.querySelector('[data-po-discount]');
     const totalEl = form.querySelector('[data-po-total]');
+    const chargesEl = form.querySelector('[data-po-charges-total]');
     const baseRow = form.querySelector('[data-po-base-row]');
     const baseTotalEl = form.querySelector('[data-po-base-total]');
     const currency = form.querySelector('[data-po-currency]');
@@ -131,8 +132,14 @@ function initPoLines(form) {
             discount += lineDisc;
         });
 
-        const total = subtotal - discount;
+        let charges = 0;
+        form.querySelectorAll('[data-po-charge-amount]').forEach(function (input) {
+            charges += parseFloat(input.value) || 0;
+        });
+
+        const total = subtotal - discount + charges;
         if (subtotalEl) subtotalEl.textContent = fmt(subtotal);
+        if (chargesEl) chargesEl.textContent = fmt(charges);
         if (discountEl) discountEl.textContent = fmt(discount);
         if (totalEl) totalEl.textContent = fmt(total);
 
@@ -170,7 +177,7 @@ function initPoLines(form) {
     function buildLine(product) {
         const i = nextIndex++;
         const p = product || {};
-        const vp = p.vendor_price || null;
+        const vp = p.supplier_price || null;
 
         const line = document.createElement('div');
         line.className = 'po-line';
@@ -195,7 +202,7 @@ function initPoLines(form) {
             type: 'hidden', name: 'items[' + i + '][product_id]', value: p.product_id || '',
         }));
         desc.appendChild(field('input', '', {
-            type: 'hidden', name: 'items[' + i + '][product_option_value_id]', value: p.product_option_value_id || '',
+            type: 'hidden', name: 'items[' + i + '][product_variation_value_id]', value: p.product_variation_value_id || '',
         }));
         desc.appendChild(field('input', 'po-in', {
             name: 'items[' + i + '][description]', maxlength: '255',
@@ -207,9 +214,9 @@ function initPoLines(form) {
             name: 'items[' + i + '][sku]', maxlength: '128', value: p.sku || '',
         })));
 
-        line.appendChild(cell('Vendor SKU', field('input', 'po-in po-in--num', {
-            name: 'items[' + i + '][vendor_sku]', maxlength: '128',
-            value: (vp && vp.vendor_sku) ? vp.vendor_sku : '',
+        line.appendChild(cell('Supplier SKU', field('input', 'po-in po-in--num', {
+            name: 'items[' + i + '][supplier_sku]', maxlength: '128',
+            value: (vp && vp.supplier_sku) ? vp.supplier_sku : '',
         })));
 
         line.appendChild(cell('Qty', field('input', 'po-in po-in--num', {
@@ -306,8 +313,8 @@ function initPoLines(form) {
             if (q.length < 2) { closeResults(); return; }
 
             searchTimer = setTimeout(function () {
-                const vendorId = (form.querySelector('[data-po-vendor-id]') || {}).value || 0;
-                fetch(searchUrl + '?q=' + encodeURIComponent(q) + '&vendor_id=' + encodeURIComponent(vendorId), {
+                const supplierId = (form.querySelector('[data-po-supplier-id]') || {}).value || 0;
+                fetch(searchUrl + '?q=' + encodeURIComponent(q) + '&supplier_id=' + encodeURIComponent(supplierId), {
                     headers: { Accept: 'application/json' },
                 })
                     .then(function (r) { return r.ok ? r.json() : []; })
@@ -325,13 +332,13 @@ function initPoLines(form) {
 
                         const seen = {};
                         data.forEach(function (p) {
-                            if (p.has_options && p.option_group && !seen[p.option_group]) {
-                                const group = data.filter(function (v) { return v.option_group === p.option_group; });
-                                seen[p.option_group] = group;
+                            if (p.has_variations && p.variation_group && !seen[p.variation_group]) {
+                                const group = data.filter(function (v) { return v.variation_group === p.variation_group; });
+                                seen[p.variation_group] = group;
 
                                 const baseName = p.base_name || String(p.name || '').split(' · ')[0];
                                 const all = resultButton(
-                                    'Add all ' + p.option_count + ' variations of ' + baseName,
+                                    'Add all ' + p.variation_count + ' variations of ' + baseName,
                                     null,
                                     'po-ac__item--all'
                                 );
@@ -346,7 +353,7 @@ function initPoLines(form) {
                             const btn = resultButton(
                                 p.name || '',
                                 p.sku || null,
-                                p.has_options ? 'po-ac__item--child' : null
+                                p.has_variations ? 'po-ac__item--child' : null
                             );
                             btn.addEventListener('click', function () {
                                 buildLine(p);
@@ -384,6 +391,7 @@ function initPoLines(form) {
 
     if (currency) currency.addEventListener('change', recalc);
     if (rate) rate.addEventListener('input', recalc);
+    form.addEventListener('po:charges', recalc);
 
     let dragging = null;
 
@@ -443,6 +451,50 @@ function initPoLines(form) {
     }
 
     recalc();
+}
+
+function initPoCharges(root) {
+    const body = root.querySelector('[data-po-charges-body]');
+    const template = root.querySelector('[data-po-charge-template]');
+    const add = root.querySelector('[data-po-charge-add]');
+    if (!body || !template || !add) return;
+
+    function changed() {
+        root.dispatchEvent(new CustomEvent('po:charges', { bubbles: true }));
+    }
+
+    function reindex() {
+        body.querySelectorAll('[data-po-charge]').forEach(function (row, i) {
+            row.querySelectorAll('[name]').forEach(function (el) {
+                el.name = el.name.replace(/charges\[[^\]]+\]/, 'charges[' + i + ']');
+            });
+            row.querySelectorAll('[id]').forEach(function (el) {
+                el.id = el.id.replace(/po-charge-[^-]+-/, 'po-charge-' + i + '-');
+            });
+            row.querySelectorAll('label[for]').forEach(function (el) {
+                el.htmlFor = el.htmlFor.replace(/po-charge-[^-]+-/, 'po-charge-' + i + '-');
+            });
+        });
+    }
+
+    add.addEventListener('click', function () {
+        const row = template.content.firstElementChild.cloneNode(true);
+        body.appendChild(row);
+        reindex();
+        const name = row.querySelector('input[name$="[name]"]');
+        if (name) name.focus();
+        changed();
+    });
+
+    body.addEventListener('click', function (e) {
+        const btn = e.target.closest('[data-po-charge-remove]');
+        if (!btn) return;
+        btn.closest('[data-po-charge]').remove();
+        reindex();
+        changed();
+    });
+
+    body.addEventListener('input', changed);
 }
 
 function initReceive(root) {
@@ -522,6 +574,8 @@ document.addEventListener('DOMContentLoaded', function () {
         initPoHeader(form);
         if (form.hasAttribute('data-po-lines-form')) initPoLines(form);
     });
+
+    document.querySelectorAll('[data-po-charges]').forEach(initPoCharges);
 
     const receive = document.querySelector('[data-po-receive]');
     if (receive) initReceive(receive);

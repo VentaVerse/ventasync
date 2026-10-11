@@ -143,7 +143,7 @@ class FakeGroupSendController extends Controller
         self::$chunks = [];
     }
 
-    protected function groupSendIntegration(): string
+    protected function groupSendChannel(): string
     {
         return 'fake';
     }

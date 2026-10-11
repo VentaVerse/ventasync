@@ -2,7 +2,7 @@
 
 namespace App\Support;
 
-use App\Integrations\IntegrationRegistry;
+use App\Channels\ChannelRegistry;
 use App\Models\User;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Support\Facades\Cache;
@@ -46,7 +46,7 @@ class FulfilmentBadge
         try {
             $counts = [];
 
-            foreach (app(IntegrationRegistry::class)->visibleOrderTabs($user) as $tab) {
+            foreach (app(ChannelRegistry::class)->visibleOrderTabs($user) as $tab) {
                 $stages = $tab->stageCounts();
                 $count = $stages ? ($stages[0]['count'] ?? 0) : ($tab->unprocessedCount() ?? 0);
                 $counts[$tab->id] = max(0, (int) $count);

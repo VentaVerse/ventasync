@@ -1,17 +1,17 @@
 <?php
 
-namespace Extensions\ventacart\Commands;
+namespace Extensions\VentaCart\Commands;
 
-use Extensions\ventacart\Models\VentaCartSetting;
-use Extensions\ventacart\Services\VentaCart\VentaCartClient;
-use Extensions\ventacart\Services\VentaCart\VentaCartOrderSync;
+use Extensions\VentaCart\Models\VentaCartStore;
+use Extensions\VentaCart\Services\VentaCart\VentaCartClient;
+use Extensions\VentaCart\Services\VentaCart\VentaCartOrderSync;
 use Illuminate\Console\Command;
 
-class VentaCartSync extends Command implements \App\Integrations\Contracts\SteppableAutomation
+class VentaCartSync extends Command implements \App\Channels\Contracts\SteppableAutomation
 {
     protected $signature = 'ventacart:sync
         {entity : Entity to sync (orders)}
-        {--store= : Store ID (ventacart_settings.id). Omit to sync all enabled stores}
+        {--store= : Store ID (ch_ventacart_stores.id). Omit to sync all enabled stores}
         {--full : Full sync (ignore last sync timestamp)}
         {--max-pages=0 : Stop after N pages (0 = unlimited)}
         {--no-stock : Skip stock adjustments (use for initial import)}';
@@ -30,7 +30,7 @@ class VentaCartSync extends Command implements \App\Integrations\Contracts\Stepp
         }
 
         if ($storeId) {
-            $settings = VentaCartSetting::where('id', (int) $storeId)
+            $settings = VentaCartStore::where('id', (int) $storeId)
                 ->where('enabled', true)
                 ->get();
 
@@ -39,7 +39,7 @@ class VentaCartSync extends Command implements \App\Integrations\Contracts\Stepp
                 return 1;
             }
         } else {
-            $settings = VentaCartSetting::where('enabled', true)->get();
+            $settings = VentaCartStore::where('enabled', true)->get();
 
             if ($settings->isEmpty()) {
                 $this->error('No enabled VentaCart stores configured.');
@@ -47,10 +47,10 @@ class VentaCartSync extends Command implements \App\Integrations\Contracts\Stepp
             }
         }
 
-        foreach ($settings as $setting) {
+        foreach ($settings as $store) {
             $this->newLine();
-            $this->info("=== Store: {$setting->store_name} (#{$setting->id}) ===");
-            $this->syncStore($setting, $entity);
+            $this->info("=== Store: {$store->store_name} (#{$store->id}) ===");
+            $this->syncStore($store, $entity);
         }
 
         $this->newLine();
@@ -58,14 +58,14 @@ class VentaCartSync extends Command implements \App\Integrations\Contracts\Stepp
         return 0;
     }
 
-    private function syncStore(VentaCartSetting $setting, string $entity): void
+    private function syncStore(VentaCartStore $store, string $entity): void
     {
-        $client = new VentaCartClient($setting);
+        $client = new VentaCartClient($store);
 
-        $this->syncOrders($client, $setting);
+        $this->syncOrders($client, $store);
     }
 
-    private function syncOrders(VentaCartClient $client, VentaCartSetting $setting): void
+    private function syncOrders(VentaCartClient $client, VentaCartStore $store): void
     {
         $this->info('  Syncing orders...');
 
@@ -73,7 +73,7 @@ class VentaCartSync extends Command implements \App\Integrations\Contracts\Stepp
         $maxPages = (int) $this->option('max-pages');
         $noStock = (bool) $this->option('no-stock');
 
-        $sync = new VentaCartOrderSync($client, $setting);
+        $sync = new VentaCartOrderSync($client, $store);
 
         if ($noStock) {
             $sync->setSkipStockAdjust(true);
@@ -103,7 +103,7 @@ class VentaCartSync extends Command implements \App\Integrations\Contracts\Stepp
 
     public function automationUnits(\App\Models\ScheduledJob $job): array
     {
-        $stores = VentaCartSetting::query()->where('enabled', true);
+        $stores = VentaCartStore::query()->where('enabled', true);
         if ($job->getOption('store')) {
             $stores->where('id', (int) $job->getOption('store'));
         }
@@ -127,7 +127,7 @@ class VentaCartSync extends Command implements \App\Integrations\Contracts\Stepp
         $notes = [];
         foreach ($units as $unit) {
             [$sid] = array_pad(explode(':', (string) $unit, 2), 2, '');
-            $store = VentaCartSetting::query()->where('enabled', true)->find((int) $sid);
+            $store = VentaCartStore::query()->where('enabled', true)->find((int) $sid);
             if (! $store) {
                 $failed++;
                 continue;

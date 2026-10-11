@@ -6,8 +6,8 @@ use App\Extensions\ExtensionManager;
 use App\Models\Admin\Permission;
 use App\Models\Admin\UserGroup;
 use App\Models\User;
-use Extensions\shopee\Models\ShopeeProductLink;
-use Extensions\shopee\Models\ShopeeSetting;
+use Extensions\Shopee\Models\ShopeeListingLink;
+use Extensions\Shopee\Models\ShopeeStore;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
@@ -25,13 +25,13 @@ class DisabledProductsStayOutTest extends TestCase
             $manager->install($ext);
             $manager->enable($ext);
         }
-        $this->app->register(\Extensions\shopee\ShopeeExtension::class);
-        $this->app->register(\Extensions\lazada\LazadaExtension::class);
-        $this->app->register(\Extensions\tiktok\TikTokExtension::class);
+        $this->app->register(\Extensions\Shopee\ShopeeExtension::class);
+        $this->app->register(\Extensions\Lazada\LazadaExtension::class);
+        $this->app->register(\Extensions\TikTok\TikTokExtension::class);
         $this->app['router']->getRoutes()->refreshNameLookups();
-        $this->artisan('permissions:sync-catalogue');
+        $this->artisan('permissions:sync-catalog');
 
-        ShopeeSetting::create(['mode' => 'live', 'store_name' => 'Main store']);
+        ShopeeStore::create(['mode' => 'live', 'store_name' => 'Main store']);
     }
 
     private function operator(): User
@@ -46,13 +46,12 @@ class DisabledProductsStayOutTest extends TestCase
 
     private function seedProduct(string $sku, string $name, int $status): int
     {
-        $pfx = (string) config('catalog.prefix');
-        $productId = DB::table($pfx . 'product')->insertGetId([
+        $productId = DB::table('products')->insertGetId([
             'model' => $sku, 'sku' => $sku, 'quantity' => 5, 'price' => 300,
             'status' => $status, 'image' => '', 'weight' => 1, 'length' => 10, 'width' => 10, 'height' => 10,
-            'manufacturer_id' => 0, 'date_added' => now(), 'date_modified' => now(), 'date_available' => now(),
+            'brand_id' => 0, 'date_added' => now(), 'date_modified' => now(), 'date_available' => now(),
         ]);
-        DB::table($pfx . 'product_description')->insert([
+        DB::table('product_descriptions')->insert([
             'product_id' => $productId, 'language_id' => (int) config('catalog.default_language_id'),
             'name' => $name, 'description' => '',
             'meta_title' => '', 'meta_description' => '', 'meta_keyword' => '', 'tag' => '',
@@ -64,11 +63,11 @@ class DisabledProductsStayOutTest extends TestCase
     public function test_the_default_shopee_view_hides_disabled_unlisted_and_keeps_disabled_listed(): void
     {
         $hidden = $this->seedProduct('DIS-HIDE', 'Disabled and nowhere', 0);
-        \Extensions\shopee\Models\ShopeeListing::create(['product_id' => $hidden]);
+        \Extensions\Shopee\Models\ShopeeListing::create(['product_id' => $hidden]);
         $listedDisabled = $this->seedProduct('DIS-KEEP', 'Disabled but still on Shopee', 0);
-        ShopeeProductLink::create(['product_id' => $listedDisabled, 'shopee_item_id' => 800, 'live_status' => 'NORMAL']);
+        ShopeeListingLink::create(['product_id' => $listedDisabled, 'shopee_item_id' => 800, 'live_status' => 'NORMAL']);
         $plain = $this->seedProduct('EN-1', 'Enabled and plain', 1);
-        \Extensions\shopee\Models\ShopeeListing::create(['product_id' => $plain]);
+        \Extensions\Shopee\Models\ShopeeListing::create(['product_id' => $plain]);
 
         $user = $this->operator();
         $page = $this->actingAs($user)->get(route('ext.shopee.products.index'))->assertOk()->getContent();
@@ -90,8 +89,8 @@ class DisabledProductsStayOutTest extends TestCase
         $this->seedProduct('DIS-TT', 'Disabled tiktok nowhere', 0);
         $user = $this->operator();
 
-        $lazadaStore = \Extensions\lazada\Models\LazadaSetting::create(['mode' => 'live', 'store_name' => 'Main store']);
-        $tiktokStore = \Extensions\tiktok\Models\TikTokSetting::create(['mode' => 'live', 'store_name' => 'Main store']);
+        $lazadaStore = \Extensions\Lazada\Models\LazadaStore::create(['mode' => 'live', 'store_name' => 'Main store']);
+        $tiktokStore = \Extensions\TikTok\Models\TikTokStore::create(['mode' => 'live', 'store_name' => 'Main store']);
 
         $lz = $this->actingAs($user)->get(route('ext.lazada.products.index', ['store' => $lazadaStore->id]))->assertOk()->getContent();
         $this->assertStringNotContainsString('Disabled lazada nowhere', $lz);

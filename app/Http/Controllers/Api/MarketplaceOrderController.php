@@ -3,7 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use App\Integrations\IntegrationRegistry;
+use App\Channels\ChannelRegistry;
 use Illuminate\Http\Request;
 
 class MarketplaceOrderController extends Controller
@@ -14,7 +14,7 @@ class MarketplaceOrderController extends Controller
             return $denied;
         }
 
-        $provider = app(IntegrationRegistry::class)->mobileProviderFor($platform);
+        $provider = app(ChannelRegistry::class)->mobileProviderFor($platform);
         if ($provider === null) {
             return response()->json(['error' => 'Invalid platform'], 404);
         }
@@ -28,7 +28,7 @@ class MarketplaceOrderController extends Controller
             return $denied;
         }
 
-        $provider = app(IntegrationRegistry::class)->mobileProviderFor($platform);
+        $provider = app(ChannelRegistry::class)->mobileProviderFor($platform);
         if ($provider === null) {
             return response()->json(['error' => 'Invalid platform'], 404);
         }
@@ -43,8 +43,8 @@ class MarketplaceOrderController extends Controller
 
     public function fulfil(Request $request, string $platform, int $id, string $action)
     {
-        $provider = app(IntegrationRegistry::class)->mobileProviderFor($platform);
-        if (! $provider instanceof \App\Integrations\Contracts\MobileFulfilmentProvider) {
+        $provider = app(ChannelRegistry::class)->mobileProviderFor($platform);
+        if (! $provider instanceof \App\Channels\Contracts\MobileFulfilmentProvider) {
             return response()->json(['error' => 'Invalid platform'], 404);
         }
 

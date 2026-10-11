@@ -6,12 +6,12 @@ use App\Extensions\ExtensionManager;
 use App\Models\Admin\Permission;
 use App\Models\Admin\UserGroup;
 use App\Models\User;
-use Extensions\shopee\Models\ShopeeApiLog;
-use Extensions\shopee\Models\ShopeeOrder;
-use Extensions\shopee\Models\ShopeeOrderProduct;
-use Extensions\shopee\Models\ShopeeReturn;
-use Extensions\shopee\Models\ShopeeSetting;
-use Extensions\shopee\ShopeeExtension;
+use Extensions\Shopee\Models\ShopeeApiLog;
+use Extensions\Shopee\Models\ShopeeOrder;
+use Extensions\Shopee\Models\ShopeeOrderProduct;
+use Extensions\Shopee\Models\ShopeeReturn;
+use Extensions\Shopee\Models\ShopeeStore;
+use Extensions\Shopee\ShopeeExtension;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
@@ -30,7 +30,7 @@ class ShopeeOrderDetailTest extends TestCase
 
         $this->app->register(ShopeeExtension::class);
 
-        ShopeeSetting::create(['mode' => 'production', 'store_name' => 'Main store']);
+        ShopeeStore::create(['mode' => 'production', 'store_name' => 'Main store']);
 
         $this->app['router']->getRoutes()->refreshNameLookups();
     }
@@ -312,9 +312,9 @@ class ShopeeOrderDetailTest extends TestCase
         $allowed->assertJson(['ok' => false]);
     }
 
-    private function configureShopeeCredentials(): ShopeeSetting
+    private function configureShopeeCredentials(): ShopeeStore
     {
-        $s = ShopeeSetting::query()->orderBy('id')->firstOrNew();
+        $s = ShopeeStore::query()->orderBy('id')->firstOrNew();
         $s->fill([
             'mode' => 'production',
             'partner_id' => 100001,

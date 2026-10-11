@@ -1,21 +1,21 @@
 <?php
 
-namespace Extensions\opencart\Models;
+namespace Extensions\OpenCart\Models;
 
 use App\Models\Catalog\Product;
-use Extensions\opencart\Models\OpenCartSetting;
+use Extensions\OpenCart\Models\OpenCartStore;
 use Illuminate\Database\Eloquent\Model;
 
 class MarketplaceReview extends Model
 {
-    protected $table = 'marketplace_reviews';
+    protected $table = 'ch_marketplace_reviews';
 
     protected $fillable = [
-        'platform',
-        'platform_review_id',
+        'channel',
+        'channel_review_id',
         'product_id',
-        'platform_item_id',
-        'platform_order_id',
+        'channel_item_id',
+        'channel_order_id',
         'author',
         'rating',
         'comment',
@@ -24,17 +24,17 @@ class MarketplaceReview extends Model
         'reply',
         'replied_at',
         'oc_sync_status',
-        'opencart_setting_id',
+        'opencart_store_id',
         'oc_review_id',
         'oc_pushed_at',
         'oc_push_error',
         'ventacart_sync_status',
-        'ventacart_setting_id',
+        'ventacart_store_id',
         'ventacart_review_id',
         'ventacart_pushed_at',
         'ventacart_push_error',
         'woocommerce_sync_status',
-        'woocommerce_setting_id',
+        'woocommerce_store_id',
         'woocommerce_review_id',
         'woocommerce_pushed_at',
         'woocommerce_push_error',
@@ -55,12 +55,12 @@ class MarketplaceReview extends Model
 
     public function scopeShopee($query)
     {
-        return $query->where('platform', 'shopee');
+        return $query->where('channel', 'shopee');
     }
 
     public function scopeLazada($query)
     {
-        return $query->where('platform', 'lazada');
+        return $query->where('channel', 'lazada');
     }
 
     public function scopePending($query)
@@ -78,8 +78,8 @@ class MarketplaceReview extends Model
         return $this->belongsTo(Product::class, 'product_id', 'product_id');
     }
 
-    public function opencartSetting()
+    public function openCartStore()
     {
-        return $this->belongsTo(OpenCartSetting::class, 'opencart_setting_id');
+        return $this->belongsTo(OpenCartStore::class, 'opencart_store_id');
     }
 }

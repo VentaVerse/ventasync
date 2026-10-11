@@ -44,7 +44,7 @@ class VentaCartDisabledStoreTest extends TestCase
                 "VentaCart::{$action} resolves its store without the enabled guard, so it can write to a "
                 .'live storefront that the operator has switched off.');
 
-            $this->assertStringNotContainsString('$setting = $this->store_($store);', $body,
+            $this->assertDoesNotMatchRegularExpression('/= \$this->store_\(\$store\);/', $body,
                 "VentaCart::{$action} still uses the unguarded lookup.");
         }
     }
@@ -53,7 +53,7 @@ class VentaCartDisabledStoreTest extends TestCase
     {
         $source = $this->source(self::CONTROLLER);
 
-        $this->assertStringContainsString('return $setting->enabled ? $setting : null;', $source,
+        $this->assertStringContainsString('return $store->enabled ? $store : null;', $source,
             'storeForWrite_ does not test the enabled flag.');
     }
 

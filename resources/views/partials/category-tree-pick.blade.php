@@ -3,14 +3,14 @@
     $ctpRequired = (bool) ($required ?? false);
 
     $ctpPath = $ctpValue > 0 && ! empty($channel)
-        ? \App\Integrations\Listings\CategoryTree::path($channel, (int) ($storeId ?? 0), $ctpValue)
+        ? \App\Channels\Listings\CategoryTree::path($channel, (int) ($storeId ?? 0), $ctpValue)
         : [];
     $ctpName = (string) ($valueLabel ?? '') !== ''
         ? (string) $valueLabel
         : implode(' / ', array_column($ctpPath, 'name'));
 
     $ctpRoots = ! empty($channel)
-        ? \App\Integrations\Listings\CategoryTree::children($channel, (int) ($storeId ?? 0))
+        ? \App\Channels\Listings\CategoryTree::children($channel, (int) ($storeId ?? 0))
         : [];
     $ctpChosenRoot = (int) ($ctpPath[0]['id'] ?? 0);
 @endphp

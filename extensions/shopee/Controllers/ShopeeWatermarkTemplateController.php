@@ -1,10 +1,10 @@
 <?php
 
-namespace Extensions\shopee\Controllers;
+namespace Extensions\Shopee\Controllers;
 
 class ShopeeWatermarkTemplateController extends \App\Http\Controllers\Channels\WatermarkTemplateController
 {
-    protected function integration(): string
+    protected function channel(): string
     {
         return 'shopee';
     }

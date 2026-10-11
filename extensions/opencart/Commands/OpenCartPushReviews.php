@@ -1,11 +1,11 @@
 <?php
 
-namespace Extensions\opencart\Commands;
+namespace Extensions\OpenCart\Commands;
 
-use Extensions\opencart\Models\MarketplaceReview;
-use Extensions\opencart\Models\OpenCartProductLink;
-use Extensions\opencart\Models\OpenCartSetting;
-use Extensions\opencart\Services\OpenCart\OpenCartClient;
+use Extensions\OpenCart\Models\MarketplaceReview;
+use Extensions\OpenCart\Models\OpenCartListingLink;
+use Extensions\OpenCart\Models\OpenCartStore;
+use Extensions\OpenCart\Services\OpenCart\OpenCartClient;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Log;
 
@@ -18,7 +18,7 @@ class OpenCartPushReviews extends Command
 
     public function handle(): int
     {
-        $query = OpenCartSetting::query()->where('enabled', true);
+        $query = OpenCartStore::query()->where('enabled', true);
 
         if ($storeId = $this->option('store')) {
             $query->where('id', (int) $storeId);
@@ -47,10 +47,10 @@ class OpenCartPushReviews extends Command
         $totalSkipped = 0;
         $totalErrors = 0;
 
-        foreach ($stores as $setting) {
-            $this->info("--- Store: {$setting->store_name} (#{$setting->id}) ---");
+        foreach ($stores as $store) {
+            $this->info("--- Store: {$store->store_name} (#{$store->id}) ---");
 
-            $client = new OpenCartClient($setting);
+            $client = new OpenCartClient($store);
 
             $ping = $client->ping();
             if (!($ping['ok'] ?? false)) {
@@ -58,13 +58,13 @@ class OpenCartPushReviews extends Command
                 continue;
             }
 
-            $autoApprove = (bool) ($setting->review_auto_approve ?? true);
+            $autoApprove = (bool) ($store->review_auto_approve ?? true);
             $pushed = 0;
             $skipped = 0;
             $errors = 0;
 
-            $linkMap = OpenCartProductLink::query()
-                ->where('opencart_setting_id', $setting->id)
+            $linkMap = OpenCartListingLink::query()
+                ->where('store_id', $store->id)
                 ->pluck('oc_product_id', 'product_id')
                 ->all();
 
@@ -88,15 +88,15 @@ class OpenCartPushReviews extends Command
                         'rating'             => $review->rating,
                         'status'             => $autoApprove ? 1 : 0,
                         'date_added'         => $review->reviewed_at?->format('Y-m-d H:i:s') ?? now()->format('Y-m-d H:i:s'),
-                        'platform'           => $review->platform,
-                        'platform_review_id' => $review->platform_review_id,
+                        'platform'           => $review->channel,
+                        'platform_review_id' => $review->channel_review_id,
                     ]);
 
                     if ($res['ok'] ?? false) {
                         $ocReviewId = $res['body']['data']['review_id'] ?? null;
                         $review->update([
                             'oc_sync_status'      => 'pushed',
-                            'opencart_setting_id' => $setting->id,
+                            'opencart_store_id' => $store->id,
                             'oc_review_id'        => $ocReviewId,
                             'oc_pushed_at'        => now(),
                             'oc_push_error'       => null,
@@ -106,7 +106,7 @@ class OpenCartPushReviews extends Command
                         $errorMsg = $res['body']['error'] ?? 'Unknown error';
                         $review->update([
                             'oc_sync_status'      => 'error',
-                            'opencart_setting_id' => $setting->id,
+                            'opencart_store_id' => $store->id,
                             'oc_push_error'       => substr($errorMsg, 0, 500),
                         ]);
                         $errors++;
@@ -114,19 +114,19 @@ class OpenCartPushReviews extends Command
                 } catch (\Throwable $e) {
                     $review->update([
                         'oc_sync_status'      => 'error',
-                        'opencart_setting_id' => $setting->id,
+                        'opencart_store_id' => $store->id,
                         'oc_push_error'       => substr($e->getMessage(), 0, 500),
                     ]);
                     $errors++;
                     Log::warning('OpenCart push review failed', [
                         'review_id' => $review->id,
-                        'store'     => $setting->id,
+                        'store'     => $store->id,
                         'error'     => $e->getMessage(),
                     ]);
                 }
             }
 
-            $setting->update(['last_review_push_at' => now()]);
+            $store->update(['last_review_push_at' => now()]);
 
             $this->info("  Pushed: {$pushed}, Skipped: {$skipped}" . ($errors > 0 ? ", Errors: {$errors}" : ''));
             $totalPushed += $pushed;

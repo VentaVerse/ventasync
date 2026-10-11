@@ -1,16 +1,16 @@
 <?php
 
-namespace Extensions\ventacart\Commands;
+namespace Extensions\VentaCart\Commands;
 
-use Extensions\ventacart\Models\VentaCartProductLink;
-use Extensions\ventacart\Models\VentaCartSetting;
-use Extensions\ventacart\Services\VentaCart\VentaCartStockPricePush;
+use Extensions\VentaCart\Models\VentaCartListingLink;
+use Extensions\VentaCart\Models\VentaCartStore;
+use Extensions\VentaCart\Services\VentaCart\VentaCartStockPricePush;
 use Illuminate\Console\Command;
 
-class VentaCartPushStock extends Command implements \App\Integrations\Contracts\SteppableAutomation
+class VentaCartPushStock extends Command implements \App\Channels\Contracts\SteppableAutomation
 {
     protected $signature = 'ventacart:push-stock
-        {--store= : Store ID (ventacart_settings.id). Omit to push for all enabled stores}';
+        {--store= : Store ID (ch_ventacart_stores.id). Omit to push for all enabled stores}';
 
     protected $description = 'Push ERP product quantities to all linked VentaCart products';
 
@@ -19,9 +19,9 @@ class VentaCartPushStock extends Command implements \App\Integrations\Contracts\
         $storeId = $this->option('store');
 
         if ($storeId) {
-            $settings = VentaCartSetting::where('id', (int) $storeId)->where('enabled', true)->get();
+            $settings = VentaCartStore::where('id', (int) $storeId)->where('enabled', true)->get();
         } else {
-            $settings = VentaCartSetting::where('enabled', true)->get();
+            $settings = VentaCartStore::where('enabled', true)->get();
         }
 
         if ($settings->isEmpty()) {
@@ -29,10 +29,10 @@ class VentaCartPushStock extends Command implements \App\Integrations\Contracts\
             return 1;
         }
 
-        foreach ($settings as $setting) {
-            $this->info("Pushing stock for: {$setting->store_name} (#{$setting->id})");
+        foreach ($settings as $store) {
+            $this->info("Pushing stock for: {$store->store_name} (#{$store->id})");
 
-            $pids = VentaCartProductLink::where('ventacart_setting_id', $setting->id)
+            $pids = VentaCartListingLink::where('store_id', $store->id)
                 ->whereNotNull('ventacart_product_id')
                 ->pluck('product_id')->map(fn ($v) => (int) $v)->unique()->values()->all();
 
@@ -41,10 +41,10 @@ class VentaCartPushStock extends Command implements \App\Integrations\Contracts\
                 continue;
             }
 
-            $r = VentaCartStockPricePush::for($setting)->push($pids, true, false);
-            VentaCartStockPricePush::recordOutcomes((int) $setting->id, $r['outcomes']);
+            $r = VentaCartStockPricePush::for($store)->push($pids, true, false);
+            VentaCartStockPricePush::recordOutcomes((int) $store->id, $r['outcomes']);
 
-            $setting->update(['last_stock_push_at' => now()]);
+            $store->update(['last_stock_push_at' => now()]);
 
             $this->info("  Done. OK: {$r['ok']}, Failed: {$r['failed']}, Skipped: {$r['skipped']}");
         }
@@ -54,11 +54,11 @@ class VentaCartPushStock extends Command implements \App\Integrations\Contracts\
 
     public function automationUnits(\App\Models\ScheduledJob $job): array
     {
-        return ['label' => 'products', 'units' => \Extensions\ventacart\Services\VentaCart\VentaCartPushSteps::units($job)];
+        return ['label' => 'products', 'units' => \Extensions\VentaCart\Services\VentaCart\VentaCartPushSteps::units($job)];
     }
 
     public function automationStep(\App\Models\ScheduledJob $job, array $units): array
     {
-        return \Extensions\ventacart\Services\VentaCart\VentaCartPushSteps::step('stock', $units);
+        return \Extensions\VentaCart\Services\VentaCart\VentaCartPushSteps::step('stock', $units);
     }
 }

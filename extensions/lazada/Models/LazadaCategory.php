@@ -1,12 +1,12 @@
 <?php
 
-namespace Extensions\lazada\Models;
+namespace Extensions\Lazada\Models;
 
 use Illuminate\Database\Eloquent\Model;
 
 class LazadaCategory extends Model
 {
-    protected $table = 'lazada_categories';
+    protected $table = 'ch_lazada_categories';
 
     protected $fillable = [
         'category_id',

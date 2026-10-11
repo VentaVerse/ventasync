@@ -29,7 +29,7 @@ class ExtensionUninstall extends Command
             : "Uninstall '{$name}'? (files will be kept)";
 
         if (!$this->confirm($message)) {
-            $this->info('Cancelled.');
+            $this->info('Canceled.');
             return self::SUCCESS;
         }
 

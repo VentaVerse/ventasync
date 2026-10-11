@@ -8,6 +8,8 @@ use Illuminate\Database\Eloquent\Model;
 
 class WatermarkTemplate extends Model
 {
+    protected $table = 'ch_watermark_templates';
+
     protected $guarded = [];
 
     protected $casts = [
@@ -17,27 +19,27 @@ class WatermarkTemplate extends Model
         'opacity' => 'float',
     ];
 
-    public static function forStore(string $integration, int $storeId)
+    public static function forStore(string $channel, int $storeId)
     {
-        return static::ofStore($integration, $storeId)->orderBy('name')->get(['id', 'name', 'image_path']);
+        return static::ofStore($channel, $storeId)->orderBy('name')->get(['id', 'name', 'image_path']);
     }
 
-    public static function ofStore(string $integration, int $storeId)
+    public static function ofStore(string $channel, int $storeId)
     {
-        return static::query()->where('integration', $integration)->where('store_id', $storeId);
+        return static::query()->where('channel', $channel)->where('store_id', $storeId);
     }
 
-    public static function nameOf(?int $id, string $integration, int $storeId): ?string
+    public static function nameOf(?int $id, string $channel, int $storeId): ?string
     {
         return ($id === null || $id <= 0)
             ? null
-            : static::ofStore($integration, $storeId)->whereKey($id)->value('name');
+            : static::ofStore($channel, $storeId)->whereKey($id)->value('name');
     }
 
-    public static function resolve(?int $listingTemplateId, ?int $groupTemplateId, string $integration, int $storeId): ?self
+    public static function resolve(?int $listingTemplateId, ?int $groupTemplateId, string $channel, int $storeId): ?self
     {
         foreach ([$listingTemplateId, $groupTemplateId] as $id) {
-            if ($id !== null && $id > 0 && ($row = static::ofStore($integration, $storeId)->find($id))) {
+            if ($id !== null && $id > 0 && ($row = static::ofStore($channel, $storeId)->find($id))) {
                 return $row;
             }
         }
@@ -45,11 +47,11 @@ class WatermarkTemplate extends Model
         return null;
     }
 
-    public static function idOrNull(mixed $id, string $integration, int $storeId): ?int
+    public static function idOrNull(mixed $id, string $channel, int $storeId): ?int
     {
         $id = (int) $id;
 
-        return ($id > 0 && static::ofStore($integration, $storeId)->whereKey($id)->exists()) ? $id : null;
+        return ($id > 0 && static::ofStore($channel, $storeId)->whereKey($id)->exists()) ? $id : null;
     }
 
     public function markPath(): string

@@ -17,7 +17,7 @@
                 Nothing was read from Shopee.
             @else
                 {{ number_format($scanned) }} {{ $scanned === 1 ? 'item' : 'items' }} read from Shopee,
-                {{ number_format(count($orphans)) }} of which no catalog product is linked to.
+                {{ number_format(count($orphans)) }} of which no Master Catalog product is linked to.
             @endif
         </p>
     </div>
@@ -35,16 +35,16 @@
 
 @if(count($orphans) === 0)
     <x-ui.empty title="Nothing unaccounted for"
-                description="Every item read from Shopee is linked to a catalog product. Items created in Seller Centre, or left behind when a link was removed, would appear here.">
+                description="Every item read from Shopee is linked to a Master Catalog product. Items created in Seller Centre, or left behind when a link was removed, would appear here.">
         <x-slot:action>
             <x-ui.button :href="route('ext.shopee.product-groups.products', $group->id)">Back to {{ $groupName }}</x-ui.button>
         </x-slot:action>
     </x-ui.empty>
 @else
     <p class="x-page-sub cc-orphans__lede">
-        These exist on Shopee and nothing in the catalog points at them. That is not automatically wrong:
-        an item may have been created in Seller Centre, or its catalog twin removed. To bring one under ERP control,
-        give the catalog product the same SKU and press Send on its row.
+        These exist on Shopee and nothing in the Master Catalog points at them. That is not automatically wrong:
+        an item may have been created in Seller Centre, or its Master Catalog twin removed. To bring one under ERP control,
+        give the Master Catalog product the same SKU and press Send on its row.
     </p>
 
     <x-ui.table>

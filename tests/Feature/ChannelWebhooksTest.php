@@ -4,10 +4,10 @@ namespace Tests\Feature;
 
 use App\Extensions\ExtensionManager;
 use App\Models\ChannelWebhookEvent;
-use Extensions\shopee\Models\ShopeeProductLink;
-use Extensions\shopee\Models\ShopeeSetting;
-use Extensions\tiktok\Models\TikTokListing;
-use Extensions\tiktok\Models\TikTokSetting;
+use Extensions\Shopee\Models\ShopeeListingLink;
+use Extensions\Shopee\Models\ShopeeStore;
+use Extensions\TikTok\Models\TikTokListing;
+use Extensions\TikTok\Models\TikTokStore;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
@@ -25,13 +25,13 @@ class ChannelWebhooksTest extends TestCase
             $manager->install($ext);
             $manager->enable($ext);
         }
-        $this->app->register(\Extensions\shopee\ShopeeExtension::class);
-        $this->app->register(\Extensions\tiktok\TiktokExtension::class);
+        $this->app->register(\Extensions\Shopee\ShopeeExtension::class);
+        $this->app->register(\Extensions\TikTok\TikTokExtension::class);
         $this->app['router']->getRoutes()->refreshNameLookups();
-        $this->artisan('permissions:sync-catalogue');
+        $this->artisan('permissions:sync-catalog');
 
-        ShopeeSetting::query()->create(['mode' => 'live', 'partner_id' => '1', 'partner_key' => 'k', 'shop_id' => '2', 'access_token' => 't', 'refresh_token' => 'r']);
-        TikTokSetting::create(['mode' => 'production', 'app_key' => 'ak', 'app_secret' => 'as', 'access_token' => 't', 'refresh_token' => 'r', 'shop_cipher' => 'c', 'expires_at' => now()->addDays(3)]);
+        ShopeeStore::query()->create(['mode' => 'live', 'partner_id' => '1', 'partner_key' => 'k', 'shop_id' => '2', 'access_token' => 't', 'refresh_token' => 'r']);
+        TikTokStore::create(['mode' => 'production', 'app_key' => 'ak', 'app_secret' => 'as', 'access_token' => 't', 'refresh_token' => 'r', 'shop_cipher' => 'c', 'expires_at' => now()->addDays(3)]);
     }
 
     private function shopeeSigned(array $payload): array
@@ -45,7 +45,7 @@ class ChannelWebhooksTest extends TestCase
 
     public function test_a_signed_item_push_refreshes_the_mirror(): void
     {
-        $link = ShopeeProductLink::create(['product_id' => 11, 'shopee_item_id' => 700, 'shopee_model_id' => 7001, 'sku' => 'WH-1', 'live_status' => 'NORMAL', 'live_checked_at' => now()->subHour()]);
+        $link = ShopeeListingLink::create(['product_id' => 11, 'shopee_item_id' => 700, 'shopee_model_id' => 7001, 'sku' => 'WH-1', 'live_status' => 'NORMAL', 'live_checked_at' => now()->subHour()]);
 
         [$body, $sig, $url] = $this->shopeeSigned(['code' => 5, 'shop_id' => 2, 'data' => ['item_id' => 700, 'item_status' => 'BANNED']]);
 
@@ -68,9 +68,9 @@ class ChannelWebhooksTest extends TestCase
 
     public function test_a_push_touches_only_the_store_its_shop_id_names(): void
     {
-        $two = ShopeeSetting::query()->create(['mode' => 'live', 'store_name' => 'Outlet', 'partner_id' => '1', 'partner_key' => 'k2', 'shop_id' => '9', 'access_token' => 't', 'refresh_token' => 'r']);
-        $mine = ShopeeProductLink::create(['shopee_setting_id' => $two->id, 'product_id' => 21, 'shopee_item_id' => 700, 'sku' => 'WH-2', 'live_status' => 'NORMAL']);
-        $other = ShopeeProductLink::create(['product_id' => 22, 'shopee_item_id' => 700, 'sku' => 'WH-3', 'live_status' => 'NORMAL']);
+        $two = ShopeeStore::query()->create(['mode' => 'live', 'store_name' => 'Outlet', 'partner_id' => '1', 'partner_key' => 'k2', 'shop_id' => '9', 'access_token' => 't', 'refresh_token' => 'r']);
+        $mine = ShopeeListingLink::create(['store_id' => $two->id, 'product_id' => 21, 'shopee_item_id' => 700, 'sku' => 'WH-2', 'live_status' => 'NORMAL']);
+        $other = ShopeeListingLink::create(['product_id' => 22, 'shopee_item_id' => 700, 'sku' => 'WH-3', 'live_status' => 'NORMAL']);
 
         $body = json_encode(['code' => 5, 'shop_id' => 9, 'data' => ['item_id' => 700, 'item_status' => 'BANNED']]);
         $url = route('channels.webhooks.receive', ['channel' => 'shopee']);
@@ -91,7 +91,7 @@ class ChannelWebhooksTest extends TestCase
 
     public function test_an_unsigned_delivery_is_kept_but_never_applied(): void
     {
-        $link = ShopeeProductLink::create(['product_id' => 12, 'shopee_item_id' => 701, 'shopee_model_id' => 7002, 'sku' => 'WH-2', 'live_status' => 'NORMAL', 'live_checked_at' => now()]);
+        $link = ShopeeListingLink::create(['product_id' => 12, 'shopee_item_id' => 701, 'shopee_model_id' => 7002, 'sku' => 'WH-2', 'live_status' => 'NORMAL', 'live_checked_at' => now()]);
 
         $body = json_encode(['code' => 5, 'data' => ['item_id' => 701, 'item_status' => 'BANNED']]);
         $this->call('POST', route('channels.webhooks.receive', 'shopee'), [], [], [], [
@@ -131,10 +131,9 @@ class ChannelWebhooksTest extends TestCase
 
     public function test_a_signed_tiktok_product_push_refreshes_the_mirror(): void
     {
-        $pfx = (string) config('catalog.prefix');
-        $pid = DB::table($pfx . 'product')->insertGetId([
+        $pid = DB::table('products')->insertGetId([
             'model' => 'WH', 'sku' => 'WH', 'quantity' => 1, 'price' => 1, 'status' => 1, 'image' => '',
-            'weight' => 1, 'length' => 1, 'width' => 1, 'height' => 1, 'manufacturer_id' => 0,
+            'weight' => 1, 'length' => 1, 'width' => 1, 'height' => 1, 'brand_id' => 0,
             'date_added' => now(), 'date_modified' => now(), 'date_available' => now(),
         ]);
         $listing = TikTokListing::create(['product_id' => $pid, 'tiktok_product_id' => 'tt-900', 'live_status' => 'ACTIVATE', 'live_checked_at' => now()->subHour()]);

@@ -1,10 +1,10 @@
 <?php
 
-namespace Extensions\lazada\Commands;
+namespace Extensions\Lazada\Commands;
 
 use App\Support\PayoutStatus;
-use Extensions\lazada\Models\LazadaSetting;
-use Extensions\lazada\Services\Lazada\LazadaPayoutSync;
+use Extensions\Lazada\Models\LazadaStore;
+use Extensions\Lazada\Services\Lazada\LazadaPayoutSync;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Cache;
 
@@ -20,7 +20,7 @@ class LazadaSyncPayouts extends Command
     public function handle(LazadaPayoutSync $payouts): int
     {
         $days = PayoutStatus::lookbackDays($this->option('days'));
-        $stores = LazadaSetting::enabledStores();
+        $stores = LazadaStore::enabledStores();
         if ($this->option('store') !== null) {
             $stores = $stores->where('id', (int) $this->option('store'))->values();
         }

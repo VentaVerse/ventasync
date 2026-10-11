@@ -1,16 +1,16 @@
 <?php
 
-namespace Extensions\opencart\Controllers;
+namespace Extensions\OpenCart\Controllers;
 
 use App\Http\Controllers\Controller;
 use App\Models\Catalog\OrderStatus;
 use App\Services\ActivityLogger;
-use Extensions\opencart\Models\OpenCartOrderStatusMap;
-use Extensions\opencart\Models\OpenCartSetting;
-use Extensions\opencart\Models\OpenCartSyncLog;
-use Extensions\opencart\Services\OpenCart\OpenCartClient;
-use Extensions\opencart\Services\OpenCart\OpenCartOrderSync;
-use Extensions\opencart\Services\OpenCart\OpenCartProductSync;
+use Extensions\OpenCart\Models\OpenCartOrderStatusMap;
+use Extensions\OpenCart\Models\OpenCartStore;
+use Extensions\OpenCart\Models\OpenCartSyncLog;
+use Extensions\OpenCart\Services\OpenCart\OpenCartClient;
+use Extensions\OpenCart\Services\OpenCart\OpenCartOrderSync;
+use Extensions\OpenCart\Services\OpenCart\OpenCartProductSync;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
@@ -20,7 +20,7 @@ class OpenCartController extends Controller
 {
     public function index()
     {
-        $first = OpenCartSetting::query()->orderBy('id')->first();
+        $first = OpenCartStore::query()->orderBy('id')->first();
         if ($first) {
             return redirect()->route('ext.opencart.settings.show', ['store' => $first->id]);
         }
@@ -29,7 +29,7 @@ class OpenCartController extends Controller
 
     public function showSettings(int $store)
     {
-        $active = OpenCartSetting::findOrFail($store);
+        $active = OpenCartStore::findOrFail($store);
         $stores = collect([$active]);
 
         $recentLogs = OpenCartSyncLog::query()
@@ -38,14 +38,12 @@ class OpenCartController extends Controller
             ->get();
 
         $orderStatusMaps = OpenCartOrderStatusMap::query()
-            ->where('opencart_setting_id', $active->id)
+            ->where('store_id', $active->id)
             ->orderBy('oc_status_id')
             ->get()
-            ->groupBy('opencart_setting_id');
-
-        $pfx = (string) config('catalog.prefix');
+            ->groupBy('store_id');
         $langId = (int) config('catalog.default_language_id');
-        $erpOrderStatuses = DB::table($pfx . 'order_status')
+        $erpOrderStatuses = DB::table('order_statuses')
             ->where('language_id', $langId)
             ->orderBy('order_status_id')
             ->get(['order_status_id', 'name']);
@@ -62,24 +60,24 @@ class OpenCartController extends Controller
             'base_url'   => ['required', 'url', 'max:255', new \App\Rules\StoreAddress],
         ]);
 
-        $setting = OpenCartSetting::create([
+        $store = OpenCartStore::create([
             'store_name' => $data['store_name'],
             'base_url'   => rtrim($data['base_url'], '/'),
             'api_key'    => '',
             'enabled'    => false,
         ]);
 
-        ActivityLogger::log('created', 'OpenCart Store', $setting->id, $setting->store_name);
+        ActivityLogger::log('created', 'OpenCart Store', $store->id, $store->store_name);
 
         return redirect()
-            ->route('ext.opencart.settings.show', ['store' => $setting->id])
+            ->route('ext.opencart.settings.show', ['store' => $store->id])
             ->with('status', 'Store created. Add the API key to start syncing.');
     }
 
     public function save(Request $request)
     {
         $storeId = $request->input('store_id');
-        $existing = $storeId ? OpenCartSetting::findOrFail((int) $storeId) : null;
+        $existing = $storeId ? OpenCartStore::findOrFail((int) $storeId) : null;
         $hasStoredKey = $existing !== null && $existing->api_key !== null && $existing->api_key !== '';
 
         $data = $request->validate([
@@ -95,21 +93,21 @@ class OpenCartController extends Controller
         $data['enabled'] = $request->has('enabled') ? true : false;
 
         if ($existing) {
-            $setting = $existing;
-            $setting->fill([
+            $store = $existing;
+            $store->fill([
                 'store_name'       => $data['store_name'] ?? '',
-                'brand_color'      => $data['brand_color'] ?? $setting->brand_color,
+                'brand_color'      => $data['brand_color'] ?? $store->brand_color,
                 'base_url'         => $data['base_url'],
                 'enabled'          => $data['enabled'],
-                'sync_orders_from' => $data['sync_orders_from'] ?? $setting->sync_orders_from,
+                'sync_orders_from' => $data['sync_orders_from'] ?? $store->sync_orders_from,
             ]);
             if (!empty($data['api_key'])) {
-                $setting->api_key = $data['api_key'];
+                $store->api_key = $data['api_key'];
             }
-            $setting->save();
-            ActivityLogger::log('updated', 'OpenCart Store', $setting->id, $setting->store_name ?? $setting->base_url);
+            $store->save();
+            ActivityLogger::log('updated', 'OpenCart Store', $store->id, $store->store_name ?? $store->base_url);
         } else {
-            $setting = OpenCartSetting::create([
+            $store = OpenCartStore::create([
                 'store_name'       => $data['store_name'] ?? '',
                 'brand_color'      => $data['brand_color'] ?? null,
                 'base_url'         => $data['base_url'],
@@ -117,11 +115,11 @@ class OpenCartController extends Controller
                 'enabled'          => $data['enabled'],
                 'sync_orders_from' => $data['sync_orders_from'] ?? null,
             ]);
-            ActivityLogger::log('created', 'OpenCart Store', $setting->id, $setting->store_name ?? $setting->base_url);
+            ActivityLogger::log('created', 'OpenCart Store', $store->id, $store->store_name ?? $store->base_url);
         }
 
         return redirect()
-            ->route('ext.opencart.settings.show', ['store' => $setting->id])
+            ->route('ext.opencart.settings.show', ['store' => $store->id])
             ->with('status', 'OpenCart store saved.');
     }
 
@@ -131,14 +129,14 @@ class OpenCartController extends Controller
             'store_id' => ['required', 'integer'],
         ]);
 
-        $setting = OpenCartSetting::findOrFail((int) $request->input('store_id'));
+        $store = OpenCartStore::findOrFail((int) $request->input('store_id'));
 
-        $setting->update([
+        $store->update([
             'review_auto_approve' => $request->has('review_auto_approve'),
         ]);
 
         return redirect()
-            ->route('ext.opencart.settings.show', ['store' => $setting->id])
+            ->route('ext.opencart.settings.show', ['store' => $store->id])
             ->with('status', 'Review settings saved.');
     }
 
@@ -150,10 +148,10 @@ class OpenCartController extends Controller
             'sync_last_days'   => ['nullable', 'integer', 'min:1', 'max:365'],
         ]);
 
-        $setting = OpenCartSetting::findOrFail((int) $request->input('store_id'));
+        $store = OpenCartStore::findOrFail((int) $request->input('store_id'));
 
-        $setting->update([
-            'sync_orders_from' => $request->input('sync_orders_from') ?: $setting->sync_orders_from,
+        $store->update([
+            'sync_orders_from' => $request->input('sync_orders_from') ?: $store->sync_orders_from,
             'sync_last_days'   => $request->input('sync_last_days') ?: null,
         ]);
 
@@ -167,23 +165,23 @@ class OpenCartController extends Controller
 
         $msg = $parts ? 'Order sync updated: ' . implode(', ', $parts) . '.' : 'Order sync settings saved.';
 
-        return redirect()->route('ext.opencart.settings.show', ['store' => $setting->id])->with('status', $msg);
+        return redirect()->route('ext.opencart.settings.show', ['store' => $store->id])->with('status', $msg);
     }
 
-    public function destroy($id, \Extensions\opencart\Services\OpenCart\OpenCartStoreDeleter $deleter)
+    public function destroy($id, \Extensions\OpenCart\Services\OpenCart\OpenCartStoreDeleter $deleter)
     {
-        $setting = OpenCartSetting::findOrFail((int) $id);
-        $name = $setting->store_name ?? $setting->base_url;
-        $removed = $deleter->delete($setting);
+        $store = OpenCartStore::findOrFail((int) $id);
+        $name = $store->store_name ?? $store->base_url;
+        $removed = $deleter->delete($store);
 
         ActivityLogger::log('deleted', 'OpenCart Store', (int) $id, $name, ['removed' => $removed]);
 
         return redirect()->route('ext.opencart.index')->with('status', 'Store deleted.');
     }
 
-    public function destroyStore(Request $request, int $store, \Extensions\opencart\Services\OpenCart\OpenCartStoreDeleter $deleter)
+    public function destroyStore(Request $request, int $store, \Extensions\OpenCart\Services\OpenCart\OpenCartStoreDeleter $deleter)
     {
-        $setting = OpenCartSetting::findOrFail($store);
+        $setting = OpenCartStore::findOrFail($store);
         $request->validate([
             'confirm_name' => ['required', 'string', function ($attribute, $value, $fail) use ($setting) {
                 if ((string) $value !== (string) $setting->store_name) {
@@ -194,7 +192,7 @@ class OpenCartController extends Controller
         $name = (string) $setting->store_name;
         $id = (int) $setting->id;
         $removed = $deleter->delete($setting);
-        ActivityLogger::log('opencart.store.deleted', 'opencart_settings', $id, $name, ['removed' => $removed]);
+        ActivityLogger::log('opencart.store.deleted', 'OpenCart Store', $id, $name, ['removed' => $removed]);
 
         return redirect()->route('channels.index')
             ->with('status', "Deleted OpenCart store {$name}. Sales already imported keep its name.");
@@ -207,23 +205,23 @@ class OpenCartController extends Controller
         $apiKey  = $request->input('api_key');
 
         if (!$storeId && $baseUrl && $apiKey) {
-            $setting = new OpenCartSetting([
+            $store = new OpenCartStore([
                 'base_url' => $baseUrl,
                 'api_key'  => $apiKey,
                 'enabled'  => true,
             ]);
-            $setting->setRawApiKey($apiKey);
+            $store->setRawApiKey($apiKey);
         } else {
-            $setting = $storeId
-                ? OpenCartSetting::find((int) $storeId)
-                : OpenCartSetting::query()->first();
+            $store = $storeId
+                ? OpenCartStore::find((int) $storeId)
+                : OpenCartStore::query()->first();
         }
 
-        if (!$setting) {
+        if (!$store) {
             return response()->json(['ok' => false, 'error' => 'Not configured']);
         }
 
-        $client = new OpenCartClient($setting);
+        $client = new OpenCartClient($store);
         $result = $client->ping();
 
         return response()->json($result);
@@ -235,7 +233,7 @@ class OpenCartController extends Controller
         $storeId = $request->input('store_id');
         $wantsJson = $request->expectsJson();
 
-        $allowed = ['products', 'orders', 'categories', 'manufacturers', 'options', 'all'];
+        $allowed = ['products', 'orders', 'categories', 'brands', 'variations', 'all'];
         if (!in_array($entity, $allowed)) {
             return $wantsJson
                 ? response()->json(['error' => 'Invalid sync entity.'])
@@ -256,9 +254,9 @@ class OpenCartController extends Controller
             $hasDateOverride = $entity === 'orders' && ($dateFrom || $dateTo);
 
             if ($hasDateOverride) {
-                $setting = OpenCartSetting::where('id', (int) $storeId)->where('enabled', true)->firstOrFail();
-                $client = new OpenCartClient($setting);
-                $sync = new OpenCartOrderSync($client, $setting);
+                $store = OpenCartStore::where('id', (int) $storeId)->where('enabled', true)->firstOrFail();
+                $client = new OpenCartClient($store);
+                $sync = new OpenCartOrderSync($client, $store);
 
                 $tz = new \DateTimeZone('Asia/Manila');
                 $modifiedSince = $dateFrom
@@ -287,7 +285,7 @@ class OpenCartController extends Controller
                 Artisan::call('opencart:sync', $artisanArgs);
             }
 
-            $logs = OpenCartSyncLog::where('opencart_setting_id', (int) $storeId)
+            $logs = OpenCartSyncLog::where('store_id', (int) $storeId)
                 ->where('created_at', '>=', $before)
                 ->orderBy('id')
                 ->get();
@@ -338,9 +336,9 @@ class OpenCartController extends Controller
                 : back()->with('error', 'Store ID is required.');
         }
 
-        $setting = OpenCartSetting::where('id', (int) $storeId)->where('enabled', true)->first();
+        $store = OpenCartStore::where('id', (int) $storeId)->where('enabled', true)->first();
 
-        if (!$setting) {
+        if (!$store) {
             $msg = "Store #{$storeId} not found or disabled.";
             return $wantsJson
                 ? response()->json(['error' => $msg])
@@ -355,7 +353,7 @@ class OpenCartController extends Controller
                 '--all'   => true,
             ]);
 
-            $logs = OpenCartSyncLog::where('opencart_setting_id', (int) $storeId)
+            $logs = OpenCartSyncLog::where('store_id', (int) $storeId)
                 ->where('created_at', '>=', $before)
                 ->orderBy('id')
                 ->get();
@@ -396,7 +394,7 @@ class OpenCartController extends Controller
 
     public function pushProduct(int $store, int $product)
     {
-        $setting = OpenCartSetting::where('id', $store)->where('enabled', true)->first();
+        $setting = OpenCartStore::where('id', $store)->where('enabled', true)->first();
         if (!$setting) {
             return back()->with('error', "Store #{$store} not found or disabled.");
         }
@@ -410,10 +408,8 @@ class OpenCartController extends Controller
 
             $sync = new OpenCartProductSync($client, $setting);
             $result = $sync->push([$product]);
-
-            $pfx = config('catalog.prefix');
             $langId = (int) config('catalog.default_language_id');
-            $name = DB::table($pfx . 'product_description')
+            $name = DB::table('product_descriptions')
                 ->where('product_id', $product)
                 ->where('language_id', $langId)
                 ->value('name') ?? "Product #{$product}";
@@ -441,9 +437,9 @@ class OpenCartController extends Controller
                 : back()->with('error', 'Store ID is required.');
         }
 
-        $setting = OpenCartSetting::where('id', (int) $storeId)->where('enabled', true)->first();
+        $store = OpenCartStore::where('id', (int) $storeId)->where('enabled', true)->first();
 
-        if (!$setting) {
+        if (!$store) {
             $msg = "Store #{$storeId} not found or disabled.";
             return $wantsJson
                 ? response()->json(['error' => $msg])
@@ -451,8 +447,8 @@ class OpenCartController extends Controller
         }
 
         try {
-            $client = new OpenCartClient($setting);
-            $sync = new OpenCartProductSync($client, $setting);
+            $client = new OpenCartClient($store);
+            $sync = new OpenCartProductSync($client, $store);
             $log = $sync->pushQuantities();
 
             if ($log->status === 'failed') {
@@ -502,12 +498,12 @@ class OpenCartController extends Controller
             return response()->json(['error' => 'Store ID is required.'], 422);
         }
 
-        $setting = OpenCartSetting::find((int) $storeId);
-        if (!$setting) {
+        $store = OpenCartStore::find((int) $storeId);
+        if (!$store) {
             return response()->json(['error' => 'Store not found.'], 404);
         }
 
-        $client = new OpenCartClient($setting);
+        $client = new OpenCartClient($store);
         $result = $client->getOrderStatuses();
 
         if (!$result['ok']) {
@@ -526,7 +522,7 @@ class OpenCartController extends Controller
             $name = (string) ($s['name'] ?? $s['label'] ?? '');
 
             $row = OpenCartOrderStatusMap::firstOrNew([
-                'opencart_setting_id' => $setting->id,
+                'store_id' => $store->id,
                 'oc_status_id'        => $ocId,
             ]);
 
@@ -539,11 +535,11 @@ class OpenCartController extends Controller
             $apiIds[] = $ocId;
         }
 
-        OpenCartOrderStatusMap::where('opencart_setting_id', $setting->id)
+        OpenCartOrderStatusMap::where('store_id', $store->id)
             ->whereNotIn('oc_status_id', $apiIds ?: [0])
             ->delete();
 
-        $persisted = OpenCartOrderStatusMap::where('opencart_setting_id', $setting->id)
+        $persisted = OpenCartOrderStatusMap::where('store_id', $store->id)
             ->orderBy('oc_status_id')
             ->get(['oc_status_id', 'oc_status_name', 'order_status_id'])
             ->map(fn ($r) => [
@@ -563,8 +559,8 @@ class OpenCartController extends Controller
             return response()->json(['error' => 'Store ID is required.'], 422);
         }
 
-        $setting = OpenCartSetting::find((int) $storeId);
-        if (!$setting) {
+        $store = OpenCartStore::find((int) $storeId);
+        if (!$store) {
             return response()->json(['error' => 'Store not found.'], 404);
         }
 
@@ -576,7 +572,7 @@ class OpenCartController extends Controller
 
             OpenCartOrderStatusMap::updateOrCreate(
                 [
-                    'opencart_setting_id' => $setting->id,
+                    'store_id' => $store->id,
                     'oc_status_id'        => $ocStatusId,
                 ],
                 [

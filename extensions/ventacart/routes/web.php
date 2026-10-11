@@ -1,12 +1,12 @@
 <?php
 
-use Extensions\ventacart\Controllers\VentaCartDescriptionTemplateController;
-use Extensions\ventacart\Controllers\VentaCartWatermarkTemplateController;
-use Extensions\ventacart\Controllers\VentaCartListingController;
-use Extensions\ventacart\Controllers\VentaCartSettingsController;
-use Extensions\ventacart\Controllers\VentaCartProductGroupController;
-use Extensions\ventacart\Controllers\VentaCartOrderController;
-use Extensions\ventacart\Controllers\VentaCartReviewController;
+use Extensions\VentaCart\Controllers\VentaCartDescriptionTemplateController;
+use Extensions\VentaCart\Controllers\VentaCartWatermarkTemplateController;
+use Extensions\VentaCart\Controllers\VentaCartListingController;
+use Extensions\VentaCart\Controllers\VentaCartSettingsController;
+use Extensions\VentaCart\Controllers\VentaCartProductGroupController;
+use Extensions\VentaCart\Controllers\VentaCartOrderController;
+use Extensions\VentaCart\Controllers\VentaCartReviewController;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware(['auth'])->prefix('channels')->group(function () {
@@ -53,7 +53,7 @@ Route::middleware(['auth'])->prefix('channels')->group(function () {
     Route::post('/ventacart/{store}/products/import-one', [VentaCartListingController::class, 'importOne'])->whereNumber('store')->name('ext.ventacart.products.import_one');
     Route::post('/ventacart/{store}/products/import-selected', [VentaCartListingController::class, 'importSelected'])->whereNumber('store')->name('ext.ventacart.products.import_selected');
     Route::post('/ventacart/{store}/products/link-item', [VentaCartListingController::class, 'linkItem'])->whereNumber('store')->name('ext.ventacart.products.link_item');
-    Route::get('/ventacart/{store}/products/catalogue-search', [VentaCartListingController::class, 'catalogueSearch'])->whereNumber('store')->name('ext.ventacart.products.catalogue_search');
+    Route::get('/ventacart/{store}/products/catalog-search', [VentaCartListingController::class, 'catalogSearch'])->whereNumber('store')->name('ext.ventacart.products.catalog_search');
     Route::post('/ventacart/{store}/products/add-to-store/{productId}', [VentaCartListingController::class, 'addToStore'])->whereNumber('store')->whereNumber('productId')->name('ext.ventacart.products.add_to_store');
     Route::post('/ventacart/{store}/products/add-to-store', [VentaCartListingController::class, 'addToStoreBulk'])->whereNumber('store')->name('ext.ventacart.products.add_to_store_bulk');
     Route::post('/ventacart/{store}/products/remove-from-store/{productId}', [VentaCartListingController::class, 'removeFromStore'])->whereNumber('store')->whereNumber('productId')->name('ext.ventacart.products.remove_from_store');
@@ -146,7 +146,7 @@ Route::middleware(['auth'])->prefix('channels')->group(function () {
 });
 
 Route::middleware(['auth'])->prefix('channels')->group(function () {
-    Route::get('/ventacart/{store?}', [\Extensions\ventacart\Controllers\VentaCartDashboardController::class, 'show'])
+    Route::get('/ventacart/{store?}', [\Extensions\VentaCart\Controllers\VentaCartDashboardController::class, 'show'])
         ->where('store', '[0-9]+')
         ->defaults('permission_denial', '404')
         ->name('ext.ventacart.dashboard');

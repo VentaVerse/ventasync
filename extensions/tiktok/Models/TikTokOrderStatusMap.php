@@ -1,12 +1,12 @@
 <?php
 
-namespace Extensions\tiktok\Models;
+namespace Extensions\TikTok\Models;
 
 use Illuminate\Database\Eloquent\Model;
 
 class TikTokOrderStatusMap extends Model
 {
-    protected $table = 'tiktok_order_status_map';
+    protected $table = 'ch_tiktok_order_status_map';
 
     protected $fillable = [
         'tiktok_status',

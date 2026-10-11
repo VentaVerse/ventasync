@@ -1,11 +1,11 @@
 <?php
 
-namespace Extensions\shopee\Services;
+namespace Extensions\Shopee\Services;
 
 use App\Support\Fulfilment\CourierTally;
 use App\Support\FulfilmentSteps;
-use Extensions\shopee\Models\ShopeeOrder;
-use Extensions\shopee\Models\ShopeeSetting;
+use Extensions\Shopee\Models\ShopeeOrder;
+use Extensions\Shopee\Models\ShopeeStore;
 use Illuminate\Http\Request;
 
 class ShopeeOrdersPanel
@@ -13,14 +13,14 @@ class ShopeeOrdersPanel
     public function build(Request $request, ?int $storeId = null): array
     {
         $settingRaw = $storeId !== null
-            ? ShopeeSetting::query()->find($storeId)
-            : ShopeeSetting::defaultStore();
+            ? ShopeeStore::query()->find($storeId)
+            : ShopeeStore::defaultStore();
         if ($storeId !== null && $settingRaw !== null) {
             app()->instance('shopee.route-store', $settingRaw);
             \Illuminate\Support\Facades\URL::defaults(['store' => (int) $settingRaw->id]);
         }
         $setting = $settingRaw?->decrypted();
-        $auth = ShopeeSetting::activeAuth($setting);
+        $auth = ShopeeStore::activeAuth($setting);
         $settingId = (int) ($settingRaw?->id ?? 0);
 
         $filters = $request->validate([
@@ -112,7 +112,7 @@ class ShopeeOrdersPanel
             'PENDING'             => 'to_ship',
             'SHIPPING'            => 'shipping',
             'DELIVERED_COMPLETED' => 'delivered',
-            'CANCELLED'           => 'cancelled',
+            'CANCELLED'           => 'canceled',
             'FAILED_DELIVERY'     => 'failed',
         ]);
 
@@ -122,10 +122,10 @@ class ShopeeOrdersPanel
             : new CourierTally();
 
         $query = ShopeeOrder::query()
-            ->where('shopee_setting_id', $settingId)
+            ->where('store_id', $settingId)
             ->with('products');
 
-        $baseCountQuery = ShopeeOrder::query()->where('shopee_setting_id', $settingId);
+        $baseCountQuery = ShopeeOrder::query()->where('store_id', $settingId);
 
         if ($tab !== 'ALL') {
             if ($tab === 'PENDING' && $pendingSubtab !== '') {
@@ -215,7 +215,7 @@ class ShopeeOrdersPanel
         $savedAwbs = [];
         foreach ($orders as $o) {
             $sn = (string) ($o->order_sn ?? '');
-            if ($sn !== '' && file_exists(\App\Support\Fulfilment\Waybills::path('shopee', (int) $o->shopee_setting_id, $sn))) {
+            if ($sn !== '' && file_exists(\App\Support\Fulfilment\Waybills::path('shopee', (int) $o->store_id, $sn))) {
                 $savedAwbs[$o->order_sn] = true;
             }
         }
@@ -242,12 +242,12 @@ class ShopeeOrdersPanel
         ];
     }
 
-    private function buildToShipCourierTally(int $settingId, array $statuses): CourierTally
+    private function buildToShipCourierTally(int $storeId, array $statuses): CourierTally
     {
         $tally = new CourierTally();
 
         ShopeeOrder::query()
-            ->where('shopee_setting_id', $settingId)
+            ->where('store_id', $storeId)
             ->whereIn('status', $statuses)
             ->select(['id', 'raw'])
             ->orderBy('id')

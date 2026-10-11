@@ -1,8 +1,8 @@
 <?php
 
-namespace Extensions\shopee\Controllers;
+namespace Extensions\Shopee\Controllers;
 
-use App\Http\Controllers\Integrations\ChannelDashboardController;
+use App\Http\Controllers\Channels\ChannelDashboardController;
 
 class ShopeeDashboardController extends ChannelDashboardController
 {

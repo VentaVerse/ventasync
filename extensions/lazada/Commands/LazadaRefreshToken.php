@@ -1,9 +1,9 @@
 <?php
 
-namespace Extensions\lazada\Commands;
+namespace Extensions\Lazada\Commands;
 
-use Extensions\lazada\Models\LazadaSetting;
-use Extensions\lazada\Services\Lazada\LazadaClient;
+use Extensions\Lazada\Models\LazadaStore;
+use Extensions\Lazada\Services\Lazada\LazadaClient;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Log;
 
@@ -15,7 +15,7 @@ class LazadaRefreshToken extends Command
 
     public function handle(LazadaClient $client): int
     {
-        $stores = \Extensions\lazada\Models\LazadaSetting::enabledStores();
+        $stores = \Extensions\Lazada\Models\LazadaStore::enabledStores();
         if ($stores->isEmpty()) { $this->error('No enabled Lazada store. Configure Lazada settings first.'); return 1; }
         $worst = 0;
         foreach ($stores as $store) {
@@ -34,10 +34,10 @@ class LazadaRefreshToken extends Command
         return $worst;
     }
 
-    private function handleStore(LazadaClient $client, \Extensions\lazada\Models\LazadaSetting $store): int
+    private function handleStore(LazadaClient $client, \Extensions\Lazada\Models\LazadaStore $store): int
     {
         $setting = $store->decrypted();
-        $creds = LazadaSetting::activeCredentials($setting);
+        $creds = LazadaStore::activeCredentials($setting);
         $isSandbox = (($setting->mode ?? 'live') === 'sandbox');
         $modeLabel = $isSandbox ? 'sandbox' : 'live';
 
@@ -74,7 +74,7 @@ class LazadaRefreshToken extends Command
             $refreshExpiresIn = $result['body']['refresh_expires_in'] ?? null;
 
             if ($access) {
-                $raw = LazadaSetting::query()->find($store->id);
+                $raw = LazadaStore::query()->find($store->id);
                 if ($raw) {
                     if ($isSandbox) {
                         $raw->sandbox_access_token = encrypt((string) $access);

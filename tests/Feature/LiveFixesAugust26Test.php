@@ -28,20 +28,19 @@ class LiveFixesAugust26Test extends TestCase
         $manager = $this->app->make(ExtensionManager::class);
         $manager->install('shopee');
         $manager->enable('shopee');
-        $this->app->register(\Extensions\shopee\ShopeeExtension::class);
+        $this->app->register(\Extensions\Shopee\ShopeeExtension::class);
         $this->app['router']->getRoutes()->refreshNameLookups();
-        $this->artisan('permissions:sync-catalogue');
+        $this->artisan('permissions:sync-catalog');
     }
 
     public function test_a_variation_sku_falls_back_to_the_product_picture(): void
     {
-        $pfx = (string) config('catalog.prefix');
-        $productId = DB::table($pfx . 'product')->insertGetId([
+        $productId = DB::table('products')->insertGetId([
             'model' => 'LF-1', 'sku' => 'LF', 'quantity' => 10, 'price' => 100,
             'status' => 1, 'image' => 'catalog/parent.png', 'weight' => 1, 'length' => 1, 'width' => 1, 'height' => 1,
-            'manufacturer_id' => 0, 'date_added' => now(), 'date_modified' => now(), 'date_available' => now(),
+            'brand_id' => 0, 'date_added' => now(), 'date_modified' => now(), 'date_available' => now(),
         ]);
-        DB::table('product_option_combinations')->insert([
+        DB::table('product_variations')->insert([
             ['product_id' => $productId, 'sku' => 'LF-RED', 'quantity' => 1, 'absolute_price' => 100, 'image' => 'catalog/red.png', 'status' => 1, 'sort_order' => 1, 'created_at' => now(), 'updated_at' => now()],
             ['product_id' => $productId, 'sku' => 'LF-BLUE', 'quantity' => 1, 'absolute_price' => 100, 'image' => null, 'status' => 1, 'sort_order' => 2, 'created_at' => now(), 'updated_at' => now()],
         ]);
@@ -80,7 +79,7 @@ class LiveFixesAugust26Test extends TestCase
 
     public function test_a_healthy_shopee_shop_is_connected_not_expiring(): void
     {
-        DB::table('shopee_settings')->insert([
+        DB::table('ch_shopee_stores')->insert([
             'partner_id' => 1, 'partner_key' => encrypt('k'), 'shop_id' => 2,
             'access_token' => encrypt('t'), 'refresh_token' => encrypt('r'), 'mode' => 'production',
             'expires_at' => now()->addHours(2), 'refresh_expires_at' => now()->addDays(25),
@@ -89,14 +88,14 @@ class LiveFixesAugust26Test extends TestCase
         ]);
 
         $card = null;
-        foreach (app(\App\Integrations\IntegrationRegistry::class)->all() as $provider) {
-            foreach ($provider->integrationCards() as $c) {
+        foreach (app(\App\Channels\ChannelRegistry::class)->all() as $provider) {
+            foreach ($provider->channelCards() as $c) {
                 if ($c->id === 'shopee') {
                     $card = $c;
                 }
             }
         }
-        $this->assertNotNull($card, 'Shopee did not register an IntegrationCard.');
+        $this->assertNotNull($card, 'Shopee did not register an ChannelCard.');
         $resolved = app(ChannelWorkspace::class)->stateWithReason($card, 'shopee');
 
         $this->assertSame(['state' => 'connected', 'reason' => null], $resolved);
@@ -104,18 +103,18 @@ class LiveFixesAugust26Test extends TestCase
 
     public function test_shopee_stamps_the_refresh_token_life_at_each_grant(): void
     {
-        $this->assertSame(30, \Extensions\shopee\Models\ShopeeSetting::REFRESH_TOKEN_DAYS);
+        $this->assertSame(30, \Extensions\Shopee\Models\ShopeeStore::REFRESH_TOKEN_DAYS);
         foreach (['extensions/shopee/Controllers/ShopeeController.php', 'extensions/shopee/Commands/ShopeeRefreshToken.php'] as $file) {
             $src = file_get_contents(base_path($file));
             $this->assertNotFalse($src, $file);
-            $this->assertStringContainsString('refresh_expires_at = now()->addDays(ShopeeSetting::REFRESH_TOKEN_DAYS)', $src, $file);
+            $this->assertStringContainsString('refresh_expires_at = now()->addDays(ShopeeStore::REFRESH_TOKEN_DAYS)', $src, $file);
         }
     }
 
     public function test_the_settings_key_saves_an_automation_schedule(): void
     {
         $job = ScheduledJob::create([
-            'command' => 'shopee:sync-orders', 'display_name' => 'Sync orders', 'integration' => 'shopee',
+            'command' => 'shopee:sync-orders', 'display_name' => 'Sync orders', 'extension' => 'shopee',
             'cadence_value' => 15, 'cadence_unit' => 'minute', 'enabled' => true,
         ]);
 
@@ -142,7 +141,7 @@ class LiveFixesAugust26Test extends TestCase
         $this->assertTrue(Permission::where('key', 'manage_sales/order_payment')->exists());
 
         $admin = UserGroup::firstOrCreate(['name' => 'Administrator']);
-        $this->artisan('permissions:sync-catalogue');
+        $this->artisan('permissions:sync-catalog');
         $this->assertTrue($admin->permissions()->where('key', 'manage_sales/order_payment')->exists(),
             'a key that grows out of a route is granted to the Administrator group as it appears');
 
@@ -189,7 +188,7 @@ class LiveFixesAugust26Test extends TestCase
     public function test_run_now_runs_the_job_by_hand_and_stamps_the_row(): void
     {
         $job = \App\Models\ScheduledJob::create([
-            'integration' => 'shopee', 'display_name' => 'Say something', 'command' => 'inspire',
+            'extension' => 'shopee', 'display_name' => 'Say something', 'command' => 'inspire',
             'cadence_value' => 1, 'cadence_unit' => 'hour', 'enabled' => false, 'options' => [],
         ]);
         $this->assertNull($job->last_run_at);
@@ -205,7 +204,7 @@ class LiveFixesAugust26Test extends TestCase
         $this->assertTrue($job->last_run_ok);
 
         $broken = \App\Models\ScheduledJob::create([
-            'integration' => 'shopee', 'display_name' => 'Broken job', 'command' => 'no:such-command',
+            'extension' => 'shopee', 'display_name' => 'Broken job', 'command' => 'no:such-command',
             'cadence_value' => 1, 'cadence_unit' => 'hour', 'enabled' => false, 'options' => [],
         ]);
         $this->actingAs($manager)->post(route('automations.run', $broken->id))->assertRedirect()->assertSessionHas('error');

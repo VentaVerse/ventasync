@@ -6,7 +6,7 @@ use Illuminate\Http\JsonResponse;
 
 final class AppFulfilment
 {
-    public const STEPS = ['to_pack', 'to_arrange', 'to_handover', 'shipped', 'done', 'cancelled', 'other'];
+    public const STEPS = ['to_pack', 'to_arrange', 'to_handover', 'shipped', 'done', 'canceled', 'other'];
 
     private const COUNTED = ['pack', 'ship', 'book', 'book_manual'];
 

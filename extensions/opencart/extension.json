@@ -2,9 +2,9 @@
     "id": "opencart",
     "name": "OpenCart",
     "version": "0.30.0",
-    "description": "OpenCart store integration: product sync, order sync, product groups, and marketplace reviews",
+    "description": "OpenCart store channel: product sync, order sync, product groups, and marketplace reviews",
     "logs": {
-        "opencart_sync_log": {
+        "ch_opencart_sync_log": {
             "label": "Sync runs",
             "kind": "sync"
         }

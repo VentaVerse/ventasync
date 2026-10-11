@@ -2,7 +2,7 @@
 
 namespace Tests\Feature;
 
-use Extensions\lazada\Services\Lazada\LazadaImages;
+use Extensions\Lazada\Services\Lazada\LazadaImages;
 use Tests\TestCase;
 
 class LazadaImageUrlTest extends TestCase

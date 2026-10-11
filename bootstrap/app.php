@@ -1,5 +1,7 @@
 <?php
 
+require_once __DIR__ . '/../app/Extensions/autoload.php';
+
 $__runtimeDirs = [
     'bootstrap/cache',
     'storage/framework/cache/data',

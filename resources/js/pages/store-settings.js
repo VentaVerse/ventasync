@@ -52,10 +52,10 @@ function readJsonIsland(root, selector) {
     }
 }
 
-function initColour(root) {
-    root.querySelectorAll('[data-colour-pair]').forEach(function (pair) {
-        const swatch = pair.querySelector('[data-colour-input]');
-        const hex = pair.querySelector('[data-colour-hex]');
+function initColor(root) {
+    root.querySelectorAll('[data-color-pair]').forEach(function (pair) {
+        const swatch = pair.querySelector('[data-color-input]');
+        const hex = pair.querySelector('[data-color-hex]');
         if (!swatch || !hex) return;
 
         swatch.addEventListener('input', function () { hex.value = swatch.value; });
@@ -413,8 +413,8 @@ function initRuns(root, config) {
 }
 
 const STEP_DEPENDENCIES = {
-    options: ['categories', 'manufacturers'],
-    products: ['options'],
+    variations: ['categories', 'brands'],
+    products: ['variations'],
     status_map: ['products'],
     orders: ['status_map'],
 };
@@ -569,7 +569,7 @@ document.addEventListener('DOMContentLoaded', function () {
         verifyUrl: root.getAttribute('data-verify-url') || '',
     };
 
-    initColour(root);
+    initColor(root);
     initCopy(root);
     initTest(root, config);
     initStatusMap(root, config);

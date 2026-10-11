@@ -7,7 +7,7 @@ use App\Models\Admin\Permission;
 use App\Models\Admin\UserGroup;
 use App\Models\User;
 use App\Models\WatermarkTemplate;
-use Extensions\shopee\Models\ShopeeSetting;
+use Extensions\Shopee\Models\ShopeeStore;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
@@ -16,7 +16,7 @@ class WatermarkTemplateTest extends TestCase
 {
     use RefreshDatabase;
 
-    private ShopeeSetting $store;
+    private ShopeeStore $store;
 
     protected function setUp(): void
     {
@@ -25,11 +25,11 @@ class WatermarkTemplateTest extends TestCase
         $manager = $this->app->make(ExtensionManager::class);
         $manager->install('shopee');
         $manager->enable('shopee');
-        $this->app->register(\Extensions\shopee\ShopeeExtension::class);
+        $this->app->register(\Extensions\Shopee\ShopeeExtension::class);
         $this->app['router']->getRoutes()->refreshNameLookups();
-        $this->artisan('permissions:sync-catalogue');
+        $this->artisan('permissions:sync-catalog');
 
-        $this->store = ShopeeSetting::create(['mode' => 'live', 'store_name' => 'Main store']);
+        $this->store = ShopeeStore::create(['mode' => 'live', 'store_name' => 'Main store']);
     }
 
     private function user(array $keys): User
@@ -58,7 +58,7 @@ class WatermarkTemplateTest extends TestCase
     private function template(array $attributes = []): WatermarkTemplate
     {
         return WatermarkTemplate::create($attributes + [
-            'integration' => 'shopee',
+            'channel' => 'shopee',
             'store_id' => $this->store->id,
             'name' => 'Mark ' . bin2hex(random_bytes(3)),
             'image_path' => $this->mark(),
@@ -91,7 +91,7 @@ class WatermarkTemplateTest extends TestCase
         $template = WatermarkTemplate::first();
         $this->assertSame('Shop logo', $template->name);
         $this->assertSame($path, $template->image_path);
-        $this->assertSame('shopee', $template->integration, 'a template is created into the store whose page created it');
+        $this->assertSame('shopee', $template->channel, 'a template is created into the store whose page created it');
         $this->assertSame($this->store->id, (int) $template->store_id);
         $this->assertSame(0.8, round((float) $template->opacity, 2));
         $this->assertSame(20, $template->transparencyPercent());
@@ -105,11 +105,11 @@ class WatermarkTemplateTest extends TestCase
     public function test_a_store_never_sees_another_stores_templates(): void
     {
         $path = $this->mark();
-        $second = ShopeeSetting::create(['mode' => 'live', 'store_name' => 'Second store']);
+        $second = ShopeeStore::create(['mode' => 'live', 'store_name' => 'Second store']);
 
         $mine = $this->template(['name' => 'Mine', 'image_path' => $path]);
-        $theirs = WatermarkTemplate::create(['integration' => 'shopee', 'store_id' => $second->id, 'name' => 'Theirs', 'image_path' => $path]);
-        $elsewhere = WatermarkTemplate::create(['integration' => 'lazada', 'store_id' => $this->store->id, 'name' => 'Elsewhere', 'image_path' => $path]);
+        $theirs = WatermarkTemplate::create(['channel' => 'shopee', 'store_id' => $second->id, 'name' => 'Theirs', 'image_path' => $path]);
+        $elsewhere = WatermarkTemplate::create(['channel' => 'lazada', 'store_id' => $this->store->id, 'name' => 'Elsewhere', 'image_path' => $path]);
 
         $this->actingAs($this->reader())->get($this->url('index'))
             ->assertOk()->assertSee('Mine')->assertDontSee('Theirs')->assertDontSee('Elsewhere');
@@ -126,8 +126,8 @@ class WatermarkTemplateTest extends TestCase
     public function test_two_stores_may_use_the_same_name(): void
     {
         $path = $this->mark();
-        $second = ShopeeSetting::create(['mode' => 'live', 'store_name' => 'Second store']);
-        WatermarkTemplate::create(['integration' => 'shopee', 'store_id' => $second->id, 'name' => 'Shop logo', 'image_path' => $path]);
+        $second = ShopeeStore::create(['mode' => 'live', 'store_name' => 'Second store']);
+        WatermarkTemplate::create(['channel' => 'shopee', 'store_id' => $second->id, 'name' => 'Shop logo', 'image_path' => $path]);
 
         $this->actingAs($this->manager())->post($this->url('store'), [
             'name' => 'Shop logo', 'image_path' => $path, 'position' => 'bottom-right',
@@ -184,12 +184,11 @@ class WatermarkTemplateTest extends TestCase
     public function test_an_out_of_range_preview_still_draws_a_picture(): void
     {
         $markPath = $this->mark();
-        $pfx = (string) config('catalog.prefix');
         $im = imagecreatetruecolor(200, 200);
         ob_start();
         imagejpeg($im);
         Storage::disk('public')->put('catalog/sample.jpg', ob_get_clean());
-        \DB::table($pfx . 'product')->insert([
+        \DB::table('products')->insert([
             'model' => 'S', 'sku' => 'S', 'price' => 1, 'quantity' => 1, 'status' => 1, 'image' => 'catalog/sample.jpg',
             'date_added' => now(), 'date_modified' => now(),
         ]);
@@ -206,18 +205,17 @@ class WatermarkTemplateTest extends TestCase
     public function test_a_stale_newest_product_does_not_blank_the_preview(): void
     {
         $markPath = $this->mark();
-        $pfx = (string) config('catalog.prefix');
 
         $im = imagecreatetruecolor(200, 200);
         ob_start();
         imagejpeg($im);
         Storage::disk('public')->put('catalog/real.jpg', ob_get_clean());
 
-        \DB::table($pfx . 'product')->insert([
+        \DB::table('products')->insert([
             'model' => 'REAL', 'sku' => 'REAL', 'price' => 1, 'quantity' => 1, 'status' => 1,
             'image' => 'catalog/real.jpg', 'date_added' => now(), 'date_modified' => now(),
         ]);
-        \DB::table($pfx . 'product')->insert([
+        \DB::table('products')->insert([
             'model' => 'STALE', 'sku' => 'STALE', 'price' => 1, 'quantity' => 1, 'status' => 1,
             'image' => 'catalog/deleted-last-year.jpg', 'date_added' => now(), 'date_modified' => now(),
         ]);
@@ -249,8 +247,8 @@ class WatermarkTemplateTest extends TestCase
         $path = $this->mark();
         $own = $this->template(['name' => 'Own', 'image_path' => $path]);
         $group = $this->template(['name' => 'Group', 'image_path' => $path]);
-        $second = ShopeeSetting::create(['mode' => 'live', 'store_name' => 'Second store']);
-        $foreign = WatermarkTemplate::create(['integration' => 'shopee', 'store_id' => $second->id, 'name' => 'Foreign', 'image_path' => $path]);
+        $second = ShopeeStore::create(['mode' => 'live', 'store_name' => 'Second store']);
+        $foreign = WatermarkTemplate::create(['channel' => 'shopee', 'store_id' => $second->id, 'name' => 'Foreign', 'image_path' => $path]);
 
         $store = $this->store->id;
         $this->assertSame($own->id, WatermarkTemplate::resolve($own->id, $group->id, 'shopee', $store)?->id);

@@ -1,10 +1,10 @@
 <?php
 
-namespace Extensions\tiktok\Services\TikTok;
+namespace Extensions\TikTok\Services\TikTok;
 
-use Extensions\tiktok\Models\TikTokListing;
-use Extensions\tiktok\Models\TikTokProductGroupProduct;
-use Extensions\tiktok\Models\TikTokSetting;
+use Extensions\TikTok\Models\TikTokListing;
+use Extensions\TikTok\Models\TikTokProductGroupProduct;
+use Extensions\TikTok\Models\TikTokStore;
 use Illuminate\Support\Facades\DB;
 
 final class TikTokProductRemover
@@ -37,7 +37,7 @@ final class TikTokProductRemover
                 $stays['TikTok Shop (' . $this->storeName($h['store_id']) . ')'] = true;
             }
         }
-        foreach (TikTokSetting::allStores() as $store) {
+        foreach (TikTokStore::allStores() as $store) {
             app(TikTokListingStates::class)->forStore($store)->clearErrors([$productId]);
         }
         TikTokListing::query()->where('product_id', $productId)->delete();
@@ -48,11 +48,10 @@ final class TikTokProductRemover
 
     public function stranded(): array
     {
-        $pfx = (string) config('catalog.prefix');
         $ids = [];
-        foreach (['tiktok_listings', 'tiktok_product_group_products'] as $table) {
+        foreach (['ch_tiktok_listings', 'ch_tiktok_product_group_products'] as $table) {
             $ids = array_merge($ids, DB::table($table)
-                ->whereNotExists(fn ($q) => $q->select(DB::raw(1))->from($pfx . 'product as op')->whereColumn('op.product_id', $table . '.product_id'))
+                ->whereNotExists(fn ($q) => $q->select(DB::raw(1))->from('products as op')->whereColumn('op.product_id', $table . '.product_id'))
                 ->distinct()->pluck('product_id')->map(fn ($v) => (int) $v)->all());
         }
 
@@ -77,14 +76,14 @@ final class TikTokProductRemover
         };
 
         foreach (TikTokListing::query()->whereIn('product_id', $productIds)->whereNotNull('tiktok_product_id')->get() as $l) {
-            $add((int) $l->product_id, (int) $l->tiktok_setting_id, (string) $l->tiktok_product_id, $l->live_status);
+            $add((int) $l->product_id, (int) $l->store_id, (string) $l->tiktok_product_id, $l->live_status);
         }
-        $pivots = DB::table('tiktok_product_group_products as pv')
-            ->join('tiktok_product_groups as g', 'g.id', '=', 'pv.tiktok_product_group_id')
+        $pivots = DB::table('ch_tiktok_product_group_products as pv')
+            ->join('ch_tiktok_product_groups as g', 'g.id', '=', 'pv.tiktok_product_group_id')
             ->whereIn('pv.product_id', $productIds)->whereNotNull('pv.tiktok_product_id')
-            ->get(['pv.product_id', 'pv.tiktok_product_id', 'g.tiktok_setting_id']);
+            ->get(['pv.product_id', 'pv.tiktok_product_id', 'g.store_id']);
         foreach ($pivots as $p) {
-            $add((int) $p->product_id, (int) $p->tiktok_setting_id, (string) $p->tiktok_product_id, null);
+            $add((int) $p->product_id, (int) $p->store_id, (string) $p->tiktok_product_id, null);
         }
 
         return $out;
@@ -92,7 +91,7 @@ final class TikTokProductRemover
 
     private function storeName(int $storeId): string
     {
-        $s = TikTokSetting::query()->find($storeId);
+        $s = TikTokStore::query()->find($storeId);
 
         return (string) ($s?->store_name ?: ($s?->shop_name ?: 'TikTok store #' . $storeId));
     }

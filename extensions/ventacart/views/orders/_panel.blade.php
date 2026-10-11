@@ -174,7 +174,7 @@
                 <x-ui.hint>Fetching pulls the orders this store created between those two dates.</x-ui.hint>
             </div>
         </form>
-        <x-channel.order-fetch integration="ventacart" :store-id="(int) $storeId" form-id="formFetchVentaOrders" channel-label="VentaCart"
+        <x-channel.order-fetch channel="ventacart" :store-id="(int) $storeId" form-id="formFetchVentaOrders" channel-label="VentaCart"
             :begin-url="route('ext.ventacart.orders.fetch_run_begin', ['store' => $storeId])" :step-url="route('ext.ventacart.orders.fetch_run_step', ['store' => $storeId, 'run' => 0])" :stop-url="route('ext.ventacart.orders.fetch_run_stop', ['store' => $storeId, 'run' => 0])" :state-url="route('ext.ventacart.orders.fetch_run_state', ['store' => $storeId, 'run' => 0])" />
         </div>
     </x-ui.foldout>
@@ -280,7 +280,7 @@
 
             $vtTone = \App\Support\ChannelStatusTone::toneFor('ventacart.orders', $vtStatusRaw);
 
-            $vtStep = \Extensions\ventacart\Services\VentaCart\VentaCartStatusPlacements::stepFor((int) $storeId, $vtStatusRaw);
+            $vtStep = \Extensions\VentaCart\Services\VentaCart\VentaCartStatusPlacements::stepFor((int) $storeId, $vtStatusRaw);
             $vtIsToPack = $vtStep === 'to_pack';
             $vtIsToHandover = $vtStep === 'to_handover';
             $vtBooked = $o->isBooked();
@@ -288,7 +288,7 @@
             $vtIsManual = $o->isManualShipment();
             $vtCourierName = $vtIsManual && trim((string) $o->courier_name) !== ''
                 ? trim((string) $o->courier_name)
-                : \Extensions\ventacart\Services\VentaCart\VentaCartCouriers::name((string) ($o->courier_provider ?? ''));
+                : \Extensions\VentaCart\Services\VentaCart\VentaCartCouriers::name((string) ($o->courier_provider ?? ''));
 
             $vtAddr = is_array($o->shipping_address) ? $o->shipping_address : [];
             $vtParcel = \App\Support\Fulfilment\PackedParcel::fromItems(array_map(function ($it) use ($vtImages) {
@@ -455,7 +455,7 @@
                     @elseif($vtIsToHandover)
                         <form method="POST" action="{{ route('ext.ventacart.orders.cancel_booking', [$storeId, $o->id]) }}"
                               data-confirm="Cancel the courier booking for order {{ $vtNumber }}? The courier is told not to collect it and the order goes back to To Pack."
-                              data-busy="Cancelling the booking">
+                              data-busy="Canceling the booking">
                             @csrf
                             <x-ui.button type="submit" variant="secondary" size="sm">Cancel booking</x-ui.button>
                         </form>

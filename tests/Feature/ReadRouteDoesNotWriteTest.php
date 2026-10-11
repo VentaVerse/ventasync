@@ -6,7 +6,7 @@ use App\Extensions\ExtensionManager;
 use App\Models\Admin\Permission;
 use App\Models\Admin\UserGroup;
 use App\Models\User;
-use Extensions\shopee\ShopeeExtension;
+use Extensions\Shopee\ShopeeExtension;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
@@ -41,9 +41,8 @@ class ReadRouteDoesNotWriteTest extends TestCase
 
     private function seedAdoptableRow(): int
     {
-        $pfx = (string) config('catalog.prefix');
 
-        DB::table($pfx.'product')->insert([
+        DB::table('products')->insert([
             'product_id' => self::PRODUCT,
             'sku' => 'ADOPT-ME',
             'model' => 'ADOPT-ME',
@@ -54,7 +53,7 @@ class ReadRouteDoesNotWriteTest extends TestCase
             'date_modified' => now(),
         ]);
 
-        DB::table($pfx.'product_description')->insert([
+        DB::table('product_descriptions')->insert([
             'product_id' => self::PRODUCT,
             'language_id' => (int) config('catalog.default_language_id'),
             'name' => 'Adoptable product',
@@ -64,24 +63,24 @@ class ReadRouteDoesNotWriteTest extends TestCase
             'meta_keyword' => '',
         ]);
 
-        $groupId = DB::table('shopee_product_groups')->insertGetId([
-            'shopee_setting_id' => \Extensions\shopee\Models\ShopeeSetting::query()->orderBy('id')->value('id')
-                ?? \Extensions\shopee\Models\ShopeeSetting::create(['mode' => 'live', 'store_name' => 'Main store'])->id,
+        $groupId = DB::table('ch_shopee_product_groups')->insertGetId([
+            'store_id' => \Extensions\Shopee\Models\ShopeeStore::query()->orderBy('id')->value('id')
+                ?? \Extensions\Shopee\Models\ShopeeStore::create(['mode' => 'live', 'store_name' => 'Main store'])->id,
             'name' => 'Adoption',
             'created_at' => now(),
             'updated_at' => now(),
         ]);
 
-        DB::table('shopee_product_group_products')->insert([
+        DB::table('ch_shopee_product_group_products')->insert([
             'shopee_product_group_id' => $groupId,
             'product_id' => self::PRODUCT,
             'shopee_item_id' => null,
             'sync_status' => 'pending',
         ]);
 
-        DB::table('shopee_product_links')->insert([
-            'shopee_setting_id' => \Extensions\shopee\Models\ShopeeSetting::query()->orderBy('id')->value('id')
-                ?? \Extensions\shopee\Models\ShopeeSetting::create(['mode' => 'live', 'store_name' => 'Main store'])->id,
+        DB::table('ch_shopee_listing_links')->insert([
+            'store_id' => \Extensions\Shopee\Models\ShopeeStore::query()->orderBy('id')->value('id')
+                ?? \Extensions\Shopee\Models\ShopeeStore::create(['mode' => 'live', 'store_name' => 'Main store'])->id,
             'product_id' => self::PRODUCT,
             'shopee_item_id' => self::ITEM,
             'sku' => 'ADOPT-ME',
@@ -94,7 +93,7 @@ class ReadRouteDoesNotWriteTest extends TestCase
 
     private function pivot(int $groupId): ?object
     {
-        return DB::table('shopee_product_group_products')
+        return DB::table('ch_shopee_product_group_products')
             ->where('shopee_product_group_id', $groupId)
             ->where('product_id', self::PRODUCT)
             ->first();

@@ -6,10 +6,10 @@ use App\Extensions\ExtensionManager;
 use App\Models\Admin\Permission;
 use App\Models\Admin\UserGroup;
 use App\Models\User;
-use Extensions\shopee\Models\ShopeeListing;
-use Extensions\shopee\Models\ShopeeProductLink;
-use Extensions\shopee\Models\ShopeeSetting;
-use Extensions\shopee\Services\Shopee\ShopeeListingStates;
+use Extensions\Shopee\Models\ShopeeListing;
+use Extensions\Shopee\Models\ShopeeListingLink;
+use Extensions\Shopee\Models\ShopeeStore;
+use Extensions\Shopee\Services\Shopee\ShopeeListingStates;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
@@ -25,11 +25,11 @@ class ShopeeListingStatusMenuTest extends TestCase
         $manager = $this->app->make(ExtensionManager::class);
         $manager->install('shopee');
         $manager->enable('shopee');
-        $this->app->register(\Extensions\shopee\ShopeeExtension::class);
+        $this->app->register(\Extensions\Shopee\ShopeeExtension::class);
         $this->app['router']->getRoutes()->refreshNameLookups();
-        $this->artisan('permissions:sync-catalogue');
+        $this->artisan('permissions:sync-catalog');
 
-        ShopeeSetting::query()->create([
+        ShopeeStore::query()->create([
             'partner_id' => 1001, 'partner_key' => 'k', 'shop_id' => 2002,
             'access_token' => 't', 'refresh_token' => 'r', 'mode' => 'production',
         ]);
@@ -45,13 +45,12 @@ class ShopeeListingStatusMenuTest extends TestCase
 
     private function product(string $name, string $sku): int
     {
-        $pfx = (string) config('catalog.prefix');
-        $id = DB::table($pfx . 'product')->insertGetId([
+        $id = DB::table('products')->insertGetId([
             'model' => $sku, 'sku' => $sku, 'quantity' => 5, 'price' => 100, 'status' => 1, 'image' => '',
-            'weight' => 0.5, 'length' => 10, 'width' => 10, 'height' => 5, 'manufacturer_id' => 0,
+            'weight' => 0.5, 'length' => 10, 'width' => 10, 'height' => 5, 'brand_id' => 0,
             'date_added' => now(), 'date_modified' => now()->subMinute(), 'date_available' => now(),
         ]);
-        DB::table($pfx . 'product_description')->insert([
+        DB::table('product_descriptions')->insert([
             'product_id' => $id, 'language_id' => (int) config('catalog.default_language_id'),
             'name' => $name, 'description' => '', 'meta_title' => '', 'meta_description' => '', 'meta_keyword' => '', 'tag' => '',
         ]);
@@ -63,10 +62,10 @@ class ShopeeListingStatusMenuTest extends TestCase
     private function store(): void
     {
         $listedOk = $this->product('Listed and fine', 'SMN-1');
-        ShopeeProductLink::query()->create(['product_id' => $listedOk, 'shopee_item_id' => 9001, 'sku' => 'SMN-1', 'live_status' => 'NORMAL', 'live_checked_at' => now()]);
+        ShopeeListingLink::query()->create(['product_id' => $listedOk, 'shopee_item_id' => 9001, 'sku' => 'SMN-1', 'live_status' => 'NORMAL', 'live_checked_at' => now()]);
 
         $listedFailed = $this->product('Listed but failed', 'SMN-2');
-        ShopeeProductLink::query()->create(['product_id' => $listedFailed, 'shopee_item_id' => 9002, 'sku' => 'SMN-2', 'live_status' => 'NORMAL', 'live_checked_at' => now()]);
+        ShopeeListingLink::query()->create(['product_id' => $listedFailed, 'shopee_item_id' => 9002, 'sku' => 'SMN-2', 'live_status' => 'NORMAL', 'live_checked_at' => now()]);
         app(ShopeeListingStates::class)->recordOutcome($listedFailed, 'Push failed: Category is invalid.');
 
         $this->product('Not on Shopee yet', 'SMN-3');
@@ -122,15 +121,15 @@ class ShopeeListingStatusMenuTest extends TestCase
     public function test_a_ticked_product_moves_between_groups_from_the_listings_page(): void
     {
         $pid = $this->product('Movable pedal', 'SMV-1');
-        $groupA = \Extensions\shopee\Models\ShopeeProductGroup::create(['name' => 'Fuzz', 'shopee_category_id' => 100013, 'logistic_ids' => [8003]]);
-        $groupB = \Extensions\shopee\Models\ShopeeProductGroup::create(['name' => 'Delay', 'shopee_category_id' => 100013, 'logistic_ids' => [8003]]);
+        $groupA = \Extensions\Shopee\Models\ShopeeProductGroup::create(['name' => 'Fuzz', 'shopee_category_id' => 100013, 'logistic_ids' => [8003]]);
+        $groupB = \Extensions\Shopee\Models\ShopeeProductGroup::create(['name' => 'Delay', 'shopee_category_id' => 100013, 'logistic_ids' => [8003]]);
         $manager = $this->manager();
         $manager->userGroup->permissions()->attach(Permission::whereIn('key', ['manage_shopee/product_group', 'view_shopee/product_group'])->pluck('id')->all());
         $listingOnlyGroup = UserGroup::create(['name' => 'Listings without groups']);
         $listingOnlyGroup->permissions()->attach(Permission::whereIn('key', ['manage_shopee/product', 'view_shopee/product'])->pluck('id')->all());
         $listingOnly = User::factory()->create(['user_group_id' => $listingOnlyGroup->id]);
         $back = parse_url(route('ext.shopee.products.index'), PHP_URL_PATH);
-        $pivot = fn () => \Illuminate\Support\Facades\DB::table('shopee_product_group_products')->where('product_id', $pid)->pluck('shopee_product_group_id')->map(fn ($v) => (int) $v)->all();
+        $pivot = fn () => \Illuminate\Support\Facades\DB::table('ch_shopee_product_group_products')->where('product_id', $pid)->pluck('shopee_product_group_id')->map(fn ($v) => (int) $v)->all();
 
         $this->actingAs($listingOnly)->get(route('ext.shopee.products.index'))->assertOk()->assertDontSee('Move to group');
         $this->actingAs($listingOnly)->post(route('ext.shopee.product-groups.move'), ['ids' => [$pid], 'group' => $groupA->id, '_return' => $back])->assertRedirect()->assertSessionHas('error');
@@ -155,13 +154,13 @@ class ShopeeListingStatusMenuTest extends TestCase
 
     public function test_a_whole_group_sends_as_a_run_from_the_listings_page(): void
     {
-        $group = \Extensions\shopee\Models\ShopeeProductGroup::create(['name' => 'Fuzz', 'shopee_category_id' => 100013, 'logistic_ids' => [8003]]);
+        $group = \Extensions\Shopee\Models\ShopeeProductGroup::create(['name' => 'Fuzz', 'shopee_category_id' => 100013, 'logistic_ids' => [8003]]);
         foreach ([$this->product('Run pedal one', 'SRN-1'), $this->product('Run pedal two', 'SRN-2')] as $pid) {
-            \Extensions\shopee\Models\ShopeeProductGroupProduct::create(['shopee_product_group_id' => $group->id, 'product_id' => $pid]);
+            \Extensions\Shopee\Models\ShopeeProductGroupProduct::create(['shopee_product_group_id' => $group->id, 'product_id' => $pid]);
         }
         $offList = $this->product('Not carried here', 'SRN-3');
         ShopeeListing::query()->where('product_id', $offList)->delete();
-        \Extensions\shopee\Models\ShopeeProductGroupProduct::create(['shopee_product_group_id' => $group->id, 'product_id' => $offList]);
+        \Extensions\Shopee\Models\ShopeeProductGroupProduct::create(['shopee_product_group_id' => $group->id, 'product_id' => $offList]);
         $manager = $this->manager();
         $manager->userGroup->permissions()->attach(Permission::whereIn('key', ['manage_shopee/product_group', 'view_shopee/product_group'])->pluck('id')->all());
         $listingOnlyGroup = UserGroup::create(['name' => 'Listings without groups']);
@@ -178,7 +177,7 @@ class ShopeeListingStatusMenuTest extends TestCase
         $this->actingAs($manager)->get(route('ext.shopee.products.index', ['group' => $group->id, 'sync_status' => 'uploaded']))->assertOk()
             ->assertSee('Send all 2 products in Fuzz to Shopee on group settings, rather than their own?');
 
-        ShopeeSetting::query()->update(['access_token' => null]);
+        ShopeeStore::query()->update(['access_token' => null]);
         $answer = $this->actingAs($manager)->postJson(route('ext.shopee.product-groups.send_run_begin', ['id' => $group->id]))->assertOk()->json();
         $this->assertSame('failed', $answer['run']['status']);
         $this->assertSame(2, $answer['run']['total']);

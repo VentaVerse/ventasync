@@ -1,12 +1,12 @@
 <?php
 
-namespace Extensions\tiktok\Commands;
+namespace Extensions\TikTok\Commands;
 
 use App\Support\PayoutStatus;
-use Extensions\tiktok\Models\TikTokOrder;
-use Extensions\tiktok\Models\TikTokSetting;
-use Extensions\tiktok\Services\TikTok\TikTokPayoutSync;
-use Extensions\tiktok\Services\TikTok\TikTokReturnSync;
+use Extensions\TikTok\Models\TikTokOrder;
+use Extensions\TikTok\Models\TikTokStore;
+use Extensions\TikTok\Services\TikTok\TikTokPayoutSync;
+use Extensions\TikTok\Services\TikTok\TikTokReturnSync;
 use Illuminate\Console\Command;
 
 class TikTokSyncPayouts extends Command
@@ -20,7 +20,7 @@ class TikTokSyncPayouts extends Command
     public function handle(TikTokPayoutSync $payouts): int
     {
         $days = PayoutStatus::lookbackDays($this->option('days'));
-        $stores = TikTokSetting::enabledStores();
+        $stores = TikTokStore::enabledStores();
         if ($this->option('store') !== null) {
             $stores = $stores->where('id', (int) $this->option('store'))->values();
         }
@@ -43,7 +43,7 @@ class TikTokSyncPayouts extends Command
             }
 
             $retired = PayoutStatus::retireOlderThan(
-                TikTokOrder::query()->where('tiktok_setting_id', $store->id)->whereIn('status', TikTokPayoutSync::PAYABLE_STATUSES),
+                TikTokOrder::query()->where('store_id', $store->id)->whereIn('status', TikTokPayoutSync::PAYABLE_STATUSES),
                 $days
             );
             if ($retired) {

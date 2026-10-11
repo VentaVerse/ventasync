@@ -1,15 +1,15 @@
 <?php
 
-namespace Extensions\ventacart\Models;
+namespace Extensions\VentaCart\Models;
 
 use Illuminate\Database\Eloquent\Model;
 
 class VentaCartApiLog extends Model
 {
-    protected $table = 'ventacart_api_logs';
+    protected $table = 'ch_ventacart_api_logs';
 
     protected $fillable = [
-        'ventacart_setting_id',
+        'store_id',
         'method',
         'endpoint',
         'status_code',

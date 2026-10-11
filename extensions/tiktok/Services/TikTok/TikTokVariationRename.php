@@ -1,6 +1,6 @@
 <?php
 
-namespace Extensions\tiktok\Services\TikTok;
+namespace Extensions\TikTok\Services\TikTok;
 
 use Illuminate\Support\Str;
 
@@ -71,7 +71,7 @@ final class TikTokVariationRename
         } else {
             $pairs = $this->pair($skus, $axes, $types, $held);
             if (count($pairs) < count($axes)) {
-                $skip ??= 'the item\'s variation types (' . $typeNames . ') could not be matched one to one with the product\'s options (' . $axisNames . ')';
+                $skip ??= 'the item\'s variation types (' . $typeNames . ') could not be matched one to one with the product\'s variation types (' . $axisNames . ')';
             }
         }
 
