@@ -88,9 +88,6 @@ return new class extends Migration
         $this->renameWarehouseForeignKey('warehouse_inventory_warehouse_id_foreign', 'warehouse_stock_warehouse_id_foreign');
         $this->renameShopifyLineForeignKey('order_id', 'ch_shopify_order_products_shopify_order_id_local_foreign', 'ch_shopify_order_products_order_id_foreign');
 
-        if (Schema::hasColumn('products', 'model')) {
-            DB::table('products')->where('sku', '')->where('model', '<>', '')->update(['sku' => DB::raw('`model`')]);
-        }
         foreach (self::FEE_CODES as [$from, $to]) {
             DB::table('order_totals')->where('code', $from)->update(['code' => $to]);
         }
