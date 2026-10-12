@@ -31,6 +31,7 @@ return new class extends Migration
         ['ch_shopify_stores', 'primary_location_id', 'shopify_location_id'],
         ['ch_shopify_listing_links', 'inventory_item_id', 'shopify_inventory_item_id'],
         ['ch_shopify_order_products', 'variant_title', 'variation_label'],
+        ['ch_shopify_order_products', 'shopify_order_id_local', 'order_id'],
     ];
 
     private const INDEXES = [
@@ -85,6 +86,7 @@ return new class extends Migration
             $this->renameIndex($table, $from, $to);
         }
         $this->renameWarehouseForeignKey('warehouse_inventory_warehouse_id_foreign', 'warehouse_stock_warehouse_id_foreign');
+        $this->renameShopifyLineForeignKey('order_id', 'ch_shopify_order_products_shopify_order_id_local_foreign', 'ch_shopify_order_products_order_id_foreign');
 
         if (Schema::hasColumn('products', 'model')) {
             DB::table('products')->where('sku', '')->where('model', '<>', '')->update(['sku' => DB::raw('`model`')]);
@@ -113,6 +115,7 @@ return new class extends Migration
         foreach (self::FEE_CODES as [$from, $to]) {
             DB::table('order_totals')->where('code', $to)->update(['code' => $from]);
         }
+        $this->renameShopifyLineForeignKey('order_id', 'ch_shopify_order_products_order_id_foreign', 'ch_shopify_order_products_shopify_order_id_local_foreign');
         $this->renameWarehouseForeignKey('warehouse_stock_warehouse_id_foreign', 'warehouse_inventory_warehouse_id_foreign');
         foreach (self::INDEXES as [$table, $from, $to]) {
             $this->renameIndex($table, $to, $from);
@@ -152,6 +155,17 @@ return new class extends Migration
             $t->dropForeign($from);
             $t->foreign('warehouse_id', $to)->references('id')->on('warehouses');
         });
+    }
+
+    private function renameShopifyLineForeignKey(string $column, string $from, string $to): void
+    {
+        $table = 'ch_shopify_order_products';
+        if (! Schema::hasTable($table) || ! Schema::hasColumn($table, $column) || ! in_array($from, array_column(Schema::getForeignKeys($table), 'name'), true)) {
+            return;
+        }
+        Schema::table($table, fn (Blueprint $t) => $t->dropForeign($from));
+        $this->renameIndex($table, $from, $to);
+        Schema::table($table, fn (Blueprint $t) => $t->foreign($column, $to)->references('id')->on('ch_shopify_orders')->onDelete('cascade'));
     }
 
     private function movePermission(string $from, string $to): void
