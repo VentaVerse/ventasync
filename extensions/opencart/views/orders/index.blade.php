@@ -6,11 +6,11 @@
 @php
     $canManageOcOrders = auth()->user()?->hasPermission('manage_sales/order') ?? false;
 
-    $ocScopeLabel = null;
+    $openCartScopeLabel = null;
     if ((int) ($filters['status'] ?? 0) > 0) {
-        foreach ($statuses as $ocS) {
-            if ((int) $ocS->order_status_id === (int) $filters['status']) {
-                $ocScopeLabel = $ocS->name;
+        foreach ($statuses as $openCartS) {
+            if ((int) $openCartS->order_status_id === (int) $filters['status']) {
+                $openCartScopeLabel = $openCartS->name;
                 break;
             }
         }
@@ -23,7 +23,7 @@
     <div>
         <h1 class="x-page-title">Orders</h1>
         <p class="x-page-sub">
-            {{ number_format($orders->total()) }} {{ $orders->total() === 1 ? 'order' : 'orders' }}@if($ocScopeLabel) in {{ $ocScopeLabel }}@endif
+            {{ number_format($orders->total()) }} {{ $orders->total() === 1 ? 'order' : 'orders' }}@if($openCartScopeLabel) in {{ $openCartScopeLabel }}@endif
         </p>
     </div>
     @if($canManageOcOrders)

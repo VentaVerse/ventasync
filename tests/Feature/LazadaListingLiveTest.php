@@ -92,10 +92,10 @@ class LazadaListingLiveTest extends TestCase
         $langId = (int) config('catalog.default_language_id');
 
         $productId = DB::table('products')->insertGetId([
-            'model' => $sku, 'sku' => $sku, 'quantity' => 5, 'price' => 100,
+            'sku' => $sku, 'quantity' => 5, 'price' => 100,
             'status' => 1, 'image' => '', 'weight' => 0.5, 'length' => 10, 'width' => 10, 'height' => 5,
             'brand_id' => 0,
-            'date_added' => now(), 'date_modified' => now(), 'date_available' => now(),
+            'date_added' => now(), 'date_modified' => now(),
         ]);
         DB::table('product_descriptions')->insert([
             'product_id' => $productId, 'language_id' => $langId,
@@ -147,7 +147,7 @@ class LazadaListingLiveTest extends TestCase
             DB::table('variation_value_descriptions')->insert(['variation_value_id' => $valueId, 'language_id' => $lang, 'variation_type_id' => $variationTypeId, 'name' => $value]);
             $out[$value] = (int) DB::table('product_variation_values')->insertGetId([
                 'product_variation_type_id' => $productVariationTypeId, 'product_id' => $pid, 'variation_type_id' => $variationTypeId, 'variation_value_id' => $valueId,
-                'sku' => $skus[$value] ?? '', 'quantity' => 3, 'subtract' => 1, 'price' => 0, 'price_prefix' => '+', 'absolute_price' => 100,
+                'sku' => $skus[$value] ?? '', 'quantity' => 3, 'subtract_stock' => 1, 'price' => 0, 'price_prefix' => '+', 'absolute_price' => 100,
                 'cost' => 0, 'cost_amount' => 0, 'cost_percentage' => 0, 'cost_additional' => 0, 'absolute_cost' => 0, 'cost_prefix' => '+',
                 'points' => 0, 'points_prefix' => '+', 'weight' => 0, 'weight_prefix' => '+',
             ]);
@@ -213,7 +213,7 @@ class LazadaListingLiveTest extends TestCase
             $comboId = DB::table('product_variations')->insertGetId([
                 'product_id' => $pid, 'sku' => 'QB-TWO-' . $value, 'status' => 1, 'quantity' => 5,
                 'absolute_price' => 100, 'absolute_cost' => 0, 'cost_amount' => 0, 'cost_additional' => 0,
-                'subtract' => 1, 'sort_order' => $i, 'created_at' => now(), 'updated_at' => now(),
+                'subtract_stock' => 1, 'sort_order' => $i, 'created_at' => now(), 'updated_at' => now(),
             ]);
             DB::table('product_variation_parts')->insert([
                 ['product_variation_id' => $comboId, 'product_variation_value_id' => $length[$value]],
@@ -286,7 +286,7 @@ class LazadaListingLiveTest extends TestCase
             $comboId = DB::table('product_variations')->insertGetId([
                 'product_id' => $pid, 'sku' => $sku . '-' . $value, 'status' => 1, 'quantity' => 5,
                 'absolute_price' => 100, 'absolute_cost' => 0, 'cost_amount' => 0, 'cost_additional' => 0,
-                'subtract' => 1, 'sort_order' => $i, 'created_at' => now(), 'updated_at' => now(),
+                'subtract_stock' => 1, 'sort_order' => $i, 'created_at' => now(), 'updated_at' => now(),
             ]);
             DB::table('product_variation_parts')->insert([
                 ['product_variation_id' => $comboId, 'product_variation_value_id' => $a[$value]],
@@ -581,7 +581,7 @@ class LazadaListingLiveTest extends TestCase
         $listing = LazadaListing::query()->create(['product_id' => $productId]);
         $povId = DB::table('product_variation_values')->insertGetId([
             'product_variation_type_id' => 1, 'product_id' => $productId, 'variation_type_id' => 1, 'variation_value_id' => 1,
-            'quantity' => 3, 'subtract' => 1, 'price' => 0, 'price_prefix' => '+', 'points' => 0, 'points_prefix' => '+',
+            'quantity' => 3, 'subtract_stock' => 1, 'price' => 0, 'price_prefix' => '+', 'points' => 0, 'points_prefix' => '+',
             'weight' => 0, 'weight_prefix' => '+', 'sku' => 'LZT-VAR-RED',
         ]);
 

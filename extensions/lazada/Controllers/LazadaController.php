@@ -103,12 +103,11 @@ class LazadaController extends Controller
             })
             ->orderByDesc('p.product_id')
             ->limit(200)
-            ->get(['p.product_id', 'p.sku', 'p.model', 'pd.name']);
+            ->get(['p.product_id', 'p.sku', 'pd.name']);
 
         foreach ($products as $row) {
             $row->name = html_entity_decode((string)($row->name ?? ''), ENT_QUOTES | ENT_HTML5, 'UTF-8');
             $row->sku = html_entity_decode((string)($row->sku ?? ''), ENT_QUOTES | ENT_HTML5, 'UTF-8');
-            $row->model = html_entity_decode((string)($row->model ?? ''), ENT_QUOTES | ENT_HTML5, 'UTF-8');
         }
 
         $orderStatusMap = \Extensions\Lazada\Models\LazadaOrderStatusMap::where('context', 'order')->pluck('order_status_id', 'lazada_status')->all();
@@ -1705,7 +1704,7 @@ class LazadaController extends Controller
             })
             ->where('p.product_id', $productId)
             ->first([
-                'p.product_id','p.model','p.sku','p.price','p.quantity','p.status','pd.name','pd.description'
+                'p.product_id','p.sku','p.price','p.quantity','p.status','pd.name','pd.description'
             ]);
 
         $name = html_entity_decode((string)($product->name ?? ''), ENT_QUOTES | ENT_HTML5, 'UTF-8');
@@ -1714,9 +1713,6 @@ class LazadaController extends Controller
             : html_entity_decode((string)($product->description ?? ''), ENT_QUOTES | ENT_HTML5, 'UTF-8');
 
         $baseSku = trim((string)($product->sku ?? ''));
-        if ($baseSku === '') {
-            $baseSku = trim((string)($product->model ?? ''));
-        }
         if ($baseSku === '') {
             $baseSku = 'P'.$productId;
         }

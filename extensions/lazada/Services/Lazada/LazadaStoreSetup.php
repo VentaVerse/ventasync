@@ -2,7 +2,7 @@
 
 namespace Extensions\Lazada\Services\Lazada;
 
-use App\Support\MarketplaceAnswer;
+use App\Support\ChannelAnswer;
 use Extensions\Lazada\Models\LazadaApiLog;
 use Extensions\Lazada\Models\LazadaBrand;
 use Extensions\Lazada\Models\LazadaStore;
@@ -35,7 +35,7 @@ class LazadaStoreSetup
         }
         if (! ($result['ok'] ?? false) || $nodes === []) {
             return ['ok' => false, 'count' => 0, 'message' => 'Lazada did not answer with its categories: '
-                . MarketplaceAnswer::plain('Lazada', ['ok' => false, 'body' => is_array($body) ? $body : []])];
+                . ChannelAnswer::plain('Lazada', ['ok' => false, 'body' => is_array($body) ? $body : []])];
         }
         $rows = [];
         $this->flatten($nodes, $rows, null, 0);
@@ -99,7 +99,7 @@ class LazadaStoreSetup
         }
         if ($saved === 0) {
             return ['ok' => false, 'count' => 0, 'message' => 'Lazada did not answer with its brands: '
-                . MarketplaceAnswer::plain('Lazada', ['ok' => false, 'body' => is_array($lastResult['body'] ?? null) ? $lastResult['body'] : []])];
+                . ChannelAnswer::plain('Lazada', ['ok' => false, 'body' => is_array($lastResult['body'] ?? null) ? $lastResult['body'] : []])];
         }
 
         return ['ok' => true, 'count' => $saved, 'message' => number_format($saved) . ' brands fetched.'];

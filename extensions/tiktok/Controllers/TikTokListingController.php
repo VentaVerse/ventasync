@@ -327,7 +327,7 @@ class TikTokListingController extends Controller
                 $j->on('pd.product_id', '=', 'p.product_id')->where('pd.language_id', (int) config('catalog.default_language_id'));
             })
             ->where('p.product_id', $productId)
-            ->first(['p.product_id', 'pd.name', 'pd.description', 'p.model', 'p.sku', 'p.price', 'p.quantity', 'p.image', 'p.weight', 'p.length', 'p.width', 'p.height']);
+            ->first(['p.product_id', 'pd.name', 'pd.description', 'p.sku', 'p.price', 'p.quantity', 'p.image', 'p.weight', 'p.length', 'p.width', 'p.height']);
 
         $outcome = app(TikTokProductPush::class)->edit($erp, (string) $truth->tiktok_product_id, $truth->tiktok_sku_id ?? null, $opts, $c, $client);
         if (!$outcome['ok']) {
@@ -457,7 +457,7 @@ class TikTokListingController extends Controller
                 $join->on('pd.product_id', '=', 'p.product_id')->where('pd.language_id', $langId);
             })
             ->where('p.product_id', $productId)
-            ->first(['p.product_id', 'p.model', 'p.sku', 'p.price', 'p.image', 'p.weight', 'p.length', 'p.width', 'p.height', 'pd.name']);
+            ->first(['p.product_id', 'p.sku', 'p.price', 'p.image', 'p.weight', 'p.length', 'p.width', 'p.height', 'pd.name']);
 
         abort_unless((bool) $product, 404);
 
@@ -535,6 +535,6 @@ class TikTokListingController extends Controller
 
     private function callMessage(array $result): string
     {
-        return \App\Support\MarketplaceAnswer::errorText('TikTok Shop', $result);
+        return \App\Support\ChannelAnswer::errorText('TikTok Shop', $result);
     }
 }

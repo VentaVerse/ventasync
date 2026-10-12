@@ -36,7 +36,7 @@ final class SaleLinesWriter
             DB::transaction(function () use ( $coreOrderId, $lines, $rate) {
                 DB::table('order_totals')
                     ->where('order_id', $coreOrderId)
-                    ->whereNotIn('code', array_column(MarketplaceFeeNormalizer::CODES, 0))
+                    ->whereNotIn('code', array_column(ChannelFeeNormalizer::CODES, 0))
                     ->delete();
                 $sortOrder = 1;
                 foreach ($lines as $line) {

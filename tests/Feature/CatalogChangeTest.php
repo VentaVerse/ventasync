@@ -51,10 +51,10 @@ class CatalogChangeTest extends TestCase
     private function product(string $name, string $description, string $image = 'catalog/plug.jpg'): int
     {
         $id = DB::table('products')->insertGetId([
-            'model' => 'CC', 'sku' => 'CC-' . uniqid(), 'quantity' => 5, 'price' => 130,
+            'sku' => 'CC-' . uniqid(), 'quantity' => 5, 'price' => 130,
             'status' => 1, 'image' => $image, 'weight' => 0.05, 'length' => 2, 'width' => 2, 'height' => 1,
             'brand_id' => 0,
-            'date_added' => now(), 'date_modified' => now()->subMinute(), 'date_available' => now(),
+            'date_added' => now(), 'date_modified' => now()->subMinute(),
         ]);
         DB::table('product_descriptions')->insert([
             'product_id' => $id, 'language_id' => (int) config('catalog.default_language_id'),

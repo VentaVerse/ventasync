@@ -248,8 +248,7 @@ if ($q !== '') {
 
     $skuMatched = DB::table('products')
         ->where(function ($w) use ($q) {
-            $w->where('sku', 'like', "%{$q}%")
-              ->orWhere('model', 'like', "%{$q}%");
+            $w->where('sku', 'like', "%{$q}%");
         })
         ->limit(800)
         ->pluck('product_id')
@@ -465,7 +464,6 @@ if ($q !== '') {
 
         $request->validate([
             'name' => 'required|string|max:255',
-            'model' => 'nullable|string|max:64',
             'sku' => ['required', 'string', 'max:64', new UniqueSku()],
             'price' => 'required|numeric|gt:0',
             'cost_amount' => 'nullable|numeric',
@@ -496,7 +494,7 @@ if ($q !== '') {
             'variation_types.*.values.*.variation_value_id' => 'required|integer|min:1',
             'variation_types.*.values.*.sku' => 'nullable|string|max:64',
             'variation_types.*.values.*.quantity' => 'nullable|integer',
-            'variation_types.*.values.*.subtract' => 'nullable|in:0,1',
+            'variation_types.*.values.*.subtract_stock' => 'nullable|in:0,1',
             'variation_types.*.values.*.price' => 'nullable|numeric',
             'variation_types.*.values.*.price_prefix' => 'nullable|in:+,-',
             'variation_types.*.values.*.weight' => 'nullable|numeric',
@@ -544,7 +542,6 @@ if ($q !== '') {
             [
                 'name' => (string) $request->name,
                 'sku' => (string) ($request->sku ?? ''),
-                'model' => $request->input('model'),
                 'quantity' => $forcedQty !== null ? (int) $forcedQty : (int) $request->quantity,
                 'reorder_level' => (int) ($request->reorder_level ?? 0),
                 'weight' => (float) ($request->input('weight', 0) ?? 0),
@@ -713,7 +710,6 @@ if ($q !== '') {
         abort_if(!$product, 404);
 
         $product->name = html_entity_decode($product->name ?? '', ENT_QUOTES | ENT_HTML5, 'UTF-8');
-        $product->model = html_entity_decode($product->model ?? '', ENT_QUOTES | ENT_HTML5, 'UTF-8');
         $product->sku = html_entity_decode($product->sku ?? '', ENT_QUOTES | ENT_HTML5, 'UTF-8');
 
         // Sanitize on display too: older rows may hold hostile HTML.
@@ -779,7 +775,7 @@ if ($q !== '') {
                         'ovd.name as variation_value_name',
                         'pov.sku',
                         'pov.quantity',
-                        'pov.subtract',
+                        'pov.subtract_stock',
                         'pov.price_prefix',
                         'pov.price',
                         'pov.absolute_price',
@@ -799,7 +795,7 @@ if ($q !== '') {
                         'variation_value_name' => $r->variation_value_name,
                         'name' => $r->variation_value_name,
                         'quantity' => (int)$r->quantity,
-                        'subtract' => (int)($r->subtract ?? 1),
+                        'subtract_stock' => (int)($r->subtract_stock ?? 1),
                         'price_prefix' => (string)$r->price_prefix,
                         'price' => (string)$r->price,
                         'absolute_price' => (float)($r->absolute_price ?? 0),
@@ -932,7 +928,6 @@ if ($q !== '') {
 
         $request->validate([
             'name' => 'required|string|max:255',
-            'model' => 'nullable|string|max:64',
             'sku' => ['required', 'string', 'max:64', new UniqueSku((int) $id)],
             'price' => 'required|numeric|gt:0',
             'cost_amount' => 'nullable|numeric',
@@ -963,7 +958,7 @@ if ($q !== '') {
             'variation_types.*.values.*.variation_value_id' => 'required|integer|min:1',
             'variation_types.*.values.*.sku' => 'nullable|string|max:64',
             'variation_types.*.values.*.quantity' => 'nullable|integer',
-            'variation_types.*.values.*.subtract' => 'nullable|in:0,1',
+            'variation_types.*.values.*.subtract_stock' => 'nullable|in:0,1',
             'variation_types.*.values.*.price' => 'nullable|numeric',
             'variation_types.*.values.*.price_prefix' => 'nullable|in:+,-',
             'variation_types.*.values.*.weight' => 'nullable|numeric',
@@ -1015,10 +1010,6 @@ if ($q !== '') {
 
             $oldProductSku = trim((string) $p->sku);
 
-            // A blank model stays blank; do not fall back to the SKU, empty is a real answer.
-            if ($request->has('model')) {
-                $p->model = trim((string) ($request->input('model') ?? ''));
-            }
             $p->sku = $request->sku ?? '';
 
             $newProductSku = trim((string) $p->sku);
@@ -1041,9 +1032,6 @@ if ($q !== '') {
             
             
             $p->date_modified = now();
-            if ($p->date_available === '0000-00-00') {
-                $p->date_available = now()->toDateString();
-            }
 
             $p->save();
             $updatedAttrs = $p->getAttributes();
@@ -1116,7 +1104,7 @@ if ($q !== '') {
             $status .= ' | Forgotten on every channel: ' . implode(', ', $forgotten);
         }
         $changes = $originalAttrs && $updatedAttrs
-            ? ActivityLogger::diff($originalAttrs, $updatedAttrs, ['sku', 'price', 'quantity', 'status', 'model', 'brand_id'])
+            ? ActivityLogger::diff($originalAttrs, $updatedAttrs, ['sku', 'price', 'quantity', 'status', 'brand_id'])
             : null;
         ActivityLogger::log('updated', 'Product', (int) $id, $request->name . ' (SKU: ' . ($request->sku ?? '') . ')', $changes);
 
@@ -1140,7 +1128,7 @@ if ($q !== '') {
         if (class_exists(\Extensions\Warehousing\Services\WarehouseStockService::class)) {
             $defaultWh = \Extensions\Warehousing\Services\WarehouseStockService::getDefaultWarehouse();
             if ($defaultWh && isset($updatedAttrs['quantity'])) {
-                $inv = \Extensions\Warehousing\Services\WarehouseStockService::getOrCreateInventory($defaultWh->id, (int) $id, 0);
+                $inv = \Extensions\Warehousing\Services\WarehouseStockService::getOrCreateStock($defaultWh->id, (int) $id, 0);
                 $inv->update(['quantity' => (int) $updatedAttrs['quantity']]);
             }
         }
@@ -1354,7 +1342,7 @@ if ($q !== '') {
                 $data = [
                     'sku' => (string) ($v['sku'] ?? ''),
                     'quantity' => (int) ($v['quantity'] ?? 0),
-                    'subtract' => (int) ($v['subtract'] ?? 1),
+                    'subtract_stock' => (int) ($v['subtract_stock'] ?? 1),
                     'price' => $optPrice,
                     'price_prefix' => (string) ($v['price_prefix'] ?? '+'),
                     'weight' => (float) ($v['weight'] ?? 0),

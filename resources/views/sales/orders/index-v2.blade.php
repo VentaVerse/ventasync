@@ -9,7 +9,7 @@
 @include('partials.flash')
 @if($ordersFull)
     <div class="fm-flash" role="status">
-        <div class="fm-note fm-note--fail"><div class="fm-note__body">{{ $ordersFull }} This month's are used up, so new orders, marketplace orders included, are not taken in until the 1st.</div></div>
+        <div class="fm-note fm-note--fail"><div class="fm-note__body">{{ $ordersFull }} This month's are used up, so new orders, channel orders included, are not taken in until the 1st.</div></div>
     </div>
 @endif
 <div class="x-list-head">

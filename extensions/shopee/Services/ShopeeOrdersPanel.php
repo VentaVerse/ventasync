@@ -2,8 +2,8 @@
 
 namespace Extensions\Shopee\Services;
 
-use App\Support\Fulfilment\CourierTally;
-use App\Support\FulfilmentSteps;
+use App\Support\Fulfillment\CourierTally;
+use App\Support\FulfillmentSteps;
 use Extensions\Shopee\Models\ShopeeOrder;
 use Extensions\Shopee\Models\ShopeeStore;
 use Illuminate\Http\Request;
@@ -106,7 +106,7 @@ class ShopeeOrdersPanel
 
         $mappedStatuses = array_values(array_unique(array_merge(...array_values($tabStatusMap))));
 
-        $tabs = FulfilmentSteps::tabs([
+        $tabs = FulfillmentSteps::tabs([
             'ALL'                 => 'all',
             'UNPAID'              => 'unpaid',
             'PENDING'             => 'to_ship',
@@ -193,7 +193,7 @@ class ShopeeOrdersPanel
 
         $otherCount = (clone $baseCountQuery)->whereNotIn('status', $mappedStatuses)->count();
         if ($otherCount > 0) {
-            $tabs['OTHER'] = FulfilmentSteps::label('other');
+            $tabs['OTHER'] = FulfillmentSteps::label('other');
             $tab_counts['OTHER'] = $otherCount;
         }
 
@@ -215,7 +215,7 @@ class ShopeeOrdersPanel
         $savedAwbs = [];
         foreach ($orders as $o) {
             $sn = (string) ($o->order_sn ?? '');
-            if ($sn !== '' && file_exists(\App\Support\Fulfilment\Waybills::path('shopee', (int) $o->store_id, $sn))) {
+            if ($sn !== '' && file_exists(\App\Support\Fulfillment\Waybills::path('shopee', (int) $o->store_id, $sn))) {
                 $savedAwbs[$o->order_sn] = true;
             }
         }

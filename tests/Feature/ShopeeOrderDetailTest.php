@@ -104,8 +104,8 @@ class ShopeeOrderDetailTest extends TestCase
 
         ShopeeOrderProduct::create([
             'shopee_order_id' => $order->id,
-            'item_id' => 88001,
-            'model_id' => 99001,
+            'shopee_item_id' => 88001,
+            'shopee_model_id' => 99001,
             'sku' => 'SKU-ALPHA-01',
             'name' => 'Alpha Wireless Keyboard',
             'variation' => 'Graphite, US layout',

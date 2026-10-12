@@ -15,10 +15,10 @@ class VariationRowsTest extends TestCase
     {
 
         return (int) DB::table('products')->insertGetId([
-            'model' => $model, 'sku' => $model, 'quantity' => 5, 'price' => 100,
+            'sku' => $model, 'quantity' => 5, 'price' => 100,
             'status' => 1, 'image' => '', 'weight' => 1, 'length' => 1, 'width' => 1, 'height' => 1,
             'brand_id' => 0,
-            'date_added' => now(), 'date_modified' => now(), 'date_available' => now(),
+            'date_added' => now(), 'date_modified' => now(),
         ]);
     }
 
@@ -44,7 +44,7 @@ class VariationRowsTest extends TestCase
         return (int) DB::table('product_variation_values')->insertGetId([
             'product_variation_type_id' => $productVariationTypeId, 'product_id' => $productId,
             'variation_type_id' => $variationTypeId, 'variation_value_id' => $valueId,
-            'sku' => 'POV-' . $valueName, 'quantity' => 3, 'subtract' => 1,
+            'sku' => 'POV-' . $valueName, 'quantity' => 3, 'subtract_stock' => 1,
             'price' => 0, 'price_prefix' => '+', 'points' => 0, 'points_prefix' => '+',
             'weight' => 0, 'weight_prefix' => '+',
             'cost' => 0, 'cost_amount' => 0, 'cost_percentage' => 0, 'cost_additional' => 0,

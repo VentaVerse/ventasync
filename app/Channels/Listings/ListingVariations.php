@@ -228,11 +228,9 @@ final class ListingVariations
         }
 
         $parent = [];
-        $product = DB::table('products')->where('product_id', $productId)->first(['sku', 'model']);
-        foreach ([$product->sku ?? '', $product->model ?? ''] as $own) {
-            if (($k = self::key($own)) !== '') {
-                $parent[$k] = true;
-            }
+        $product = DB::table('products')->where('product_id', $productId)->first(['sku']);
+        if (($k = self::key($product->sku ?? '')) !== '') {
+            $parent[$k] = true;
         }
 
         $extras = [];

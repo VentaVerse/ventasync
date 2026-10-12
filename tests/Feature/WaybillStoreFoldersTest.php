@@ -6,7 +6,7 @@ use App\Extensions\ExtensionManager;
 use App\Models\Admin\Permission;
 use App\Models\Admin\UserGroup;
 use App\Models\User;
-use App\Support\Fulfilment\Waybills;
+use App\Support\Fulfillment\Waybills;
 use Extensions\Lazada\Models\LazadaOrder;
 use Extensions\Lazada\Models\LazadaStore;
 use Extensions\Shopee\Models\ShopeeOrder;

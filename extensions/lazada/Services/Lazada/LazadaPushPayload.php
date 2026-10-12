@@ -67,7 +67,7 @@ class LazadaPushPayload
             ->leftJoin('brands as m', 'p.brand_id', '=', 'm.brand_id')
             ->where('p.product_id', (int)$listing->product_id)
             ->first([
-                'p.product_id','p.sku','p.model','p.image','p.price','p.quantity',
+                'p.product_id','p.sku','p.image','p.price','p.quantity',
                 'p.weight','p.length','p.width','p.height','p.date_modified',
                 'p.upc','p.ean','p.jan','p.isbn','p.mpn',
                 'pd.name','pd.description','pd.meta_title','pd.meta_description',
@@ -166,9 +166,6 @@ class LazadaPushPayload
         $fallbackBaseSku = null;
         if ($product) {
             $fallbackBaseSku = trim((string)($product->sku ?? ''));
-            if ($fallbackBaseSku === '') {
-                $fallbackBaseSku = trim((string)($product->model ?? ''));
-            }
             if ($fallbackBaseSku === '') {
                 $fallbackBaseSku = null;
             }

@@ -66,6 +66,116 @@
     },
     {
         "method": "GET|HEAD",
+        "uri": "api/app/v1/channels",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/app/v1/channels/ventacart/stores/{store}/orders",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/app/v1/channels/ventacart/stores/{store}/orders/{id}",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/app/v1/channels/ventacart/stores/{store}/orders/{id}/awb",
+        "name": null
+    },
+    {
+        "method": "POST",
+        "uri": "api/app/v1/channels/ventacart/stores/{store}/orders/{id}/book",
+        "name": null
+    },
+    {
+        "method": "POST",
+        "uri": "api/app/v1/channels/ventacart/stores/{store}/orders/{id}/book-manual",
+        "name": null
+    },
+    {
+        "method": "POST",
+        "uri": "api/app/v1/channels/ventacart/stores/{store}/orders/{id}/estimate",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/app/v1/channels/ventacart/stores/{store}/orders/{id}/pickup-slots",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/app/v1/channels/ventacart/stores/{store}/orders/{id}/serviceability",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/app/v1/channels/ventacart/stores/{store}/orders/{id}/tracking",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/app/v1/channels/ventacart/stores/{store}/pickup-addresses",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/app/v1/channels/ventacart/stores/{store}/shipping-couriers",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/app/v1/channels/{channel}/orders",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/app/v1/channels/{channel}/orders/{id}",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/app/v1/channels/{channel}/orders/{id}/awb",
+        "name": null
+    },
+    {
+        "method": "POST",
+        "uri": "api/app/v1/channels/{channel}/orders/{id}/pack",
+        "name": null
+    },
+    {
+        "method": "POST",
+        "uri": "api/app/v1/channels/{channel}/orders/{id}/repack",
+        "name": null
+    },
+    {
+        "method": "POST",
+        "uri": "api/app/v1/channels/{channel}/orders/{id}/rts",
+        "name": null
+    },
+    {
+        "method": "POST",
+        "uri": "api/app/v1/channels/{channel}/orders/{id}/ship",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/app/v1/channels/{channel}/orders/{id}/shipping-options",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/app/v1/channels/{channel}/orders/{id}/tracking",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/app/v1/channels/{channel}/stores",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
         "uri": "api/app/v1/customers",
         "name": null
     },
@@ -92,6 +202,16 @@
     {
         "method": "POST",
         "uri": "api/app/v1/device-token",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/app/v1/fulfillment/packing-check/{channel}/{order}",
+        "name": null
+    },
+    {
+        "method": "POST",
+        "uri": "api/app/v1/fulfillment/packing-check/{channel}/{order}",
         "name": null
     },
     {
@@ -131,47 +251,47 @@
     },
     {
         "method": "GET|HEAD",
-        "uri": "api/app/v1/marketplace/{platform}/orders",
+        "uri": "api/app/v1/marketplace/{channel}/orders",
         "name": null
     },
     {
         "method": "GET|HEAD",
-        "uri": "api/app/v1/marketplace/{platform}/orders/{id}",
+        "uri": "api/app/v1/marketplace/{channel}/orders/{id}",
         "name": null
     },
     {
         "method": "GET|HEAD",
-        "uri": "api/app/v1/marketplace/{platform}/orders/{id}/awb",
+        "uri": "api/app/v1/marketplace/{channel}/orders/{id}/awb",
         "name": null
     },
     {
         "method": "POST",
-        "uri": "api/app/v1/marketplace/{platform}/orders/{id}/pack",
+        "uri": "api/app/v1/marketplace/{channel}/orders/{id}/pack",
         "name": null
     },
     {
         "method": "POST",
-        "uri": "api/app/v1/marketplace/{platform}/orders/{id}/repack",
+        "uri": "api/app/v1/marketplace/{channel}/orders/{id}/repack",
         "name": null
     },
     {
         "method": "POST",
-        "uri": "api/app/v1/marketplace/{platform}/orders/{id}/rts",
+        "uri": "api/app/v1/marketplace/{channel}/orders/{id}/rts",
         "name": null
     },
     {
         "method": "POST",
-        "uri": "api/app/v1/marketplace/{platform}/orders/{id}/ship",
+        "uri": "api/app/v1/marketplace/{channel}/orders/{id}/ship",
         "name": null
     },
     {
         "method": "GET|HEAD",
-        "uri": "api/app/v1/marketplace/{platform}/orders/{id}/shipping-options",
+        "uri": "api/app/v1/marketplace/{channel}/orders/{id}/shipping-options",
         "name": null
     },
     {
         "method": "GET|HEAD",
-        "uri": "api/app/v1/marketplace/{platform}/orders/{id}/tracking",
+        "uri": "api/app/v1/marketplace/{channel}/orders/{id}/tracking",
         "name": null
     },
     {
@@ -331,6 +451,21 @@
     },
     {
         "method": "GET|HEAD",
+        "uri": "api/app/v1/reports/stock",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/app/v1/stock",
+        "name": null
+    },
+    {
+        "method": "POST",
+        "uri": "api/app/v1/stock/adjust",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
         "uri": "api/app/v1/user",
         "name": null
     },
@@ -436,6 +571,116 @@
     },
     {
         "method": "GET|HEAD",
+        "uri": "api/channels",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/channels/ventacart/stores/{store}/orders",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/channels/ventacart/stores/{store}/orders/{id}",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/channels/ventacart/stores/{store}/orders/{id}/awb",
+        "name": null
+    },
+    {
+        "method": "POST",
+        "uri": "api/channels/ventacart/stores/{store}/orders/{id}/book",
+        "name": null
+    },
+    {
+        "method": "POST",
+        "uri": "api/channels/ventacart/stores/{store}/orders/{id}/book-manual",
+        "name": null
+    },
+    {
+        "method": "POST",
+        "uri": "api/channels/ventacart/stores/{store}/orders/{id}/estimate",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/channels/ventacart/stores/{store}/orders/{id}/pickup-slots",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/channels/ventacart/stores/{store}/orders/{id}/serviceability",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/channels/ventacart/stores/{store}/orders/{id}/tracking",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/channels/ventacart/stores/{store}/pickup-addresses",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/channels/ventacart/stores/{store}/shipping-couriers",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/channels/{channel}/orders",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/channels/{channel}/orders/{id}",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/channels/{channel}/orders/{id}/awb",
+        "name": null
+    },
+    {
+        "method": "POST",
+        "uri": "api/channels/{channel}/orders/{id}/pack",
+        "name": null
+    },
+    {
+        "method": "POST",
+        "uri": "api/channels/{channel}/orders/{id}/repack",
+        "name": null
+    },
+    {
+        "method": "POST",
+        "uri": "api/channels/{channel}/orders/{id}/rts",
+        "name": null
+    },
+    {
+        "method": "POST",
+        "uri": "api/channels/{channel}/orders/{id}/ship",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/channels/{channel}/orders/{id}/shipping-options",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/channels/{channel}/orders/{id}/tracking",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/channels/{channel}/stores",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
         "uri": "api/currencies",
         "name": "api.currencies"
     },
@@ -467,6 +712,16 @@
     {
         "method": "POST",
         "uri": "api/device-token",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/fulfillment/packing-check/{channel}/{order}",
+        "name": null
+    },
+    {
+        "method": "POST",
+        "uri": "api/fulfillment/packing-check/{channel}/{order}",
         "name": null
     },
     {
@@ -506,47 +761,47 @@
     },
     {
         "method": "GET|HEAD",
-        "uri": "api/marketplace/{platform}/orders",
+        "uri": "api/marketplace/{channel}/orders",
         "name": null
     },
     {
         "method": "GET|HEAD",
-        "uri": "api/marketplace/{platform}/orders/{id}",
+        "uri": "api/marketplace/{channel}/orders/{id}",
         "name": null
     },
     {
         "method": "GET|HEAD",
-        "uri": "api/marketplace/{platform}/orders/{id}/awb",
+        "uri": "api/marketplace/{channel}/orders/{id}/awb",
         "name": null
     },
     {
         "method": "POST",
-        "uri": "api/marketplace/{platform}/orders/{id}/pack",
+        "uri": "api/marketplace/{channel}/orders/{id}/pack",
         "name": null
     },
     {
         "method": "POST",
-        "uri": "api/marketplace/{platform}/orders/{id}/repack",
+        "uri": "api/marketplace/{channel}/orders/{id}/repack",
         "name": null
     },
     {
         "method": "POST",
-        "uri": "api/marketplace/{platform}/orders/{id}/rts",
+        "uri": "api/marketplace/{channel}/orders/{id}/rts",
         "name": null
     },
     {
         "method": "POST",
-        "uri": "api/marketplace/{platform}/orders/{id}/ship",
+        "uri": "api/marketplace/{channel}/orders/{id}/ship",
         "name": null
     },
     {
         "method": "GET|HEAD",
-        "uri": "api/marketplace/{platform}/orders/{id}/shipping-options",
+        "uri": "api/marketplace/{channel}/orders/{id}/shipping-options",
         "name": null
     },
     {
         "method": "GET|HEAD",
-        "uri": "api/marketplace/{platform}/orders/{id}/tracking",
+        "uri": "api/marketplace/{channel}/orders/{id}/tracking",
         "name": null
     },
     {
@@ -707,6 +962,21 @@
     {
         "method": "GET|HEAD",
         "uri": "api/reports/products",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/reports/stock",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/stock",
+        "name": null
+    },
+    {
+        "method": "POST",
+        "uri": "api/stock/adjust",
         "name": null
     },
     {
@@ -887,6 +1157,21 @@
     {
         "method": "GET|HEAD",
         "uri": "api/v1/reports/products",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/v1/reports/stock",
+        "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "api/v1/stock",
+        "name": null
+    },
+    {
+        "method": "POST",
+        "uri": "api/v1/stock/adjust",
         "name": null
     },
     {
@@ -1316,28 +1601,33 @@
     },
     {
         "method": "GET|HEAD",
-        "uri": "channels/fulfilment",
-        "name": "channels.fulfilment"
+        "uri": "channels/fulfillment",
+        "name": "channels.fulfillment"
     },
     {
         "method": "GET|HEAD",
-        "uri": "channels/fulfilment/packing-check/{channel}/{order}",
-        "name": "fulfilment.packing_check.show"
+        "uri": "channels/fulfillment/packing-check/{channel}/{order}",
+        "name": "fulfillment.packing_check.show"
     },
     {
         "method": "POST",
-        "uri": "channels/fulfilment/packing-check/{channel}/{order}",
-        "name": "fulfilment.packing_check.verify"
+        "uri": "channels/fulfillment/packing-check/{channel}/{order}",
+        "name": "fulfillment.packing_check.verify"
     },
     {
         "method": "POST",
-        "uri": "channels/fulfilment/print/{channel}/packing",
-        "name": "fulfilment.print.packing"
+        "uri": "channels/fulfillment/print/{channel}/packing",
+        "name": "fulfillment.print.packing"
     },
     {
         "method": "POST",
-        "uri": "channels/fulfilment/print/{channel}/pick",
-        "name": "fulfilment.print.pick"
+        "uri": "channels/fulfillment/print/{channel}/pick",
+        "name": "fulfillment.print.pick"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "channels/fulfilment/{any?}",
+        "name": null
     },
     {
         "method": "POST",
@@ -5181,13 +5471,8 @@
     },
     {
         "method": "GET|HEAD",
-        "uri": "reports/inventory",
-        "name": "ext.reports.inventory"
-    },
-    {
-        "method": "GET|HEAD",
-        "uri": "reports/inventory/export",
-        "name": "ext.reports.inventory.export"
+        "uri": "reports/inventory/{any?}",
+        "name": null
     },
     {
         "method": "GET|HEAD",
@@ -5223,6 +5508,16 @@
         "method": "GET|HEAD",
         "uri": "reports/products/{product}/detail",
         "name": "ext.reports.products.detail"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "reports/stock",
+        "name": "ext.reports.stock"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "reports/stock/export",
+        "name": "ext.reports.stock.export"
     },
     {
         "method": "POST",
@@ -5516,13 +5811,18 @@
     },
     {
         "method": "GET|HEAD",
-        "uri": "settings/fulfilment",
-        "name": "settings.fulfilment"
+        "uri": "settings/fulfillment",
+        "name": "settings.fulfillment"
     },
     {
         "method": "PUT",
+        "uri": "settings/fulfillment",
+        "name": "settings.fulfillment.update"
+    },
+    {
+        "method": "GET|HEAD",
         "uri": "settings/fulfilment",
-        "name": "settings.fulfilment.update"
+        "name": null
     },
     {
         "method": "GET|HEAD",
@@ -5782,12 +6082,12 @@
     {
         "method": "GET|HEAD",
         "uri": "warehousing/adjust",
-        "name": "ext.warehousing.inventory.adjust"
+        "name": "ext.warehousing.stock.adjust"
     },
     {
         "method": "POST",
         "uri": "warehousing/adjust",
-        "name": "ext.warehousing.inventory.adjust.store"
+        "name": "ext.warehousing.stock.adjust.store"
     },
     {
         "method": "GET|HEAD",
@@ -5797,12 +6097,17 @@
     {
         "method": "GET|HEAD",
         "uri": "warehousing/inventory",
-        "name": "ext.warehousing.inventory.index"
+        "name": null
     },
     {
         "method": "GET|HEAD",
         "uri": "warehousing/locations/{any?}",
         "name": null
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "warehousing/stock",
+        "name": "ext.warehousing.stock.index"
     },
     {
         "method": "GET|HEAD",

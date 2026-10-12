@@ -191,7 +191,7 @@
             $orderedMap = [];
             if ($ret->order && $ret->order->relationLoaded('products')) {
                 foreach ($ret->order->products as $p) {
-                    $k = ((string) $p->item_id) . '_' . ((string) $p->model_id);
+                    $k = ((string) $p->shopee_item_id) . '_' . ((string) $p->shopee_model_id);
                     $orderedMap[$k] = ($orderedMap[$k] ?? 0) + (int) $p->quantity;
                 }
             }
@@ -241,7 +241,7 @@
                                 <span class="co-item__name">{{ $name !== '' ? $name : 'Unnamed product' }}</span>
                                 <div class="co-item__meta">
                                     @if($sku !== '')<span class="co-item__sku">{{ $sku }}</span>@endif
-                                    <x-fulfilment.variation :sku="$sku" :fallback="$variation" />
+                                    <x-fulfillment.variation :sku="$sku" :fallback="$variation" />
                                     @if($ordered !== null)<span>{{ $retQty }} of {{ $ordered }} ordered</span>@endif
                                 </div>
                             </div>

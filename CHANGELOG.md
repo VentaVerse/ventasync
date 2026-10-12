@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Names in the code and database say what they hold: "channel" wherever every channel is meant (marketplace means only Shopee, Lazada and TikTok), "stock" for stock, "fulfillment" in American spelling, and the OpenCart leftovers on products and orders are gone (a product with no SKU keeps its old model code as its SKU). Existing installs run php artisan migrate. CONTRIBUTING.md has the naming rules.
+- Phone app and REST API: new addresses /channels, /channels/{channel}/stores, /channels/{channel}/orders, /channels/ventacart/stores/{store}/orders and /stock, and new fields channel_order_id, sku, fulfillment, pending_by_channel and pending_by_store. The old addresses and fields (/marketplace-config, /marketplace/..., /ventacart/{store}/..., /inventory, /fulfilment/packing-check, marketplace_order_id, model, fulfilment) keep working until 0.32.0. The REST API order list filters by channel; source still works until then.
+- The one-time command orders:normalize-marketplace-fees is removed; order syncs already write each channel's fees.
 - Profit counts the shipping the buyer paid as income on own-store orders (VentaCart, OpenCart, WooCommerce, Shopify and manual orders); the order page shows it as its own line. Shopee, Lazada and TikTok figures do not change.
 - Database cleanup: plain table names and one word for each idea. Existing installs upgrade with php artisan ventasync:upgrade-database.
 - Five wrong passwords in a row lock an account for 15 minutes, on the web and in the mobile app; an admin can unlock it sooner from Settings, Users. Locks and unlocks are in the activity log.

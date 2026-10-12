@@ -125,7 +125,7 @@ class ShopeeOrderController extends Controller
         $return->loadMissing('order.products');
         if ($return->order) {
             foreach ($return->order->products as $p) {
-                $key = ((string) $p->item_id) . '_' . ((string) $p->model_id);
+                $key = ((string) $p->shopee_item_id) . '_' . ((string) $p->shopee_model_id);
                 $orderedQty[$key] = ($orderedQty[$key] ?? 0) + (int) $p->quantity;
             }
         }
@@ -791,7 +791,7 @@ class ShopeeOrderController extends Controller
         $errMsg = $shipBodyResp['error'] ?? ($shipBodyResp['message'] ?? null);
 
         if (!($shipRes['ok'] ?? false) || (is_string($errMsg) && $errMsg !== '' && $errMsg !== 'success')) {
-            $shipReason = \App\Support\MarketplaceAnswer::plain('Shopee', $shipRes);
+            $shipReason = \App\Support\ChannelAnswer::plain('Shopee', $shipRes);
             if ($json) return response()->json(['ok' => false, 'message' => 'Ship order failed: ' . $shipReason], 422);
             return redirect()->route('ext.shopee.orders.index')->with('shopee_orders_last_result', [
                 'ok' => false,
@@ -930,7 +930,7 @@ class ShopeeOrderController extends Controller
         $json = $request->expectsJson();
 
         $safeOrderSn = preg_replace('/[^A-Za-z0-9_-]/', '', $orderSn);
-        $awbPath = \App\Support\Fulfilment\Waybills::path('shopee', (int) ShopeeStore::defaultStore()?->id, $orderSn);
+        $awbPath = \App\Support\Fulfillment\Waybills::path('shopee', (int) ShopeeStore::defaultStore()?->id, $orderSn);
 
         if (file_exists($awbPath)) {
             if ($json) return response()->json(['ok' => true, 'ready' => true]);
@@ -1070,7 +1070,7 @@ class ShopeeOrderController extends Controller
         $body = $downloadRes['body'] ?? null;
 
         if (is_string($body) && str_starts_with($body, '%PDF')) {
-            \App\Support\Fulfilment\Waybills::save($awbPath, $body);
+            \App\Support\Fulfillment\Waybills::save($awbPath, $body);
 
             if ($json) return response()->json(['ok' => true, 'ready' => true]);
             return response($body, 200)
@@ -1209,7 +1209,7 @@ class ShopeeOrderController extends Controller
 
             if (!($res['ok'] ?? false)) {
                 $body = $res['body'] ?? [];
-                $msg = \App\Support\MarketplaceAnswer::plain('Shopee', ['ok' => false, 'body' => is_array($body) ? $body : []]);
+                $msg = \App\Support\ChannelAnswer::plain('Shopee', ['ok' => false, 'body' => is_array($body) ? $body : []]);
                 return redirect()->route('ext.shopee.orders.index', ['tab' => 'RETURN'])->with('shopee_orders_last_result', [
                     'ok' => false,
                     'message' => 'Shopee Returns API error: ' . $msg,

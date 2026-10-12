@@ -294,18 +294,17 @@ class ShopeeFindDuplicates extends Command
             })
             ->whereIn('p.product_id', \Extensions\Shopee\Services\ShopeeStoreProducts::query())
             ->where(fn ($q) => $q->whereNull('p.sku')->orWhere('p.sku', ''))
-            ->where(fn ($q) => $q->whereNull('p.model')->orWhere('p.model', ''))
             ->orderBy('p.product_id')
             ->get(['p.product_id', 'pd.name']);
 
         $this->line('');
         if ($rows->isEmpty()) {
-            $this->line('Every product on this store carries an SKU or a model.');
+            $this->line('Every product on this store carries an SKU.');
 
             return;
         }
 
-        $this->warn($rows->count() . ' product(s) on this store carry neither an SKU nor a model.');
+        $this->warn($rows->count() . ' product(s) on this store carry no SKU.');
         $this->line('A push of one of these cannot be matched back to its Shopee item, so a lost link');
         $this->line('can never be recovered and the next push creates a second item.');
         foreach ($rows as $row) {

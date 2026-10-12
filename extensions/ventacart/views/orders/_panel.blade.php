@@ -209,12 +209,12 @@
 @if($canManageVentaOrders)
 <div data-order-selection>
     <x-ui.selectbar :step="$vtScopeStep">
-        <form method="POST" action="{{ route('fulfilment.print.pick', ['channel' => 'ventacart']) }}"
+        <form method="POST" action="{{ route('fulfillment.print.pick', ['channel' => 'ventacart']) }}"
               id="ventacart-bulk-form" class="x-selectbar__actions" data-selection-actions hidden>
             @csrf
             <x-ui.button type="submit" variant="secondary" size="sm" formtarget="_blank">Print pick list</x-ui.button>
             <x-ui.button type="submit" variant="secondary" size="sm" formtarget="_blank"
-                         formaction="{{ route('fulfilment.print.packing', ['channel' => 'ventacart']) }}">Print packing lists</x-ui.button>
+                         formaction="{{ route('fulfillment.print.packing', ['channel' => 'ventacart']) }}">Print packing lists</x-ui.button>
             <x-ui.hint label="About these two lists">One pick list for the whole selection, with lines consolidated by SKU so three of the same item is one trip to the shelf. Packing lists are one per order, nothing consolidated, to go in the parcel.</x-ui.hint>
             <span class="x-selectbar__split"></span>
             <x-ui.button type="submit" variant="danger" size="sm"
@@ -291,12 +291,12 @@
                 : \Extensions\VentaCart\Services\VentaCart\VentaCartCouriers::name((string) ($o->courier_provider ?? ''));
 
             $vtAddr = is_array($o->shipping_address) ? $o->shipping_address : [];
-            $vtParcel = \App\Support\Fulfilment\PackedParcel::fromItems(array_map(function ($it) use ($vtImages) {
+            $vtParcel = \App\Support\Fulfillment\PackedParcel::fromItems(array_map(function ($it) use ($vtImages) {
                 $img = trim((string) ($vtImages[trim((string) ($it->sku ?? ''))] ?? ''));
                 return [
                     'name' => (string) ($it->name ?? ''),
                     'sku' => (string) ($it->sku ?? ''),
-                    'variation' => (string) ($it->variant_label ?? ''),
+                    'variation' => (string) ($it->variation_label ?? ''),
                     'quantity' => max(1, (int) ($it->quantity ?? 1)),
                     'image' => $img !== '' ? \App\Services\Media\ImageCache::url($img) : '',
                 ];
@@ -357,7 +357,7 @@
                             @if(trim((string) ($vtItem?->sku ?? '')) !== '')
                                 <span class="co-item__sku">{{ $vtItem->sku }}</span>
                             @endif
-                            <x-fulfilment.variation :sku="$vtItem?->sku" :fallback="$vtItem?->variant_label" />
+                            <x-fulfillment.variation :sku="$vtItem?->sku" :fallback="$vtItem?->variation_label" />
                         </div>
                     </div>
                 </div>
@@ -435,7 +435,7 @@
                                      data-couriers-url="{{ route('ext.ventacart.orders.shipping_couriers', $storeId) }}"
                                      data-addresses-url="{{ route('ext.ventacart.orders.pickup_addresses', $storeId) }}"
                                      data-book-manual-url="{{ route('ext.ventacart.orders.book_manual', [$storeId, $o->id]) }}">Book courier</x-ui.button>
-                        <template data-parcel-for="{{ $o->id }}"><x-fulfilment.parcel :parcel="$vtParcel" /></template>
+                        <template data-parcel-for="{{ $o->id }}"><x-fulfillment.parcel :parcel="$vtParcel" /></template>
                     @endif
 
                     @if(($vtIsToHandover || $vtBooked) && !$vtIsManual)
@@ -462,7 +462,7 @@
                     @endif
 
                     <form method="POST" class="x-docs"
-                          action="{{ route('fulfilment.print.packing', ['channel' => 'ventacart']) }}"
+                          action="{{ route('fulfillment.print.packing', ['channel' => 'ventacart']) }}"
                           target="_blank">
                         @csrf
                         <input type="hidden" name="ids[]" value="{{ $o->id }}">

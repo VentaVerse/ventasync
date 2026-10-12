@@ -34,7 +34,7 @@
         <div class="fm-head__actions">
             <x-ui.menu label="{{ $orderStatus->name }} actions">
                 <button type="button" class="x-menu__item x-menu__item--danger"
-                        data-confirm="Delete {{ $orderStatus->name }}? Any channel that maps a marketplace status onto it stops resolving to a name. This cannot be undone."
+                        data-confirm="Delete {{ $orderStatus->name }}? Any channel that maps its own status onto it stops resolving to a name. This cannot be undone."
                         data-confirm-submit="st-os-delete-form">Delete status</button>
             </x-ui.menu>
         </div>

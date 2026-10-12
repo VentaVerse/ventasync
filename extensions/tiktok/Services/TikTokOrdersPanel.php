@@ -2,8 +2,8 @@
 
 namespace Extensions\TikTok\Services;
 
-use App\Support\Fulfilment\CourierTally;
-use App\Support\FulfilmentSteps;
+use App\Support\Fulfillment\CourierTally;
+use App\Support\FulfillmentSteps;
 use Extensions\TikTok\Models\TikTokOrder;
 use Extensions\TikTok\Models\TikTokStore;
 use Illuminate\Http\Request;
@@ -58,7 +58,7 @@ class TikTokOrdersPanel
             $pendingSubtab = '';
         }
 
-        $tabs = FulfilmentSteps::tabs([
+        $tabs = FulfillmentSteps::tabs([
             'ALL'          => 'all',
             'UNPAID'       => 'unpaid',
             'TO_SHIP'      => 'to_ship',

@@ -34,7 +34,7 @@ class VariationLegacySkuTest extends TestCase
         );
 
         $this->assertStringContainsString('showOptNotice(', $source);
-        $this->assertStringContainsString('will not map to a marketplace listing', $source);
+        $this->assertStringContainsString('will not map to a listing', $source);
     }
 
     public function test_typing_a_sku_ends_the_exemption(): void

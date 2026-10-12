@@ -195,6 +195,6 @@ class LazadaVoucherController extends Controller
 
     private function callMessage(array $result): string
     {
-        return \App\Support\MarketplaceAnswer::errorText('Lazada', $result);
+        return \App\Support\ChannelAnswer::errorText('Lazada', $result);
     }
 }

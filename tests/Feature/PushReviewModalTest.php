@@ -54,10 +54,10 @@ class PushReviewModalTest extends TestCase
     {
         $langId = (int) config('catalog.default_language_id');
         $pid = DB::table('products')->insertGetId([
-            'model' => $sku, 'sku' => $sku, 'quantity' => 5, 'price' => $price,
+            'sku' => $sku, 'quantity' => 5, 'price' => $price,
             'status' => 1, 'image' => 'catalog/x.png', 'weight' => 0.5, 'length' => 10, 'width' => 10, 'height' => 5,
             'brand_id' => 0,
-            'date_added' => now(), 'date_modified' => now(), 'date_available' => now(),
+            'date_added' => now(), 'date_modified' => now(),
         ]);
         DB::table('product_descriptions')->insert([
             'product_id' => $pid, 'language_id' => $langId,

@@ -55,9 +55,9 @@ class TikTokAddToStoreTest extends TestCase
     private function seedProduct(string $name, string $sku, int $status = 1): int
     {
         $pid = DB::table('products')->insertGetId([
-            'model' => $sku, 'sku' => $sku, 'quantity' => 5, 'price' => 100, 'status' => $status,
+            'sku' => $sku, 'quantity' => 5, 'price' => 100, 'status' => $status,
             'image' => '', 'weight' => 1, 'length' => 1, 'width' => 1, 'height' => 1, 'brand_id' => 0,
-            'date_added' => now(), 'date_modified' => now(), 'date_available' => now(),
+            'date_added' => now(), 'date_modified' => now(),
         ]);
         DB::table('product_descriptions')->insert([
             'product_id' => $pid, 'language_id' => (int) config('catalog.default_language_id'),

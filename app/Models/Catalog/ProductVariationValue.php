@@ -15,7 +15,7 @@ class ProductVariationValue extends BaseModel
         'variation_value_id',
         'sku',
         'quantity',
-        'subtract',
+        'subtract_stock',
         'price',        'price_prefix',
         'points',
         'points_prefix',

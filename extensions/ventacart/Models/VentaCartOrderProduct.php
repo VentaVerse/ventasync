@@ -13,7 +13,7 @@ class VentaCartOrderProduct extends Model
         'ventacart_order_id',
         'sku',
         'name',
-        'variant_label',
+        'variation_label',
         'quantity',
         'price',
         'total',

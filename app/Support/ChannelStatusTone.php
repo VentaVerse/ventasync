@@ -81,7 +81,7 @@ class ChannelStatusTone
             'VOIDED'             => 'danger',
         ],
 
-        'shopify.fulfilment' => [
+        'shopify.fulfillment' => [
             'UNFULFILLED' => 'warning',
             'PARTIAL'     => 'warning',
             'FULFILLED'   => 'success',
@@ -329,7 +329,7 @@ class ChannelStatusTone
             'VOIDED'             => 'Voided',
         ],
 
-        'shopify.fulfilment' => [
+        'shopify.fulfillment' => [
             'UNFULFILLED' => 'To pack',
             'PARTIAL'     => 'Partly packed',
             'FULFILLED'   => 'Packed',

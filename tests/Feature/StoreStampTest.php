@@ -27,7 +27,7 @@ class StoreStampTest extends TestCase
         $this->assertSame($store->id, (int) $so->store_id);
 
         app(ShopeeCatalogOrderSync::class)->setSkipStockAdjust(true)->sync($so);
-        $order = Order::where('channel', 'shopee')->where('marketplace_order_id', 'SP-1')->firstOrFail();
+        $order = Order::where('channel', 'shopee')->where('channel_order_id', 'SP-1')->firstOrFail();
         $this->assertSame($store->id, (int) $order->store_id);
         $this->assertSame('Main store', $order->store_name);
 
@@ -42,7 +42,7 @@ class StoreStampTest extends TestCase
         $lo = LazadaOrder::create(['order_id' => 999101, 'region' => 'PH', 'status' => 'pending',
             'raw' => ['currency' => 'PHP', 'price' => 200, 'customer_name' => 'Li Wei']]);
         app(LazadaCatalogOrderSync::class)->setSkipStockAdjust(true)->sync($lo);
-        $order = Order::where('channel', 'lazada')->where('marketplace_order_id', '999101')->firstOrFail();
+        $order = Order::where('channel', 'lazada')->where('channel_order_id', '999101')->firstOrFail();
         $this->assertSame($store->id, (int) $order->store_id);
         $this->assertSame('Laz PH', $order->store_name);
     }
@@ -53,7 +53,7 @@ class StoreStampTest extends TestCase
         $to = TikTokOrder::create(['order_id' => 'TT-1', 'region' => 'PH', 'status' => 'AWAITING_SHIPMENT',
             'raw' => ['payment_info' => ['currency' => 'PHP', 'total_amount' => 75], 'recipient_address' => ['name' => 'Buyer']]]);
         app(TikTokCatalogOrderSync::class)->setSkipStockAdjust(true)->sync($to);
-        $order = Order::where('channel', 'tiktok')->where('marketplace_order_id', 'TT-1')->firstOrFail();
+        $order = Order::where('channel', 'tiktok')->where('channel_order_id', 'TT-1')->firstOrFail();
         $this->assertSame($store->id, (int) $order->store_id);
         $this->assertSame('TT Shop', $order->store_name);
     }

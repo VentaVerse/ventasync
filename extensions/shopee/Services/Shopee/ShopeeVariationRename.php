@@ -170,7 +170,7 @@ class ShopeeVariationRename
         $body = is_array($res['body'] ?? null) ? $res['body'] : [];
         if (!($res['ok'] ?? false) || trim((string) ($body['error'] ?? '')) !== '') {
             return ['ok' => false, 'message' => $this->warning('Shopee refused them ('
-                . $this->bare(\App\Support\MarketplaceAnswer::plain('Shopee', ['ok' => false, 'body' => $body])) . ')')];
+                . $this->bare(\App\Support\ChannelAnswer::plain('Shopee', ['ok' => false, 'body' => $body])) . ')')];
         }
 
         return ['ok' => true, 'message' => ''];

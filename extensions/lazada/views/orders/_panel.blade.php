@@ -122,7 +122,7 @@
     </div>
 
     @if($pendingSub !== '')
-        <x-fulfilment.courier-strip :tally="$courier_tally ?? []" :self-url="$panelSelfUrl" />
+        <x-fulfillment.courier-strip :tally="$courier_tally ?? []" :self-url="$panelSelfUrl" />
     @endif
 @endif
 
@@ -276,12 +276,12 @@
 
 <div data-order-selection>
     <x-ui.selectbar :step="$active_tab !== 'ALL' ? ($tabs[$active_tab] ?? null) : null">
-        <form method="POST" action="{{ route('fulfilment.print.pick', ['channel' => 'lazada']) }}"
+        <form method="POST" action="{{ route('fulfillment.print.pick', ['channel' => 'lazada']) }}"
               id="lazada-print-pick" class="x-selectbar__actions" target="_blank" data-selection-actions hidden>
             @csrf
             <x-ui.button type="submit" variant="secondary" size="sm">Print pick list</x-ui.button>
             <x-ui.button type="submit" variant="secondary" size="sm"
-                         formaction="{{ route('fulfilment.print.packing', ['channel' => 'lazada']) }}">Print packing lists</x-ui.button>
+                         formaction="{{ route('fulfillment.print.packing', ['channel' => 'lazada']) }}">Print packing lists</x-ui.button>
             <x-ui.hint label="About these two lists">One pick list for the whole selection, with lines consolidated by SKU so three of the same item is one trip to the shelf. Packing lists are one per order, nothing consolidated, to go in the parcel.</x-ui.hint>
 
             @if($canManageLazadaOrders && $pendingSub === 'to_pack' && ($active_tab ?? '') === 'TO_SHIP')
@@ -344,7 +344,7 @@
                 if (!is_array($items)) $items = [];
             }
 
-            $groupedItems = \App\Support\Fulfilment\OrderItemGrouper::group($items);
+            $groupedItems = \App\Support\Fulfillment\OrderItemGrouper::group($items);
 
             $displayItems = $groupedItems !== [] ? $groupedItems : [[]];
             $lineCount = count($displayItems);
@@ -467,7 +467,7 @@
                             @if(trim((string) ($it['sku'] ?? '')) !== '')
                                 <span class="co-item__sku">{{ $it['sku'] }}</span>
                             @endif
-                            <x-fulfilment.variation :sku="$it['sku'] ?? null" :fallback="$it['variation'] ?? null" />
+                            <x-fulfillment.variation :sku="$it['sku'] ?? null" :fallback="$it['variation'] ?? null" />
                         </div>
                     </div>
                 </div>
@@ -638,7 +638,7 @@
         </div>
         <div class="co-modal__meta">Order <strong id="lzPackPrintOrder"></strong></div>
 
-        <x-fulfilment.parcel :parcel="$pack_print_parcel ?? null" />
+        <x-fulfillment.parcel :parcel="$pack_print_parcel ?? null" />
 
         <p class="co-modal__prompt">Close this and the order waits in To Arrange Shipment.</p>
         <div class="co-modal__foot co-modal__foot--end">

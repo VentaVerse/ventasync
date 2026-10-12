@@ -33,7 +33,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
 
-class LazadaExtension extends ExtensionProvider implements ChannelProvider, SkuResolver, SkuSyncContributor, DashboardContributor, OrderImagesContributor, OrderFeesContributor, \App\Channels\Contracts\MarketplaceFeeSource, MobileMarketplaceProvider, \App\Channels\Contracts\MobileFulfilmentProvider, LayoutBannerContributor, ChannelOptionsProvider, CredentialRevealer, ListingStateSource, \App\Channels\Contracts\StoreOptionsProvider, \App\Channels\Contracts\ProductRemover, \App\Channels\Contracts\VariationForgetter, \App\Channels\Contracts\MarketplaceOrderRefRenderer, \App\Channels\Contracts\SaleLinesSource
+class LazadaExtension extends ExtensionProvider implements ChannelProvider, SkuResolver, SkuSyncContributor, DashboardContributor, OrderImagesContributor, OrderFeesContributor, \App\Channels\Contracts\ChannelFeeSource, MobileMarketplaceProvider, \App\Channels\Contracts\MobileFulfillmentProvider, LayoutBannerContributor, ChannelOptionsProvider, CredentialRevealer, ListingStateSource, \App\Channels\Contracts\StoreOptionsProvider, \App\Channels\Contracts\ProductRemover, \App\Channels\Contracts\VariationForgetter, \App\Channels\Contracts\ChannelOrderRefRenderer, \App\Channels\Contracts\SaleLinesSource
 {
     private const MOBILE_TAB_STATUS_MAP = [
         'UNPAID'              => ['unpaid'],
@@ -535,7 +535,7 @@ class LazadaExtension extends ExtensionProvider implements ChannelProvider, SkuR
 
         $orderProducts = DB::table($opTable)
             ->whereIn('order_id', $catalogOrderIds)
-            ->get(['order_product_id', 'order_id', 'model']);
+            ->get(['order_product_id', 'order_id', 'sku']);
 
         $result = [];
         foreach ($orderProducts as $op) {
@@ -543,7 +543,7 @@ class LazadaExtension extends ExtensionProvider implements ChannelProvider, SkuR
             if (!$lzOrder) {
                 continue;
             }
-            $sku = trim((string) $op->model);
+            $sku = trim((string) $op->sku);
             if ($sku === '') {
                 continue;
             }
@@ -600,15 +600,15 @@ class LazadaExtension extends ExtensionProvider implements ChannelProvider, SkuR
         ];
     }
 
-    public function renderOrderRef(string $orderChannel, string $marketplaceOrderId): ?array
+    public function renderOrderRef(string $orderChannel, string $channelOrderId): ?array
     {
         if ($orderChannel !== 'lazada') {
             return null;
         }
 
-        $store = LazadaOrder::query()->withoutGlobalScope('lazadaStore')->where('order_id', $marketplaceOrderId)->value('store_id');
+        $store = LazadaOrder::query()->withoutGlobalScope('lazadaStore')->where('order_id', $channelOrderId)->value('store_id');
 
-        return ['display' => $marketplaceOrderId, 'url' => $store ? route('ext.lazada.orders.show', ['store' => $store, 'orderId' => $marketplaceOrderId]) : null];
+        return ['display' => $channelOrderId, 'url' => $store ? route('ext.lazada.orders.show', ['store' => $store, 'orderId' => $channelOrderId]) : null];
     }
 
     public function feesForOrder(Order $order): ?array
@@ -617,7 +617,7 @@ class LazadaExtension extends ExtensionProvider implements ChannelProvider, SkuR
             return null;
         }
 
-        $mktOrderId = (string) $order->marketplace_order_id;
+        $mktOrderId = (string) $order->channel_order_id;
         if ($mktOrderId === '' || !Schema::hasTable('ch_lazada_orders')) {
             return null;
         }
@@ -653,7 +653,7 @@ class LazadaExtension extends ExtensionProvider implements ChannelProvider, SkuR
         return ['total' => round($total, 2), 'items' => $items, 'source' => 'lazada'];
     }
 
-    public function mobilePlatformSlug(): string
+    public function mobileChannelSlug(): string
     {
         return 'lazada';
     }
@@ -730,7 +730,7 @@ class LazadaExtension extends ExtensionProvider implements ChannelProvider, SkuR
                 'payment_method'  => $raw['payment_method'] ?? null,
                 'tracking_number' => $raw['tracking_number'] ?? null,
                 'date'            => $order->order_created_at?->format('Y-m-d H:i'),
-                'fulfilment'      => \Extensions\Lazada\Services\LazadaAppFulfilment::block($order),
+                'fulfillment'      => \Extensions\Lazada\Services\LazadaAppFulfillment::block($order),
             ];
         });
 
@@ -793,18 +793,18 @@ class LazadaExtension extends ExtensionProvider implements ChannelProvider, SkuR
             ]))),
             'date'              => $order->order_created_at?->format('Y-m-d H:i'),
             'products'          => $products->values(),
-            'fulfilment'        => \Extensions\Lazada\Services\LazadaAppFulfilment::block($order),
+            'fulfillment'        => \Extensions\Lazada\Services\LazadaAppFulfillment::block($order),
         ];
     }
 
-    public function mobileFulfilmentActions(): array
+    public function mobileFulfillmentActions(): array
     {
-        return \Extensions\Lazada\Services\LazadaAppFulfilment::ACTIONS;
+        return \Extensions\Lazada\Services\LazadaAppFulfillment::ACTIONS;
     }
 
-    public function mobileFulfilmentAction(string $action, int $id, Request $request): \Symfony\Component\HttpFoundation\Response
+    public function mobileFulfillmentAction(string $action, int $id, Request $request): \Symfony\Component\HttpFoundation\Response
     {
-        return app(\Extensions\Lazada\Services\LazadaAppFulfilment::class)->handle($action, $id, $request);
+        return app(\Extensions\Lazada\Services\LazadaAppFulfillment::class)->handle($action, $id, $request);
     }
 
     public function layoutBanners(): array

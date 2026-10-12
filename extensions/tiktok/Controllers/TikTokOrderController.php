@@ -412,7 +412,7 @@ class TikTokOrderController extends Controller
     {
         $order = TikTokOrder::findOrFail($id);
         $safeOrderId = preg_replace('/[^A-Za-z0-9_-]/', '', (string) $order->order_id);
-        $awbPath = \App\Support\Fulfilment\Waybills::path('tiktok', (int) $order->store_id, (string) $order->order_id);
+        $awbPath = \App\Support\Fulfillment\Waybills::path('tiktok', (int) $order->store_id, (string) $order->order_id);
 
         if (file_exists($awbPath) && !$request->boolean('refresh')) {
             return response(file_get_contents($awbPath), 200)
@@ -464,7 +464,7 @@ class TikTokOrderController extends Controller
             $pdfContent = \Illuminate\Support\Facades\Http::timeout(15)->get($docUrl)->body();
 
             if ($pdfContent && str_starts_with($pdfContent, '%PDF')) {
-                \App\Support\Fulfilment\Waybills::save($awbPath, $pdfContent);
+                \App\Support\Fulfillment\Waybills::save($awbPath, $pdfContent);
 
                 return response($pdfContent, 200)
                     ->header('Content-Type', 'application/pdf')

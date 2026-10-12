@@ -45,7 +45,6 @@ class ProductController extends Controller
                 'p.product_id',
                 'pd.name as name',
                 'p.image',
-                'p.model',
                 'p.sku',
                 'p.quantity',
                 DB::raw('COALESCE(povsum.variations_quantity, 0) as variations_quantity'),
@@ -77,7 +76,7 @@ class ProductController extends Controller
                 'name'             => html_entity_decode((string) ($row->name ?? ''), ENT_QUOTES | ENT_HTML5, 'UTF-8'),
                 'image'            => $row->image ?? '',
                 'image_url'        => $this->productImageUrl($row->image),
-                'model'            => $row->model ?? '',
+                'model'            => $row->sku ?? '',
                 'sku'              => $row->sku ?? '',
                 'quantity'         => (int) $row->quantity,
                 'variations_quantity' => (int) $row->variations_quantity,
@@ -205,7 +204,7 @@ class ProductController extends Controller
                 if (class_exists(\Extensions\Warehousing\Services\WarehouseStockService::class)) {
                     $defaultWh = \Extensions\Warehousing\Services\WarehouseStockService::getDefaultWarehouse();
                     if ($defaultWh) {
-                        $inv = \Extensions\Warehousing\Services\WarehouseStockService::getOrCreateInventory($defaultWh->id, $id, $povId);
+                        $inv = \Extensions\Warehousing\Services\WarehouseStockService::getOrCreateStock($defaultWh->id, $id, $povId);
                         $inv->update(['quantity' => $qty]);
                     }
                 }
@@ -279,7 +278,7 @@ class ProductController extends Controller
             if (class_exists(\Extensions\Warehousing\Services\WarehouseStockService::class)) {
                 $defaultWh = \Extensions\Warehousing\Services\WarehouseStockService::getDefaultWarehouse();
                 if ($defaultWh) {
-                    $inv = \Extensions\Warehousing\Services\WarehouseStockService::getOrCreateInventory($defaultWh->id, $id, 0);
+                    $inv = \Extensions\Warehousing\Services\WarehouseStockService::getOrCreateStock($defaultWh->id, $id, 0);
                     $inv->update(['quantity' => $newQty]);
                 }
             }

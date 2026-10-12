@@ -38,11 +38,11 @@ class DashboardController extends Controller
               ->orWhere('name', 'like', '%processing%');
         })->pluck('order_status_id');
 
-        $ocStores = class_exists(\Extensions\OpenCart\Models\OpenCartStore::class)
+        $openCartStores = class_exists(\Extensions\OpenCart\Models\OpenCartStore::class)
             ? \Extensions\OpenCart\Models\OpenCartStore::where('enabled', true)->get(['id', 'store_name'])
             : collect();
         $storePending = [];
-        foreach ($ocStores as $store) {
+        foreach ($openCartStores as $store) {
             $count = DB::table('orders')
                 ->where('channel', 'opencart:' . $store->id)
                 ->whereIn('order_status_id', $pendingStatusIds)
@@ -75,7 +75,7 @@ class DashboardController extends Controller
                 'o.store_name',
             ]);
 
-        $ocStoreNames = $ocStores->pluck('store_name', 'id')->toArray();
+        $openCartStoreNames = $openCartStores->pluck('store_name', 'id')->toArray();
         $defaultCode = Money::defaultCode();
 
         return response()->json([
@@ -85,6 +85,7 @@ class DashboardController extends Controller
                 'currency_code'   => $defaultCode,
                 'lazada_pending'  => $lazadaPending,
                 'shopee_pending'  => $shopeePending,
+                'pending_by_channel' => ['lazada' => $lazadaPending, 'shopee' => $shopeePending],
                 'store_pending'   => $storePending,
             ],
             'chart' => $chart,
@@ -98,7 +99,7 @@ class DashboardController extends Controller
                 'transaction_total'    => $o->foreign_total !== null ? (float) $o->foreign_total : null,
                 'date_added'           => $o->date_added,
                 'status_name'          => $o->status_name ?? '',
-                'channel'              => self::resolveSourceLabel($o->channel ?? '', $ocStoreNames),
+                'channel'              => self::resolveSourceLabel($o->channel ?? '', $openCartStoreNames),
                 'store_name'           => (string) ($o->store_name ?? ''),
             ]),
         ]);
@@ -187,10 +188,10 @@ class DashboardController extends Controller
         ];
     }
 
-    private static function resolveSourceLabel(string $source, array $ocStoreNames): string
+    private static function resolveSourceLabel(string $source, array $openCartStoreNames): string
     {
         if (preg_match('/^opencart:(\d+)$/', $source, $m)) {
-            return $ocStoreNames[(int) $m[1]] ?? 'OpenCart';
+            return $openCartStoreNames[(int) $m[1]] ?? 'OpenCart';
         }
 
         return $source;

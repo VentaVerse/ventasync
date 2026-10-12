@@ -16,15 +16,13 @@ final class ProductSearch
         $t = $query->getModel()->getTable();
         $name = self::compact('pd.name');
         $sku = self::compact($t . '.sku');
-        $model = self::compact($t . '.model');
         $brand = self::compact('m.name');
         $variationSku = self::compact('pov.sku');
 
         foreach ($words as $word) {
             $like = '%' . $word . '%';
-            $query->where(function ($q) use ($like, $t, $lang, $name, $sku, $model, $brand, $variationSku) {
+            $query->where(function ($q) use ($like, $t, $lang, $name, $sku, $brand, $variationSku) {
                 $q->whereRaw("{$sku} LIKE ?", [$like])
-                    ->orWhereRaw("{$model} LIKE ?", [$like])
                     ->orWhereExists(fn ($d) => $d->selectRaw('1')->from('product_descriptions as pd')
                         ->whereColumn('pd.product_id', $t . '.product_id')->where('pd.language_id', $lang)
                         ->whereRaw("{$name} LIKE ?", [$like]))
@@ -39,10 +37,10 @@ final class ProductSearch
 
         $whole = implode('', $words);
         $query->orderByRaw(
-            "CASE WHEN {$sku} = ? OR {$model} = ? THEN 0 "
+            "CASE WHEN {$sku} = ? THEN 0 "
             . "WHEN EXISTS (SELECT 1 FROM product_descriptions pd WHERE pd.product_id = {$t}.product_id AND pd.language_id = ? AND {$name} LIKE ?) THEN 1 "
             . 'ELSE 2 END',
-            [$whole, $whole, $lang, '%' . $whole . '%']
+            [$whole, $lang, '%' . $whole . '%']
         );
 
         return $query;

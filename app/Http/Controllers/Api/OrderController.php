@@ -8,7 +8,7 @@ use App\Models\Catalog\OrderHistory;
 use App\Models\Catalog\OrderStatus;
 use App\Models\Catalog\Product;
 use App\Services\ActivityLogger;
-use App\Support\Fulfilment\AppFulfilment;
+use App\Support\Fulfillment\AppFulfillment;
 use App\Services\OrderStockService;
 use App\Support\Money;
 use Illuminate\Http\Request;
@@ -36,7 +36,7 @@ class OrderController extends Controller
                     $sub->where('firstname', 'like', '%' . $q . '%')
                         ->orWhere('lastname', 'like', '%' . $q . '%')
                         ->orWhere('email', 'like', '%' . $q . '%')
-                        ->orWhere('marketplace_order_id', 'like', '%' . $q . '%')
+                        ->orWhere('channel_order_id', 'like', '%' . $q . '%')
                         ->orWhere('order_id', '=', (int) $q > 0 ? (int) $q : 0);
                 });
             })
@@ -55,13 +55,13 @@ class OrderController extends Controller
             ->orderBy($sort, $dir)
             ->paginate(25);
 
-        $ocStoreNames = class_exists(\Extensions\OpenCart\Models\OpenCartStore::class)
+        $openCartStoreNames = class_exists(\Extensions\OpenCart\Models\OpenCartStore::class)
             ? \Extensions\OpenCart\Models\OpenCartStore::pluck('store_name', 'id')->toArray()
             : [];
 
         $defaultCode = Money::defaultCode();
 
-        $orders->getCollection()->transform(function ($order) use ($ocStoreNames, $defaultCode) {
+        $orders->getCollection()->transform(function ($order) use ($openCartStoreNames, $defaultCode) {
             $firstProduct = $order->products()->first();
             $productImage = null;
             if ($firstProduct && $firstProduct->product_id > 0) {
@@ -84,12 +84,14 @@ class OrderController extends Controller
                 'order_status_id'      => (int) $order->order_status_id,
                 'status_name'          => $order->status->name ?? '',
                 'date_added'           => $order->date_added,
-                'channel'              => self::resolveSourceLabel($order->channel ?? '', $ocStoreNames),
-                'marketplace_order_id' => $order->marketplace_order_id ?? '',
+                'channel'              => self::resolveSourceLabel($order->channel ?? '', $openCartStoreNames),
+                'channel_order_id' => $order->channel_order_id ?? '',
+                'marketplace_order_id' => $order->channel_order_id ?? '',
                 'store_id'             => self::storeIdOf($order->channel ?? '', $order->store_id),
                 'store_name'           => (string) ($order->store_name ?? ''),
                 'product_image'        => $productImage,
-                'fulfilment'           => self::fulfilment($order),
+                'fulfillment'           => self::fulfillment($order),
+                'fulfilment'            => self::fulfillment($order),
             ];
         });
 
@@ -112,7 +114,7 @@ class OrderController extends Controller
 
         $productImages = $this->resolveProductImages($products);
 
-        $ocStoreNames = class_exists(\Extensions\OpenCart\Models\OpenCartStore::class)
+        $openCartStoreNames = class_exists(\Extensions\OpenCart\Models\OpenCartStore::class)
             ? \Extensions\OpenCart\Models\OpenCartStore::pluck('store_name', 'id')->toArray()
             : [];
 
@@ -137,17 +139,20 @@ class OrderController extends Controller
                 'tracking_number'    => $order->tracking_number ?? '',
                 'date_added'         => $order->date_added,
                 'date_modified'      => $order->date_modified,
-                'channel'              => self::resolveSourceLabel($order->channel ?? '', $ocStoreNames),
-                'marketplace_order_id' => $order->marketplace_order_id ?? '',
+                'channel'              => self::resolveSourceLabel($order->channel ?? '', $openCartStoreNames),
+                'channel_order_id' => $order->channel_order_id ?? '',
+                'marketplace_order_id' => $order->channel_order_id ?? '',
                 'store_id'             => self::storeIdOf($order->channel ?? '', $order->store_id),
                 'store_name'           => (string) ($order->store_name ?? ''),
-                'fulfilment'           => self::fulfilment($order),
+                'fulfillment'           => self::fulfillment($order),
+                'fulfilment'            => self::fulfillment($order),
             ],
             'products' => $products->map(function ($p) use ($productImages) {
                 return [
                     'order_product_id' => $p->order_product_id,
                     'name'     => $p->name,
-                    'model'    => $p->model,
+                    'model'    => $p->sku,
+                    'sku'      => $p->sku,
                     'quantity' => (int) $p->quantity,
                     'price'    => (float) $p->price,
                     'total'    => (float) $p->total,
@@ -196,10 +201,10 @@ class OrderController extends Controller
 
         $order = Order::where('order_id', (int) $id)->firstOrFail();
         if ((string) ($order->channel ?? '') !== '') {
-            return AppFulfilment::refused('This order ships through its store.');
+            return AppFulfillment::refused('This order ships through its store.');
         }
         if (trim((string) $order->tracking_number) !== '') {
-            return AppFulfilment::alreadyDone('This order is already shipped.', $this->showPayload($order));
+            return AppFulfillment::alreadyDone('This order is already shipped.', $this->showPayload($order));
         }
 
         $tracking = trim($data['tracking_number']);
@@ -215,7 +220,7 @@ class OrderController extends Controller
             $this->changeStatus($order, (int) $data['order_status_id'], $comment);
         });
 
-        return AppFulfilment::ok('Shipped.', $this->showPayload($order->fresh()));
+        return AppFulfillment::ok('Shipped.', $this->showPayload($order->fresh()));
     }
 
     private function changeStatus(Order $order, int $newStatusId, string $comment): void
@@ -253,20 +258,20 @@ class OrderController extends Controller
         );
     }
 
-    private static function fulfilment(Order $order): array
+    private static function fulfillment(Order $order): array
     {
         if ((string) ($order->channel ?? '') !== '') {
-            return AppFulfilment::block('sales', (int) $order->order_id, 'other', []);
+            return AppFulfillment::block('sales', (int) $order->order_id, 'other', []);
         }
 
         $shipped = trim((string) $order->tracking_number) !== '';
 
-        return AppFulfilment::block('sales', (int) $order->order_id, $shipped ? 'shipped' : 'to_pack', $shipped ? [] : ['mark_shipped']);
+        return AppFulfillment::block('sales', (int) $order->order_id, $shipped ? 'shipped' : 'to_pack', $shipped ? [] : ['mark_shipped']);
     }
 
     public function pendingCount(Request $request)
     {
-        $toPack = \App\Support\FulfilmentBadge::byStore($request->user());
+        $toPack = \App\Support\FulfillmentBadge::byStore($request->user());
 
         $pendingStatuses = OrderStatus::where(function ($q) {
             $q->where('name', 'like', '%pending%')
@@ -334,15 +339,31 @@ class OrderController extends Controller
             }
         }
 
+        $lazadaByStore = $this->waitingByStore('ch_lazada_orders', 'ch_lazada_stores', 'store_id', ['pending', 'repacked']);
+        $shopeeByStore = $this->waitingByStore('ch_shopee_orders', 'ch_shopee_stores', 'store_id', ['READY_TO_SHIP']);
+        $tiktokByStore = $this->waitingByStore('ch_tiktok_orders', 'ch_tiktok_stores', 'store_id', ['AWAITING_SHIPMENT']);
+
         return response()->json([
             'count'          => $count,
             'lazada_pending' => $lazadaPending,
             'shopee_pending' => $shopeePending,
             'tiktok_pending' => $tiktokPending,
             'ventacart_pending'  => (object) $ventaCartPending,
-            'lazada_pending_by_store' => $this->waitingByStore('ch_lazada_orders', 'ch_lazada_stores', 'store_id', ['pending', 'repacked']),
-            'shopee_pending_by_store' => $this->waitingByStore('ch_shopee_orders', 'ch_shopee_stores', 'store_id', ['READY_TO_SHIP']),
-            'tiktok_pending_by_store' => $this->waitingByStore('ch_tiktok_orders', 'ch_tiktok_stores', 'store_id', ['AWAITING_SHIPMENT']),
+            'lazada_pending_by_store' => $lazadaByStore,
+            'shopee_pending_by_store' => $shopeeByStore,
+            'tiktok_pending_by_store' => $tiktokByStore,
+            'pending_by_channel' => [
+                'lazada' => $lazadaPending,
+                'shopee' => $shopeePending,
+                'tiktok' => $tiktokPending,
+                'ventacart' => array_sum($ventaCartPending),
+            ],
+            'pending_by_store' => [
+                'lazada' => $lazadaByStore,
+                'shopee' => $shopeeByStore,
+                'tiktok' => $tiktokByStore,
+                'ventacart' => (object) $ventaCartPending,
+            ],
             'to_pack_by_channel' => (object) $toPack,
             'to_pack_total' => array_sum($toPack),
         ]);
@@ -384,10 +405,10 @@ class OrderController extends Controller
         return $storeId !== null ? (int) $storeId : null;
     }
 
-    private static function resolveSourceLabel(string $source, array $ocStoreNames): string
+    private static function resolveSourceLabel(string $source, array $openCartStoreNames): string
     {
         if (preg_match('/^opencart:(\d+)$/', $source, $m)) {
-            return $ocStoreNames[(int) $m[1]] ?? 'OpenCart';
+            return $openCartStoreNames[(int) $m[1]] ?? 'OpenCart';
         }
 
         return $source;

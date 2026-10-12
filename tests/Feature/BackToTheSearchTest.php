@@ -26,9 +26,9 @@ class BackToTheSearchTest extends TestCase
     private function seedProduct(string $sku, string $name): int
     {
         $productId = DB::table('products')->insertGetId([
-            'model' => $sku, 'sku' => $sku, 'quantity' => 5, 'price' => 300,
+            'sku' => $sku, 'quantity' => 5, 'price' => 300,
             'status' => 1, 'image' => '', 'weight' => 1, 'length' => 10, 'width' => 10, 'height' => 10,
-            'brand_id' => 0, 'date_added' => now(), 'date_modified' => now(), 'date_available' => now(),
+            'brand_id' => 0, 'date_added' => now(), 'date_modified' => now(),
         ]);
         DB::table('product_descriptions')->insert([
             'product_id' => $productId, 'language_id' => (int) config('catalog.default_language_id'),
@@ -60,7 +60,7 @@ class BackToTheSearchTest extends TestCase
         $user = $this->catalogManager();
 
         $r = $this->actingAs($user)->put(route('products.update', $pid), [
-            'name' => 'Search me too', 'model' => 'BTS-2', 'sku' => 'BTS-2',
+            'name' => 'Search me too', 'sku' => 'BTS-2',
             'price' => '300', 'quantity' => '5', 'status' => '1',
             'weight' => '1', 'length' => '10', 'width' => '10', 'height' => '10',
             'brand_id' => '0', 'images_json' => '["catalog/demo.jpg"]',
@@ -93,7 +93,7 @@ class BackToTheSearchTest extends TestCase
         $user = $this->catalogManager();
 
         $r = $this->actingAs($user)->put(route('products.update', $pid), [
-            'name' => 'Do not follow', 'model' => 'BTS-3', 'sku' => 'BTS-3',
+            'name' => 'Do not follow', 'sku' => 'BTS-3',
             'price' => '300', 'quantity' => '5', 'status' => '1',
             'weight' => '1', 'length' => '10', 'width' => '10', 'height' => '10',
             'brand_id' => '0', 'images_json' => '["catalog/demo.jpg"]',

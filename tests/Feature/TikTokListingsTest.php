@@ -116,9 +116,9 @@ class TikTokListingsTest extends TestCase
     {
         $langId = (int) config('catalog.default_language_id');
         $productId = DB::table('products')->insertGetId([
-            'model' => 'TTL-' . $suffix, 'sku' => 'TTL-SKU-' . $suffix, 'quantity' => 5, 'price' => $price,
+            'sku' => 'TTL-SKU-' . $suffix, 'quantity' => 5, 'price' => $price,
             'status' => 1, 'image' => 'catalog/__tt-listing-test.png', 'weight' => 1, 'length' => 10, 'width' => 10, 'height' => 10,
-            'brand_id' => 0, 'date_added' => now(), 'date_modified' => now(), 'date_available' => now(),
+            'brand_id' => 0, 'date_added' => now(), 'date_modified' => now(),
         ]);
         DB::table('product_descriptions')->insert([
             'product_id' => $productId, 'language_id' => $langId,

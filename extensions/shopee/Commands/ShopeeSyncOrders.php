@@ -162,7 +162,7 @@ class ShopeeSyncOrders extends Command implements \App\Channels\Contracts\Steppa
 
                 if (!($res['ok'] ?? false)) {
                     $body = $res['body'] ?? [];
-                    $msg = \App\Support\MarketplaceAnswer::plain('Shopee', ['ok' => false, 'body' => is_array($body) ? $body : []]);
+                    $msg = \App\Support\ChannelAnswer::plain('Shopee', ['ok' => false, 'body' => is_array($body) ? $body : []]);
                     $this->error("  API error: {$msg}");
                     Cache::put('shopee_sync_paused:' . $store->id, $msg, now()->addMinutes(10));
                     return;
@@ -248,7 +248,7 @@ class ShopeeSyncOrders extends Command implements \App\Channels\Contracts\Steppa
 
             if (!($res['ok'] ?? false)) {
                 $body = $res['body'] ?? [];
-                $msg = \App\Support\MarketplaceAnswer::plain('Shopee', ['ok' => false, 'body' => is_array($body) ? $body : []]);
+                $msg = \App\Support\ChannelAnswer::plain('Shopee', ['ok' => false, 'body' => is_array($body) ? $body : []]);
                 $this->error("  API error: {$msg}");
                 return;
             }

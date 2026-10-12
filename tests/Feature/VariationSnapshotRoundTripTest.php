@@ -15,9 +15,9 @@ class VariationSnapshotRoundTripTest extends TestCase
     private function product(string $sku): int
     {
         $id = (int) DB::table('products')->insertGetId([
-            'model' => $sku, 'sku' => $sku, 'quantity' => 0, 'price' => 180, 'status' => 1, 'image' => '',
+            'sku' => $sku, 'quantity' => 0, 'price' => 180, 'status' => 1, 'image' => '',
             'cost_amount' => 0, 'cost_percentage' => 5, 'cost_additional' => 3, 'cost' => 0,
-            'date_added' => now(), 'date_modified' => now(), 'date_available' => now(),
+            'date_added' => now(), 'date_modified' => now(),
         ]);
         DB::table('product_descriptions')->insert([
             'product_id' => $id, 'language_id' => (int) config('catalog.default_language_id'), 'name' => $sku,

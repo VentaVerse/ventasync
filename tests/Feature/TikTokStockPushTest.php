@@ -112,10 +112,10 @@ class TikTokStockPushTest extends TestCase
         $langId = (int) config('catalog.default_language_id');
 
         $productId = DB::table('products')->insertGetId([
-            'model' => 'TTV-1', 'sku' => 'TTV', 'quantity' => 10, 'price' => 1000,
+            'sku' => 'TTV', 'quantity' => 10, 'price' => 1000,
             'status' => 1, 'image' => 'catalog/__tt-stock-test.png', 'weight' => 1, 'length' => 10, 'width' => 10, 'height' => 10,
             'brand_id' => 0,
-            'date_added' => now(), 'date_modified' => now(), 'date_available' => now(),
+            'date_added' => now(), 'date_modified' => now(),
         ]);
         DB::table('product_descriptions')->insert([
             'product_id' => $productId, 'language_id' => $langId,
@@ -139,7 +139,7 @@ class TikTokStockPushTest extends TestCase
                 $povIds[$name] = (int) DB::table('product_variation_values')->insertGetId([
                     'product_variation_type_id' => $productVariationTypeId, 'product_id' => $productId,
                     'variation_type_id' => $variationTypeId, 'variation_value_id' => $valueId,
-                    'sku' => 'TTV-' . strtoupper($name), 'quantity' => 99, 'subtract' => 1,
+                    'sku' => 'TTV-' . strtoupper($name), 'quantity' => 99, 'subtract_stock' => 1,
                     'price' => 0, 'price_prefix' => '+', 'points' => 0, 'points_prefix' => '+',
                     'weight' => 0, 'weight_prefix' => '+',
                     'cost' => 0, 'cost_amount' => 0, 'cost_percentage' => 0, 'cost_additional' => 0,
@@ -300,9 +300,9 @@ class TikTokStockPushTest extends TestCase
     public function test_the_price_cron_starts_a_simple_product_from_the_listings_own_price(): void
     {
         $simple = DB::table('products')->insertGetId([
-            'model' => 'TTS-1', 'sku' => 'TTS', 'quantity' => 4, 'price' => 300,
+            'sku' => 'TTS', 'quantity' => 4, 'price' => 300,
             'status' => 1, 'image' => 'catalog/__tt-stock-test.png', 'weight' => 1, 'length' => 10, 'width' => 10, 'height' => 10,
-            'brand_id' => 0, 'date_added' => now(), 'date_modified' => now(), 'date_available' => now(),
+            'brand_id' => 0, 'date_added' => now(), 'date_modified' => now(),
         ]);
         ['product_id' => $varied] = $this->seedTwoAxisProduct();
         $group = TikTokProductGroup::create(['name' => 'Own price group', 'tiktok_category_id' => '900001']);

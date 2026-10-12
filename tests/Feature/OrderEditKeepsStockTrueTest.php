@@ -36,8 +36,8 @@ class OrderEditKeepsStockTrueTest extends TestCase
     private function product(string $sku, int $qty): int
     {
         $id = DB::table('products')->insertGetId([
-            'model' => $sku, 'sku' => $sku, 'quantity' => $qty, 'subtract' => 1, 'price' => 100, 'status' => 1, 'image' => '',
-            'date_added' => now(), 'date_modified' => now(), 'date_available' => now(),
+            'sku' => $sku, 'quantity' => $qty, 'subtract_stock' => 1, 'price' => 100, 'status' => 1, 'image' => '',
+            'date_added' => now(), 'date_modified' => now(),
         ]);
         DB::table('product_descriptions')->insert([
             'product_id' => $id, 'language_id' => (int) config('catalog.default_language_id', 1),
@@ -51,7 +51,7 @@ class OrderEditKeepsStockTrueTest extends TestCase
     {
         return (int) DB::table('product_variation_values')->insertGetId([
             'product_variation_type_id' => 1, 'product_id' => $productId, 'variation_type_id' => 1, 'variation_value_id' => 1,
-            'sku' => $sku, 'quantity' => $qty, 'subtract' => 1,
+            'sku' => $sku, 'quantity' => $qty, 'subtract_stock' => 1,
         ]);
     }
 
@@ -62,7 +62,7 @@ class OrderEditKeepsStockTrueTest extends TestCase
 
     private function line(int $productId, int $qty, array $extra = []): array
     {
-        return ['product_id' => $productId, 'name' => 'P' . $productId, 'model' => 'P' . $productId, 'quantity' => $qty, 'price' => 100, 'cost' => 40] + $extra;
+        return ['product_id' => $productId, 'name' => 'P' . $productId, 'sku' => 'P' . $productId, 'quantity' => $qty, 'price' => 100, 'cost' => 40] + $extra;
     }
 
     private function create(array $lines, ?int $status = null): int

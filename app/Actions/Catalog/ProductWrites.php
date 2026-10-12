@@ -317,7 +317,7 @@ final class ProductWrites
 
         return $this->json($result + [
             'currency' => \App\Support\Money::defaultCode(),
-            'note' => 'Saved on the catalog product. Marketplace prices are this price run through each '
+            'note' => 'Saved on the catalog product. Listing prices are this price run through each '
                 . "listing's own rule, so they change on the next push or price sync, not now.",
         ]);
     }
@@ -669,7 +669,7 @@ final class ProductWrites
         return [
             'product_id' => $product->product_id,
             'name'       => $product->description?->name,
-            'model'      => $product->model,
+            'model'      => $product->sku,
             'sku'        => $product->sku,
             'price'      => (float) $product->price,
             'cost'       => (float) $product->cost,

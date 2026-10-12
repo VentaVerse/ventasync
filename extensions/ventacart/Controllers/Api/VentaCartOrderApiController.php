@@ -3,13 +3,13 @@
 namespace Extensions\VentaCart\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use App\Support\Fulfilment\AppFulfilment;
-use App\Support\FulfilmentSteps;
+use App\Support\Fulfillment\AppFulfillment;
+use App\Support\FulfillmentSteps;
 use App\Support\Money;
 use Extensions\VentaCart\Models\VentaCartOrder;
 use Extensions\VentaCart\Models\VentaCartOrderStatusMap;
 use Extensions\VentaCart\Models\VentaCartStore;
-use Extensions\VentaCart\Services\VentaCart\VentaCartFulfilment;
+use Extensions\VentaCart\Services\VentaCart\VentaCartFulfillment;
 use Extensions\VentaCart\Services\VentaCart\VentaCartStatusPlacements;
 use Extensions\VentaCart\VentaCartExtension;
 use Illuminate\Http\JsonResponse;
@@ -59,7 +59,7 @@ class VentaCartOrderApiController extends Controller
         $step = trim((string) $request->query('step', ''));
         if (in_array($step, ['to_pack', 'to_handover'], true)) {
             $statusCounts = (clone $baseQuery)->selectRaw('status, COUNT(*) as cnt')->groupBy('status')->pluck('cnt', 'status');
-            $buckets = FulfilmentSteps::bucket('ventacart.orders', $statusCounts, VentaCartStatusPlacements::resolver($storeId));
+            $buckets = FulfillmentSteps::bucket('ventacart.orders', $statusCounts, VentaCartStatusPlacements::resolver($storeId));
             $query->whereIn('status', $buckets[$step]['statuses'] ?: ['']);
         }
 
@@ -110,7 +110,8 @@ class VentaCartOrderApiController extends Controller
                 'date'            => $order->order_created_at
                     ? $order->order_created_at->format('Y-m-d H:i')
                     : null,
-                'fulfilment'      => self::fulfilment($order),
+                'fulfillment'      => self::fulfillment($order),
+                'fulfilment'       => self::fulfillment($order),
             ];
         });
 
@@ -157,7 +158,7 @@ class VentaCartOrderApiController extends Controller
             return [
                 'name'      => $p->name ?? '',
                 'sku'       => $p->sku ?? '',
-                'variation' => $p->variant_label ?? '',
+                'variation' => $p->variation_label ?? '',
                 'quantity'  => (int) $p->quantity,
                 'price'     => (float) $p->price,
                 'image'     => $image,
@@ -188,11 +189,12 @@ class VentaCartOrderApiController extends Controller
                 ? $order->order_created_at->format('Y-m-d H:i')
                 : null,
             'products'          => $products->values(),
-            'fulfilment'        => self::fulfilment($order),
+            'fulfillment'        => self::fulfillment($order),
+            'fulfilment'         => self::fulfillment($order),
         ];
     }
 
-    public static function fulfilment(VentaCartOrder $order): array
+    public static function fulfillment(VentaCartOrder $order): array
     {
         $placement = VentaCartStatusPlacements::stepFor((int) $order->store_id, trim((string) $order->status)) ?? 'other';
         $step = match ($placement) {
@@ -202,7 +204,7 @@ class VentaCartOrderApiController extends Controller
             default => 'other',
         };
 
-        return AppFulfilment::block(
+        return AppFulfillment::block(
             'ventacart',
             (int) $order->id,
             $step,
@@ -254,7 +256,7 @@ class VentaCartOrderApiController extends Controller
     {
         [$setting, $order] = $this->storeAndOrder($store, $id);
 
-        return response()->json(VentaCartFulfilment::for($setting)->serviceability($order));
+        return response()->json(VentaCartFulfillment::for($setting)->serviceability($order));
     }
 
     public function pickupSlots(Request $request, int $store, int $id): JsonResponse
@@ -262,24 +264,24 @@ class VentaCartOrderApiController extends Controller
         [$setting, $order] = $this->storeAndOrder($store, $id);
         $courier = trim((string) $request->query('courier', ''));
 
-        return response()->json(VentaCartFulfilment::for($setting)->pickupSlots($order, $courier !== '' ? $courier : null));
+        return response()->json(VentaCartFulfillment::for($setting)->pickupSlots($order, $courier !== '' ? $courier : null));
     }
 
     public function pickupAddresses(int $store): JsonResponse
     {
-        return response()->json(VentaCartFulfilment::for($this->store($store))->pickupAddresses());
+        return response()->json(VentaCartFulfillment::for($this->store($store))->pickupAddresses());
     }
 
     public function shippingCouriers(int $store): JsonResponse
     {
-        return response()->json(VentaCartFulfilment::for($this->store($store))->shippingCouriers());
+        return response()->json(VentaCartFulfillment::for($this->store($store))->shippingCouriers());
     }
 
     public function estimate(Request $request, int $store, int $id): JsonResponse
     {
         [$setting, $order] = $this->storeAndOrder($store, $id);
 
-        return response()->json(VentaCartFulfilment::for($setting)->estimate($order, $this->bookingOptions($request)));
+        return response()->json(VentaCartFulfillment::for($setting)->estimate($order, $this->bookingOptions($request)));
     }
 
     public function book(Request $request, int $store, int $id): JsonResponse
@@ -289,15 +291,15 @@ class VentaCartOrderApiController extends Controller
             return $passed;
         }
 
-        $result = VentaCartFulfilment::for($setting)->book($order, $this->bookingOptions($request));
+        $result = VentaCartFulfillment::for($setting)->book($order, $this->bookingOptions($request));
         if (! $result['ok']) {
-            return AppFulfilment::refused($result['message']);
+            return AppFulfillment::refused($result['message']);
         }
         if ($result['already_booked']) {
-            return AppFulfilment::alreadyDone($result['message'], $this->fresh($order));
+            return AppFulfillment::alreadyDone($result['message'], $this->fresh($order));
         }
 
-        return AppFulfilment::ok($result['message'], $this->fresh($order), [
+        return AppFulfillment::ok($result['message'], $this->fresh($order), [
             'courier' => $result['courier'],
             'tracking_number' => $result['tracking_number'],
         ]);
@@ -316,12 +318,12 @@ class VentaCartOrderApiController extends Controller
             return $passed;
         }
 
-        $result = VentaCartFulfilment::for($setting)->bookManual($order, $data);
+        $result = VentaCartFulfillment::for($setting)->bookManual($order, $data);
         if (! $result['ok']) {
-            return AppFulfilment::refused($result['message']);
+            return AppFulfillment::refused($result['message']);
         }
 
-        return AppFulfilment::ok($result['message'], $this->fresh($order), [
+        return AppFulfillment::ok($result['message'], $this->fresh($order), [
             'courier_name' => $result['courier_name'],
             'tracking_number' => $result['tracking_number'],
         ]);
@@ -331,26 +333,26 @@ class VentaCartOrderApiController extends Controller
     {
         [$setting, $order] = $this->storeAndOrder($store, $id);
 
-        return response()->json(VentaCartFulfilment::for($setting)->tracking($order));
+        return response()->json(VentaCartFulfillment::for($setting)->tracking($order));
     }
 
     public function awb(Request $request, int $store, int $id): Response
     {
         [$setting, $order] = $this->storeAndOrder($store, $id);
-        $result = VentaCartFulfilment::for($setting)->label($order, $request->boolean('refresh'));
+        $result = VentaCartFulfillment::for($setting)->label($order, $request->boolean('refresh'));
 
         $pdf = $result['ok'] && is_file((string) $result['path']) ? file_get_contents($result['path']) : null;
 
-        return AppFulfilment::waybill($pdf ?: null, 'AWB-ventacart-' . (int) $order->ventacart_order_id . '.pdf', true, $result['message']);
+        return AppFulfillment::waybill($pdf ?: null, 'AWB-ventacart-' . (int) $order->ventacart_order_id . '.pdf', true, $result['message']);
     }
 
     private function passed(VentaCartOrder $order): ?JsonResponse
     {
-        $step = self::fulfilment($order)['step'];
+        $step = self::fulfillment($order)['step'];
 
         return match ($step) {
-            'to_handover', 'shipped', 'done' => AppFulfilment::alreadyDone('This order is already booked.', $this->fresh($order)),
-            'canceled' => AppFulfilment::refused('This order was canceled.'),
+            'to_handover', 'shipped', 'done' => AppFulfillment::alreadyDone('This order is already booked.', $this->fresh($order)),
+            'canceled' => AppFulfillment::refused('This order was canceled.'),
             default => null,
         };
     }
@@ -362,7 +364,7 @@ class VentaCartOrderApiController extends Controller
 
     private function bookingOptions(Request $request): array
     {
-        $data = $request->validate(VentaCartFulfilment::BOOKING_RULES);
+        $data = $request->validate(VentaCartFulfillment::BOOKING_RULES);
 
         return array_filter($data, fn ($v) => $v !== null && $v !== '');
     }

@@ -165,6 +165,6 @@ class TikTokCouponController extends Controller
 
     private function callMessage(array $result): string
     {
-        return \App\Support\MarketplaceAnswer::errorText('TikTok Shop', $result);
+        return \App\Support\ChannelAnswer::errorText('TikTok Shop', $result);
     }
 }

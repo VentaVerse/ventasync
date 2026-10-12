@@ -206,7 +206,7 @@ final class ShopeeVariationSwitches
         ]);
 
         return $refused
-            ? \App\Support\MarketplaceAnswer::plain('Shopee', ['ok' => false, 'status' => $res['status'] ?? 200, 'body' => $body])
+            ? \App\Support\ChannelAnswer::plain('Shopee', ['ok' => false, 'status' => $res['status'] ?? 200, 'body' => $body])
             : null;
     }
 

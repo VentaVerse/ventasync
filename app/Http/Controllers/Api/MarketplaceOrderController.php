@@ -8,29 +8,29 @@ use Illuminate\Http\Request;
 
 class MarketplaceOrderController extends Controller
 {
-    public function index(Request $request, string $platform)
+    public function index(Request $request, string $channel)
     {
-        if ($denied = $this->denyIfNoPermission($request, $platform)) {
+        if ($denied = $this->denyIfNoPermission($request, $channel)) {
             return $denied;
         }
 
-        $provider = app(ChannelRegistry::class)->mobileProviderFor($platform);
+        $provider = app(ChannelRegistry::class)->mobileProviderFor($channel);
         if ($provider === null) {
-            return response()->json(['error' => 'Invalid platform'], 404);
+            return response()->json(['error' => 'Invalid channel'], 404);
         }
 
         return response()->json($provider->mobileIndexResponse($request));
     }
 
-    public function show(Request $request, string $platform, int $id)
+    public function show(Request $request, string $channel, int $id)
     {
-        if ($denied = $this->denyIfNoPermission($request, $platform)) {
+        if ($denied = $this->denyIfNoPermission($request, $channel)) {
             return $denied;
         }
 
-        $provider = app(ChannelRegistry::class)->mobileProviderFor($platform);
+        $provider = app(ChannelRegistry::class)->mobileProviderFor($channel);
         if ($provider === null) {
-            return response()->json(['error' => 'Invalid platform'], 404);
+            return response()->json(['error' => 'Invalid channel'], 404);
         }
 
         $payload = $provider->mobileShowResponse($id);
@@ -41,39 +41,39 @@ class MarketplaceOrderController extends Controller
         return response()->json($payload);
     }
 
-    public function fulfil(Request $request, string $platform, int $id, string $action)
+    public function fulfil(Request $request, string $channel, int $id, string $action)
     {
-        $provider = app(ChannelRegistry::class)->mobileProviderFor($platform);
-        if (! $provider instanceof \App\Channels\Contracts\MobileFulfilmentProvider) {
-            return response()->json(['error' => 'Invalid platform'], 404);
+        $provider = app(ChannelRegistry::class)->mobileProviderFor($channel);
+        if (! $provider instanceof \App\Channels\Contracts\MobileFulfillmentProvider) {
+            return response()->json(['error' => 'Invalid channel'], 404);
         }
 
-        $actions = $provider->mobileFulfilmentActions();
+        $actions = $provider->mobileFulfillmentActions();
         if (! array_key_exists($action, $actions)) {
             return response()->json(['error' => 'Unknown action'], 404);
         }
 
-        $key = ($actions[$action] ? 'manage_' : 'view_') . $platform . '/order';
+        $key = ($actions[$action] ? 'manage_' : 'view_') . $channel . '/order';
         if (! $request->user()->hasPermission($key)) {
             return response()->json([
                 'error'   => 'permission_denied',
-                'message' => "You don't have permission to do this with {$platform} orders.",
+                'message' => "You don't have permission to do this with {$channel} orders.",
             ], 403);
         }
 
-        return $provider->mobileFulfilmentAction($action, $id, $request);
+        return $provider->mobileFulfillmentAction($action, $id, $request);
     }
 
-    private function denyIfNoPermission(Request $request, string $platform): ?\Illuminate\Http\JsonResponse
+    private function denyIfNoPermission(Request $request, string $channel): ?\Illuminate\Http\JsonResponse
     {
-        $key = 'manage_' . $platform . '/order';
+        $key = 'manage_' . $channel . '/order';
         if ($request->user()->hasPermission($key)) {
             return null;
         }
 
         return response()->json([
             'error'   => 'permission_denied',
-            'message' => "You don't have permission to access {$platform} orders.",
+            'message' => "You don't have permission to access {$channel} orders.",
         ], 403);
     }
 }

@@ -147,7 +147,7 @@
     @if($changeFlag ?? false)
         <input type="hidden" name="change" value="1">
     @endif
-    <x-ui.input type="search" name="q" class="x-filters__search" value="{{ $q }}" placeholder="Name, model or SKU" aria-label="Search listings" />
+    <x-ui.input type="search" name="q" class="x-filters__search" value="{{ $q }}" placeholder="Name or SKU" aria-label="Search listings" />
     <div class="x-select-wrap x-filters__select x-filters__select--narrow">
         <select name="erp_status" class="x-input" data-autosubmit aria-label="Filter by Master Catalog status">
             <option value="all" @selected($erpStatus === 'all')>Any Master Catalog status</option>
@@ -278,7 +278,7 @@
                     <div class="co-item__body">
                         <a class="x-row-link co-item__name" href="{{ $listingUrl }}">{{ ($rowTitles[(int) $p->product_id] ?? $p->name) ?: 'Unnamed product' }}</a>
                         <div class="co-item__meta">
-                            <span class="co-item__sku">{{ $p->sku ?: ($p->model ?: 'No SKU') }}</span>
+                            <span class="co-item__sku">{{ $p->sku ?: 'No SKU' }}</span>
                             @if($listed)
                                 <span class="co-item__sku lsm-chanid">VentaCart {{ $link->ventacart_product_id }}</span>
                             @endif

@@ -201,14 +201,14 @@ class ShopeeLinkCheck
 
     private function shopeeCandidateSkus(int $productId): array
     {
-        $product = DB::table('products')->where('product_id', $productId)->first(['sku', 'model']);
+        $product = DB::table('products')->where('product_id', $productId)->first(['sku']);
 
         if (! $product) {
             return [];
         }
 
         $skus = [];
-        foreach ([$product->sku ?? '', $product->model ?? ''] as $candidate) {
+        foreach ([$product->sku ?? ''] as $candidate) {
             $candidate = strtolower(trim((string) $candidate));
             if ($candidate !== '') {
                 $skus[] = $candidate;

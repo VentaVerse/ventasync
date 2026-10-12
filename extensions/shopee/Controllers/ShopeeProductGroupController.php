@@ -275,7 +275,7 @@ class ShopeeProductGroupController extends Controller
             })
             ->leftJoin('brands as m', 'p.brand_id', '=', 'm.brand_id')
             ->select(
-                'p.product_id', 'pd.name', 'p.sku', 'p.model', 'p.price',
+                'p.product_id', 'pd.name', 'p.sku', 'p.price',
                 'p.quantity', 'p.image', 'p.status', 'p.date_modified',
                 'm.name as brand_name',
                 'gp.shopee_item_id', 'gp.sync_status', 'gp.last_pushed_at', 'gp.last_confirmed_at', 'gp.push_error'
@@ -285,7 +285,6 @@ class ShopeeProductGroupController extends Controller
             $query->where(function ($w) use ($q) {
                 $w->where('pd.name', 'like', "%{$q}%")
                     ->orWhere('p.sku', 'like', "%{$q}%")
-                    ->orWhere('p.model', 'like', "%{$q}%")
                     ->orWhereIn('p.product_id', ShopeeListing::query()
                         ->forStore(ShopeeStore::defaultStore())
                         ->where('item_name', 'like', "%{$q}%")
@@ -891,13 +890,12 @@ class ShopeeProductGroupController extends Controller
                 $j->on('p.product_id', '=', 'pd.product_id')->where('pd.language_id', '=', $langId);
             })
             ->leftJoinSub(ShopeeStoreProducts::query(), 'os', 'os.product_id', '=', 'p.product_id')
-            ->select('p.product_id', 'pd.name', 'p.image', 'p.sku', 'p.model', 'p.quantity', 'p.price', 'os.product_id as on_store_pid')
+            ->select('p.product_id', 'pd.name', 'p.image', 'p.sku', 'p.quantity', 'p.price', 'os.product_id as on_store_pid')
             ->where('p.status', 1);
 
         if ($q !== '') {
             $query->where(function ($sub) use ($q) {
                 $sub->where('pd.name', 'like', '%' . $q . '%')
-                    ->orWhere('p.model', 'like', '%' . $q . '%')
                     ->orWhere('p.sku', 'like', '%' . $q . '%');
             });
         }
@@ -1027,10 +1025,9 @@ class ShopeeProductGroupController extends Controller
         $token = (string) $auth['access_token'];
         $shopId = (int) $auth['shop_id'];
 
-        $product = DB::table('products')->where('product_id', $productId)->first(['sku', 'model']);
+        $product = DB::table('products')->where('product_id', $productId)->first(['sku']);
         $skus = [];
         if ($product->sku && trim($product->sku) !== '') $skus[] = strtolower(trim($product->sku));
-        if ($product->model && trim($product->model) !== '') $skus[] = strtolower(trim($product->model));
 
         $optSkus = DB::table('product_variation_values')
             ->where('product_id', $productId)
@@ -1702,7 +1699,7 @@ class ShopeeProductGroupController extends Controller
 
                 $okCount++;
             } else {
-                $msg = \App\Support\MarketplaceAnswer::plain('Shopee', ['ok' => false, 'body' => is_array($body) ? $body : []]);
+                $msg = \App\Support\ChannelAnswer::plain('Shopee', ['ok' => false, 'body' => is_array($body) ? $body : []]);
                 $errors[] = "#{$productId}: {$msg}";
 
                 $this->writeProductStatus($productId, [
@@ -1893,7 +1890,7 @@ class ShopeeProductGroupController extends Controller
                 ActivityLogger::log('updated', 'Shopee Product', $productId, 'Updated item ' . $itemId . ' on Shopee via product group');
                 $okCount++;
             } else {
-                $msg = \App\Support\MarketplaceAnswer::plain('Shopee', ['ok' => false, 'body' => is_array($body) ? $body : []]);
+                $msg = \App\Support\ChannelAnswer::plain('Shopee', ['ok' => false, 'body' => is_array($body) ? $body : []]);
                 $errors[] = "#{$productId}: {$msg}";
 
                 $this->writeProductStatus($productId, [
@@ -2371,7 +2368,7 @@ class ShopeeProductGroupController extends Controller
         }
 
         if (!($result['ok'] ?? false) || empty($nodes)) {
-            $msg = \App\Support\MarketplaceAnswer::plain('Shopee', ['ok' => false, 'body' => is_array($body) ? $body : []]);
+            $msg = \App\Support\ChannelAnswer::plain('Shopee', ['ok' => false, 'body' => is_array($body) ? $body : []]);
             return response()->json(['ok' => false, 'message' => 'Fetch failed: ' . $msg]);
         }
 

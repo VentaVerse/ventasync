@@ -2,7 +2,7 @@
 
 namespace Tests\Unit;
 
-use App\Support\Fulfilment\CourierTally;
+use App\Support\Fulfillment\CourierTally;
 use PHPUnit\Framework\TestCase;
 
 class CourierTallyTest extends TestCase

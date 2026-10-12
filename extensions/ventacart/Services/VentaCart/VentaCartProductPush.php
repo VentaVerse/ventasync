@@ -32,7 +32,7 @@ class VentaCartProductPush
             ->where('p.product_id', $productId)
             ->first([
                 'p.product_id', 'pd.name', 'pd.description', 'pd.meta_title', 'pd.meta_description',
-                'p.model', 'p.sku', 'p.price', 'p.cost', 'p.quantity', 'p.status', 'p.image',
+                'p.sku', 'p.price', 'p.cost', 'p.quantity', 'p.status', 'p.image',
                 'p.weight', 'p.length', 'p.width', 'p.height',
                 'm.name as brand_name',
             ]);
@@ -40,19 +40,19 @@ class VentaCartProductPush
 
     public static function skuOf(object $prod): string
     {
-        return trim((string) ($prod->sku ?: $prod->model ?: ''));
+        return trim((string) ($prod->sku ?: ''));
     }
 
     public function candidateSkus(int $productId): array
     {
-        $prod = DB::table('products')->where('product_id', $productId)->first(['sku', 'model']);
+        $prod = DB::table('products')->where('product_id', $productId)->first(['sku']);
 
         if (! $prod) {
             return [];
         }
 
         $skus = [];
-        foreach ([$prod->sku ?? '', $prod->model ?? ''] as $candidate) {
+        foreach ([$prod->sku ?? ''] as $candidate) {
             $candidate = trim((string) $candidate);
             if ($candidate !== '' && ! in_array($candidate, $skus, true)) {
                 $skus[] = $candidate;
@@ -475,8 +475,8 @@ class VentaCartProductPush
         if ((\App\Channels\Push\PushLedger::erpVariationSkus([$productId])[$productId] ?? []) === []) {
             return;
         }
-        $own = DB::table('products')->where('product_id', $productId)->first(['sku', 'model']);
-        $parent = array_filter([strtolower(trim((string) ($own->sku ?? ''))), strtolower(trim((string) ($own->model ?? '')))]);
+        $own = DB::table('products')->where('product_id', $productId)->first(['sku']);
+        $parent = array_filter([strtolower(trim((string) ($own->sku ?? '')))]);
         $held = [];
         foreach ($skus as $sku) {
             $sku = trim((string) $sku);

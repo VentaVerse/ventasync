@@ -131,7 +131,7 @@
 
                 <div class="fm-fields">
                     <x-ui.field label="Store name" for="lz-store-name" name="store_name" :required="true" wide
-                                hint="How this store is named across the ERP - the sidebar, the fulfilment tabs, the channels board.">
+                                hint="How this store is named across the ERP - the sidebar, the fulfillment tabs, the channels board.">
                         <x-ui.input id="lz-store-name" name="store_name" type="text" autocomplete="off" :disabled="!$canManageLazada"
                                     value="{{ old('store_name', $setting->store_name ?? '') }}" />
                     </x-ui.field>
@@ -280,7 +280,7 @@
 
                 <div class="fm-fields">
                     <x-ui.field label="Store name" for="lz-sb-store-name" name="store_name" :required="true" wide
-                                hint="How this store is named across the ERP - the sidebar, the fulfilment tabs, the channels board.">
+                                hint="How this store is named across the ERP - the sidebar, the fulfillment tabs, the channels board.">
                         <x-ui.input id="lz-sb-store-name" name="store_name" type="text" autocomplete="off" :disabled="!$canManageLazada"
                                     value="{{ old('store_name', $setting->store_name ?? '') }}" />
                     </x-ui.field>

@@ -42,8 +42,8 @@
      data-test-url="{{ $canManageOpencart ? route('ext.opencart.test') : '' }}"
      data-fetch-statuses-url="{{ $canManageOpencart ? route('ext.opencart.fetch_oc_statuses') : '' }}"
      data-save-map-url="{{ $canManageOpencart ? route('ext.opencart.save_status_map') : '' }}"
-     data-map-id-field="oc_status_id"
-     data-map-name-field="oc_status_name"
+     data-map-id-field="opencart_status_id"
+     data-map-name-field="opencart_status_name"
      data-map-server-id="order_status_id"
      data-map-server-key="erp_order_status_id"
      data-map-name-match
@@ -311,14 +311,14 @@
                     @foreach($statusMap as $map)
                         <tr>
                             <td class="cs-col-src" data-label="OpenCart status">
-                                <span class="cs-map-name">{{ $map->oc_status_name }}</span>
+                                <span class="cs-map-name">{{ $map->opencart_status_name }}</span>
                             </td>
                             <td data-label="Sales order status">
                                 <div class="x-select-wrap cs-map-select">
                                     <select class="x-input" data-map-select
-                                            data-map-id="{{ $map->oc_status_id }}"
-                                            data-map-name="{{ $map->oc_status_name }}"
-                                            aria-label="Sales order status for {{ $map->oc_status_name }}"
+                                            data-map-id="{{ $map->opencart_status_id }}"
+                                            data-map-name="{{ $map->opencart_status_name }}"
+                                            aria-label="Sales order status for {{ $map->opencart_status_name }}"
                                             @disabled(!$canManageOpencart)>
                                         <option value="0">Leave the raw OpenCart status</option>
                                         @foreach($erpOrderStatuses as $erp)

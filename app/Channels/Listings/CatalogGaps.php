@@ -30,7 +30,7 @@ final class CatalogGaps
                 $j->on('p.product_id', '=', 'pd.product_id')->where('pd.language_id', '=', $langId);
             })
             ->whereIn('p.product_id', $productIds)
-            ->get(['p.product_id', 'p.status', 'p.sku', 'p.model', 'p.image', 'p.price', 'p.weight', 'p.length', 'p.width', 'p.height', 'pd.name', 'pd.description'])
+            ->get(['p.product_id', 'p.status', 'p.sku', 'p.image', 'p.price', 'p.weight', 'p.length', 'p.width', 'p.height', 'pd.name', 'pd.description'])
             ->keyBy('product_id');
 
         $out = [];

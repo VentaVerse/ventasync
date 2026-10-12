@@ -16,10 +16,12 @@ Route::prefix('v1')->middleware(['auth:sanctum', 'api.limits', 'api.audit'])->gr
     });
 
     Route::middleware('scope:inventory:read')->group(function () {
+        Route::get('/stock', [\App\Http\Controllers\Api\V1\InventoryController::class, 'index']);
         Route::get('/inventory', [\App\Http\Controllers\Api\V1\InventoryController::class, 'index']);
     });
 
     Route::middleware('scope:inventory:write')->group(function () {
+        Route::post('/stock/adjust', [\App\Http\Controllers\Api\V1\InventoryController::class, 'adjust']);
         Route::post('/inventory/adjust', [\App\Http\Controllers\Api\V1\InventoryController::class, 'adjust']);
     });
 

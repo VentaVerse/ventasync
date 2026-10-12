@@ -127,7 +127,7 @@
         <input type="hidden" name="change" value="1">
     @endif
     <x-ui.input type="search" name="q" class="x-filters__search"
-                value="{{ $q }}" placeholder="Name, model or SKU" aria-label="Search listings" />
+                value="{{ $q }}" placeholder="Name or SKU" aria-label="Search listings" />
 
     <div class="x-select-wrap x-filters__select">
         <select name="brand" class="x-input" data-autosubmit aria-label="Filter by brand">

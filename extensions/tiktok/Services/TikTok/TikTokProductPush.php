@@ -64,7 +64,7 @@ class TikTokProductPush
         $title = trim((string) ($opts['title'] ?? '')) !== '' ? trim((string) $opts['title']) : ($erp->name ?: ('Product ' . $erp->product_id));
         $title = html_entity_decode($title, ENT_QUOTES | ENT_HTML5, 'UTF-8');
         if (mb_strlen($title) < 25) {
-            $title = rtrim($title . ' ' . ($erp->model ?: $erp->sku ?: ('#' . $erp->product_id)));
+            $title = rtrim($title . ' ' . ($erp->sku ?: ('#' . $erp->product_id)));
             while (mb_strlen($title) < 25) {
                 $title .= ' .';
             }
@@ -268,7 +268,7 @@ class TikTokProductPush
 
     private function message(array $result): string
     {
-        return \App\Support\MarketplaceAnswer::errorText('TikTok Shop', $result);
+        return \App\Support\ChannelAnswer::errorText('TikTok Shop', $result);
     }
 
     private function log(string $method, string $path, array $params, array $result): void

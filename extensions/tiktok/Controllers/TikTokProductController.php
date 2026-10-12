@@ -85,7 +85,7 @@ class TikTokProductController extends Controller
                 $j->on('p.product_id', '=', 'pd.product_id')->where('pd.language_id', '=', $langId);
             })
             ->leftJoin('brands as m', 'p.brand_id', '=', 'm.brand_id')
-            ->select('p.product_id', 'pd.name', 'p.image', 'p.model', 'p.sku', 'p.price', 'p.quantity', 'p.status', 'm.name as brand_name');
+            ->select('p.product_id', 'pd.name', 'p.image', 'p.sku', 'p.price', 'p.quantity', 'p.status', 'm.name as brand_name');
         $query->whereIn('p.product_id', TikTokStoreProducts::query());
         $listedProductIds = TikTokStoreProducts::listedIds();
 
@@ -122,7 +122,6 @@ class TikTokProductController extends Controller
         if ($q !== '') {
             $query->where(function ($w) use ($q) {
                 $w->where('pd.name', 'like', '%' . $q . '%')
-                    ->orWhere('p.model', 'like', '%' . $q . '%')
                     ->orWhere('p.sku', 'like', '%' . $q . '%')
                     ->orWhereIn('p.product_id', TikTokListing::query()
                         ->forStore(TikTokStore::defaultStore())
@@ -443,12 +442,11 @@ class TikTokProductController extends Controller
             })
             ->leftJoin('brands as m', 'p.brand_id', '=', 'm.brand_id')
             ->leftJoinSub(TikTokStoreProducts::query(), 'os', 'os.product_id', '=', 'p.product_id')
-            ->select('p.product_id', 'pd.name', 'p.image', 'p.model', 'p.sku', 'p.price', 'p.quantity', 'p.status', 'm.name as brand_name', 'os.product_id as on_store_pid');
+            ->select('p.product_id', 'pd.name', 'p.image', 'p.sku', 'p.price', 'p.quantity', 'p.status', 'm.name as brand_name', 'os.product_id as on_store_pid');
 
         if ($q !== '') {
             $query->where(function ($sub) use ($q) {
                 $sub->where('pd.name', 'like', '%' . $q . '%')
-                    ->orWhere('p.model', 'like', '%' . $q . '%')
                     ->orWhere('p.sku', 'like', '%' . $q . '%');
             });
         }
@@ -541,13 +539,12 @@ class TikTokProductController extends Controller
                 $j->on('p.product_id', '=', 'pd.product_id')->where('pd.language_id', '=', $langId);
             })
             ->leftJoinSub(TikTokStoreProducts::query(), 'os', 'os.product_id', '=', 'p.product_id')
-            ->select('p.product_id', 'pd.name', 'p.image', 'p.sku', 'p.model', 'p.quantity', 'p.price', 'os.product_id as on_store_pid')
+            ->select('p.product_id', 'pd.name', 'p.image', 'p.sku', 'p.quantity', 'p.price', 'os.product_id as on_store_pid')
             ->where('p.status', 1);
 
         if ($q !== '') {
             $query->where(function ($sub) use ($q) {
                 $sub->where('pd.name', 'like', '%' . $q . '%')
-                    ->orWhere('p.model', 'like', '%' . $q . '%')
                     ->orWhere('p.sku', 'like', '%' . $q . '%');
             });
         }
@@ -781,8 +778,8 @@ class TikTokProductController extends Controller
             ->merge(\Extensions\TikTok\Models\TikTokProductGroupProduct::query()->onStore($c['setting'] ?? null)->whereNotNull('tiktok_product_id')->pluck('tiktok_product_id'))
             ->map(fn ($v) => (string) $v)->flip();
         $erpSkus = [];
-        foreach (DB::table('products')->get(['sku', 'model']) as $p) {
-            foreach ([$p->sku, $p->model] as $v) {
+        foreach (DB::table('products')->get(['sku']) as $p) {
+            foreach ([$p->sku] as $v) {
                 if (trim((string) $v) !== '') $erpSkus[strtolower(trim((string) $v))] = true;
             }
         }
@@ -983,7 +980,7 @@ class TikTokProductController extends Controller
                 $result = ['ok' => false, 'status' => 0, 'body' => ['message' => \App\Support\TransportError::plain($e, 'TikTok Shop')]];
             }
             $this->log('DELETE', '/product/202309/products', ['product_ids' => [$truth->tiktok_product_id]], $result);
-            if (!$this->ok($result) && !\App\Support\MarketplaceLink::looksMissingRemotely($this->message($result))) {
+            if (!$this->ok($result) && !\App\Support\ChannelLink::looksMissingRemotely($this->message($result))) {
                 $errors[] = "#{$pid}: " . $this->message($result);
                 $this->states($c['setting'] ?? null)->recordOutcome($pid, 'Delete: ' . $this->message($result));
                 continue;
@@ -1179,7 +1176,7 @@ class TikTokProductController extends Controller
                 $j->on('p.product_id', '=', 'pd.product_id')->where('pd.language_id', '=', $langId);
             })
             ->where('p.product_id', $productId)
-            ->first(['p.product_id', 'pd.name', 'pd.description', 'p.model', 'p.sku', 'p.price', 'p.quantity', 'p.image', 'p.weight', 'p.length', 'p.width', 'p.height', 'p.status']);
+            ->first(['p.product_id', 'pd.name', 'pd.description', 'p.sku', 'p.price', 'p.quantity', 'p.image', 'p.weight', 'p.length', 'p.width', 'p.height', 'p.status']);
     }
 
     private function states(?TikTokStore $store = null): \Extensions\TikTok\Services\TikTok\TikTokListingStates
@@ -1217,7 +1214,7 @@ class TikTokProductController extends Controller
 
     private function message(array $result): string
     {
-        return \App\Support\MarketplaceAnswer::errorText('TikTok Shop', $result);
+        return \App\Support\ChannelAnswer::errorText('TikTok Shop', $result);
     }
 
     private function log(string $method, string $path, array $params, array $result): void

@@ -250,7 +250,7 @@ class FoundationTest extends TestCase
 
     public function test_every_label_the_phone_card_reorders_is_emitted_by_a_panel(): void
     {
-        $path = resource_path('css/pages/marketplace-common.css');
+        $path = resource_path('css/pages/channel-common.css');
         $this->assertFileExists($path, 'the stylesheet carrying the phone card order is gone');
 
         preg_match_all(
@@ -266,7 +266,7 @@ class FoundationTest extends TestCase
             glob(base_path('extensions/*/views/orders/_panel.blade.php')) ?: [],
             glob(base_path('extensions/*/views/orders/_returns_panel.blade.php')) ?: [],
         );
-        $this->assertNotEmpty($panels, 'no fulfilment panels found to check');
+        $this->assertNotEmpty($panels, 'no fulfillment panels found to check');
 
         $emitted = [];
         foreach ($panels as $panel) {
@@ -276,7 +276,7 @@ class FoundationTest extends TestCase
             }
         }
 
-        foreach (['Fulfilment' => 'shopify'] as $label => $channel) {
+        foreach (['Fulfillment' => 'shopify'] as $label => $channel) {
             if (! is_dir(base_path("extensions/{$channel}"))) {
                 $emitted[$label] = true;
             }
@@ -286,7 +286,7 @@ class FoundationTest extends TestCase
 
         $this->assertSame([], $stale, sprintf(
             "The phone card orders cells no panel emits, so they sit at the default position:\n  %s\n"
-            ."Either a column was renamed and marketplace-common.css was not, or the rule is dead.\n"
+            ."Either a column was renamed and channel-common.css was not, or the rule is dead.\n"
             .'Labels the panels do emit: %s',
             implode("\n  ", $stale),
             implode(', ', array_keys($emitted))
@@ -340,7 +340,7 @@ class FoundationTest extends TestCase
         }
     }
 
-    public function test_every_channel_class_a_fulfilment_panel_emits_has_a_rule(): void
+    public function test_every_channel_class_a_fulfillment_panel_emits_has_a_rule(): void
     {
         $css = '';
         foreach ($this->stylesheets() as $path) {
@@ -352,7 +352,7 @@ class FoundationTest extends TestCase
             glob(base_path('extensions/*/views/orders/_returns_panel.blade.php')) ?: [],
         );
 
-        $this->assertNotEmpty($panels, 'no fulfilment panels found to check');
+        $this->assertNotEmpty($panels, 'no fulfillment panels found to check');
 
         $shared = ['x', 'co', 'is', 'js', 'has', 'no', 'sr'];
 
@@ -384,7 +384,7 @@ class FoundationTest extends TestCase
         $this->assertSame(
             [],
             $orphans,
-            "A fulfilment panel emits a channel class that no stylesheet defines.\n"
+            "A fulfillment panel emits a channel class that no stylesheet defines.\n"
             ."These render unstyled - a column with no width, a control with no box:\n\n"
             .implode("\n", $orphans)
         );
@@ -672,11 +672,11 @@ class FoundationTest extends TestCase
         return array_map('hexdec', str_split(ltrim($m[1], '#'), 2));
     }
 
-    public function test_no_fulfilment_panel_stacks_a_command_bar_above_the_rows(): void
+    public function test_no_fulfillment_panel_stacks_a_command_bar_above_the_rows(): void
     {
         $loose = [];
 
-        foreach ($this->fulfilmentPanels() as $label => $markup) {
+        foreach ($this->fulfillmentPanels() as $label => $markup) {
             if (! str_contains($markup, 'class="x-cmdbar"')) {
                 continue;
             }
@@ -700,7 +700,7 @@ class FoundationTest extends TestCase
     {
         $silent = [];
 
-        foreach ($this->fulfilmentPanels() as $label => $markup) {
+        foreach ($this->fulfillmentPanels() as $label => $markup) {
             preg_match_all('/<x-ui\.foldout[^>]*label="Filters"[^>]*>/s', $markup, $matches);
 
             foreach ($matches[0] as $tag) {
@@ -766,14 +766,14 @@ class FoundationTest extends TestCase
         $this->assertStringNotContainsString('border: 1px solid var(--bl-rule-2)', $m[1]);
     }
 
-    private function fulfilmentPanels(): array
+    private function fulfillmentPanels(): array
     {
         $panels = array_merge(
             glob(base_path('extensions/*/views/orders/_panel.blade.php')) ?: [],
             glob(base_path('extensions/*/views/orders/_returns_panel.blade.php')) ?: []
         );
 
-        $this->assertNotEmpty($panels, 'no fulfilment panels found to check');
+        $this->assertNotEmpty($panels, 'no fulfillment panels found to check');
 
         $out = [];
 

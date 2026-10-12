@@ -147,8 +147,7 @@ function buildResultButton(item, onPick) {
     const meta = document.createElement('span');
     meta.className = 'cc-ta__meta';
     const identifiers = [];
-    if (item.model) identifiers.push(String(item.model));
-    if (item.sku && item.sku !== item.model) identifiers.push(String(item.sku));
+    if (item.sku) identifiers.push(String(item.sku));
     identifiers.push('ID ' + item.product_id);
     meta.textContent = identifiers.join(' / ');
     body.appendChild(meta);
@@ -185,7 +184,7 @@ function buildResultButton(item, onPick) {
 
 function looksAlike(itemName, itemSkus, picked) {
     const norm = (v) => String(v || '').trim().toLowerCase();
-    const mine = new Set((picked.skus || [picked.sku, picked.model]).map(norm).filter(Boolean));
+    const mine = new Set((picked.skus || [picked.sku]).map(norm).filter(Boolean));
     if (itemSkus.map(norm).some((sku) => sku && mine.has(sku))) return true;
     const words = (name) => new Set(norm(name).replace(/[^a-z0-9]+/g, ' ').split(' ').filter((w) => w.length >= 4));
     const theirs = words(itemName);

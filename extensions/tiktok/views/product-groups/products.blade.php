@@ -52,7 +52,7 @@
 
 <form method="GET" action="{{ $listUrl }}" class="x-filters">
     <x-ui.input type="search" name="q" class="x-filters__search"
-                value="{{ $q }}" placeholder="Name, model or SKU" aria-label="Search products in this product group" />
+                value="{{ $q }}" placeholder="Name or SKU" aria-label="Search products in this product group" />
 
     <div class="x-select-wrap x-filters__select x-filters__select--narrow">
         <select name="erp_status" class="x-input" data-autosubmit aria-label="Filter by Master Catalog status">
@@ -165,7 +165,7 @@
             $variationCount = $optRows ? count($optRows) : 0;
 
             $pName = (string) ($rowTitles[(int) $p->product_id] ?? html_entity_decode((string) ($p->name ?? ''), ENT_QUOTES | ENT_HTML5, 'UTF-8'));
-            $pSku = (string) ($p->sku ?: ($p->model ?: ''));
+            $pSku = (string) ($p->sku ?: '');
             $isManual = in_array((int) $p->product_id, $manualIds, true);
 
             $metaParts = [$pSku !== '' ? $pSku : 'No SKU'];

@@ -72,10 +72,10 @@ class ListingVariationsTest extends TestCase
     private function productWithCombinations(array $combos): int
     {
         $pid = DB::table('products')->insertGetId([
-            'model' => 'PAR', 'sku' => 'PAR', 'quantity' => 10, 'price' => 100,
+            'sku' => 'PAR', 'quantity' => 10, 'price' => 100,
             'status' => 1, 'image' => 'catalog/x.png', 'weight' => 1, 'length' => 1, 'width' => 1, 'height' => 1,
             'brand_id' => 0,
-            'date_added' => now(), 'date_modified' => now(), 'date_available' => now(),
+            'date_added' => now(), 'date_modified' => now(),
         ]);
         DB::table('product_descriptions')->insert([
             'product_id' => $pid, 'language_id' => (int) config('catalog.default_language_id'),
@@ -94,7 +94,7 @@ class ListingVariationsTest extends TestCase
         DB::table('product_variations')->insert([
             'product_id' => $pid, 'sku' => $sku, 'status' => $status, 'quantity' => 5,
             'absolute_price' => $price, 'absolute_cost' => 0, 'cost_amount' => 0, 'cost_additional' => 0,
-            'subtract' => 1, 'sort_order' => $sort, 'created_at' => now(), 'updated_at' => now(),
+            'subtract_stock' => 1, 'sort_order' => $sort, 'created_at' => now(), 'updated_at' => now(),
         ]);
     }
 

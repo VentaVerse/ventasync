@@ -1284,7 +1284,7 @@ class LazadaOrderController extends Controller
             ]);
         }
 
-        Storage::disk('local')->delete(\App\Support\Fulfilment\Waybills::relative('lazada', (int) $store->id, (string) $orderId));
+        Storage::disk('local')->delete(\App\Support\Fulfillment\Waybills::relative('lazada', (int) $store->id, (string) $orderId));
 
         try {
             $st = $this->fetchOrderStatusFromApi($client, $store, (string)$orderId);
@@ -1858,7 +1858,7 @@ public function reset(Request $request)
     public function awbPdf(Request $request, LazadaClient $client, $orderId)
     {
         $safeOrderId = preg_replace('/[^0-9A-Za-z_-]/', '', (string) $orderId);
-        $localPath = \App\Support\Fulfilment\Waybills::path('lazada', (int) LazadaStore::defaultStore()?->id, (string) $orderId);
+        $localPath = \App\Support\Fulfillment\Waybills::path('lazada', (int) LazadaStore::defaultStore()?->id, (string) $orderId);
 
         if (file_exists($localPath)) {
             return response(file_get_contents($localPath), 200, [
@@ -1940,7 +1940,7 @@ public function reset(Request $request)
             return $this->awbError('AWB PDF response did not contain a document.');
         }
 
-        $storePath = \App\Support\Fulfilment\Waybills::relative('lazada', (int) $store->id, (string) $orderId);
+        $storePath = \App\Support\Fulfillment\Waybills::relative('lazada', (int) $store->id, (string) $orderId);
 
         if (($doc['type'] ?? '') === 'url') {
             $bin = $this->downloadPdf((string) ($doc['value'] ?? ''));

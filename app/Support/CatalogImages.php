@@ -15,17 +15,13 @@ final class CatalogImages
         if ($wanted) {
             $found = [];
 
-            foreach (DB::table('products')->where(function ($w) use ($wanted) {
-                $w->whereIn('sku', $wanted)->orWhereIn('model', $wanted);
-            })->get(['sku', 'model', 'image']) as $p) {
+            foreach (DB::table('products')->whereIn('sku', $wanted)->get(['sku', 'image']) as $p) {
                 if (trim((string) $p->image) === '') {
                     continue;
                 }
-                foreach ([$p->sku, $p->model] as $k) {
-                    $k = trim((string) $k);
-                    if ($k !== '' && in_array($k, $wanted, true)) {
-                        $found[$k] ??= trim((string) $p->image);
-                    }
+                $k = trim((string) $p->sku);
+                if ($k !== '' && in_array($k, $wanted, true)) {
+                    $found[$k] ??= trim((string) $p->image);
                 }
             }
 

@@ -87,8 +87,8 @@
 
                                 <span class="cw-top__name">
                                     {{ $product['name'] }}
-                                    @if($product['model'])
-                                        <span class="cw-top__model">{{ $product['model'] }}</span>
+                                    @if($product['sku'])
+                                        <span class="cw-top__sku">{{ $product['sku'] }}</span>
                                     @endif
                                 </span>
 

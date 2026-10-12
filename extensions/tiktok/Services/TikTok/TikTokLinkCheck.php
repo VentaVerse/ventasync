@@ -40,8 +40,8 @@ class TikTokLinkCheck
         }
 
         $skusByProduct = [];
-        foreach (DB::table('products')->whereIn('product_id', $productIds)->get(['product_id', 'sku', 'model']) as $p) {
-            foreach ([$p->sku, $p->model] as $v) {
+        foreach (DB::table('products')->whereIn('product_id', $productIds)->get(['product_id', 'sku']) as $p) {
+            foreach ([$p->sku] as $v) {
                 if (trim((string) $v) !== '') $skusByProduct[(int) $p->product_id][] = strtolower(trim((string) $v));
             }
         }

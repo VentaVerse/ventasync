@@ -42,7 +42,7 @@ final class Receivables
             $like = '%' . str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $search) . '%';
             $query->where(function ($q) use ($search, $like) {
                 $q->where('o.order_id', ctype_digit($search) ? (int) $search : 0)
-                    ->orWhere('o.marketplace_order_id', 'like', $like)
+                    ->orWhere('o.channel_order_id', 'like', $like)
                     ->orWhere('o.firstname', 'like', $like)
                     ->orWhere('o.lastname', 'like', $like)
                     ->orWhereRaw("CONCAT(COALESCE(o.firstname,''), ' ', COALESCE(o.lastname,'')) LIKE ?", [$like]);
@@ -51,7 +51,7 @@ final class Receivables
 
         $orders = $query->orderBy('o.date_added')->orderBy('o.order_id')->get([
             'o.order_id', 'o.date_added', 'o.firstname', 'o.lastname', 'o.email', 'o.telephone',
-            'o.store_name', 'o.channel', 'o.marketplace_order_id', 'os.name as status', 'o.total',
+            'o.store_name', 'o.channel', 'o.channel_order_id', 'os.name as status', 'o.total',
             'pay.paid', 'pay.payments', 'pay.last_paid_at',
         ]);
 
@@ -69,7 +69,7 @@ final class Receivables
                     'customer' => trim(($o->firstname ?? '') . ' ' . ($o->lastname ?? '')),
                     'customer_key' => $this->ledger->identity($o),
                     'store' => $o->store_name ?: ($o->channel ?: 'Manual'),
-                    'marketplace_order_id' => $o->marketplace_order_id ?: null,
+                    'channel_order_id' => $o->channel_order_id ?: null,
                     'status' => $o->status,
                     'total' => $total,
                     'paid' => $paid,

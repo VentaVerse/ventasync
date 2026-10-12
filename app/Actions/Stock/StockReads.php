@@ -35,8 +35,7 @@ final class StockReads
 
         if ($search = trim((string) $request->query('search', ''))) {
             $query->where(function ($q) use ($search) {
-                $q->where('model', 'like', "%{$search}%")
-                    ->orWhere('sku', 'like', "%{$search}%")
+                $q->where('sku', 'like', "%{$search}%")
                     ->orWhereHas('description', fn ($dq) => $dq->where('name', 'like', "%{$search}%"));
             });
         }
@@ -44,7 +43,7 @@ final class StockReads
         $query->orderBy(($lowStock || $threshold !== null) ? 'quantity' : 'product_id',
             ($lowStock || $threshold !== null) ? 'asc' : 'asc');
 
-        $items = $query->paginate($perPage)->withPath(\App\Support\AppDoor::pagePath('inventory'));
+        $items = $query->paginate($perPage)->withPath(\App\Support\AppDoor::pagePath('stock'));
 
         $variations = VariationRows::forProducts($items->getCollection()->pluck('product_id')->map('intval')->all());
         $items->getCollection()->transform(fn (Product $p) => $this->present($p, $variations->get((int) $p->product_id, collect())));
@@ -61,7 +60,7 @@ final class StockReads
             'product_id'    => $product->product_id,
             'name'          => $product->description?->name,
             'sku'           => $product->sku,
-            'model'         => $product->model,
+            'model'         => $product->sku,
             'quantity'      => $qty,
             'reorder_level' => $reorder,
             'is_low'        => $reorder > 0 && $qty <= $reorder,

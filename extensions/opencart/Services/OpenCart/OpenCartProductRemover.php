@@ -18,7 +18,7 @@ final class OpenCartProductRemover
             $out[(int) $link->product_id][] = [
                 'channel' => 'OpenCart',
                 'store' => $stores[(int) $link->store_id] ?? 'store #' . (int) $link->store_id,
-                'item' => (string) $link->oc_product_id,
+                'item' => (string) $link->opencart_product_id,
                 'live' => null,
             ];
         }

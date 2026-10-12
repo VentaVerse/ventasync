@@ -189,7 +189,7 @@ class ControllerPermissionTest extends TestCase
         foreach ([
             \App\Http\Controllers\Channels\ChannelController::class,
             \App\Http\Controllers\AutomationsController::class,
-            \App\Http\Controllers\Fulfilment\OrderPrintController::class,
+            \App\Http\Controllers\Fulfillment\OrderPrintController::class,
         ] as $class) {
             $this->assertTrue($catalog->neverGated($class),
                 $class . ' decides per item and must not also be gated at the door');
@@ -212,7 +212,7 @@ class ControllerPermissionTest extends TestCase
         foreach ([
             'app/Http/Controllers/Channels/ChannelController.php',
             'app/Http/Controllers/AutomationsController.php',
-            'app/Http/Controllers/Fulfilment/OrderPrintController.php',
+            'app/Http/Controllers/Fulfillment/OrderPrintController.php',
         ] as $file) {
             $source = file_get_contents(base_path($file));
 

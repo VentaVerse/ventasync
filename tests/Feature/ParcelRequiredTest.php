@@ -25,9 +25,9 @@ class ParcelRequiredTest extends TestCase
     private function seedProduct(string $sku, float $weight): int
     {
         $productId = DB::table('products')->insertGetId([
-            'model' => $sku, 'sku' => $sku, 'quantity' => 5, 'price' => 300,
+            'sku' => $sku, 'quantity' => 5, 'price' => 300,
             'status' => 1, 'image' => '', 'weight' => $weight, 'length' => $weight > 0 ? 10 : 0, 'width' => $weight > 0 ? 10 : 0, 'height' => $weight > 0 ? 10 : 0,
-            'brand_id' => 0, 'date_added' => now(), 'date_modified' => now(), 'date_available' => now(),
+            'brand_id' => 0, 'date_added' => now(), 'date_modified' => now(),
         ]);
         DB::table('product_descriptions')->insert([
             'product_id' => $productId, 'language_id' => (int) config('catalog.default_language_id'),
@@ -70,7 +70,7 @@ class ParcelRequiredTest extends TestCase
         $this->assertStringContainsString('This product is missing its weight or size', $page);
 
         $this->actingAs($user)->put(route('products.update', $pid), [
-            'name' => 'Renamed, parcel untouched', 'model' => 'OLD-ZERO', 'sku' => 'OLD-ZERO',
+            'name' => 'Renamed, parcel untouched', 'sku' => 'OLD-ZERO',
             'price' => '300', 'quantity' => '5', 'status' => '1',
             'weight' => '0', 'length' => '0', 'width' => '0', 'height' => '0',
             'brand_id' => '0', 'images_json' => '["catalog/demo.jpg"]',
@@ -78,7 +78,7 @@ class ParcelRequiredTest extends TestCase
         ])->assertSessionHasErrors(['weight', 'length', 'width', 'height']);
 
         $this->actingAs($user)->put(route('products.update', $pid), [
-            'name' => 'Renamed, parcel filled', 'model' => 'OLD-ZERO', 'sku' => 'OLD-ZERO',
+            'name' => 'Renamed, parcel filled', 'sku' => 'OLD-ZERO',
             'price' => '300', 'quantity' => '5', 'status' => '1',
             'weight' => '0.5', 'length' => '10', 'width' => '5', 'height' => '3',
             'brand_id' => '0', 'images_json' => '["catalog/demo.jpg"]',

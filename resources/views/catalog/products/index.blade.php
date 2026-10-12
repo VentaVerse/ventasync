@@ -48,7 +48,7 @@
     <form method="GET" action="{{ route('products.index') }}" id="products-filter" class="x-filters">
         <label class="x-sr" for="products-q">Search products</label>
         <x-ui.input type="search" id="products-q" name="q" :value="$q"
-                    placeholder="Search name, SKU, model" class="x-filters__search" />
+                    placeholder="Search name or SKU" class="x-filters__search" />
 
         <label class="x-sr" for="products-status">Filter by status</label>
         <x-ui.select id="products-status" name="status" class="x-filters__select--narrow" data-autosubmit>

@@ -301,7 +301,7 @@ class LazadaProductGroupController extends Controller
             ->leftJoin('ch_lazada_listings as lp', 'gp.lazada_listing_id', '=', 'lp.id')
             ->leftJoin('brands as m', 'p.brand_id', '=', 'm.brand_id')
             ->select(
-                'p.product_id', 'pd.name', 'p.sku', 'p.model', 'p.price',
+                'p.product_id', 'pd.name', 'p.sku', 'p.price',
                 'p.quantity', 'p.image', 'p.status',
                 'm.name as brand_name',
                 'lp.lazada_item_id', 'lp.lazada_deleted_at',
@@ -314,7 +314,6 @@ class LazadaProductGroupController extends Controller
             $query->where(function ($w) use ($q) {
                 $w->where('pd.name', 'like', "%{$q}%")
                     ->orWhere('p.sku', 'like', "%{$q}%")
-                    ->orWhere('p.model', 'like', "%{$q}%")
                     ->orWhereIn('p.product_id', LazadaListing::query()
                         ->forStore(LazadaStore::defaultStore())
                         ->where('item_name', 'like', "%{$q}%")
@@ -422,13 +421,12 @@ class LazadaProductGroupController extends Controller
                 $j->on('p.product_id', '=', 'pd.product_id')->where('pd.language_id', '=', $langId);
             })
             ->leftJoinSub($lpPick, 'lps', 'lps.product_id', '=', 'p.product_id')
-            ->select('p.product_id', 'pd.name', 'p.image', 'p.sku', 'p.model', 'p.quantity', 'p.price', 'lps.product_id as on_store_pid')
+            ->select('p.product_id', 'pd.name', 'p.image', 'p.sku', 'p.quantity', 'p.price', 'lps.product_id as on_store_pid')
             ->where('p.status', 1);
 
         if ($q !== '') {
             $query->where(function ($sub) use ($q) {
                 $sub->where('pd.name', 'like', '%' . $q . '%')
-                    ->orWhere('p.model', 'like', '%' . $q . '%')
                     ->orWhere('p.sku', 'like', '%' . $q . '%');
             });
         }
@@ -541,10 +539,9 @@ class LazadaProductGroupController extends Controller
         }
         $client = app(\Extensions\Lazada\Services\Lazada\LazadaClient::class);
 
-        $product = DB::table('products')->where('product_id', $productId)->first(['sku', 'model']);
+        $product = DB::table('products')->where('product_id', $productId)->first(['sku']);
         $skus = [];
         if ($product->sku && trim($product->sku) !== '') $skus[] = trim($product->sku);
-        if ($product->model && trim($product->model) !== '' && !in_array(trim($product->model), $skus)) $skus[] = trim($product->model);
 
         $optSkus = DB::table('product_variation_values')
             ->where('product_id', $productId)
@@ -1490,7 +1487,7 @@ class LazadaProductGroupController extends Controller
         }
 
         if (!$result['ok'] || empty($nodes)) {
-            $msg = \App\Support\MarketplaceAnswer::plain('Lazada', ['ok' => false, 'body' => is_array($body) ? $body : []]);
+            $msg = \App\Support\ChannelAnswer::plain('Lazada', ['ok' => false, 'body' => is_array($body) ? $body : []]);
             return response()->json(['ok' => false, 'message' => 'Fetch failed: ' . $msg]);
         }
 

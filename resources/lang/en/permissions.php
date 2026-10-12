@@ -33,6 +33,7 @@ return [
         'api/product' => 'Products',
         'api/order' => 'Orders',
         'api/marketplace_order' => 'Marketplace orders',
+        'api/channel_config' => 'Channels and stores',
         'api/marketplace_config' => 'Channel settings',
         'api_v1/product' => 'Products',
         'api_v1/order' => 'Orders',
@@ -103,7 +104,7 @@ return [
         'pedallion/api_explorer' => 'API explorer',
 
         'warehousing/warehouse' => 'Locations',
-        'warehousing/warehouse_inventory' => 'Inventory',
+        'warehousing/warehouse_stock' => 'Inventory',
         'warehousing/warehouse_transfer' => 'Transfers',
     ],
 ];

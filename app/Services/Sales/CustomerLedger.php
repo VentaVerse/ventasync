@@ -65,7 +65,7 @@ final class CustomerLedger
         $orders = $query->leftJoin('order_statuses as os', fn ($j) => $j->on('os.order_status_id', '=', 'o.order_status_id')->where('os.language_id', '=', $lang))
             ->orderByDesc('o.date_added')
             ->get(['o.order_id', 'o.firstname', 'o.lastname', 'o.email', 'o.telephone', 'o.customer_group', 'o.channel',
-                'o.store_id', 'o.store_name', 'o.order_status_id', 'o.date_added', 'o.marketplace_order_id', 'os.name as status']);
+                'o.store_id', 'o.store_name', 'o.order_status_id', 'o.date_added', 'o.channel_order_id', 'os.name as status']);
 
         $orders = $orders->filter(fn ($o) => in_array($this->identity($o), $keys, true))->values();
 
@@ -77,13 +77,13 @@ final class CustomerLedger
             ->leftJoin('products as p', 'p.product_id', '=', 'op.product_id')
             ->leftJoin('product_variation_values as pov', 'pov.product_variation_value_id', '=', 'oo.pov')
             ->whereIn('op.order_id', $ids)
-            ->get(['op.order_id', 'op.product_id', 'op.name', 'op.model', 'op.quantity', 'op.price', 'op.total', 'op.cost',
+            ->get(['op.order_id', 'op.product_id', 'op.name', 'op.sku as line_sku', 'op.quantity', 'op.price', 'op.total', 'op.cost',
                 'oo.variation', 'p.sku', 'p.price as price_now', 'pov.sku as variation_sku', 'pov.absolute_price as variation_price_now']);
 
         $orderById = $orders->keyBy('order_id');
         $countedLines = $lines->filter(fn ($l) => in_array((int) ($orderById[$l->order_id]->order_status_id ?? 0), $counted, true));
 
-        $products = $countedLines->groupBy(fn ($l) => ($l->variation_sku ?: $l->sku ?: $l->model) . '|' . $l->product_id)
+        $products = $countedLines->groupBy(fn ($l) => ($l->variation_sku ?: $l->sku ?: $l->line_sku) . '|' . $l->product_id)
             ->map(function (Collection $group) use ($orderById) {
                 $first = $group->first();
                 $priceNow = (float) ($first->variation_price_now ?: $first->price_now);
@@ -93,7 +93,7 @@ final class CustomerLedger
 
                 return [
                     'product_id' => $first->product_id ? (int) $first->product_id : null,
-                    'sku' => $first->variation_sku ?: ($first->sku ?: $first->model),
+                    'sku' => $first->variation_sku ?: ($first->sku ?: $first->line_sku),
                     'name' => html_entity_decode((string) $first->name, ENT_QUOTES | ENT_HTML5, 'UTF-8'),
                     'variation' => $first->variation ?: null,
                     'price_now' => $priceNow > 0 ? round($priceNow, 2) : null,
@@ -138,7 +138,7 @@ final class CustomerLedger
                 'store_ref' => $this->storeRef($o),
                 'status' => $o->status,
                 'counted' => in_array((int) $o->order_status_id, $counted, true),
-                'marketplace_order_id' => $o->marketplace_order_id ?: null,
+                'channel_order_id' => $o->channel_order_id ?: null,
                 'total' => round((float) $lines->where('order_id', $o->order_id)->sum('total'), 2),
             ])->values()->all(),
         ];

@@ -70,7 +70,7 @@ class LazadaCategoryController extends Controller
         }
 
         if (!$result['ok'] || !is_array($nodes) || count($nodes) === 0) {
-            $msg = \App\Support\MarketplaceAnswer::plain('Lazada', ['ok' => false, 'body' => is_array($body) ? $body : []]);
+            $msg = \App\Support\ChannelAnswer::plain('Lazada', ['ok' => false, 'body' => is_array($body) ? $body : []]);
             return redirect()->route('ext.lazada.categories.index')->with('error', 'Fetch failed: ' . $msg);
         }
 

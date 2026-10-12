@@ -10,11 +10,11 @@ final class StockPlaces
     public function notForSale(array $productIds): array
     {
         if ($productIds === [] || ! class_exists(\Extensions\Warehousing\Services\WarehouseStockService::class)
-            || ! Schema::hasTable('warehouse_inventory')) {
+            || ! Schema::hasTable('warehouse_stock')) {
             return [];
         }
 
-        return DB::table('warehouse_inventory as wi')
+        return DB::table('warehouse_stock as wi')
             ->join('warehouses as w', 'w.id', '=', 'wi.warehouse_id')
             ->where('w.is_sellable', 0)
             ->whereIn('wi.product_id', $productIds)

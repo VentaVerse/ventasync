@@ -325,8 +325,8 @@ class ShopeeOrderIngest
             ShopeeOrderProduct::query()->updateOrCreate(
                 [
                     'shopee_order_id' => $order->id,
-                    'item_id'         => $itemId !== '' ? $itemId : null,
-                    'model_id'        => $modelId !== '' ? $modelId : null,
+                    'shopee_item_id'  => $itemId !== '' ? $itemId : null,
+                    'shopee_model_id' => $modelId !== '' ? $modelId : null,
                 ],
                 [
                     'sku'       => $sku !== '' ? $sku : null,

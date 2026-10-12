@@ -66,7 +66,7 @@ class TikTokVariationPush
             $skus = [];
             $keys = [];
             foreach ($combos as $combo) {
-                $sellerSku = trim((string) $combo->sku) !== '' ? trim((string) $combo->sku) : (($erp->sku ?: $erp->model ?: $productId) . '-' . $combo->id);
+                $sellerSku = trim((string) $combo->sku) !== '' ? trim((string) $combo->sku) : (($erp->sku ?: $productId) . '-' . $combo->id);
                 $base = (float) $combo->absolute_price > 0 ? (float) $combo->absolute_price : $basePrice;
                 $sku = [
                     'seller_sku' => $sellerSku,
@@ -124,7 +124,7 @@ class TikTokVariationPush
             return ['skus' => $skus, 'kind' => 'pov', 'keys' => $keys, 'refused' => null];
         }
 
-        $sellerSku = $erp->sku ?: ($erp->model ?: (string) $productId);
+        $sellerSku = $erp->sku ?: (string) $productId;
         $startPrice = \Extensions\TikTok\Models\TikTokListing::ownPrices([$productId])[$productId] ?? $basePrice;
         $sku = [
             'seller_sku' => $sellerSku,

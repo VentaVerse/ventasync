@@ -180,14 +180,14 @@ class OpenCartExtension extends ExtensionProvider implements ChannelProvider, Sk
                     ->leftJoin($catalogProductTable . ' as cp', 'cp.product_id', '=', 'p.product_id')
                     ->where('o.channel', $orderChannel)
                     ->where('o.date_added', '>=', now()->startOfDay())
-                    ->whereNotNull('p.model')
-                    ->where('p.model', '!=', '')
+                    ->whereNotNull('p.sku')
+                    ->where('p.sku', '!=', '')
                     ->leftJoin(DB::raw('(SELECT order_product_id, GROUP_CONCAT(CONCAT(name, \': \', value) ORDER BY order_variation_id SEPARATOR \', \') AS variation FROM `order_variations` GROUP BY order_product_id) AS oo'), 'oo.order_product_id', '=', 'p.order_product_id')
-                    ->groupBy('p.model', 'oo.variation')
+                    ->groupBy('p.sku', 'oo.variation')
                     ->orderByDesc('qty_sold')->orderByDesc('revenue')->orderBy('name')
                     ->limit($limit)
                     ->select(
-                        'p.model as sku',
+                        'p.sku',
                         DB::raw('MAX(p.name) as name'),
                         DB::raw('MAX(cp.image) as image'),
                         DB::raw('oo.variation as variation'),

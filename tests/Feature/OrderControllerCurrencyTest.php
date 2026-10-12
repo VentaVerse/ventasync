@@ -42,7 +42,7 @@ class OrderControllerCurrencyTest extends TestCase
                 [
                     'product_id' => 1,
                     'name' => 'Test Widget',
-                    'model' => 'TW-1',
+                    'sku' => 'TW-1',
                     'quantity' => 2,
                     'price' => 100,
                     'cost' => 40,
@@ -502,7 +502,7 @@ class OrderControllerCurrencyTest extends TestCase
                 [
                     'product_id' => 1,
                     'name'       => 'Test Widget',
-                    'model'      => 'TW-1',
+                    'sku'        => 'TW-1',
                     'quantity'   => 1,
                     'price'      => 100,
                     'cost'       => 56.80,

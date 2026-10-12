@@ -166,7 +166,7 @@ final class ProductQuantityWriter
             return;
         }
 
-        \Extensions\Warehousing\Services\WarehouseStockService::getOrCreateInventory($warehouse->id, $productId, $povId)
+        \Extensions\Warehousing\Services\WarehouseStockService::getOrCreateStock($warehouse->id, $productId, $povId)
             ->update(['quantity' => $quantity]);
     }
 

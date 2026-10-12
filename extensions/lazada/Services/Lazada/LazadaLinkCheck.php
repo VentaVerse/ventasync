@@ -168,8 +168,8 @@ class LazadaLinkCheck
     private function erpSkusByProduct( array $productIds): array
     {
         $out = [];
-        foreach (DB::table('products')->whereIn('product_id', $productIds)->get(['product_id', 'sku', 'model']) as $p) {
-            foreach ([$p->sku, $p->model] as $v) {
+        foreach (DB::table('products')->whereIn('product_id', $productIds)->get(['product_id', 'sku']) as $p) {
+            foreach ([$p->sku] as $v) {
                 if (trim((string) $v) !== '') {
                     $out[(int) $p->product_id][] = trim((string) $v);
                 }

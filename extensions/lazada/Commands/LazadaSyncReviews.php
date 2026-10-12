@@ -5,7 +5,7 @@ namespace Extensions\Lazada\Commands;
 use Extensions\Lazada\Models\LazadaApiLog;
 use Extensions\Lazada\Models\LazadaListing;
 use Extensions\Lazada\Models\LazadaStore;
-use Extensions\OpenCart\Models\MarketplaceReview;
+use App\Models\MarketplaceReview;
 use Extensions\Lazada\Services\Lazada\LazadaClient;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Cache;

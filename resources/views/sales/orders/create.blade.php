@@ -21,8 +21,7 @@
     $lines = collect(old('products', []))->values()->map(fn ($p) => [
         'product_id'      => (int) ($p['product_id'] ?? 0),
         'name'            => (string) ($p['name'] ?? ''),
-        'model'           => (string) ($p['model'] ?? ''),
-        'sku'             => (string) ($p['model'] ?? ''),
+        'sku'             => (string) ($p['sku'] ?? ''),
         'basePrice'       => (float) ($p['price'] ?? 0) * $oldRate,
         'baseCost'        => (float) ($p['cost'] ?? 0) * $oldRate,
         'qty'             => (int) ($p['quantity'] ?? 1),

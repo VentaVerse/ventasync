@@ -19,8 +19,7 @@
     $lines = $products->map(fn ($p) => [
         'product_id'      => (int) $p->product_id,
         'name'            => (string) $p->name,
-        'model'           => (string) $p->model,
-        'sku'             => (string) $p->model,
+        'sku'             => (string) $p->sku,
         'basePrice'       => (float) $p->price,
         'baseCost'        => (float) $p->cost,
         'qty'             => (int) $p->quantity,

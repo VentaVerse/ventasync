@@ -128,7 +128,7 @@ export function initAddPanel() {
             const q = input.value.trim();
             list.appendChild(el('li', 'cc-addpanel__empty',
                 q !== ''
-                    ? 'Nothing matches. Try another name, model or SKU.'
+                    ? 'Nothing matches. Try another name or SKU.'
                     : (showAll && showAll.checked ? emptyAll : emptyDefault)));
             setMeta('');
             return;

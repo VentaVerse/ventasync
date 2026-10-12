@@ -96,8 +96,8 @@ Route::prefix('settings')->group(function () {
         Route::delete('/user-groups/{id}', [UserGroupController::class, 'destroy'])->name('user_groups.destroy');
     });
 
-    Route::get('/fulfilment', [\App\Http\Controllers\Settings\FulfilmentController::class, 'edit'])->name('settings.fulfilment');
-    Route::put('/fulfilment', [\App\Http\Controllers\Settings\FulfilmentController::class, 'update'])->name('settings.fulfilment.update');
+    Route::get('/fulfillment', [\App\Http\Controllers\Settings\FulfillmentController::class, 'edit'])->name('settings.fulfillment');
+    Route::put('/fulfillment', [\App\Http\Controllers\Settings\FulfillmentController::class, 'update'])->name('settings.fulfillment.update');
 
     Route::group([], function () {
         Route::get('/order-statuses', [OrderStatusController::class, 'index'])->name('order_statuses.index');

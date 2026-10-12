@@ -64,7 +64,7 @@ class BookingGuardsTest extends TestCase
     public function test_a_second_booking_of_the_same_order_is_turned_away(): void
     {
         [$store, $order] = $this->shopeeOrder('READY_TO_SHIP');
-        $held = Cache::lock('fulfilment:shopee:' . $order->id, 120);
+        $held = Cache::lock('fulfillment:shopee:' . $order->id, 120);
         $this->assertTrue($held->get());
 
         $this->actingAs($this->packer('shopee'))
@@ -89,7 +89,7 @@ class BookingGuardsTest extends TestCase
             ->assertRedirect()
             ->assertSessionHas('shopee_orders_last_result', ['ok' => false, 'error' => 'already_done', 'message' => "This order's shipment is already arranged."]);
 
-        $this->assertTrue(Cache::lock('fulfilment:shopee:' . $order->id, 1)->get(), 'the lock is let go once the request ends');
+        $this->assertTrue(Cache::lock('fulfillment:shopee:' . $order->id, 1)->get(), 'the lock is let go once the request ends');
     }
 
     public function test_a_tiktok_order_already_shipped_is_not_sent_again(): void

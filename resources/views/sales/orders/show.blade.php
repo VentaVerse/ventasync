@@ -16,12 +16,12 @@
         ? 'Manual'
         : ($registry->resolveChannelLabel($src) ?: ucfirst($chanKey));
 
-    $orderRef = $order->marketplace_order_id
-        ? $registry->resolveOrderRef((string) $order->channel, (string) $order->marketplace_order_id)
+    $orderRef = $order->channel_order_id
+        ? $registry->resolveOrderRef((string) $order->channel, (string) $order->channel_order_id)
         : null;
 
     $refUrl = $orderRef['url'] ?? null;
-    $refText = $orderRef['display'] ?? (string) $order->marketplace_order_id;
+    $refText = $orderRef['display'] ?? (string) $order->channel_order_id;
 
     $defaultSymbol = \App\Support\Money::defaultSymbol();
     $isForeign = (string) $order->currency_code !== ''
@@ -92,16 +92,16 @@
                             role="switch"
                             aria-checked="{{ $order->sync_override ? 'true' : 'false' }}"
                             aria-label="{{ $order->sync_override
-                                ? 'Hand status back to the marketplace'
+                                ? 'Hand status back to the channel'
                                 : 'Take over this order\'s status' }}">
                     </button>
                     <div class="od-override__body">
                         <div class="od-override__title">Status override</div>
                         <div class="od-override__note">
                             @if($order->sync_override)
-                                On. This order's status no longer syncs from the marketplace, and syncs will not change its stock.
+                                On. This order's status no longer syncs from the channel, and syncs will not change its stock.
                             @else
-                                Off. Turning it on stops syncing this order's status from the marketplace.
+                                Off. Turning it on stops syncing this order's status from the channel.
                             @endif
                         </div>
                     </div>
@@ -158,9 +158,9 @@
             <span class="od-stamp__k">Created</span>
             <span class="od-stamp__v">{{ $order->date_added }}</span>
         </span>
-        @if($order->marketplace_order_id)
+        @if($order->channel_order_id)
         <span class="od-stamp">
-            <span class="od-stamp__k">Marketplace order</span>
+            <span class="od-stamp__k">Channel order</span>
             @if($refUrl)
                 <a class="od-stamp__v" href="{{ $refUrl }}">{{ $refText }}</a>
             @else
@@ -331,7 +331,7 @@
                 @if($products->count())
                 @php
                     $totalRevenue = 0; $totalCogs = 0;
-                    $lineImages = \App\Support\CatalogImages::forSkus($products->pluck('model')->map(fn ($m) => trim((string) $m))->filter()->all());
+                    $lineImages = \App\Support\CatalogImages::forSkus($products->pluck('sku')->map(fn ($m) => trim((string) $m))->filter()->all());
                 @endphp
                 <div class="od-items">
                     <div class="od-items__head" aria-hidden="true">
@@ -345,7 +345,7 @@
                     @foreach($products as $p)
                         @php
                             $catalogProduct = $catalogProducts[$p->order_product_id] ?? null;
-                            $img = $lineImages[trim((string) $p->model)] ?? ($catalogProduct ? trim((string) ($catalogProduct->image ?? '')) : '');
+                            $img = $lineImages[trim((string) $p->sku)] ?? ($catalogProduct ? trim((string) ($catalogProduct->image ?? '')) : '');
                             $imgSrc = $img !== '' ? \App\Services\Media\ImageCache::url($img) : '';
                             if ($imgSrc === '') {
                                 $channelImg = trim($orderLineImages[$p->order_product_id] ?? '');
@@ -378,8 +378,8 @@
                                     <span class="co-item__name od-item__name">{{ $p->name }}</span>
                                 @endif
                                 <div class="co-item__meta">
-                                    @if(trim((string) $p->model) !== '')
-                                        <span class="co-item__sku">{{ $p->model }}</span>
+                                    @if(trim((string) $p->sku) !== '')
+                                        <span class="co-item__sku">{{ $p->sku }}</span>
                                     @endif
                                     @foreach($p->variations as $variation)
                                         <span class="co-item__var">{{ $variation->name }}: {{ $variation->value }}</span>
@@ -447,7 +447,7 @@
             </section>
 
             @php
-                $feeCodes = array_column(\App\Services\Orders\MarketplaceFeeNormalizer::CODES, 0);
+                $feeCodes = array_column(\App\Services\Orders\ChannelFeeNormalizer::CODES, 0);
                 $notSale = array_merge($feeCodes, ['total', 'escrow_amount', 'total_amount', 'partial_payment_total']);
                 $totalRow = $orderTotals->firstWhere('code', 'total');
                 $saleTotal = $totalRow ? (float) $totalRow->value : (float) $order->total;

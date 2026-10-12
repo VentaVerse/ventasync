@@ -102,7 +102,7 @@
     </div>
 
     @if($pendingSub !== '')
-        <x-fulfilment.courier-strip :tally="$courier_tally ?? []" :self-url="$panelSelfUrl" />
+        <x-fulfillment.courier-strip :tally="$courier_tally ?? []" :self-url="$panelSelfUrl" />
     @endif
 @endif
 
@@ -232,12 +232,12 @@
 
 <div data-order-selection>
     <x-ui.selectbar :step="$active_tab !== 'ALL' ? ($tabs[$active_tab] ?? null) : null">
-        <form method="POST" action="{{ route('fulfilment.print.pick', ['channel' => 'shopee']) }}"
+        <form method="POST" action="{{ route('fulfillment.print.pick', ['channel' => 'shopee']) }}"
               id="shopee-print-pick" class="x-selectbar__actions" target="_blank" data-selection-actions hidden>
             @csrf
             <x-ui.button type="submit" variant="secondary" size="sm">Print pick list</x-ui.button>
             <x-ui.button type="submit" variant="secondary" size="sm"
-                         formaction="{{ route('fulfilment.print.packing', ['channel' => 'shopee']) }}">Print packing lists</x-ui.button>
+                         formaction="{{ route('fulfillment.print.packing', ['channel' => 'shopee']) }}">Print packing lists</x-ui.button>
             <x-ui.hint label="About these two lists">One pick list for the whole selection, with lines consolidated by SKU so three of the same item is one trip to the shelf. Packing lists are one per order, nothing consolidated, to go in the parcel.</x-ui.hint>
         </form>
     </x-ui.selectbar>
@@ -327,7 +327,7 @@
             foreach (['city', 'district', 'town', 'state'] as $k) {
                 if (is_string($spAddr[$k] ?? null) && trim($spAddr[$k]) !== '') { $spCity = trim($spAddr[$k]); break; }
             }
-            $spParcel = \App\Support\Fulfilment\PackedParcel::fromItems(array_map(function ($it) {
+            $spParcel = \App\Support\Fulfillment\PackedParcel::fromItems(array_map(function ($it) {
                 $it['image'] = !empty($it['image']) ? $it['image'] : \App\Support\CatalogImages::urlFor($it['sku'] ?? '');
                 return $it;
             }, $groupedItems), is_string($courier) ? $courier : null, $spCity);
@@ -388,7 +388,7 @@
                             @if(trim((string) ($it['sku'] ?? '')) !== '')
                                 <span class="co-item__sku">{{ $it['sku'] }}</span>
                             @endif
-                            <x-fulfilment.variation :sku="$it['sku'] ?? null" :fallback="$it['variation'] ?? null" />
+                            <x-fulfillment.variation :sku="$it['sku'] ?? null" :fallback="$it['variation'] ?? null" />
                         </div>
                     </div>
                 </div>
@@ -454,7 +454,7 @@
                         <button type="button" class="btnArrangeShipment x-btn x-btn--secondary x-btn--sm"
                                 data-order-sn="{{ $orderSn }}"
                                 data-pc-channel="shopee" data-pc-order="{{ $o->id }}">Arrange shipment</button>
-                        <template data-parcel-for="{{ $orderSn }}"><x-fulfilment.parcel :parcel="$spParcel" /></template>
+                        <template data-parcel-for="{{ $orderSn }}"><x-fulfillment.parcel :parcel="$spParcel" /></template>
                     @endif
 
                     @if(!$isToPack && !$isUnpaid)

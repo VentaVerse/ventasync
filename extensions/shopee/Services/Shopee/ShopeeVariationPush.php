@@ -261,7 +261,7 @@ class ShopeeVariationPush
 
         $body = is_array($res['body'] ?? null) ? $res['body'] : [];
         if (!($res['ok'] ?? false) || trim((string) ($body['error'] ?? '')) !== '') {
-            return ['ok' => false, 'reason' => \App\Support\MarketplaceAnswer::plain('Shopee', ['ok' => false, 'body' => $body]), 'response' => []];
+            return ['ok' => false, 'reason' => \App\Support\ChannelAnswer::plain('Shopee', ['ok' => false, 'body' => $body]), 'response' => []];
         }
 
         return ['ok' => true, 'reason' => '', 'response' => is_array($body['response'] ?? null) ? $body['response'] : []];

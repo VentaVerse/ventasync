@@ -18,10 +18,10 @@
         ->productActions((int) $product->product_id);
     $__user = auth()->user();
 
-    $__inventoryBreakdown = null;
-    foreach (app(\App\Channels\ChannelRegistry::class)->productInventoryDetailContributors() as $__c) {
-        $__line = $__c->inventoryBreakdownFor((int) $product->product_id);
-        if ($__line !== null) { $__inventoryBreakdown = $__line; break; }
+    $__stockBreakdown = null;
+    foreach (app(\App\Channels\ChannelRegistry::class)->productStockDetailContributors() as $__c) {
+        $__line = $__c->stockBreakdownFor((int) $product->product_id);
+        if ($__line !== null) { $__stockBreakdown = $__line; break; }
     }
 @endphp
 
@@ -103,7 +103,7 @@
 
                 <div class="fm-fields">
                     <x-ui.field label="Brand" for="brand_search" name="brand_name"
-                                hint="Type to search, then pick from the list. Used on marketplace listings."
+                                hint="Type to search, then pick from the list. Used on listings."
                                 wide>
                         <div class="fm-ta">
                         <x-ui.input id="brand_search" name="brand_name" autocomplete="off"
@@ -243,7 +243,7 @@
                         <span class="fm-switch__track"></span>
                         <span class="fm-switch__text">
                             <span class="fm-switch__label">Enabled</span>
-                            <span class="fm-switch__note">Off keeps it out of the storefront and marketplace listings.</span>
+                            <span class="fm-switch__note">Off keeps it out of every store's listings.</span>
                         </span>
                     </label>
                     @error('status')<div class="fm-error">{{ $message }}</div>@enderror
@@ -252,7 +252,7 @@
 
             <div class="fm-card">
                 <div class="fm-card__head">
-                    <h2 class="fm-card__title">Inventory</h2>
+                    <h2 class="fm-card__title">Stock</h2>
                     <a class="fm-cancel" href="{{ route('products.stock_history', $product->product_id) }}">History</a>
                 </div>
                 <div class="fm-card__body">
@@ -267,8 +267,8 @@
                         </x-ui.field>
                     </div>
                     <div class="fm-hint d-none" id="qty_hint">Worked out from the variation quantities below.</div>
-                    @if($__inventoryBreakdown !== null)
-                        <div class="fm-hint">{{ $__inventoryBreakdown }}</div>
+                    @if($__stockBreakdown !== null)
+                        <div class="fm-hint">{{ $__stockBreakdown }}</div>
                     @endif
                     <div class="fm-hint">Reorder level 0 turns the low-stock alert off.</div>
                 </div>

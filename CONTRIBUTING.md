@@ -18,6 +18,8 @@ VentaSync uses one word for each idea. The screens use the words a seller uses; 
 | Supplier | `suppliers`, `supplier_id` | Who the business buys from. |
 | Warehouse | `warehouses`, `warehouse_id` | Where stock sits. |
 | Extension | `extensions/<id>/`, an `extension` column | A packaged add-on. Every channel is an extension; not every extension is a channel. |
+| Stock | `quantity`, `warehouse_stock`, `stock_history` | How many units of a product or variation there are, in total or in one warehouse. The menu groups the stock pages under Inventory; nothing else says inventory. |
+| Marketplace | `MarketplaceVerdict`, `ch_marketplace_reviews` | Only Shopee, Lazada and TikTok Shop. Anything that applies to every channel says channel. |
 
 Every channel table starts with `ch_`, so a channel's tables sit together.
 
@@ -25,8 +27,14 @@ Marketplace ids keep the marketplace's own name, so they match its API documenta
 
 An option and a variation are the same thing. "Option" is OpenCart's word, carried into VentaSync from it; VentaSync uses "variation" in its code, tables and screens because more sellers know it. `option` remains only in other systems' own field names: OpenCart's options, Shopee's tier `option_list`, the `option` of a WooCommerce or Shopify attribute, and the VentaCart storefront's `option_name`.
 
-## Spelling and naming
+## Naming rules
 
-- American English everywhere: catalog, color, recognize, behavior. A test checks this.
-- Class names spell each brand its own way: `TikTok`, `WooCommerce`, `OpenCart`, `VentaCart`.
-- One word per idea. When you touch a module, use the word in the table above; never add a new synonym.
+1. **One word per idea.** The table above is the authority. A new idea gets its word here first, then in the code. Never add a synonym.
+2. **A name says what it holds.** If a table, column, key or variable holds something other than its name says, rename it. Do not explain it with a comment.
+3. **No dead columns or code.** When the code stops reading a column, the same change drops it. Nothing writes a blank just to fill a column.
+4. **Other systems' words stay at the edge.** OpenCart's, Shopee's or the VentaCart storefront's own names appear only in the payloads VentaSync sends and receives. Their ids carry the channel's name (`shopee_item_id`, `opencart_product_id`). Inside VentaSync, only the words in the table above.
+5. **A rename is finished in one change:** table, column, model, variables, routes, screens, API, setup migration and upgrade step. The outside doors (the REST API and the mobile app API) keep the old name as an alias, and the changelog names the release that removes it.
+6. **American English** in names and screens: catalog, color, canceled, fulfillment. A test checks this.
+7. **Class names spell each brand its own way:** `TikTok`, `WooCommerce`, `OpenCart`, `VentaCart`.
+
+A test reads the database layout and fails on retired words (marketplace outside the three marketplaces, `oc_`, inventory, variant, vendor, manufacturer, fulfilment and the dropped OpenCart columns), so a synonym cannot come back unnoticed.

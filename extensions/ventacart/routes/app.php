@@ -4,7 +4,7 @@ use App\Support\AppDoor;
 use Extensions\VentaCart\Controllers\Api\VentaCartOrderApiController;
 use Illuminate\Support\Facades\Route;
 
-foreach (AppDoor::channelNames('ventacart') as $channel) {
+foreach (['channels/ventacart/stores', ...AppDoor::channelNames('ventacart')] as $channel) {
     Route::middleware('perm:view_ventacart/order')->group(function () use ($channel) {
         Route::get('/' . $channel . '/{store}/orders/{id}/serviceability', [VentaCartOrderApiController::class, 'serviceability'])->whereNumber(['store', 'id']);
         Route::get('/' . $channel . '/{store}/orders/{id}/pickup-slots', [VentaCartOrderApiController::class, 'pickupSlots'])->whereNumber(['store', 'id']);

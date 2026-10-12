@@ -2,7 +2,7 @@
 
 namespace Extensions\TikTok\Services\TikTok;
 
-use App\Support\MarketplaceAnswer;
+use App\Support\ChannelAnswer;
 use Extensions\TikTok\Models\TikTokApiLog;
 use Extensions\TikTok\Models\TikTokCategory;
 use Extensions\TikTok\Models\TikTokStore;
@@ -36,7 +36,7 @@ class TikTokStoreSetup
         $shops = is_array($result['body'] ?? null) ? ($result['body']['data']['shops'] ?? []) : [];
         if (! ($result['ok'] ?? false) || $shops === []) {
             return ['ok' => false, 'count' => 0, 'message' => 'TikTok did not answer with the shop: '
-                . MarketplaceAnswer::plain('TikTok', ['ok' => false, 'body' => is_array($result['body'] ?? null) ? $result['body'] : []])];
+                . ChannelAnswer::plain('TikTok', ['ok' => false, 'body' => is_array($result['body'] ?? null) ? $result['body'] : []])];
         }
         $shop = $shops[0];
         $sandbox = $c['sandbox'];
@@ -72,7 +72,7 @@ class TikTokStoreSetup
         $categories = ($result['ok'] ?? false) ? ($result['body']['data']['categories'] ?? []) : [];
         if (! ($result['ok'] ?? false) || $categories === []) {
             return ['ok' => false, 'count' => 0, 'message' => 'TikTok did not answer with its categories: '
-                . MarketplaceAnswer::plain('TikTok', ['ok' => false, 'body' => is_array($result['body'] ?? null) ? $result['body'] : []])];
+                . ChannelAnswer::plain('TikTok', ['ok' => false, 'body' => is_array($result['body'] ?? null) ? $result['body'] : []])];
         }
         $now = now();
         foreach ($categories as $cat) {

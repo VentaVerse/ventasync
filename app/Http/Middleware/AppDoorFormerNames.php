@@ -10,7 +10,7 @@ use Symfony\Component\HttpFoundation\Response;
 // Phone apps released before VentaCart was renamed from Venta keep speaking "venta" on /api.
 class AppDoorFormerNames
 {
-    private const PARAMETERS = ['channel', 'platform'];
+    private const PARAMETERS = ['channel'];
 
     public function handle(Request $request, Closure $next): Response
     {

@@ -5,7 +5,7 @@
     $answerText = null;
     if (!$ok) {
         $answerRaw = is_array($result['data'] ?? null) ? $result['data'] : ['body' => ['message' => (string) ($result['data'] ?? '')], 'ok' => false];
-        $answerText = \App\Support\MarketplaceAnswer::errorText($channel, $answerRaw);
+        $answerText = \App\Support\ChannelAnswer::errorText($channel, $answerRaw);
     }
 @endphp
 @if($mode === 'note')

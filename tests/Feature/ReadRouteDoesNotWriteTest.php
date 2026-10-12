@@ -45,7 +45,6 @@ class ReadRouteDoesNotWriteTest extends TestCase
         DB::table('products')->insert([
             'product_id' => self::PRODUCT,
             'sku' => 'ADOPT-ME',
-            'model' => 'ADOPT-ME',
             'quantity' => 5,
             'price' => 100,
             'status' => 1,

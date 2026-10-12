@@ -343,9 +343,9 @@ class LazadaListingStates
             return;
         }
 
-        $parent = DB::table('products')->where('product_id', $productId)->first(['sku', 'model']);
+        $parent = DB::table('products')->where('product_id', $productId)->first(['sku']);
         $own = [];
-        foreach ([$parent->sku ?? '', $parent->model ?? ''] as $s) {
+        foreach ([$parent->sku ?? ''] as $s) {
             $k = strtolower(trim((string) $s));
             if ($k !== '' && !isset($variations[$k])) {
                 $own[$k] = true;

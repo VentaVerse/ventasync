@@ -33,7 +33,7 @@ use App\Channels\Contracts\CredentialRevealer;
 use App\Channels\Contracts\ListingStateSource;
 use App\Channels\Concerns\RevealsCredentials;
 
-class ShopeeExtension extends ExtensionProvider implements ListingStateSource, ChannelProvider, SkuSyncContributor, DashboardContributor, OrderFeesContributor, \App\Channels\Contracts\MarketplaceFeeSource, MobileMarketplaceProvider, \App\Channels\Contracts\MobileFulfilmentProvider, LayoutBannerContributor, ChannelOptionsProvider, RootRouteHandler, CredentialRevealer, \App\Channels\Contracts\WebhookReceiver, \App\Channels\Contracts\StoreOptionsProvider, \App\Channels\Contracts\ProductRemover, \App\Channels\Contracts\VariationForgetter, \App\Channels\Contracts\MarketplaceOrderRefRenderer, \App\Channels\Contracts\SaleLinesSource
+class ShopeeExtension extends ExtensionProvider implements ListingStateSource, ChannelProvider, SkuSyncContributor, DashboardContributor, OrderFeesContributor, \App\Channels\Contracts\ChannelFeeSource, MobileMarketplaceProvider, \App\Channels\Contracts\MobileFulfillmentProvider, LayoutBannerContributor, ChannelOptionsProvider, RootRouteHandler, CredentialRevealer, \App\Channels\Contracts\WebhookReceiver, \App\Channels\Contracts\StoreOptionsProvider, \App\Channels\Contracts\ProductRemover, \App\Channels\Contracts\VariationForgetter, \App\Channels\Contracts\ChannelOrderRefRenderer, \App\Channels\Contracts\SaleLinesSource
 {
     private const MOBILE_TAB_STATUS_MAP = [
         'UNPAID'              => ['UNPAID'],
@@ -534,15 +534,15 @@ class ShopeeExtension extends ExtensionProvider implements ListingStateSource, C
         ];
     }
 
-    public function renderOrderRef(string $orderChannel, string $marketplaceOrderId): ?array
+    public function renderOrderRef(string $orderChannel, string $channelOrderId): ?array
     {
         if ($orderChannel !== 'shopee') {
             return null;
         }
 
-        $store = ShopeeOrder::query()->withoutGlobalScope('shopeeStore')->where('order_sn', $marketplaceOrderId)->value('store_id');
+        $store = ShopeeOrder::query()->withoutGlobalScope('shopeeStore')->where('order_sn', $channelOrderId)->value('store_id');
 
-        return ['display' => $marketplaceOrderId, 'url' => $store ? route('ext.shopee.orders.show', ['store' => $store, 'orderSn' => $marketplaceOrderId]) : null];
+        return ['display' => $channelOrderId, 'url' => $store ? route('ext.shopee.orders.show', ['store' => $store, 'orderSn' => $channelOrderId]) : null];
     }
 
     public function feesForOrder(Order $order): ?array
@@ -551,7 +551,7 @@ class ShopeeExtension extends ExtensionProvider implements ListingStateSource, C
             return null;
         }
 
-        $mktOrderId = (string) $order->marketplace_order_id;
+        $mktOrderId = (string) $order->channel_order_id;
         if ($mktOrderId === '' || !Schema::hasTable('ch_shopee_orders')) {
             return null;
         }
@@ -583,7 +583,7 @@ class ShopeeExtension extends ExtensionProvider implements ListingStateSource, C
         return ['total' => round($total, 2), 'items' => $items, 'source' => 'shopee'];
     }
 
-    public function mobilePlatformSlug(): string
+    public function mobileChannelSlug(): string
     {
         return 'shopee';
     }
@@ -659,7 +659,7 @@ class ShopeeExtension extends ExtensionProvider implements ListingStateSource, C
                 'payment_method'  => $raw['payment_method'] ?? null,
                 'tracking_number' => $raw['tracking_number'] ?? null,
                 'date'            => $order->order_created_at?->format('Y-m-d H:i'),
-                'fulfilment'      => \Extensions\Shopee\Services\ShopeeAppFulfilment::block($order),
+                'fulfillment'      => \Extensions\Shopee\Services\ShopeeAppFulfillment::block($order),
             ];
         });
 
@@ -718,18 +718,18 @@ class ShopeeExtension extends ExtensionProvider implements ListingStateSource, C
                 ]))),
             'date'              => $order->order_created_at?->format('Y-m-d H:i'),
             'products'          => $products->values(),
-            'fulfilment'        => \Extensions\Shopee\Services\ShopeeAppFulfilment::block($order),
+            'fulfillment'        => \Extensions\Shopee\Services\ShopeeAppFulfillment::block($order),
         ];
     }
 
-    public function mobileFulfilmentActions(): array
+    public function mobileFulfillmentActions(): array
     {
-        return \Extensions\Shopee\Services\ShopeeAppFulfilment::ACTIONS;
+        return \Extensions\Shopee\Services\ShopeeAppFulfillment::ACTIONS;
     }
 
-    public function mobileFulfilmentAction(string $action, int $id, Request $request): \Symfony\Component\HttpFoundation\Response
+    public function mobileFulfillmentAction(string $action, int $id, Request $request): \Symfony\Component\HttpFoundation\Response
     {
-        return app(\Extensions\Shopee\Services\ShopeeAppFulfilment::class)->handle($action, $id, $request);
+        return app(\Extensions\Shopee\Services\ShopeeAppFulfillment::class)->handle($action, $id, $request);
     }
 
     public function layoutBanners(): array

@@ -25,9 +25,9 @@ class FailedSaveKeepsTypingTest extends TestCase
     private function seedProduct(string $sku, string $name): int
     {
         $productId = DB::table('products')->insertGetId([
-            'model' => $sku, 'sku' => $sku, 'quantity' => 5, 'price' => 300,
+            'sku' => $sku, 'quantity' => 5, 'price' => 300,
             'status' => 1, 'image' => '', 'weight' => 1, 'length' => 10, 'width' => 10, 'height' => 10,
-            'brand_id' => 0, 'date_added' => now(), 'date_modified' => now(), 'date_available' => now(),
+            'brand_id' => 0, 'date_added' => now(), 'date_modified' => now(),
         ]);
         DB::table('product_descriptions')->insert([
             'product_id' => $productId, 'language_id' => (int) config('catalog.default_language_id'),
@@ -41,7 +41,7 @@ class FailedSaveKeepsTypingTest extends TestCase
     private function payload(array $overrides = []): array
     {
         return array_merge([
-            'name' => 'Edited product', 'model' => 'KEEP-1', 'sku' => 'KEEP-1',
+            'name' => 'Edited product', 'sku' => 'KEEP-1',
             'price' => '250.00', 'quantity' => '17', 'status' => '1',
             'weight' => '1', 'length' => '10', 'width' => '10', 'height' => '10',
             'brand_id' => '0', 'images_json' => '["catalog/demo.jpg"]',
@@ -86,7 +86,7 @@ class FailedSaveKeepsTypingTest extends TestCase
 
         $this->actingAs($user)->from(route('products.edit', $mine))
             ->put(route('products.update', $mine), $this->payload([
-                'model' => 'KEEP-2', 'sku' => 'KEEP-2',
+                'sku' => 'KEEP-2',
                 'variation_type_name' => 'Pack size',
                 'values' => [['name' => '1 pc', 'sku' => 'TAKEN-SKU', 'quantity' => '1', 'absolute_price' => '10', 'status' => '1']],
             ]));
@@ -103,7 +103,7 @@ class FailedSaveKeepsTypingTest extends TestCase
         $editUrl = route('products.edit', $mine);
 
         $this->actingAs($user)->from($editUrl)->put(route('products.update', $mine), $this->payload([
-            'model' => 'KEEP-3', 'sku' => 'KEEP-3',
+            'sku' => 'KEEP-3',
             'type1_name' => 'Color', 'type2_name' => 'Size',
             'type1_values' => ['Red', 'Blue'], 'type2_values' => ['S'],
             'combinations' => [
@@ -126,7 +126,7 @@ class FailedSaveKeepsTypingTest extends TestCase
         $editUrl = route('products.edit', $mine);
 
         $this->actingAs($user)->from($editUrl)->put(route('products.update', $mine), $this->payload([
-            'model' => 'KEEP-4', 'sku' => 'KEEP-4',
+            'sku' => 'KEEP-4',
             'variation_type_name' => 'Pack size',
             'values' => [['name' => '1 pc', 'sku' => 'KEEP-4PC', 'quantity' => '4', 'absolute_price' => '120', 'status' => '1']],
         ]))->assertSessionHasNoErrors();

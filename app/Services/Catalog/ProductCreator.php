@@ -24,14 +24,12 @@ class ProductCreator
         $productId = Quota::within('products', fn () => DB::transaction(function () use ($data, $variations, $images, $langId) {
             $p = new Product();
 
-            $p->model = trim((string) ($data['model'] ?? ''));
             $p->sku = (string) ($data['sku'] ?? '');
             $p->upc = '';
             $p->ean = '';
             $p->jan = '';
             $p->isbn = '';
             $p->mpn = '';
-            $p->location = '';
 
             $p->quantity = (int) ($data['quantity'] ?? 0);
             $p->reorder_level = (int) ($data['reorder_level'] ?? 0);
@@ -39,10 +37,8 @@ class ProductCreator
             $p->length = (float) ($data['length'] ?? 0);
             $p->width = (float) ($data['width'] ?? 0);
             $p->height = (float) ($data['height'] ?? 0);
-            $p->stock_status_id = 0;
             $p->image = null;
             $p->brand_id = (int) ($data['brand_id'] ?? 0);
-            $p->shipping = 1;
             $p->status = (int) ($data['status'] ?? 1);
 
             $p->price = (float) $data['price'];
@@ -50,13 +46,6 @@ class ProductCreator
             $p->cost_percentage = (float) ($data['cost_percentage'] ?? 0);
             $p->cost_additional = (float) ($data['cost_additional'] ?? 0);
             $p->cost = $p->cost_amount + ($p->cost_percentage / 100 * $p->price) + $p->cost_additional;
-            $p->points = 0;
-            $p->tax_class_id = 0;
-
-            $da = $p->date_available;
-            if (! $da || $da === '0000-00-00') {
-                $p->date_available = now()->toDateString();
-            }
 
             $p->save();
             $id = (int) $p->product_id;
@@ -221,7 +210,7 @@ class ProductCreator
             return;
         }
 
-        \Extensions\Warehousing\Services\WarehouseStockService::getOrCreateInventory($warehouse->id, $productId, 0)
+        \Extensions\Warehousing\Services\WarehouseStockService::getOrCreateStock($warehouse->id, $productId, 0)
             ->update(['quantity' => $quantity]);
     }
 }

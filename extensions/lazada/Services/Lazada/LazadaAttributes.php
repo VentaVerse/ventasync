@@ -15,7 +15,6 @@ class LazadaAttributes
         'description'      => 'Product Description',
         'meta_title'       => 'Meta Title',
         'meta_description' => 'Meta Description',
-        'model'            => 'Model',
         'sku'              => 'SKU',
         'upc'              => 'UPC',
         'ean'              => 'EAN',
@@ -34,7 +33,7 @@ class LazadaAttributes
         'name'              => 'name',
         'description'       => 'description',
         'short_description' => 'description',
-        'model'             => 'model',
+        'model'             => 'sku',
     ];
 
     public static function isAutoFilledAttributeKey(string $key): bool
@@ -82,7 +81,6 @@ class LazadaAttributes
             'description'      => $productRow->description ?? null,
             'meta_title'       => $productRow->meta_title ?? null,
             'meta_description' => $productRow->meta_description ?? null,
-            'model'            => $productRow->model ?? null,
             'sku'              => $productRow->sku ?? null,
             'upc'              => $productRow->upc ?? null,
             'ean'              => $productRow->ean ?? null,

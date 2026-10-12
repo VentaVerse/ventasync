@@ -368,13 +368,12 @@ class TikTokProductGroupController extends Controller
             })
             ->leftJoin('brands as m', 'p.brand_id', '=', 'm.brand_id')
             ->whereIn('p.product_id', $productIds)
-            ->select('p.product_id', 'pd.name', 'p.model', 'p.sku', 'p.price', 'p.quantity', 'p.status', 'p.image', 'p.date_modified', 'm.name as brand_name');
+            ->select('p.product_id', 'pd.name', 'p.sku', 'p.price', 'p.quantity', 'p.status', 'p.image', 'p.date_modified', 'm.name as brand_name');
 
         if ($q !== '') {
             $query->where(function ($w) use ($q, $group) {
                 $w->where('pd.name', 'like', "%{$q}%")
                     ->orWhere('p.sku', 'like', "%{$q}%")
-                    ->orWhere('p.model', 'like', "%{$q}%")
                     ->orWhereIn('p.product_id', TikTokListing::query()
                         ->forStore((int) $group->store_id)
                         ->where('title', 'like', "%{$q}%")
@@ -464,13 +463,12 @@ class TikTokProductGroupController extends Controller
                 $j->on('p.product_id', '=', 'pd.product_id')->where('pd.language_id', '=', $langId);
             })
             ->leftJoinSub(TikTokStoreProducts::query(), 'os', 'os.product_id', '=', 'p.product_id')
-            ->select('p.product_id', 'pd.name', 'p.image', 'p.sku', 'p.model', 'p.quantity', 'p.price', 'os.product_id as on_store_pid')
+            ->select('p.product_id', 'pd.name', 'p.image', 'p.sku', 'p.quantity', 'p.price', 'os.product_id as on_store_pid')
             ->where('p.status', 1);
 
         if ($q !== '') {
             $query->where(function ($sub) use ($q) {
                 $sub->where('pd.name', 'like', '%' . $q . '%')
-                    ->orWhere('p.model', 'like', '%' . $q . '%')
                     ->orWhere('p.sku', 'like', '%' . $q . '%');
             });
         }
@@ -602,10 +600,9 @@ class TikTokProductGroupController extends Controller
         }
         $client = app(TikTokClient::class);
 
-        $productRow = DB::table('products')->where('product_id', $product)->first(['sku', 'model']);
+        $productRow = DB::table('products')->where('product_id', $product)->first(['sku']);
         $skus = [];
         if ($productRow->sku && trim($productRow->sku) !== '') $skus[] = strtolower(trim($productRow->sku));
-        if ($productRow->model && trim($productRow->model) !== '') $skus[] = strtolower(trim($productRow->model));
 
         $optSkus = DB::table('product_variation_values')
             ->where('product_id', $product)
@@ -840,7 +837,7 @@ class TikTokProductGroupController extends Controller
                 $j->on('p.product_id', '=', 'pd.product_id')->where('pd.language_id', '=', $langId);
             })
             ->whereIn('p.product_id', $productIds ?: [0])
-            ->select('p.product_id', 'pd.name', 'pd.description', 'p.model', 'p.sku', 'p.price', 'p.quantity', 'p.image', 'p.weight', 'p.length', 'p.width', 'p.height')
+            ->select('p.product_id', 'pd.name', 'pd.description', 'p.sku', 'p.price', 'p.quantity', 'p.image', 'p.weight', 'p.length', 'p.width', 'p.height')
             ->get()
             ->keyBy('product_id');
     }

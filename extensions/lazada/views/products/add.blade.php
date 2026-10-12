@@ -35,7 +35,7 @@
 <form method="GET" action="{{ route('ext.lazada.products.index') }}" class="x-filters" id="lazada-add-filter">
     <input type="hidden" name="list" value="add">
     <x-ui.input type="search" name="q" class="x-filters__search"
-                value="{{ $q }}" placeholder="Name, model or SKU" aria-label="Search your Master Catalog" />
+                value="{{ $q }}" placeholder="Name or SKU" aria-label="Search your Master Catalog" />
 
     <div class="x-select-wrap x-filters__select">
         <select name="brand" class="x-input" data-autosubmit aria-label="Filter by brand">

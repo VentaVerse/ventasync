@@ -117,7 +117,7 @@
                             <input type="hidden" name="ref" value="{{ $row['ref'] }}">
                             <div class="fm-ta">
                                 <input type="text" class="x-input" data-unmatched-search
-                                       placeholder="Search name, model or SKU" autocomplete="off"
+                                       placeholder="Search name or SKU" autocomplete="off"
                                        aria-label="Search the Master Catalog for the product this Lazada item is">
                                 <div class="fm-ta__list" data-unmatched-results role="listbox" aria-label="Master Catalog matches"></div>
                             </div>

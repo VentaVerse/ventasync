@@ -10,7 +10,7 @@
     $canManage = $user?->hasPermission('manage_opencart/review') ?? false;
     $canManageVenta = $user?->hasPermission('manage_opencart/review') ?? false;
 
-    $ocOpen = in_array($review->oc_sync_status, ['pending', 'error'], true);
+    $openCartOpen = in_array($review->opencart_sync_status, ['pending', 'error'], true);
     $ventaCartStatus = $review->ventacart_sync_status ?? 'pending';
     $ventaCartOpen = in_array($ventaCartStatus, ['pending', 'error'], true)
         && Route::has('ext.ventacart.reviews.push')
@@ -38,17 +38,17 @@
         <div class="od-head__id">
             <h1 class="x-page-title">{{ $author }}</h1>
             @include('ext-opencart::reviews.partials.stars', ['rating' => $review->rating, 'size' => 15])
-            <x-ui.badge :tone="ChannelStatusTone::toneFor('opencart.reviews', $review->oc_sync_status)">{{ ChannelStatusTone::labelFor('opencart.reviews', $review->oc_sync_status) }}</x-ui.badge>
+            <x-ui.badge :tone="ChannelStatusTone::toneFor('opencart.reviews', $review->opencart_sync_status)">{{ ChannelStatusTone::labelFor('opencart.reviews', $review->opencart_sync_status) }}</x-ui.badge>
         </div>
 
         <div class="od-head__actions">
-            @if($canManage && $ocOpen)
+            @if($canManage && $openCartOpen)
                 <x-ui.button variant="primary" type="submit" form="rv-push">
-                    {{ $review->oc_sync_status === 'error' ? 'Try the push again' : 'Push to OpenCart' }}
+                    {{ $review->opencart_sync_status === 'error' ? 'Try the push again' : 'Push to OpenCart' }}
                 </x-ui.button>
             @endif
 
-            @if(($canManage && $ocOpen) || $ventaCartOpen || $wcOpen)
+            @if(($canManage && $openCartOpen) || $ventaCartOpen || $wcOpen)
             <x-ui.menu label="Review actions">
                 @if($ventaCartOpen)
                     <button type="submit" class="x-menu__item" form="rv-ventacart">Push to VentaCart</button>
@@ -56,7 +56,7 @@
                 @if($wcOpen)
                     <button type="submit" class="x-menu__item" form="rv-woocommerce">Push to WooCommerce</button>
                 @endif
-                @if($canManage && $ocOpen)
+                @if($canManage && $openCartOpen)
                     <button type="submit" class="x-menu__item" form="rv-skip">Skip this review</button>
                 @endif
             </x-ui.menu>
@@ -160,7 +160,7 @@
                 <div class="od-card__body od-card__body--tight">
                     <div class="od-fact">
                         <span class="od-fact__k">State</span>
-                        <span class="od-fact__v">{{ ChannelStatusTone::labelFor('opencart.reviews', $review->oc_sync_status) }}</span>
+                        <span class="od-fact__v">{{ ChannelStatusTone::labelFor('opencart.reviews', $review->opencart_sync_status) }}</span>
                     </div>
                     @if($review->store_id)
                         <div class="od-fact">
@@ -168,21 +168,21 @@
                             <span class="od-fact__v od-fact__v--mono">{{ $review->store_id }}</span>
                         </div>
                     @endif
-                    @if($review->oc_review_id)
+                    @if($review->opencart_review_id)
                         <div class="od-fact">
                             <span class="od-fact__k">Review ID there</span>
-                            <span class="od-fact__v od-fact__v--mono">{{ $review->oc_review_id }}</span>
+                            <span class="od-fact__v od-fact__v--mono">{{ $review->opencart_review_id }}</span>
                         </div>
                     @endif
-                    @if($review->oc_pushed_at)
+                    @if($review->opencart_pushed_at)
                         <div class="od-fact">
                             <span class="od-fact__k">Pushed</span>
-                            <span class="od-fact__v">{{ $review->oc_pushed_at->format('Y-m-d H:i') }}</span>
+                            <span class="od-fact__v">{{ $review->opencart_pushed_at->format('Y-m-d H:i') }}</span>
                         </div>
                     @endif
-                    @if($review->oc_push_error)
+                    @if($review->opencart_push_error)
                         <hr class="od-divider">
-                        <p class="od-note od-note--fail"><span class="od-note__body">{{ $review->oc_push_error }}</span></p>
+                        <p class="od-note od-note--fail"><span class="od-note__body">{{ $review->opencart_push_error }}</span></p>
                     @endif
                 </div>
             </section>
@@ -289,7 +289,7 @@
         </div>
     </div>
 
-    @if($canManage && $ocOpen)
+    @if($canManage && $openCartOpen)
         <form id="rv-push" method="POST" action="{{ route('ext.opencart.reviews.push', $review->id) }}" class="x-sr">@csrf</form>
         <form id="rv-skip" method="POST" action="{{ route('ext.opencart.reviews.skip', $review->id) }}" class="x-sr">@csrf</form>
     @endif

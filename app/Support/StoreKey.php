@@ -27,6 +27,13 @@ final class StoreKey
         return ['source' => $channel, 'store_id' => $id];
     }
 
+    public static function split(string $key): array
+    {
+        [$channel, $id] = explode(':', $key, 2) + [1 => null];
+
+        return [$channel, ctype_digit((string) $id) ? (int) $id : null];
+    }
+
     public static function of(string $source, int $storeId): string
     {
         return str_contains($source, ':') ? $source : $source . ':' . $storeId;

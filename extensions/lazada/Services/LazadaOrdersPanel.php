@@ -2,8 +2,8 @@
 
 namespace Extensions\Lazada\Services;
 
-use App\Support\Fulfilment\CourierTally;
-use App\Support\FulfilmentSteps;
+use App\Support\Fulfillment\CourierTally;
+use App\Support\FulfillmentSteps;
 use Extensions\Lazada\Models\LazadaOrder;
 use Extensions\Lazada\Models\LazadaStore;
 use Illuminate\Http\Request;
@@ -102,7 +102,7 @@ class LazadaOrdersPanel
 
         $mappedStatuses = array_values(array_unique(array_merge(...array_values($tabStatusMap))));
 
-        $tabs = FulfilmentSteps::tabs([
+        $tabs = FulfillmentSteps::tabs([
             'ALL'             => 'all',
             'UNPAID'          => 'unpaid',
             'TO_SHIP'         => 'to_ship',
@@ -212,7 +212,7 @@ class LazadaOrdersPanel
 
         $otherCount = (clone $baseCountQuery)->whereNotIn('status', $mappedStatuses)->count();
         if ($otherCount > 0) {
-            $tabs['OTHER'] = FulfilmentSteps::label('other');
+            $tabs['OTHER'] = FulfillmentSteps::label('other');
             $tab_counts['OTHER'] = $otherCount;
         }
 
@@ -234,7 +234,7 @@ class LazadaOrdersPanel
         $savedAwbs = [];
         foreach ($orders as $o) {
             $oid = (string) ($o->order_id ?? '');
-            if ($oid !== '' && file_exists(\App\Support\Fulfilment\Waybills::path('lazada', (int) $o->store_id, $oid))) {
+            if ($oid !== '' && file_exists(\App\Support\Fulfillment\Waybills::path('lazada', (int) $o->store_id, $oid))) {
                 $savedAwbs[$o->order_id] = true;
             }
         }
@@ -280,7 +280,7 @@ class LazadaOrdersPanel
             ->with('products')
             ->first();
 
-        return \App\Support\Fulfilment\PackedParcel::fromOrder($order, $orderId);
+        return \App\Support\Fulfillment\PackedParcel::fromOrder($order, $orderId);
     }
 
     private function buildToShipCourierTally(string $region, array $statuses): CourierTally

@@ -100,7 +100,7 @@ Route::get('integrations/{path?}', function (?string $path = null) use ($withQue
     $path = (string) $path;
 
     if ($path === 'orders' || str_starts_with($path, 'orders/')) {
-        $path = 'fulfilment' . substr($path, strlen('orders'));
+        $path = 'fulfillment' . substr($path, strlen('orders'));
     }
 
     return redirect($withQuery('/channels' . ($path === '' ? '' : '/' . $path)), 301);
@@ -110,4 +110,14 @@ Route::get('/channels/venta/{any?}', fn (?string $any = null) => redirect($withQ
     ->where('any', '.*');
 
 Route::get('/petty-cash/{any?}', fn (?string $any = null) => redirect($withQuery('/finance/petty-cash'.($any ? '/'.$any : '')), 301))
+    ->where('any', '.*');
+
+Route::get('/channels/fulfilment/{any?}', fn (?string $any = null) => redirect($withQuery('/channels/fulfillment'.($any ? '/'.$any : '')), 301))
+    ->where('any', '.*');
+
+Route::get('/settings/fulfilment', fn () => redirect($withQuery('/settings/fulfillment'), 301));
+
+Route::get('/warehousing/inventory', fn () => redirect($withQuery('/warehousing/stock'), 301));
+
+Route::get('/reports/inventory/{any?}', fn (?string $any = null) => redirect($withQuery('/reports/stock'.($any ? '/'.$any : '')), 301))
     ->where('any', '.*');

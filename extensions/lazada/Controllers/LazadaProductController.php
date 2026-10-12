@@ -275,7 +275,7 @@ private function persistProductSyncStatus(LazadaListing $listing, string $action
             ->leftJoinSub($lpPick, 'lps', 'lps.product_id', '=', 'p.product_id')
             ->leftJoin('ch_lazada_listings as lp', 'lp.id', '=', 'lps.pick_id')
             ->select(
-                'p.product_id', 'pd.name', 'p.image', 'p.model', 'p.sku',
+                'p.product_id', 'pd.name', 'p.image', 'p.sku',
                 'p.price', 'p.quantity', 'p.status', 'm.name as brand_name',
                 'lp.id as listing_id', 'lp.lazada_item_id', 'lp.live_status',
                 'lp.lazada_deleted_at', 'lp.unlinked_at',
@@ -320,7 +320,6 @@ private function persistProductSyncStatus(LazadaListing $listing, string $action
         if ($q !== '') {
             $query->where(function ($sub) use ($q) {
                 $sub->where('pd.name', 'like', '%' . $q . '%')
-                    ->orWhere('p.model', 'like', '%' . $q . '%')
                     ->orWhere('p.sku', 'like', '%' . $q . '%')
                     ->orWhere('lp.lazada_item_id', 'like', '%' . $q . '%')
                     ->orWhereIn('p.product_id', LazadaListing::query()
@@ -613,12 +612,11 @@ private function persistProductSyncStatus(LazadaListing $listing, string $action
             })
             ->leftJoin('brands as m', 'p.brand_id', '=', 'm.brand_id')
             ->leftJoinSub($lpPick, 'lps', 'lps.product_id', '=', 'p.product_id')
-            ->select('p.product_id', 'pd.name', 'p.image', 'p.model', 'p.sku', 'p.price', 'p.quantity', 'p.status', 'm.name as brand_name', 'lps.pick_id as listing_id');
+            ->select('p.product_id', 'pd.name', 'p.image', 'p.sku', 'p.price', 'p.quantity', 'p.status', 'm.name as brand_name', 'lps.pick_id as listing_id');
 
         if ($q !== '') {
             $query->where(function ($sub) use ($q) {
                 $sub->where('pd.name', 'like', '%' . $q . '%')
-                    ->orWhere('p.model', 'like', '%' . $q . '%')
                     ->orWhere('p.sku', 'like', '%' . $q . '%');
             });
         }
@@ -715,13 +713,12 @@ private function persistProductSyncStatus(LazadaListing $listing, string $action
                 $j->on('p.product_id', '=', 'pd.product_id')->where('pd.language_id', '=', $langId);
             })
             ->leftJoinSub($lpPick, 'lps', 'lps.product_id', '=', 'p.product_id')
-            ->select('p.product_id', 'pd.name', 'p.image', 'p.sku', 'p.model', 'p.quantity', 'p.price', 'lps.pick_id as listing_id')
+            ->select('p.product_id', 'pd.name', 'p.image', 'p.sku', 'p.quantity', 'p.price', 'lps.pick_id as listing_id')
             ->where('p.status', 1);
 
         if ($q !== '') {
             $query->where(function ($sub) use ($q) {
                 $sub->where('pd.name', 'like', '%' . $q . '%')
-                    ->orWhere('p.model', 'like', '%' . $q . '%')
                     ->orWhere('p.sku', 'like', '%' . $q . '%');
             });
         }
@@ -2053,7 +2050,7 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
             })
             ->orderByDesc('p.product_id')
             ->limit(200)
-            ->get(['p.product_id', 'p.sku', 'p.model', 'p.quantity', 'p.status', 'p.image', 'pd.name']);
+            ->get(['p.product_id', 'p.sku', 'p.quantity', 'p.status', 'p.image', 'pd.name']);
 
         $categories = LazadaCategory::query()
             ->orderBy('name')
@@ -2468,7 +2465,7 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
             ->leftJoin('brands as m', 'p.brand_id', '=', 'm.brand_id')
             ->where('p.product_id', (int)$listing->product_id)
             ->first([
-                'p.product_id','p.sku','p.model','p.image','p.price','p.quantity',
+                'p.product_id','p.sku','p.image','p.price','p.quantity',
                 'p.weight','p.length','p.width','p.height','p.date_modified',
                 'p.upc','p.ean','p.jan','p.isbn','p.mpn',
                 'pd.name','pd.description','pd.meta_title','pd.meta_description',
@@ -2944,8 +2941,7 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
             ->unique()
             ->all();
         $existingSkus = [];
-        foreach (DB::table('products')->get(['model', 'sku']) as $ep) {
-            if ($ep->model !== null && trim((string) $ep->model) !== '') $existingSkus[strtolower(trim((string) $ep->model))] = true;
+        foreach (DB::table('products')->get(['sku']) as $ep) {
             if ($ep->sku !== null && trim((string) $ep->sku) !== '') $existingSkus[strtolower(trim((string) $ep->sku))] = true;
         }
         $ovSkus = DB::table('product_variation_values')

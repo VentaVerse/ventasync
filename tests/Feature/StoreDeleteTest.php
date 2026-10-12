@@ -72,7 +72,7 @@ class StoreDeleteTest extends TestCase
             ]);
         }
         app()->forgetInstance('shopee.route-store');
-        $coreId = $this->coreOrder(['channel' => 'shopee', 'marketplace_order_id' => 'SN-' . $gone->id, 'store_id' => $gone->id, 'store_name' => 'Outlet']);
+        $coreId = $this->coreOrder(['channel' => 'shopee', 'channel_order_id' => 'SN-' . $gone->id, 'store_id' => $gone->id, 'store_name' => 'Outlet']);
 
         $this->actingAs($this->user('manage'))
             ->post('/channels/shopee/' . $gone->id . '/delete', ['confirm_name' => 'Outlet'])

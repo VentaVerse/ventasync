@@ -179,7 +179,6 @@ class ShopeeProductController extends Controller
                 'p.product_id',
                 'pd.name',
                 'p.image',
-                'p.model',
                 'p.sku',
                 'p.price',
                 'p.quantity',
@@ -219,7 +218,6 @@ class ShopeeProductController extends Controller
         if ($q !== '') {
             $query->where(function ($sub) use ($q) {
                 $sub->where('pd.name', 'like', '%' . $q . '%')
-                    ->orWhere('p.model', 'like', '%' . $q . '%')
                     ->orWhere('p.sku', 'like', '%' . $q . '%')
                     ->orWhereIn('p.product_id', \Extensions\Shopee\Models\ShopeeListing::query()
                         ->forStore(ShopeeStore::defaultStore())
@@ -493,12 +491,11 @@ class ShopeeProductController extends Controller
             })
             ->leftJoin('brands as m', 'p.brand_id', '=', 'm.brand_id')
             ->leftJoinSub(ShopeeStoreProducts::query(), 'os', 'os.product_id', '=', 'p.product_id')
-            ->select('p.product_id', 'pd.name', 'p.image', 'p.model', 'p.sku', 'p.price', 'p.quantity', 'p.status', 'm.name as brand_name', 'os.product_id as on_store_pid');
+            ->select('p.product_id', 'pd.name', 'p.image', 'p.sku', 'p.price', 'p.quantity', 'p.status', 'm.name as brand_name', 'os.product_id as on_store_pid');
 
         if ($q !== '') {
             $query->where(function ($sub) use ($q) {
                 $sub->where('pd.name', 'like', '%' . $q . '%')
-                    ->orWhere('p.model', 'like', '%' . $q . '%')
                     ->orWhere('p.sku', 'like', '%' . $q . '%');
             });
         }
@@ -590,13 +587,12 @@ class ShopeeProductController extends Controller
                 $j->on('p.product_id', '=', 'pd.product_id')->where('pd.language_id', '=', $langId);
             })
             ->leftJoinSub(ShopeeStoreProducts::query(), 'os', 'os.product_id', '=', 'p.product_id')
-            ->select('p.product_id', 'pd.name', 'p.image', 'p.sku', 'p.model', 'p.quantity', 'p.price', 'os.product_id as on_store_pid')
+            ->select('p.product_id', 'pd.name', 'p.image', 'p.sku', 'p.quantity', 'p.price', 'os.product_id as on_store_pid')
             ->where('p.status', 1);
 
         if ($q !== '') {
             $query->where(function ($sub) use ($q) {
                 $sub->where('pd.name', 'like', '%' . $q . '%')
-                    ->orWhere('p.model', 'like', '%' . $q . '%')
                     ->orWhere('p.sku', 'like', '%' . $q . '%');
             });
         }
@@ -1472,9 +1468,8 @@ class ShopeeProductController extends Controller
         }
 
         $erpSkus = [];
-        $erpProducts = DB::table('products')->whereNotNull('model')->where('model', '!=', '')->get(['model', 'sku']);
+        $erpProducts = DB::table('products')->whereNotNull('sku')->where('sku', '!=', '')->get(['sku']);
         foreach ($erpProducts as $ep) {
-            if ($ep->model !== null && $ep->model !== '') $erpSkus[strtolower(trim($ep->model))] = true;
             if ($ep->sku !== null && $ep->sku !== '') $erpSkus[strtolower(trim($ep->sku))] = true;
         }
         $optSkus = DB::table('product_variation_values')
@@ -1684,15 +1679,13 @@ class ShopeeProductController extends Controller
             ->values()
             ->toArray();
 
-        $product = DB::table('products')->where('product_id', $productId)->first(['model', 'sku']);
-        $mainModel = trim((string) ($product->model ?? ''));
+        $product = DB::table('products')->where('product_id', $productId)->first(['sku']);
         $mainSku = trim((string) ($product->sku ?? ''));
 
         $allSkus = $ovSkus;
-        if ($mainModel !== '' && !in_array($mainModel, $allSkus)) $allSkus[] = $mainModel;
         if ($mainSku !== '' && !in_array($mainSku, $allSkus)) $allSkus[] = $mainSku;
 
-        Log::info("$tag ERP product fields: model: '$mainModel', sku: '$mainSku', variation_skus: " . json_encode($ovSkus));
+        Log::info("$tag ERP product fields: sku: '$mainSku', variation_skus: " . json_encode($ovSkus));
         Log::info("$tag Looking for these SKUs: " . json_encode($allSkus));
 
         if (empty($allSkus)) {
@@ -2028,9 +2021,6 @@ class ShopeeProductController extends Controller
         $pov = DB::table('product_variation_values')->where('sku', $sku)->first(['product_id']);
         if ($pov) return (int) $pov->product_id;
 
-        $prod = DB::table('products')->where('model', $sku)->first(['product_id']);
-        if ($prod) return (int) $prod->product_id;
-
         $prod = DB::table('products')->where('sku', $sku)->first(['product_id']);
         if ($prod) return (int) $prod->product_id;
 
@@ -2202,7 +2192,7 @@ class ShopeeProductController extends Controller
             ->where('p.product_id', $productId)
             ->first([
                 'p.product_id', 'pd.name', 'pd.description', 'p.image',
-                'p.model', 'p.sku', 'p.price', 'p.quantity', 'p.status',
+                'p.sku', 'p.price', 'p.quantity', 'p.status',
                 'p.weight', 'p.length', 'p.width', 'p.height',
                 'p.date_modified',
             ]);

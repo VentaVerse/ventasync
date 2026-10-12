@@ -27,11 +27,11 @@ final class OrderProfit
             ->selectRaw('COUNT(*) AS n, COALESCE(SUM(total), 0) AS revenue, COALESCE(SUM(cost * quantity), 0) AS cogs')
             ->first();
 
-        $shippingCode = MarketplaceFeeNormalizer::CODES['shipping'][0];
-        $voucherCode = MarketplaceFeeNormalizer::CODES['voucher'][0];
+        $shippingCode = ChannelFeeNormalizer::CODES['shipping'][0];
+        $voucherCode = ChannelFeeNormalizer::CODES['voucher'][0];
         $reported = DB::table('order_totals')
             ->where('order_id', $orderId)
-            ->whereIn('code', array_column(MarketplaceFeeNormalizer::CODES, 0))
+            ->whereIn('code', array_column(ChannelFeeNormalizer::CODES, 0))
             ->orderBy('sort_order')
             ->get(['code', 'title', 'value']);
 

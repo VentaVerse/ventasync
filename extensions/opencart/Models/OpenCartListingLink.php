@@ -10,7 +10,7 @@ class OpenCartListingLink extends Model
 
     protected $fillable = [
         'store_id',
-        'oc_product_id',
+        'opencart_product_id',
         'product_id',
         'sku',
     ];

@@ -97,9 +97,9 @@ class ChannelGroupToolsTest extends TestCase
     {
         $langId = (int) config('catalog.default_language_id');
         $productId = DB::table('products')->insertGetId([
-            'model' => $sku, 'sku' => $sku, 'quantity' => 5, 'price' => 300,
+            'sku' => $sku, 'quantity' => 5, 'price' => 300,
             'status' => 1, 'image' => 'catalog/x.png', 'weight' => 1, 'length' => 10, 'width' => 10, 'height' => 10,
-            'brand_id' => 0, 'date_added' => now(), 'date_modified' => now(), 'date_available' => now(),
+            'brand_id' => 0, 'date_added' => now(), 'date_modified' => now(),
         ]);
         DB::table('product_descriptions')->insert([
             'product_id' => $productId, 'language_id' => $langId,

@@ -1178,8 +1178,8 @@ if (form) {
 
         if (legacyBlankCount > 0) {
             showOptNotice(legacyBlankCount === 1
-                ? 'One variation has no SKU. It will not map to a marketplace listing.'
-                : legacyBlankCount + ' variations have no SKU. They will not map to marketplace listings.');
+                ? 'One variation has no SKU. It will not map to a listing.'
+                : legacyBlankCount + ' variations have no SKU. They will not map to listings.');
         }
 
         if (allSkus.length === 0) {

@@ -2,7 +2,7 @@
 
 namespace Extensions\VentaCart\Commands;
 
-use Extensions\OpenCart\Models\MarketplaceReview;
+use App\Models\MarketplaceReview;
 use Extensions\VentaCart\Models\VentaCartListingLink;
 use Extensions\VentaCart\Models\VentaCartStore;
 use Extensions\VentaCart\Services\VentaCart\VentaCartClient;

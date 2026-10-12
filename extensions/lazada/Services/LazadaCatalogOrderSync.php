@@ -95,7 +95,7 @@ class LazadaCatalogOrderSync
 
             if (!$catalogOrder) {
                 $catalogOrder = Order::where('channel', 'lazada')
-                    ->where('marketplace_order_id', $lazadaOrderId)
+                    ->where('channel_order_id', $lazadaOrderId)
                     ->first();
             }
 
@@ -110,19 +110,12 @@ class LazadaCatalogOrderSync
             $storeName = mb_substr((string) (\Extensions\Lazada\Models\LazadaStore::query()->find($storeId)?->store_name ?? ''), 0, 64);
 
             $orderData = [
-                'invoice_no'            => 0,
-                'invoice_prefix'        => '',
                 'store_id'              => $storeId,
                 'store_name'            => $storeName,
-                'store_url'             => '',
-                'customer_id'           => 0,
-                'customer_group_id'     => 0,
                 'firstname'             => $firstname,
                 'lastname'              => $lastname,
                 'email'                 => $email,
                 'telephone'             => $telephone,
-                'fax'                   => '',
-                'custom_field'          => '',
                 'payment_firstname'     => $firstname,
                 'payment_lastname'      => $lastname,
                 'payment_company'       => '',
@@ -131,14 +124,9 @@ class LazadaCatalogOrderSync
                 'payment_city'          => '',
                 'payment_postcode'      => '',
                 'payment_country'       => '',
-                'payment_country_id'    => 0,
                 'payment_zone'          => '',
-                'payment_zone_id'       => 0,
-                'payment_address_format' => '',
-                'payment_custom_field'  => '',
                 'payment_method'        => $paymentMethod,
                 'payment_cost'          => 0,
-                'payment_code'          => '',
                 'shipping_firstname'    => $shippingFirstname,
                 'shipping_lastname'     => $shippingLastname,
                 'shipping_company'      => '',
@@ -147,36 +135,22 @@ class LazadaCatalogOrderSync
                 'shipping_city'         => $shippingCity,
                 'shipping_postcode'     => $shippingPostcode,
                 'shipping_country'      => $shippingCountry,
-                'shipping_country_id'   => 0,
                 'shipping_zone'         => $shippingZone,
-                'shipping_zone_id'      => 0,
-                'shipping_address_format' => '',
-                'shipping_custom_field' => '',
                 'shipping_method'       => $shippingMethod,
                 'shipping_cost'         => 0,
-                'shipping_code'         => '',
                 'comment'               => '',
                 'total'                 => \App\Services\OrderCurrencyService::toBase($total, $rate),
                 'foreign_total'         => $isDefault ? null : round($total, \App\Services\OrderCurrencyService::MONEY_SCALE),
                 'extra_cost'            => 0,
                 'order_status_id'       => $statusId,
-                'affiliate_id'          => 0,
-                'commission'            => 0,
-                'marketing_id'          => 0,
-                'tracking'              => '',
-                'language_id'           => 1,
                 'currency_id'           => $currency['id'],
                 'currency_code'         => $currency['code'],
                 'currency_value'        => $rate,
                 'ip'                    => '',
-                'forwarded_ip'          => '',
-                'user_agent'            => '',
-                'accept_language'       => '',
                 'courier_id'            => 0,
                 'tracking_number'       => $trackingNumber,
                 'channel'    => 'lazada',
-                'marketplace_order_id'  => $lazadaOrderId,
-                'oe_import'             => 0,
+                'channel_order_id'  => $lazadaOrderId,
             ];
 
             if ($catalogOrder) {
@@ -273,14 +247,12 @@ class LazadaCatalogOrderSync
                     'order_id'      => $catalogOrder->order_id,
                     'product_id'    => $resolvedProductId,
                     'name'          => $item['name'],
-                    'model'         => $sellerSku,
+                    'sku'           => $sellerSku,
                     'quantity'      => $qty,
                     'price'         => $priceBase,
                     'foreign_price' => $isDefault ? null : round($price, \App\Services\OrderCurrencyService::MONEY_SCALE),
                     'total'         => $lineTotalBase,
                     'foreign_total' => $isDefault ? null : round($lineTotal, \App\Services\OrderCurrencyService::MONEY_SCALE),
-                    'tax'           => 0,
-                    'reward'        => 0,
                     'base_price'    => $priceBase,
                     'cost'          => $productCost,
                     'supplier_id'   => 0,
@@ -335,7 +307,7 @@ class LazadaCatalogOrderSync
             $lazadaOrder->catalog_order_id = $catalogOrder->order_id;
             $lazadaOrder->saveQuietly();
 
-            app(\App\Services\Orders\MarketplaceFeeNormalizer::class)->forOrder((int) $catalogOrder->order_id);
+            app(\App\Services\Orders\ChannelFeeNormalizer::class)->forOrder((int) $catalogOrder->order_id);
 
         });
     }
