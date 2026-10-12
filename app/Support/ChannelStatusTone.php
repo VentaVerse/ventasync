@@ -285,7 +285,7 @@ class ChannelStatusTone
             'READY_TO_SHIP'        => 'To hand over',
             'SHIPPED'              => 'Shipped',
             'DELIVERED'            => 'Delivered',
-            'CONFIRMED'            => 'Received by buyer',
+            'CONFIRMED'            => 'Complete',
             'CANCELED'             => 'Canceled',
             'CANCELLED'            => 'Canceled',
             'FAILED_DELIVERY'      => 'Delivery failed',
