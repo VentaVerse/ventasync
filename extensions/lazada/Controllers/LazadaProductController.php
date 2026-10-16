@@ -1323,7 +1323,7 @@ private function persistProductSyncStatus(LazadaListing $listing, string $action
                     $saved->lazada_item_id = $itemId;
                 }
                 $saved->lazada_deleted_at = null;
-                $listing->unlinked_at = null;
+                $saved->unlinked_at = null;
                 $saved->live_status = null;
                 $saved->live_checked_at = null;
                 $saved->save();
@@ -1384,7 +1384,8 @@ private function persistProductSyncStatus(LazadaListing $listing, string $action
                     }
                 }
 
-                $this->itemCache()->refreshListing($listing, $store, $client);
+                // Read back the item just created: $listing is the push's copy and still holds the previous number.
+                $this->itemCache()->refreshListing($saved, $store, $client);
             } catch (\Throwable $ex) {
             }
         }
