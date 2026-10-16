@@ -685,7 +685,8 @@ private function persistProductSyncStatus(LazadaListing $listing, string $action
 
         $groupId = (int) $request->input('group', 0);
         if ($groupId > 0) {
-            \App\Channels\OneGroupRule::place('ch_lazada_product_group_products', 'lazada_product_group_id', 'ch_lazada_product_groups', 'store_id', \App\Channels\Listings\ListingStore::id('lazada'), $groupId, $productId);
+            // Lazada's group row points at the listing, so it carries the listing just made.
+            \App\Channels\OneGroupRule::place('ch_lazada_product_group_products', 'lazada_product_group_id', 'ch_lazada_product_groups', 'store_id', \App\Channels\Listings\ListingStore::id('lazada'), $groupId, $productId, ['lazada_listing_id' => (int) $row->id]);
         }
 
         if ($request->wantsJson()) {
