@@ -94,16 +94,10 @@ public function refreshListing(LazadaListing $listing, object $store, LazadaClie
         $povId = $skuToPovId[$sellerSku] ?? null;
         $activeLazadaSkus[] = $sellerSku;
 
-        try {
-            LazadaListingVariation::updateOrCreate(
-                ['lazada_listing_id' => $listing->id, 'seller_sku' => $sellerSku],
-                [
-                    'sku_id' => (int) $skuId,
-                    'shop_sku' => $shopSku ? (string) $shopSku : null,
-                    'product_variation_value_id' => $povId,
-                ]
-            );
-        } catch (\Throwable $ex) {}
+        LazadaListingVariation::remember((int) $listing->id, $sellerSku, $povId, [
+            'sku_id' => (int) $skuId,
+            'shop_sku' => $shopSku ? (string) $shopSku : null,
+        ]);
     }
 
     if (($res['ok'] ?? false) && ($apiCode === '' || $apiCode === '0') && is_array($skus) && $skus !== []) {
@@ -191,16 +185,10 @@ public function fetchAndCacheVariants(LazadaListing $listing, object $store, Laz
             'shop_sku' => $shopSku ? (string) $shopSku : null,
         ];
 
-        try {
-            LazadaListingVariation::updateOrCreate(
-                ['lazada_listing_id' => $listing->id, 'seller_sku' => $sellerSku],
-                [
-                    'sku_id' => (int) $skuId,
-                    'shop_sku' => $shopSku ? (string) $shopSku : null,
-                    'product_variation_value_id' => $povId,
-                ]
-            );
-        } catch (\Throwable $ex) {}
+        LazadaListingVariation::remember((int) $listing->id, $sellerSku, $povId, [
+            'sku_id' => (int) $skuId,
+            'shop_sku' => $shopSku ? (string) $shopSku : null,
+        ]);
     }
 
     if (($res['ok'] ?? false) && ($apiCode === '' || $apiCode === '0') && $skus !== []) {

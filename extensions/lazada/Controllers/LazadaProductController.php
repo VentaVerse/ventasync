@@ -1264,10 +1264,18 @@ private function persistProductSyncStatus(LazadaListing $listing, string $action
         if ($isUpdate) {
             $productPayload['Request']['Product']['ItemId'] = (int) $listing->lazada_item_id;
 
-            $variantMap = LazadaListingVariation::where('lazada_listing_id', $listing->id)
-                ->whereNotNull('sku_id')
+            $skuIds = fn () => LazadaListingVariation::where('lazada_listing_id', $listing->id)
+                ->whereNotNull('sku_id')->whereNotNull('seller_sku')
                 ->pluck('sku_id', 'seller_sku')
                 ->toArray();
+            $variantMap = $skuIds();
+            // Lazada refuses an update whose SKUs carry no SkuId, so a missing one is read from Lazada first.
+            $unknown = array_filter(array_map(fn ($sku) => (string) ($sku['SellerSku'] ?? ''), $productPayload['Request']['Product']['Skus']['Sku']),
+                fn ($sellerSku) => $sellerSku !== '' && ! isset($variantMap[$sellerSku]));
+            if ($unknown !== []) {
+                $this->itemCache()->refreshListing($saved, $store, $client);
+                $variantMap = $skuIds();
+            }
 
             foreach ($productPayload['Request']['Product']['Skus']['Sku'] as $idx => $sku) {
                 $sellerSku = $sku['SellerSku'] ?? '';
@@ -1367,20 +1375,10 @@ private function persistProductSyncStatus(LazadaListing $listing, string $action
                             }
                         }
 
-                        try {
-                            \Extensions\Lazada\Models\LazadaListingVariation::updateOrCreate(
-                                [
-                                    'lazada_listing_id' => $listing->id,
-                                    'seller_sku' => (string) $sellerSku,
-                                ],
-                                [
-                                    'product_variation_value_id' => $povId,
-                                    'shop_sku' => $shopSku ? (string) $shopSku : null,
-                                    'sku_id' => $skuId !== null ? (int) $skuId : null,
-                                ]
-                            );
-                        } catch (\Throwable $ex2) {
-                        }
+                        \Extensions\Lazada\Models\LazadaListingVariation::remember((int) $listing->id, (string) $sellerSku, $povId !== null ? (int) $povId : null, [
+                            'shop_sku' => $shopSku ? (string) $shopSku : null,
+                            'sku_id' => $skuId !== null ? (int) $skuId : null,
+                        ]);
                     }
                 }
 
