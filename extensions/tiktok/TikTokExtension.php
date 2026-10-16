@@ -553,7 +553,8 @@ class TikTokExtension extends ExtensionProvider implements ChannelProvider, SkuS
 
         $orders = $query->orderByDesc('order_created_at')->orderByDesc('created_at')->paginate(20);
 
-        $data = $orders->map(function ($order) use ($storeNames) {
+        $stamped = \App\Support\OrderSnapshot::storeNames($orders->pluck('sales_order_id')->all());
+        $data = $orders->map(function ($order) use ($storeNames, $stamped) {
             $raw = $order->raw ?? [];
             $firstProduct = $order->products()->orderBy('id')->first();
             $productRaw = $firstProduct?->raw ?? [];
@@ -566,7 +567,7 @@ class TikTokExtension extends ExtensionProvider implements ChannelProvider, SkuS
             return [
                 'id'              => $order->id,
                 'store_id'        => (int) $order->store_id,
-                'store_name'      => (string) ($storeNames[$order->store_id] ?? ''),
+                'store_name'      => (string) ($stamped[(int) $order->sales_order_id] ?? $storeNames[$order->store_id] ?? ''),
                 'order_id'        => (string) $order->order_id,
                 'status'          => $order->status,
                 'customer_name'   => $order->customer_name ?? '',
@@ -605,12 +606,12 @@ class TikTokExtension extends ExtensionProvider implements ChannelProvider, SkuS
 
         $products = $order->products
             ->groupBy(fn ($p) => ($p->sku ?? '') . '|' . ($p->variation ?? ''))
-            ->map(function ($group) {
+            ->map(function ($group) use ($order) {
                 $first = $group->first();
                 return [
                     'name'      => $first->name,
                     'sku'       => $first->sku ?? '',
-                    'variation' => $first->variation ?? '',
+                    'variation' => \App\Support\LineVariation::label($first->sku, $first->variation, $order->sales_order_id, $first->name),
                     'quantity'  => $group->sum('quantity'),
                     'price'     => $first->sale_price ?? $first->item_price ?? 0,
                     'image'     => \App\Support\LineImage::url($first->sku, $first->image) ?? '',
@@ -621,7 +622,7 @@ class TikTokExtension extends ExtensionProvider implements ChannelProvider, SkuS
             'id'                => $order->id,
             'order_id'          => (string) $order->order_id,
             'store_id'          => (int) $order->store_id,
-            'store_name'        => (string) TikTokStore::query()->whereKey($order->store_id)->value('store_name'),
+            'store_name'        => (string) (\App\Support\OrderSnapshot::storeNames([$order->sales_order_id])[(int) $order->sales_order_id] ?? TikTokStore::query()->whereKey($order->store_id)->value('store_name')),
             'status'            => $order->status,
             'customer_name'     => $order->customer_name ?? '',
             'buyer_name'        => $order->customer_name ?? '',

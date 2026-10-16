@@ -388,7 +388,7 @@
                             @if(trim((string) ($it['sku'] ?? '')) !== '')
                                 <span class="co-item__sku">{{ $it['sku'] }}</span>
                             @endif
-                            <x-fulfillment.variation :sku="$it['sku'] ?? null" :fallback="$it['variation'] ?? null" />
+                            <x-fulfillment.variation :sku="$it['sku'] ?? null" :fallback="$it['variation'] ?? null" :order="$o->sales_order_id" :name="$it['name'] ?? null" />
                         </div>
                     </div>
                 </div>
@@ -454,7 +454,7 @@
                         <button type="button" class="btnArrangeShipment x-btn x-btn--secondary x-btn--sm"
                                 data-order-sn="{{ $orderSn }}"
                                 data-pc-channel="shopee" data-pc-order="{{ $o->id }}">Arrange shipment</button>
-                        <template data-parcel-for="{{ $orderSn }}"><x-fulfillment.parcel :parcel="$spParcel" /></template>
+                        <template data-parcel-for="{{ $orderSn }}"><x-fulfillment.parcel :parcel="$spParcel + ['sales_order_id' => $o->sales_order_id]" /></template>
                     @endif
 
                     @if(!$isToPack && !$isUnpaid)

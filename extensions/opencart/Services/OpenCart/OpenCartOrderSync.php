@@ -295,6 +295,7 @@ class OpenCartOrderSync
             }
 
             if (isset($raw['products']) && is_array($raw['products'])) {
+                $snapshot = \App\Support\OrderSnapshot::take((int) $coreOrderId);
                 DB::table('order_products')
                     ->where('order_id', $coreOrderId)
                     ->delete();
@@ -343,7 +344,7 @@ class OpenCartOrderSync
                         }
                     }
 
-                    $productCost = \App\Support\LineCost::resolve((int) $coreProductId, (int) ($firstMatchedPovId ?? 0));
+                    $productCost = $snapshot->cost($p['model'] ?? '', $p['name'] ?? '', (int) $coreProductId, (int) $firstMatchedPovId);
 
                     $opId = DB::table('order_products')->insertGetId([
                         'order_id'   => $coreOrderId,

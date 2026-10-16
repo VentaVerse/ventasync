@@ -159,7 +159,7 @@ class TikTokSalesOrderSync
                     $orderData['order_status_id'] = $oldStatusId;
                 }
                 $orderData['date_modified'] = $updatedAt;
-                $salesOrder->update($orderData);
+                $salesOrder->update(\App\Support\OrderSnapshot::keepOnOrder($salesOrder, $orderData));
             } else {
                 $oldStatusId = 0;
                 $orderData['date_added'] = $createdAt;
@@ -167,6 +167,7 @@ class TikTokSalesOrderSync
                 $salesOrder = Order::create($orderData);
             }
 
+            $snapshot = \App\Support\OrderSnapshot::take((int) $salesOrder->order_id);
             OrderProduct::where('order_id', $salesOrder->order_id)->delete();
             OrderVariation::where('order_id', $salesOrder->order_id)->delete();
 
@@ -235,7 +236,7 @@ class TikTokSalesOrderSync
                     }
                 }
 
-                $productCost = \App\Support\LineCost::resolve((int) $resolvedProductId, (int) $resolvedVariationValueId);
+                $productCost = $snapshot->cost($sellerSku, $item['name'], (int) $resolvedProductId, (int) $resolvedVariationValueId);
 
                 $op = OrderProduct::create([
                     'order_id'      => $salesOrder->order_id,
@@ -252,16 +253,8 @@ class TikTokSalesOrderSync
                     'supplier_id'   => 0,
                 ]);
 
-                if ($item['variation'] && trim($item['variation']) !== '') {
-                    OrderVariation::create([
-                        'order_id'                => $salesOrder->order_id,
-                        'order_product_id'        => $op->order_product_id,
-                        'product_variation_type_id'       => 0,
-                        'product_variation_value_id' => $resolvedVariationValueId,
-                        'name'                    => 'Variation',
-                        'value'                   => $item['variation'],
-                        'type'                    => 'text',
-                    ]);
+                foreach ($snapshot->variations($sellerSku, $item['name'], $item['variation'] ?? '', (int) $resolvedVariationValueId) as $v) {
+                    OrderVariation::create($v + ['order_id' => $salesOrder->order_id, 'order_product_id' => $op->order_product_id]);
                 }
             }
 

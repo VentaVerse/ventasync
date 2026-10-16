@@ -467,7 +467,7 @@
                             @if(trim((string) ($it['sku'] ?? '')) !== '')
                                 <span class="co-item__sku">{{ $it['sku'] }}</span>
                             @endif
-                            <x-fulfillment.variation :sku="$it['sku'] ?? null" :fallback="$it['variation'] ?? null" />
+                            <x-fulfillment.variation :sku="$it['sku'] ?? null" :fallback="$it['variation'] ?? null" :order="$o->sales_order_id" :name="$it['name'] ?? null" />
                         </div>
                     </div>
                 </div>

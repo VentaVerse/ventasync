@@ -146,7 +146,7 @@ class VentaCartOrderApiController extends Controller
         $raw = $order->raw ?? [];
         $shippingAddr = $order->shipping_address ?? [];
 
-        $products = $order->products->map(function ($p) use ($baseUrl) {
+        $products = $order->products->map(function ($p) use ($baseUrl, $order) {
             $storeImage = (string) ($p->raw['image'] ?? '');
             if ($storeImage !== '' && !str_starts_with($storeImage, 'http')) {
                 $storeImage = $baseUrl . '/' . ltrim($storeImage, '/');
@@ -155,7 +155,7 @@ class VentaCartOrderApiController extends Controller
             return [
                 'name'      => $p->name ?? '',
                 'sku'       => $p->sku ?? '',
-                'variation' => $p->variation_label ?? '',
+                'variation' => \App\Support\LineVariation::label($p->sku, $p->variation_label, $order->sales_order_id, $p->name),
                 'quantity'  => (int) $p->quantity,
                 'price'     => (float) $p->price,
                 'image'     => $image,

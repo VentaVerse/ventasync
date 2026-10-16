@@ -18,7 +18,7 @@
                             @if(trim((string) ($item['sku'] ?? '')) !== '')
                                 <span class="co-item__sku">{{ $item['sku'] }}</span>
                             @endif
-                            <x-fulfillment.variation :sku="$item['sku'] ?? null" :fallback="$item['variation'] ?? null" />
+                            <x-fulfillment.variation :sku="$item['sku'] ?? null" :fallback="$item['variation'] ?? null" :order="$parcel['sales_order_id'] ?? null" :name="$item['name'] ?? null" />
                         </div>
                     </div>
                     <span class="co-parcel__qty">&times;{{ (int) ($item['quantity'] ?? 1) }}</span>

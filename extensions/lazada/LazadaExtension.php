@@ -708,7 +708,8 @@ class LazadaExtension extends ExtensionProvider implements ChannelProvider, SkuR
 
         $orders = $query->orderByDesc('order_created_at')->orderByDesc('created_at')->paginate(20);
 
-        $data = $orders->map(function ($order) use ($storeNames) {
+        $stamped = \App\Support\OrderSnapshot::storeNames($orders->pluck('sales_order_id')->all());
+        $data = $orders->map(function ($order) use ($storeNames, $stamped) {
             $raw = $order->raw ?? [];
             $firstProduct = $order->products()->orderBy('id')->first();
             $productRaw = $firstProduct?->raw ?? [];
@@ -721,7 +722,7 @@ class LazadaExtension extends ExtensionProvider implements ChannelProvider, SkuR
             return [
                 'id'              => $order->id,
                 'store_id'        => (int) $order->store_id,
-                'store_name'      => (string) ($storeNames[$order->store_id] ?? ''),
+                'store_name'      => (string) ($stamped[(int) $order->sales_order_id] ?? $storeNames[$order->store_id] ?? ''),
                 'order_id'        => (string) $order->order_id,
                 'status'          => $order->status,
                 'customer_name'   => $raw['customer_first_name'] ?? $raw['customer_name'] ?? $raw['buyer_name'] ?? '',
@@ -760,13 +761,13 @@ class LazadaExtension extends ExtensionProvider implements ChannelProvider, SkuR
 
         $products = $order->products
             ->groupBy(fn ($p) => ($p->sku ?? '') . '|' . ($p->variation ?? ''))
-            ->map(function ($group) {
+            ->map(function ($group) use ($order) {
                 $first = $group->first();
                 $pRaw = $first->raw ?? [];
                 return [
                     'name'      => $first->name,
                     'sku'       => $first->sku ?? '',
-                    'variation' => $first->variation ?? '',
+                    'variation' => \App\Support\LineVariation::label($first->sku, $first->variation, $order->sales_order_id, $first->name),
                     'quantity'  => $group->sum('quantity'),
                     'price'     => isset($pRaw['item_price']) ? \App\Support\Money::parse($pRaw['item_price']) : 0,
                     'image'     => \App\Support\LineImage::url($first->sku, $first->image ?? $pRaw['product_main_image'] ?? null) ?? '',
@@ -777,7 +778,7 @@ class LazadaExtension extends ExtensionProvider implements ChannelProvider, SkuR
             'id'                => $order->id,
             'order_id'          => (string) $order->order_id,
             'store_id'          => (int) $order->store_id,
-            'store_name'        => (string) LazadaStore::query()->whereKey($order->store_id)->value('store_name'),
+            'store_name'        => (string) (\App\Support\OrderSnapshot::storeNames([$order->sales_order_id])[(int) $order->sales_order_id] ?? LazadaStore::query()->whereKey($order->store_id)->value('store_name')),
             'status'            => $order->status,
             'customer_name'     => $detail['customer_first_name'] ?? $detail['customer_name'] ?? $detail['buyer_name'] ?? '',
             'buyer_name'        => $detail['customer_first_name'] ?? $detail['customer_name'] ?? $detail['buyer_name'] ?? '',

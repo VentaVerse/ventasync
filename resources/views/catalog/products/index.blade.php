@@ -268,13 +268,14 @@
                                                 @endif
                                             </span>
                                             <span class="min-w-0">
-                                                <span class="block truncate">{{ $or->variation_value_name ?: '-' }}</span>
-                                                <span class="flex flex-wrap items-center gap-x-2.5 text-[12px] text-ink-3">
-                                                    <span class="bl-mono">{{ $or->sku ?: '-' }}</span>
-                                                    @if(!empty($or->variation_type_name))
-                                                        <span>{{ $or->variation_type_name }}</span>
-                                                    @endif
+                                                <span class="flex flex-wrap items-center gap-1.5">
+                                                    @forelse($or->variation_pairs ?? [] as $pair)
+                                                        <span class="co-var">@if($pair['name'] !== '')<span class="co-var__name">{{ $pair['name'] }}</span>@endif<span class="co-var__value">{{ $pair['value'] }}</span></span>
+                                                    @empty
+                                                        <span>-</span>
+                                                    @endforelse
                                                 </span>
+                                                <span class="block text-[12px] text-ink-3 bl-mono">{{ $or->sku ?: '-' }}</span>
                                             </span>
                                         </div>
                                     </td>

@@ -417,7 +417,7 @@ class VentaCartOrderSync
                 unset($orderData['shipping_cost']);
                 DB::table('orders')
                     ->where('order_id', $coreOrderId)
-                    ->update($orderData);
+                    ->update(\App\Support\OrderSnapshot::keepOnOrder($existing, $orderData));
             } else {
                 $orderData['date_added'] = isset($raw['created_at']) ? \Carbon\Carbon::parse($raw['created_at'])->format('Y-m-d H:i:s') : now()->toDateTimeString();
                 \App\Plans\Quota::refuseOrder();
@@ -426,6 +426,7 @@ class VentaCartOrderSync
             }
 
             $items = $raw['items'] ?? [];
+            $snapshot = \App\Support\OrderSnapshot::take((int) $coreOrderId);
             DB::table('order_products')->where('order_id', $coreOrderId)->delete();
             DB::table('order_variations')->where('order_id', $coreOrderId)->delete();
 
@@ -487,7 +488,7 @@ class VentaCartOrderSync
                     }
                 }
 
-                $productCost = \App\Support\LineCost::resolve((int) $resolvedProductId, (int) $resolvedVariationValueId);
+                $productCost = $snapshot->cost($sku, $item['name'] ?? '', (int) $resolvedProductId, (int) $resolvedVariationValueId);
 
                 $opId = DB::table('order_products')->insertGetId([
                     'order_id'      => $coreOrderId,
@@ -502,17 +503,8 @@ class VentaCartOrderSync
                     'cost'          => $productCost,
                 ]);
 
-                $variationLabel = trim($item['variant_label'] ?? '');
-                if ($variationLabel !== '') {
-                    DB::table('order_variations')->insert([
-                        'order_id'                 => $coreOrderId,
-                        'order_product_id'         => $opId,
-                        'product_variation_type_id'        => 0,
-                        'product_variation_value_id'  => $resolvedVariationValueId,
-                        'name'                     => 'Variation',
-                        'value'                    => $variationLabel,
-                        'type'                     => 'text',
-                    ]);
+                foreach ($snapshot->variations($sku, $item['name'] ?? '', (string) ($item['variant_label'] ?? ''), (int) $resolvedVariationValueId) as $v) {
+                    DB::table('order_variations')->insert($v + ['order_id' => $coreOrderId, 'order_product_id' => $opId]);
                 }
             }
 

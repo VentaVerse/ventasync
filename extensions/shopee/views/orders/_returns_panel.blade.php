@@ -241,7 +241,7 @@
                                 <span class="co-item__name">{{ $name !== '' ? $name : 'Unnamed product' }}</span>
                                 <div class="co-item__meta">
                                     @if($sku !== '')<span class="co-item__sku">{{ $sku }}</span>@endif
-                                    <x-fulfillment.variation :sku="$sku" :fallback="$variation" />
+                                    <x-fulfillment.variation :sku="$sku" :fallback="$variation" :order="$ret->order?->sales_order_id" />
                                     @if($ordered !== null)<span>{{ $retQty }} of {{ $ordered }} ordered</span>@endif
                                 </div>
                             </div>

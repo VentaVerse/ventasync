@@ -153,7 +153,7 @@
                                     @if(trim($sku) !== '')
                                         <span class="co-item__sku">{{ $sku }}</span>
                                     @endif
-                                    <x-fulfillment.variation :sku="$sku" :fallback="$variation" />
+                                    <x-fulfillment.variation :sku="$sku" :fallback="$variation" :order="$order->sales_order_id" />
                                 </div>
                             </div>
 

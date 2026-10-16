@@ -637,7 +637,8 @@ class ShopeeExtension extends ExtensionProvider implements ListingStateSource, C
 
         $orders = $query->orderByDesc('order_created_at')->orderByDesc('created_at')->paginate(20);
 
-        $data = $orders->map(function ($order) use ($storeNames) {
+        $stamped = \App\Support\OrderSnapshot::storeNames($orders->pluck('sales_order_id')->all());
+        $data = $orders->map(function ($order) use ($storeNames, $stamped) {
             $raw = $order->raw ?? [];
             $firstProduct = $order->products()->orderBy('id')->first();
             $productRaw = $firstProduct?->raw ?? [];
@@ -650,7 +651,7 @@ class ShopeeExtension extends ExtensionProvider implements ListingStateSource, C
             return [
                 'id'              => $order->id,
                 'store_id'        => (int) $order->store_id,
-                'store_name'      => (string) ($storeNames[$order->store_id] ?? ''),
+                'store_name'      => (string) ($stamped[(int) $order->sales_order_id] ?? $storeNames[$order->store_id] ?? ''),
                 'order_id'        => (string) $order->order_sn,
                 'status'          => $order->status,
                 'customer_name'   => $raw['buyer_username'] ?? $raw['buyer_user_name'] ?? '',
@@ -686,12 +687,12 @@ class ShopeeExtension extends ExtensionProvider implements ListingStateSource, C
         $raw = $order->raw ?? [];
         $addr = $raw['recipient_address'] ?? $raw['shipping_address'] ?? [];
 
-        $products = $order->products->map(function ($p) {
+        $products = $order->products->map(function ($p) use ($order) {
             $pRaw = $p->raw ?? [];
             return [
                 'name'      => $p->name,
                 'sku'       => $p->sku ?? '',
-                'variation' => $p->variation ?? '',
+                'variation' => \App\Support\LineVariation::label($p->sku, $p->variation, $order->sales_order_id, $p->name),
                 'quantity'  => $p->quantity,
                 'price'     => $p->price ?? 0,
                 'image'     => \App\Support\LineImage::url($p->sku, $p->image ?? ($pRaw['image_info']['image_url'] ?? null)) ?? '',
@@ -702,7 +703,7 @@ class ShopeeExtension extends ExtensionProvider implements ListingStateSource, C
             'id'                => $order->id,
             'order_id'          => $order->order_sn,
             'store_id'          => (int) $order->store_id,
-            'store_name'        => (string) ShopeeStore::query()->whereKey($order->store_id)->value('store_name'),
+            'store_name'        => (string) (\App\Support\OrderSnapshot::storeNames([$order->sales_order_id])[(int) $order->sales_order_id] ?? ShopeeStore::query()->whereKey($order->store_id)->value('store_name')),
             'status'            => $order->status,
             'customer_name'     => $raw['buyer_username'] ?? $raw['buyer_user_name'] ?? '',
             'buyer_name'        => $raw['buyer_username'] ?? $raw['buyer_user_name'] ?? '',

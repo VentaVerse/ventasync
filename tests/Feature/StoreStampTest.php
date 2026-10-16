@@ -19,7 +19,7 @@ class StoreStampTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_shopee_stamps_the_store_on_create_and_follows_a_rename_on_resync(): void
+    public function test_shopee_stamps_the_store_on_create_and_keeps_it_on_resync(): void
     {
         $store = ShopeeStore::create(['mode' => 'live', 'store_name' => 'Main store']);
         $so = ShopeeOrder::create(['order_sn' => 'SP-1', 'region' => 'PH', 'status' => 'READY_TO_SHIP',
@@ -31,9 +31,15 @@ class StoreStampTest extends TestCase
         $this->assertSame($store->id, (int) $order->store_id);
         $this->assertSame('Main store', $order->store_name);
 
-        $store->update(['store_name' => str_repeat('Long name ', 10)]);
+        $store->update(['store_name' => 'Renamed store']);
         app(ShopeeSalesOrderSync::class)->setSkipStockAdjust(true)->sync($so->fresh());
-        $this->assertSame(64, mb_strlen($order->fresh()->store_name), 'cut to the column');
+        $this->assertSame('Main store', $order->fresh()->store_name, 'the name the order was saved with');
+
+        $long = ShopeeStore::create(['mode' => 'live', 'store_name' => str_repeat('Long name ', 10)]);
+        $so2 = ShopeeOrder::create(['order_sn' => 'SP-2', 'region' => 'PH', 'status' => 'READY_TO_SHIP', 'store_id' => $long->id,
+            'raw' => ['currency' => 'PHP', 'total_amount' => 100, 'buyer_username' => 'b']]);
+        app(ShopeeSalesOrderSync::class)->setSkipStockAdjust(true)->sync($so2);
+        $this->assertSame(64, mb_strlen(Order::where('channel_order_id', 'SP-2')->value('store_name')), 'cut to the column');
     }
 
     public function test_lazada_stamps_the_store(): void

@@ -355,7 +355,7 @@
                             @if(trim((string) ($vtItem?->sku ?? '')) !== '')
                                 <span class="co-item__sku">{{ $vtItem->sku }}</span>
                             @endif
-                            <x-fulfillment.variation :sku="$vtItem?->sku" :fallback="$vtItem?->variation_label" />
+                            <x-fulfillment.variation :sku="$vtItem?->sku" :fallback="$vtItem?->variation_label" :order="$o->sales_order_id" :name="$vtItem?->name" />
                         </div>
                     </div>
                 </div>
@@ -426,7 +426,7 @@
                                      data-couriers-url="{{ route('ext.ventacart.orders.shipping_couriers', $storeId) }}"
                                      data-addresses-url="{{ route('ext.ventacart.orders.pickup_addresses', $storeId) }}"
                                      data-book-manual-url="{{ route('ext.ventacart.orders.book_manual', [$storeId, $o->id]) }}">Book courier</x-ui.button>
-                        <template data-parcel-for="{{ $o->id }}"><x-fulfillment.parcel :parcel="$vtParcel" /></template>
+                        <template data-parcel-for="{{ $o->id }}"><x-fulfillment.parcel :parcel="$vtParcel + ['sales_order_id' => $o->sales_order_id]" /></template>
                     @endif
 
                     @if(($vtIsToHandover || $vtBooked) && !$vtIsManual)

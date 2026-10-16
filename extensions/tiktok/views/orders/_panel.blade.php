@@ -398,7 +398,7 @@
                             @if(trim((string) ($it['sku'] ?? '')) !== '')
                                 <span class="co-item__sku">{{ $it['sku'] }}</span>
                             @endif
-                            <x-fulfillment.variation :sku="$it['sku'] ?? null" :fallback="$it['variation'] ?? null" />
+                            <x-fulfillment.variation :sku="$it['sku'] ?? null" :fallback="$it['variation'] ?? null" :order="$o->sales_order_id" :name="$it['name'] ?? null" />
                         </div>
                     </div>
                 </div>
@@ -473,7 +473,7 @@
                                          data-order-id="{{ $o->id }}"
                                          data-order-no="{{ $o->order_id ?? $o->id }}">Ship order</x-ui.button>
                         </form>
-                        <template data-parcel-for="{{ $o->id }}"><x-fulfillment.parcel :parcel="$ttParcel" /></template>
+                        <template data-parcel-for="{{ $o->id }}"><x-fulfillment.parcel :parcel="$ttParcel + ['sales_order_id' => $o->sales_order_id]" /></template>
                     @endif
 
                     @if($showsWaybill)
