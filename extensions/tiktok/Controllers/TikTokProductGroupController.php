@@ -1046,6 +1046,26 @@ class TikTokProductGroupController extends Controller
                 continue;
             }
 
+            $guard = app(\Extensions\TikTok\Services\TikTok\TikTokCreateGuard::class)->check($c, (int) $pivot->product_id, (int) $group->store_id);
+            if ($guard['verdict'] === 'refuse') {
+                $pivot->update(['sync_status' => 'error', 'push_error' => $guard['message']]);
+                $this->states((int) $group->store_id)->recordOutcome((int) $pivot->product_id, (string) $guard['message']);
+                $failed++;
+                continue;
+            }
+            if ($guard['verdict'] === 'existing') {
+                $note = \Extensions\TikTok\Services\TikTok\TikTokCreateGuard::adopt((int) $pivot->product_id, (string) $guard['product_id'], $pivot);
+                $listing = TikTokListing::query()->where('product_id', $pivot->product_id)->first();
+                $outcome = $this->editLive($group, $pivot->fresh(), $listing, (string) $guard['product_id'], $erp, $opts, $c, $client, $pusher);
+                if ($outcome['ok']) {
+                    $updated++;
+                    $warnings[] = '#' . $pivot->product_id . ': ' . $note . (!empty($outcome['warning']) ? ' ' . $outcome['warning'] : '');
+                } else {
+                    $failed++;
+                }
+                continue;
+            }
+
             $readiness = $readinessAll[(int) $pivot->product_id] ?? ['ready' => false, 'missing' => []];
             if (!$readiness['ready']) {
                 $refusal = \App\Channels\Listings\CatalogGaps::refusal($readiness);

@@ -680,6 +680,19 @@ class TikTokProductController extends Controller
         if ($this->truthFor($productId)) {
             return app(TikTokListingController::class)->updateOne($productId, $client);
         }
+        $storeId = (int) (($c['setting'] ?? null)?->id ?? \Extensions\TikTok\Models\TikTokStore::defaultStore()?->id ?? 0);
+        $guard = app(\Extensions\TikTok\Services\TikTok\TikTokCreateGuard::class)->check($c, $productId, $storeId);
+        if ($guard['verdict'] === 'refuse') {
+            $this->states($c['setting'] ?? null)->recordOutcome($productId, (string) $guard['message']);
+
+            return ['ok' => false, 'message' => (string) $guard['message']];
+        }
+        if ($guard['verdict'] === 'existing') {
+            $note = \Extensions\TikTok\Services\TikTok\TikTokCreateGuard::adopt($productId, (string) $guard['product_id']);
+            $answer = app(TikTokListingController::class)->updateOne($productId, $client);
+
+            return ['ok' => $answer['ok'], 'message' => trim($note . ' ' . $answer['message'])];
+        }
         $opts = $this->listingPushOptions($productId, $c);
         $readiness = app(TikTokListingReadiness::class)->forProducts([$productId])[$productId] ?? ['ready' => false, 'missing' => ['a TikTok category']];
         if (!$readiness['ready']) {
