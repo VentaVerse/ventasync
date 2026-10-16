@@ -1568,7 +1568,8 @@ private function persistProductSyncStatus(LazadaListing $listing, string $action
             'sign_method' => 'sha256',
             'timestamp' => $timestamp,
             'access_token' => (string) $creds['access_token'],
-            'payload' => json_encode($productPayload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+            // Lazada's deactivate call reads its body from apiRequestBody; update reads payload.
+            ($deactivate ? 'apiRequestBody' : 'payload') => json_encode($productPayload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
         ];
         $params['sign'] = $client->sign($apiPath, $params, (string) $creds['app_secret']);
         try {

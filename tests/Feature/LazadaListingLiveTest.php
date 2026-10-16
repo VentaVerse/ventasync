@@ -892,7 +892,7 @@ class LazadaListingLiveTest extends TestCase
 
         $sent = collect($this->sentPosts)->where('path', '/product/deactivate');
         $this->assertCount(2, $sent, 'Lazada deactivates one ItemId per call');
-        $ids = $sent->map(fn ($s) => (int) json_decode($s['params']['payload'], true)['Request']['Product']['ItemId'])->all();
+        $ids = $sent->map(fn ($s) => (int) json_decode($s['params']['apiRequestBody'], true)['Request']['Product']['ItemId'])->all();
         $this->assertEqualsCanonicalizing([111, 222], $ids);
 
         $r->assertSessionHas('status');
@@ -1178,7 +1178,7 @@ class LazadaListingLiveTest extends TestCase
             ->post(route('ext.lazada.listings.toggle', $listing->product_id), ['action' => 'deactivate']);
         $sent = collect($this->sentPosts)->firstWhere('path', '/product/deactivate');
         $this->assertNotNull($sent, 'Deactivate must reach /product/deactivate.');
-        $payload = json_decode($sent['params']['payload'], true);
+        $payload = json_decode($sent['params']['apiRequestBody'], true);
         $this->assertSame(990077, (int) $payload['Request']['Product']['ItemId']);
         $r->assertSessionHas('status');
 
@@ -1320,7 +1320,7 @@ class LazadaListingLiveTest extends TestCase
         $this->assertNotNull($call);
         $this->assertSame(
             ['Request' => ['Product' => ['ItemId' => 222]]],
-            json_decode($call['params']['payload'], true)
+            json_decode($call['params']['apiRequestBody'], true)
         );
         $this->assertSame('inactive', $listing->fresh()->live_status);
     }
@@ -1380,7 +1380,7 @@ class LazadaListingLiveTest extends TestCase
     private function deactivations(): array
     {
         return collect($this->sentPosts)->where('path', '/product/deactivate')
-            ->map(fn ($p) => json_decode($p['params']['payload'], true))->values()->all();
+            ->map(fn ($p) => json_decode($p['params']['apiRequestBody'], true))->values()->all();
     }
 
     public function test_a_variation_switched_off_for_the_store_is_deactivated_by_its_sku_alone(): void
