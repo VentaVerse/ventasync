@@ -33,7 +33,7 @@
     $items = $order->products ?? collect();
 
     $isToPack = ($statusNorm === 'READY_TO_SHIP');
-    $hasParcel = in_array($statusNorm, ['PROCESSED', 'SHIPPED', 'TO_CONFIRM_RECEIVE', 'COMPLETED'], true);
+    $hasParcel = in_array($statusNorm, ['PROCESSED', 'RETRY_SHIP', 'SHIPPED', 'TO_CONFIRM_RECEIVE', 'COMPLETED'], true);
 
     $canManageShopeeOrders = auth()->user()?->hasPermission('manage_shopee/order') ?? false;
 

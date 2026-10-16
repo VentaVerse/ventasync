@@ -266,10 +266,10 @@
 
             $isUnpaid = ($statusNorm === 'UNPAID');
             $isToPack = ($statusNorm === 'READY_TO_SHIP');
-            $isToHandover = ($statusNorm === 'PROCESSED');
+            $isToHandover = in_array($statusNorm, ['PROCESSED', 'RETRY_SHIP'], true);
             $isShipped = ($statusNorm === 'SHIPPED');
 
-            $awaitingShip = in_array($statusNorm, ['UNPAID', 'READY_TO_SHIP', 'PROCESSED'], true);
+            $awaitingShip = in_array($statusNorm, ['UNPAID', 'READY_TO_SHIP', 'PROCESSED', 'RETRY_SHIP'], true);
             $shipBy = $awaitingShip ? (int) ($raw['ship_by_date'] ?? 0) : 0;
 
             $created = $o->order_created_at ? $o->order_created_at->format('Y-m-d H:i') : null;

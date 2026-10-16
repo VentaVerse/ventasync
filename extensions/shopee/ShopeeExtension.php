@@ -37,17 +37,16 @@ class ShopeeExtension extends ExtensionProvider implements ListingStateSource, C
 {
     private const MOBILE_TAB_STATUS_MAP = [
         'UNPAID'              => ['UNPAID'],
-        'PENDING'             => ['READY_TO_SHIP', 'PROCESSED'],
+        'PENDING'             => ['READY_TO_SHIP', 'PROCESSED', 'RETRY_SHIP'],
         'SHIPPING'            => ['SHIPPED'],
         'DELIVERED_COMPLETED' => ['COMPLETED'],
         'CANCELLED'           => ['CANCELLED', 'IN_CANCEL'],
-        'FAILED_DELIVERY'     => ['RETRY_SHIP'],
         'RETURN'              => ['AWAITING_RETURN', 'IN_RETURN', 'RETURNED'],
     ];
 
     private const MOBILE_PENDING_SUB_MAP = [
         'to_pack'     => ['READY_TO_SHIP'],
-        'to_handover' => ['PROCESSED'],
+        'to_handover' => ['PROCESSED', 'RETRY_SHIP'],
     ];
 
     protected string $id = 'shopee';
@@ -202,12 +201,12 @@ class ShopeeExtension extends ExtensionProvider implements ListingStateSource, C
                     }
                     return ShopeeOrder::query()
                         ->where('store_id', $storeId)
-                        ->whereIn('status', ['READY_TO_SHIP', 'PROCESSED'])
+                        ->whereIn('status', ['READY_TO_SHIP', 'PROCESSED', 'RETRY_SHIP'])
                         ->count();
                 },
                 stages: [
                     ['key' => 'to_pack', 'label' => 'to pack', 'counter' => fn () => $shopeeStatusCount(['READY_TO_SHIP'])],
-                    ['key' => 'to_handover', 'label' => 'to handover', 'counter' => fn () => $shopeeStatusCount(['PROCESSED'])],
+                    ['key' => 'to_handover', 'label' => 'to handover', 'counter' => fn () => $shopeeStatusCount(['PROCESSED', 'RETRY_SHIP'])],
                 ],
                 dailyOrdersCounter: function () use ($storeId) {
                     if (!Schema::hasTable('ch_shopee_orders')) {
@@ -402,7 +401,7 @@ class ShopeeExtension extends ExtensionProvider implements ListingStateSource, C
 
         if (Schema::hasTable('ch_shopee_orders')) {
             $data['shopeePending'] = (int) DB::table('ch_shopee_orders')
-                ->whereIn('status', ['READY_TO_SHIP', 'PROCESSED'])
+                ->whereIn('status', ['READY_TO_SHIP', 'PROCESSED', 'RETRY_SHIP'])
                 ->count();
         }
 
@@ -448,7 +447,7 @@ class ShopeeExtension extends ExtensionProvider implements ListingStateSource, C
             if (Schema::hasTable('ch_shopee_orders')) {
                 $pending[$key] = (int) DB::table('ch_shopee_orders')
                     ->where('store_id', $store->id)
-                    ->whereIn('status', ['READY_TO_SHIP', 'PROCESSED'])
+                    ->whereIn('status', ['READY_TO_SHIP', 'PROCESSED', 'RETRY_SHIP'])
                     ->count();
             }
             $flags = null;

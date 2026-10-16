@@ -24,7 +24,7 @@ final class ShopeeAppFulfillment
     {
         [$step, $writes, $reads] = match (strtoupper((string) $order->status)) {
             'READY_TO_SHIP' => ['to_pack', ['ship'], []],
-            'PROCESSED' => ['to_handover', [], ['awb', 'tracking']],
+            'PROCESSED', 'RETRY_SHIP' => ['to_handover', [], ['awb', 'tracking']],
             'SHIPPED', 'TO_CONFIRM_RECEIVE' => ['shipped', [], ['tracking']],
             'COMPLETED' => ['done', [], []],
             'IN_CANCEL', 'CANCELLED' => ['canceled', [], []],

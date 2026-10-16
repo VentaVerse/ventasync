@@ -55,7 +55,6 @@ class ShopeeOrdersPanel
             'SHIPPING',
             'DELIVERED_COMPLETED',
             'CANCELLED',
-            'FAILED_DELIVERY',
             'OTHER',
         ];
         if (!in_array($tab, $allowedTabs, true)) {
@@ -97,11 +96,11 @@ class ShopeeOrdersPanel
 
         $tabStatusMap = [
             'UNPAID'              => ['UNPAID'],
-            'PENDING'             => ['READY_TO_SHIP', 'PROCESSED'],
+            // RETRY_SHIP is a failed pickup: the parcel is still here, so it waits in To handover, as Seller Center keeps it under To Ship.
+            'PENDING'             => ['READY_TO_SHIP', 'PROCESSED', 'RETRY_SHIP'],
             'SHIPPING'            => ['SHIPPED', 'TO_CONFIRM_RECEIVE'],
             'DELIVERED_COMPLETED' => ['COMPLETED'],
             'CANCELLED'           => ['CANCELLED', 'IN_CANCEL'],
-            'FAILED_DELIVERY'     => ['RETRY_SHIP'],
         ];
 
         $mappedStatuses = array_values(array_unique(array_merge(...array_values($tabStatusMap))));
@@ -113,10 +112,9 @@ class ShopeeOrdersPanel
             'SHIPPING'            => 'shipping',
             'DELIVERED_COMPLETED' => 'delivered',
             'CANCELLED'           => 'canceled',
-            'FAILED_DELIVERY'     => 'failed',
         ]);
 
-        $subStepStatuses = ['to_pack' => ['READY_TO_SHIP'], 'to_handover' => ['PROCESSED']];
+        $subStepStatuses = ['to_pack' => ['READY_TO_SHIP'], 'to_handover' => ['PROCESSED', 'RETRY_SHIP']];
         $courierTally = ($tab === 'PENDING' && isset($subStepStatuses[$pendingSubtab]))
             ? $this->buildToShipCourierTally($settingId, $subStepStatuses[$pendingSubtab])
             : new CourierTally();
@@ -131,7 +129,7 @@ class ShopeeOrdersPanel
             if ($tab === 'PENDING' && $pendingSubtab !== '') {
                 $pendingMap = [
                     'to_pack'     => ['READY_TO_SHIP'],
-                    'to_handover' => ['PROCESSED'],
+                    'to_handover' => ['PROCESSED', 'RETRY_SHIP'],
                 ];
                 $statuses = $pendingMap[$pendingSubtab] ?? ['READY_TO_SHIP'];
                 $query->whereIn('status', $statuses);
@@ -154,7 +152,7 @@ class ShopeeOrdersPanel
 
         $pending_sub_counts = [
             'to_pack'     => (clone $baseCountQuery)->whereIn('status', ['READY_TO_SHIP'])->count(),
-            'to_handover' => (clone $baseCountQuery)->whereIn('status', ['PROCESSED'])->count(),
+            'to_handover' => (clone $baseCountQuery)->whereIn('status', ['PROCESSED', 'RETRY_SHIP'])->count(),
         ];
 
         if ($find !== '') {
