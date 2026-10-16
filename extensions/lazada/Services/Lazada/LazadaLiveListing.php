@@ -115,6 +115,10 @@ class LazadaLiveListing
                     ->update(['live_status' => $status, 'live_checked_at' => $now]);
             }
         }
+        $restored = $this->restoreLinks($statusById);
+        if ($restored > 0) {
+            $counts['restored'] = $restored;
+        }
         $missing = \Extensions\Lazada\Models\LazadaListing::query()
             ->whereNotNull('lazada_item_id')->where('lazada_item_id', '!=', '')
             ->whereNotIn('lazada_item_id', array_map('strval', array_keys($statusById)) ?: ['-none-'])
@@ -129,6 +133,41 @@ class LazadaLiveListing
             'links' => (int) \Extensions\Lazada\Models\LazadaListing::query()
                 ->whereNotNull('lazada_item_id')->where('lazada_item_id', '!=', '')->count(),
         ];
+    }
+
+    /**
+     * A listing marked gone that the shop still lists by its number is not gone, so the mark is lifted.
+     * Without this a wrong mark never heals: the link check skips marked listings, and the next push creates a duplicate.
+     */
+    private function restoreLinks(array $statusById): int
+    {
+        $alive = array_map('strval', array_keys(array_filter($statusById, fn ($s) => $s !== 'deleted')));
+        $restored = 0;
+        foreach (array_chunk($alive, 500) as $chunk) {
+            $marked = \Extensions\Lazada\Models\LazadaListing::query()
+                ->whereNotNull('lazada_deleted_at')->whereIn('lazada_item_id', $chunk)->get();
+            foreach ($marked as $listing) {
+                $status = (string) $statusById[(string) $listing->lazada_item_id];
+                $wasDropped = $listing->last_sync_error_message === 'Not found on Lazada';
+                $listing->forceFill(['lazada_deleted_at' => null] + ($wasDropped
+                    ? ['last_sync_ok' => true, 'last_sync_error_code' => null, 'last_sync_error_message' => null]
+                    : []))->save();
+                if ($wasDropped) {
+                    \Extensions\Lazada\Models\LazadaProductGroupProduct::query()
+                        ->where('lazada_listing_id', $listing->id)->where('sync_status', 'error')
+                        ->update(['sync_status' => 'pushed']);
+                }
+                \App\Services\ActivityLogger::log(
+                    'updated', 'Lazada Product', (int) $listing->product_id,
+                    'Link to Lazada item ' . $listing->lazada_item_id . ' restored: the shop still lists it as ' . $status . '.',
+                    ['reason' => 'the shop still lists the item', 'item_id' => (string) $listing->lazada_item_id, 'status' => $status],
+                    'api'
+                );
+                $restored++;
+            }
+        }
+
+        return $restored;
     }
 
     public function statusIndex(object $store, array $creds, string $filter): array
@@ -228,6 +267,30 @@ class LazadaLiveListing
     public function itemShape(object $store, array $creds, string $itemId): array
     {
         return self::shapeOf($this->signedGet($store, $creds, '/product/item/get', ['item_id' => $itemId]));
+    }
+
+    /**
+     * Asks Lazada about one listing by its number: 'yes' it is there, 'no' Lazada says it does not
+     * exist, 'unknown' Lazada did not answer. Only a 'no' is evidence that a listing is gone.
+     *
+     * @return array{answer: 'yes'|'no'|'unknown', status: ?string, said: string}
+     */
+    public function itemOnLazada(object $store, array $creds, string $itemId): array
+    {
+        try {
+            $data = $this->signedGet($store, $creds, '/product/item/get', ['item_id' => $itemId]);
+        } catch (\RuntimeException $e) {
+            $said = $e->getMessage();
+
+            return ['answer' => preg_match('/not\s*(?:exist|found)|\bE0?207\b|\(code 207\)/i', $said) ? 'no' : 'unknown', 'status' => null, 'said' => $said];
+        }
+
+        $status = strtolower(trim((string) ($data['status'] ?? '')));
+        if ((string) ($data['item_id'] ?? '') === '' && $status === '') {
+            return ['answer' => 'unknown', 'status' => null, 'said' => 'Lazada answered without the listing'];
+        }
+
+        return ['answer' => $status === 'deleted' ? 'no' : 'yes', 'status' => $status ?: null, 'said' => ''];
     }
 
     public const PACKAGE_FIELDS = ['package_weight', 'package_length', 'package_width', 'package_height'];

@@ -439,7 +439,9 @@
                                 $menu['link'] = ['action' => route('ext.lazada.products.sync_lazada_id', $pid)];
                             }
                         } else {
-                            $menu['update'] = ['action' => route('ext.lazada.products.upload', $pid), 'label' => 'Send to Lazada', 'confirm' => "Send this listing's content and settings to the live Lazada item? Name, description, package, category, brand, attributes, price and stock are updated.", 'verb' => 'Send', 'tone' => 'primary'];
+                            $menu['update'] = ['action' => route('ext.lazada.products.upload', $pid), 'label' => 'Send to Lazada', 'confirm' => $listing->lazada_deleted_at
+                                ? "Lazada last reported item {$listing->lazada_item_id} as gone. Sending asks Lazada first: if the item is still there it is updated, and only if it is gone is the product listed again as a new item."
+                                : "Send this listing's content and settings to the live Lazada item? Name, description, package, category, brand, attributes, price and stock are updated.", 'verb' => 'Send', 'tone' => 'primary'];
                             if ($rowState?->state === $stateClass::LIVE) {
                                 $menu['switch'] = ['action' => route('ext.lazada.listings.toggle', $pid), 'label' => 'Deactivate on Lazada', 'fields' => ['action' => 'deactivate'], 'confirm' => "Deactivate {$rowLabel} on Lazada? Buyers stop seeing it. It can be activated again at any time.", 'verb' => 'Deactivate'];
                             } elseif ($rowState?->state === $stateClass::INACTIVE) {

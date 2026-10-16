@@ -70,6 +70,8 @@ class LazadaListingLiveTest extends TestCase
             }
         };
         $this->app->instance(LazadaClient::class, $fake);
+        // Before any create the push asks Lazada whether it already holds the product; by default it holds nothing.
+        $this->getResponses['/products/get'] = ['ok' => true, 'status' => 200, 'body' => ['code' => '0', 'data' => ['total_products' => 0, 'products' => []]]];
     }
 
     private int $groupSeq = 0;
@@ -1402,6 +1404,34 @@ class LazadaListingLiveTest extends TestCase
             $this->assertArrayNotHasKey('Status', $row, 'the variations still sold are left as they are');
         }
         $this->assertNull(app(\Extensions\Lazada\Services\Lazada\LazadaListingStates::class)->errors([$pid])[$pid]);
+    }
+
+    public function test_a_listing_marked_gone_that_lazada_still_holds_is_updated_not_listed_again(): void
+    {
+        $pid = $this->colorProduct('GONE');
+        $this->liveColors('GONE');
+        LazadaListing::query()->where('product_id', $pid)->update(['lazada_deleted_at' => now()->subDays(3)]);
+
+        $this->pushListing($pid)->assertSessionHas('status');
+
+        $this->assertStringContainsString('Lazada already has this product as item 2712258176', (string) session('status'));
+        $this->assertNull(collect($this->sentPosts)->firstWhere('path', '/product/create'), 'a wrong "gone" mark never makes a duplicate');
+        $this->assertNotNull(collect($this->sentPosts)->firstWhere('path', '/product/update'));
+        $listing = LazadaListing::query()->where('product_id', $pid)->first();
+        $this->assertNull($listing->lazada_deleted_at);
+        $this->assertSame('2712258176', (string) $listing->lazada_item_id);
+    }
+
+    public function test_a_listing_marked_gone_is_not_listed_again_while_lazada_does_not_answer_for_it(): void
+    {
+        $pid = $this->colorProduct('UNSURE');
+        LazadaListing::query()->where('product_id', $pid)->update(['lazada_deleted_at' => now()->subDays(3)]);
+        $this->getResponses['/product/item/get'] = ['ok' => false, 'status' => 503, 'body' => ['code' => 'ServiceTimeout', 'message' => 'Service timeout']];
+
+        $this->actingAs($this->manager())->post(route('ext.lazada.products.upload', $pid))->assertSessionHas('error');
+
+        $this->assertStringContainsString('so nothing was sent', (string) session('error'));
+        $this->assertSame([], collect($this->sentPosts)->whereIn('path', ['/product/create', '/product/update'])->all());
     }
 
     public function test_a_variation_switched_back_on_is_sent_active_in_the_update(): void

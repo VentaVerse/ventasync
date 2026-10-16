@@ -768,6 +768,40 @@ class LazadaProductGroupController extends Controller
                 continue;
             }
 
+            $guard = app(\Extensions\Lazada\Services\Lazada\LazadaCreateGuard::class)->check($store, $creds, (int) $productId, $listing);
+            if ($guard['verdict'] === 'refuse') {
+                $errors[] = "#{$productId}: " . $guard['message'];
+                $this->recordGroupFailure($group, $pivot, (int) $productId, $guard['message']);
+                $errCount++;
+                continue;
+            }
+            if ($guard['verdict'] === 'existing') {
+                if (!$listing) {
+                    $listing = LazadaListing::create(['product_id' => $productId]);
+                }
+                $moved = (string) $listing->lazada_item_id !== $guard['item_id'];
+                $relinkNote = \Extensions\Lazada\Services\Lazada\LazadaCreateGuard::adopt($listing, $guard['item_id']);
+                if ($pivot) {
+                    $pivot->update(['lazada_listing_id' => $listing->id]);
+                } elseif (\App\Channels\OneGroupRule::claim('ch_lazada_product_group_products', 'lazada_product_group_id', 'ch_lazada_product_groups', 'store_id', $group->id, [(int) $productId])['free'] !== []) {
+                    $pivot = LazadaProductGroupProduct::create(['lazada_product_group_id' => $group->id, 'product_id' => $productId, 'lazada_listing_id' => $listing->id, 'sync_status' => 'pending']);
+                }
+                if ($moved) {
+                    app(\Extensions\Lazada\Services\Lazada\LazadaItemCache::class)->refreshListing($listing, $store, $client);
+                }
+                $outcome = $this->updateLinked($group, $pivot, $listing, (int) $productId, $store, $creds, $client);
+                if ($outcome['ok']) {
+                    $updatedCount++;
+                    $notes[] = "#{$productId}: " . $relinkNote . (!empty($outcome['warning']) ? ' ' . $outcome['warning'] : '');
+                    if (!empty($outcome['pictures_left_out'])) $picturesWarned = true;
+                } else {
+                    $errors[] = "#{$productId}: " . $outcome['message'];
+                    $errCount++;
+                }
+                usleep(300000);
+                continue;
+            }
+
             $gateOverrides = [
                 'settings' => ['primary_category_id' => $group->lazada_category_id, 'markup_fixed' => $group->markup_fixed, 'markup_percent' => $group->markup_percent],
                 'attributes' => LazadaProductGroupAttribute::where('lazada_product_group_id', $group->id)->pluck('value', 'attribute_key')->toArray(),

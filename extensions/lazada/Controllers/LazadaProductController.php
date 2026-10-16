@@ -1207,6 +1207,28 @@ private function persistProductSyncStatus(LazadaListing $listing, string $action
 
         $isUpdate = !empty($listing->lazada_item_id) && empty($listing->lazada_deleted_at);
 
+        $relinkNote = null;
+        if (!$isUpdate) {
+            $guard = app(\Extensions\Lazada\Services\Lazada\LazadaCreateGuard::class)->check($store, $creds, (int) $saved->product_id, $saved);
+            if ($guard['verdict'] === 'refuse') {
+                $this->persistProductSyncStatus($saved, 'upload_to_lazada', ['ok' => false, 'body' => ['code' => 'NOT_CONFIRMED', 'message' => $guard['message']]]);
+                $this->states()->recordOutcome((int) $saved->product_id, $guard['message']);
+
+                return ['ok' => false, 'message' => $guard['message'], 'errors' => []];
+            }
+            if ($guard['verdict'] === 'existing') {
+                $moved = (string) $saved->lazada_item_id !== $guard['item_id'];
+                $relinkNote = \Extensions\Lazada\Services\Lazada\LazadaCreateGuard::adopt($saved, $guard['item_id']);
+                $listing->lazada_item_id = $guard['item_id'];
+                $listing->lazada_deleted_at = null;
+                $listing->unlinked_at = null;
+                if ($moved) {
+                    $this->itemCache()->refreshListing($saved, $store, $client);
+                }
+                $isUpdate = true;
+            }
+        }
+
         if ($listing->primary_category_id && !\Extensions\Lazada\Models\LazadaCategoryTemplate::query()->where('region', (string) $store->region)->where('primary_category_id', (int) $listing->primary_category_id)->whereNotNull('template_body')->exists()) {
             $this->readCategoryTemplate((int) $listing->primary_category_id, $client);
         }
@@ -1287,12 +1309,12 @@ private function persistProductSyncStatus(LazadaListing $listing, string $action
                 if ($failure !== null) {
                     $this->states()->recordOutcome((int) $saved->product_id, $failure);
 
-                    return ['ok' => false, 'message' => LazadaVariationSwitch::line($kept === null ? 'Update pushed.' : null, $switchNote, $pictureNote, $failure), 'errors' => []];
+                    return ['ok' => false, 'message' => LazadaVariationSwitch::line($kept === null ? 'Update pushed.' : null, $relinkNote, $switchNote, $pictureNote, $failure), 'errors' => []];
                 }
 
                 $note = $this->payload()->renameWarning($preview);
 
-                return ['ok' => true, 'message' => LazadaVariationSwitch::line('Update pushed.', $switchNote, $pictureNote, $note), 'errors' => [], 'warning' => $pictureNote !== null];
+                return ['ok' => true, 'message' => LazadaVariationSwitch::line('Update pushed.', $relinkNote, $switchNote, $pictureNote, $note), 'errors' => [], 'warning' => $pictureNote !== null];
             }
 
             $itemId = $this->payload()->extractCreatedItemId($result);
