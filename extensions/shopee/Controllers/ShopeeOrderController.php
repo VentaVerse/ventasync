@@ -11,7 +11,7 @@ use Extensions\Shopee\Models\ShopeeReturn;
 use Extensions\Shopee\Models\ShopeeStore;
 use App\Services\ActivityLogger;
 use Extensions\Shopee\Services\Shopee\ShopeeClient;
-use Extensions\Shopee\Services\ShopeeCatalogOrderSync;
+use Extensions\Shopee\Services\ShopeeSalesOrderSync;
 use Extensions\Shopee\Services\ShopeeOrdersPanel;
 use Extensions\Shopee\Services\ShopeeReturnsPanel;
 use Illuminate\Http\Request;
@@ -85,9 +85,9 @@ class ShopeeOrderController extends Controller
             'return_sn' => (string) ($data['return_sn'] ?? $returnSn),
             'solutions' => [
                 self::readSolution($data, 'offer_return_refund', 'Return and refund',
-                    'The buyer sends the item back, then is refunded.'),
+                    'The customer sends the item back, then is refunded.'),
                 self::readSolution($data, 'offer_refund', 'Refund only',
-                    'The buyer keeps the item and is refunded anyway.'),
+                    'The customer keeps the item and is refunded anyway.'),
             ],
         ]);
     }
@@ -415,7 +415,7 @@ class ShopeeOrderController extends Controller
                         ]);
                         $created++;
                         try { $this->syncOrderProductsFromDetail($newOrder, $o); } catch (\Throwable $e) {}
-                        try { (new ShopeeCatalogOrderSync)->setSkipStockAdjust($skipStock)->sync($newOrder); } catch (\Throwable $e) {}
+                        try { (new ShopeeSalesOrderSync)->setSkipStockAdjust($skipStock)->sync($newOrder); } catch (\Throwable $e) {}
                     } catch (\Throwable $e) {
                         $failed++;
                     }
@@ -569,7 +569,7 @@ class ShopeeOrderController extends Controller
                     } catch (\Throwable $e) {}
 
                     try {
-                        (new ShopeeCatalogOrderSync)->sync($existing);
+                        (new ShopeeSalesOrderSync)->sync($existing);
                     } catch (\Throwable $e) {}
                 });
             }
@@ -812,7 +812,7 @@ class ShopeeOrderController extends Controller
             }
 
             try {
-                (new ShopeeCatalogOrderSync)->sync($order);
+                (new ShopeeSalesOrderSync)->sync($order);
             } catch (\Throwable $e) {}
         });
 

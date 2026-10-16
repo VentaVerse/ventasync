@@ -10,7 +10,7 @@ class LazadaAttributes
 {
     public const MAP_PREFIX = '__map:';
 
-    public const ERP_SOURCE_FIELDS = [
+    public const CATALOG_SOURCE_FIELDS = [
         'name'             => 'Product Name',
         'description'      => 'Product Description',
         'meta_title'       => 'Meta Title',
@@ -43,12 +43,12 @@ class LazadaAttributes
 
     public function autoFillBasics(array $attrs, ?object $productRow): array
     {
-        foreach (self::AUTO_FILLED_ATTRIBUTES as $key => $erpField) {
+        foreach (self::AUTO_FILLED_ATTRIBUTES as $key => $catalogField) {
             $current = $attrs[$key] ?? null;
             if ($current !== null && trim((string) $current) !== '') {
                 continue;
             }
-            $resolved = $this->resolveMappedValue($erpField, $productRow);
+            $resolved = $this->resolveMappedValue($catalogField, $productRow);
             if ($resolved === null || trim($resolved) === '') {
                 $resolved = $key === 'short_description'
                     ? $this->resolveMappedValue('name', $productRow)
@@ -72,11 +72,11 @@ class LazadaAttributes
         return substr($value, strlen(self::MAP_PREFIX));
     }
 
-    public function resolveMappedValue(string $erpField, ?object $productRow): ?string
+    public function resolveMappedValue(string $catalogField, ?object $productRow): ?string
     {
-        if (!$productRow || $erpField === '') return null;
+        if (!$productRow || $catalogField === '') return null;
 
-        $val = match ($erpField) {
+        $val = match ($catalogField) {
             'name'             => $productRow->name ?? null,
             'description'      => $productRow->description ?? null,
             'meta_title'       => $productRow->meta_title ?? null,
@@ -96,7 +96,7 @@ class LazadaAttributes
             default            => null,
         };
 
-        if ($val !== null && in_array($erpField, ['description', 'name', 'meta_title', 'meta_description'], true)) {
+        if ($val !== null && in_array($catalogField, ['description', 'name', 'meta_title', 'meta_description'], true)) {
             if (str_contains($val, '&lt;') || str_contains($val, '&gt;') || str_contains($val, '&amp;')) {
                 $val = html_entity_decode($val, ENT_QUOTES | ENT_HTML5, 'UTF-8');
             }
@@ -109,8 +109,8 @@ class LazadaAttributes
     {
         foreach ($attrs as $key => $value) {
             if ($this->isMapValue($value)) {
-                $erpField = $this->extractMapField($value);
-                $resolved = $this->resolveMappedValue($erpField, $productRow);
+                $catalogField = $this->extractMapField($value);
+                $resolved = $this->resolveMappedValue($catalogField, $productRow);
                 $attrs[$key] = $resolved ?? '';
             }
         }
@@ -416,8 +416,8 @@ class LazadaAttributes
 
             $savedVal = $savedAttrs[$key] ?? null;
             if ($this->isMapValue($savedVal)) {
-                $erpField = $this->extractMapField($savedVal);
-                $resolved = $this->resolveMappedValue($erpField, $productRow);
+                $catalogField = $this->extractMapField($savedVal);
+                $resolved = $this->resolveMappedValue($catalogField, $productRow);
                 if ($resolved !== null) {
                     $out[$key] = $resolved;
                 }

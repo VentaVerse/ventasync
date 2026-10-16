@@ -181,7 +181,7 @@ class SettingsTabReturnTest extends TestCase
             ->get(route('ext.shopee.settings.show', ['store' => $store->id]))
             ->assertOk()->getContent();
 
-        $this->assertStringContainsString('How this store is named across the ERP', $html);
+        $this->assertStringContainsString('How this store is named across VentaSync', $html);
         $this->assertStringContainsString('id="sp-store-name-hint"', $html);
         $this->assertStringContainsString('class="bl-hint fm-label__hint"', $html);
         $this->assertStringNotContainsString('class="fm-hint"', $html, 'no description paragraph under a control on this page');

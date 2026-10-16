@@ -33,7 +33,7 @@ class LazadaStockPricePush
         }
 
         $productIds = $listings->pluck('product_id')->map(fn ($v) => (int) $v)->unique()->values()->all();
-        $erpSkus = PushLedger::erpVariationSkus($productIds);
+        $catalogSkus = PushLedger::catalogVariationSkus($productIds);
         $products = DB::table('products')
             ->whereIn('product_id', $productIds)
             ->get(['product_id', 'sku', 'price', 'quantity', 'status'])
@@ -44,7 +44,7 @@ class LazadaStockPricePush
             $product = $products->get($pid);
             if (!$product) {
                 $out['err']++;
-                $out['outcomes'][$pid] = ['ok' => false, 'error' => 'ERP product not found'];
+                $out['outcomes'][$pid] = ['ok' => false, 'error' => 'Catalog product not found'];
                 continue;
             }
             if ((int) $product->status === 0) {
@@ -61,7 +61,7 @@ class LazadaStockPricePush
             $this->itemCache->resolveSkuIds($listing, $store, $this->client, 'lazada.product.item.get.variants');
             $listing->load('variants');
 
-            $this->pushListing($kind, $store, $creds, $listing, $product, $priceFor, $erpSkus, $out, true);
+            $this->pushListing($kind, $store, $creds, $listing, $product, $priceFor, $catalogSkus, $out, true);
         }
 
         $states = LazadaListingStates::on($store);
@@ -73,12 +73,12 @@ class LazadaStockPricePush
         return $out;
     }
 
-    private function pushListing(string $kind, object $store, array $creds, LazadaListing $listing, object $product, ?callable $priceFor, array $erpSkus, array &$out, bool $mayHeal): void
+    private function pushListing(string $kind, object $store, array $creds, LazadaListing $listing, object $product, ?callable $priceFor, array $catalogSkus, array &$out, bool $mayHeal): void
     {
         $pid = (int) $listing->product_id;
         $rows = $this->resolver->buildPushItems($listing, $product);
 
-        $sendRows = !empty($erpSkus[$pid])
+        $sendRows = !empty($catalogSkus[$pid])
             ? array_values(array_filter($rows, fn ($row) => $row['matched'] ?? true))
             : $rows;
 
@@ -148,7 +148,7 @@ class LazadaStockPricePush
                 $this->itemCache->fetchAndCacheVariants($listing, $store, $this->client, 'lazada.product.item.get.variants');
                 $listing->load('variants');
                 $out['healed_listings'][] = (int) $listing->id;
-                $this->pushListing($kind, $store, $creds, $listing, $product, $priceFor, $erpSkus, $out, false);
+                $this->pushListing($kind, $store, $creds, $listing, $product, $priceFor, $catalogSkus, $out, false);
 
                 return;
             }

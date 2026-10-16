@@ -175,7 +175,7 @@ class LazadaProductGroupController extends Controller
             'attributes' => $attributes,
             'saved' => $saved,
             'selectedBrandName' => $selectedBrandName,
-            'erpSourceFields' => LazadaAttributes::ERP_SOURCE_FIELDS,
+            'catalogSourceFields' => LazadaAttributes::CATALOG_SOURCE_FIELDS,
         ]);
     }
 
@@ -288,7 +288,7 @@ class LazadaProductGroupController extends Controller
 
         $q = trim((string) $request->input('q'));
         $syncStatus = (string) $request->input('sync_status', 'all');
-        $erpStatus = (string) $request->input('erp_status', 'all');
+        $catalogStatus = (string) $request->input('catalog_status', 'all');
 
         $query = DB::table('products as p')
             ->join('product_descriptions as pd', function ($j) use ($langId) {
@@ -321,9 +321,9 @@ class LazadaProductGroupController extends Controller
             });
         }
 
-        if ($erpStatus === 'enabled') {
+        if ($catalogStatus === 'enabled') {
             $query->where('p.status', 1);
-        } elseif ($erpStatus === 'disabled') {
+        } elseif ($catalogStatus === 'disabled') {
             $query->where('p.status', 0);
         }
 
@@ -383,7 +383,7 @@ class LazadaProductGroupController extends Controller
             'manualIds' => $manualIds,
             'q' => $q,
             'syncStatus' => $syncStatus,
-            'erpStatus' => $erpStatus,
+            'catalogStatus' => $catalogStatus,
         ]);
     }
 
@@ -917,7 +917,7 @@ class LazadaProductGroupController extends Controller
                 $this->states($group)->recordOutcome((int) $productId, null);
 
                 ActivityLogger::log('created', 'Lazada Product', $listing->id,
-                    'Pushed ERP #' . $productId . ' to Lazada via product group');
+                    'Pushed product #' . $productId . ' to Lazada via product group');
 
                 $pictureNote = \Extensions\Lazada\Services\Lazada\LazadaImages::descriptionNote($picturesLeftOut);
                 if ($pictureNote !== null) {
@@ -1110,7 +1110,7 @@ class LazadaProductGroupController extends Controller
                 $this->states($group)->recordOutcome($productId, $kept);
 
                 ActivityLogger::log('updated', 'Lazada Product', $listing->id,
-                    'Updated ERP #' . $productId . ' on Lazada via product group');
+                    'Updated product #' . $productId . ' on Lazada via product group');
 
                 $pictureNote = \Extensions\Lazada\Services\Lazada\LazadaImages::descriptionNote($picturesLeftOut);
 
@@ -1289,7 +1289,7 @@ class LazadaProductGroupController extends Controller
 
             $mainSku = trim((string) ($product->sku ?? ''));
 
-            $variantSkus = $this->payload()->getErpVariantStockByProductId((int) $listing->product_id);
+            $variantSkus = $this->payload()->getCatalogVariantStockByProductId((int) $listing->product_id);
             $sellerSkuList = [];
             foreach ($variantSkus as $v) {
                 $s = trim((string) ($v['seller_sku'] ?? ''));
@@ -1366,7 +1366,7 @@ class LazadaProductGroupController extends Controller
                 $this->states($group)->clearErrors([(int) $pivotRow->product_id]);
 
                 ActivityLogger::log('deleted', 'Lazada Product', $listing->id,
-                    'Deleted from Lazada via product group, ERP #' . (int) $listing->product_id);
+                    'Deleted from Lazada via product group, product #' . (int) $listing->product_id);
 
                 $okCount++;
             } else {
@@ -1451,9 +1451,9 @@ class LazadaProductGroupController extends Controller
             ->whereIn('product_id', $productIds)
             ->pluck('id', 'product_id');
         $newProductIds = array_values(array_diff($productIds, $existingLpMap->keys()->toArray()));
-        $erpPrices = [];
+        $catalogPrices = [];
         if (!empty($newProductIds)) {
-            $erpPrices = DB::table('products')
+            $catalogPrices = DB::table('products')
                 ->whereIn('product_id', $newProductIds)
                 ->pluck('price', 'product_id')
                 ->toArray();
@@ -1607,12 +1607,12 @@ class LazadaProductGroupController extends Controller
         );
 
         $attributes = $this->attrs()->extractAttributes($template->template_body);
-        $erpSourceFields = \Extensions\Lazada\Controllers\LazadaAttributes::ERP_SOURCE_FIELDS;
+        $catalogSourceFields = \Extensions\Lazada\Controllers\LazadaAttributes::CATALOG_SOURCE_FIELDS;
 
         $html = view('ext-lazada::product-groups._attributes', [
             'attributes' => $attributes,
             'saved' => [],
-            'erpSourceFields' => $erpSourceFields,
+            'catalogSourceFields' => $catalogSourceFields,
             'template' => $template,
         ])->render();
 

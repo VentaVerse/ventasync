@@ -23,7 +23,7 @@ class VentaCartStoreSetup
             }
             VentaCartCategory::create([
                 'store_id' => $store->id, 'ventacart_category_id' => $c['id'],
-                'name' => $c['name'] ?? '', 'slug' => $c['slug'] ?? null, 'parent_id' => $c['parent_id'] ?? null, 'is_active' => $c['is_active'] ?? true,
+                'name' => $c['name'] ?? '', 'slug' => $c['slug'] ?? null, 'parent_id' => $c['parent_id'] ?? null, 'enabled' => $c['is_active'] ?? true,
             ]);
         }
         $store->forceFill(['last_category_sync_at' => now()])->save();
@@ -46,7 +46,7 @@ class VentaCartStoreSetup
             }
             VentaCartBrand::create([
                 'store_id' => $store->id, 'ventacart_brand_id' => $b['id'],
-                'name' => $b['name'] ?? '', 'slug' => $b['slug'] ?? null, 'is_active' => $b['is_active'] ?? true,
+                'name' => $b['name'] ?? '', 'slug' => $b['slug'] ?? null, 'enabled' => $b['is_active'] ?? true,
             ]);
         }
         $n = count($brands);

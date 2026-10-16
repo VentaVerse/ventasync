@@ -20,14 +20,13 @@
     .x-selectbar__select { flex: 1 1 100%; }
 }
 
-#woocommerce-orders-page .vt-col-products { width: 25%; }
+#woocommerce-orders-page .vt-col-products { width: 36%; }
 #woocommerce-orders-page .vt-col-qty      { width: 4%; }
 #woocommerce-orders-page .vt-col-price    { width: 7%; }
 #woocommerce-orders-page .vt-col-total    { width: 8%; }
 #woocommerce-orders-page .vt-col-pay      { width: 9%; }
 #woocommerce-orders-page .vt-col-track    { width: 9%; }
 #woocommerce-orders-page .vt-col-status   { width: 10%; }
-#woocommerce-orders-page .vt-col-date     { width: 11%; }
 #woocommerce-orders-page .vt-col-act      { width: 17%; }
 
 #woocommerce-orders-page .x-selectbar { flex-wrap: wrap; }

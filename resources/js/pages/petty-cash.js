@@ -14,7 +14,7 @@ export default function pettyCash(config) {
             amount: '',
             category: '',
             description: '',
-            notes: '',
+            note: '',
             transaction_date: settings.today || '',
         },
 
@@ -24,7 +24,7 @@ export default function pettyCash(config) {
                 amount: '',
                 category: '',
                 description: '',
-                notes: '',
+                note: '',
                 transaction_date: settings.today || '',
             };
         },
@@ -53,7 +53,7 @@ export default function pettyCash(config) {
                 amount: row.amount || '',
                 category: row.category || '',
                 description: row.description || '',
-                notes: row.notes || '',
+                note: row.note || '',
                 transaction_date: row.transaction_date || settings.today || '',
             };
 

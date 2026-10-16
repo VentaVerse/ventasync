@@ -236,7 +236,7 @@ class VentaCartListingController extends Controller
 
         $q = trim((string) $request->get('q', ''));
         $groupFilter = \App\Channels\Listings\StatusMenu::group($request->get('group'));
-        $erpStatus = (string) $request->get('erp_status', 'all');
+        $catalogStatus = (string) $request->get('catalog_status', 'all');
         $syncStatus = (string) $request->get('sync_status', 'all');
         $syncStatus = ['listed' => 'uploaded', 'not_listed' => 'not_uploaded'][$syncStatus] ?? $syncStatus;
         if ($syncStatus !== 'error') {
@@ -299,9 +299,9 @@ class VentaCartListingController extends Controller
 
             return $query->whereIn('p.product_id', $ids ?: [0]);
         };
-        if ($erpStatus === 'enabled') {
+        if ($catalogStatus === 'enabled') {
             $query->where('p.status', 1);
-        } elseif ($erpStatus === 'disabled') {
+        } elseif ($catalogStatus === 'disabled') {
             $query->where('p.status', 0);
         }
         if ($q !== '') {
@@ -472,7 +472,7 @@ class VentaCartListingController extends Controller
             'rowTitles' => $rowTitles,
             'q' => $q, 'sort' => $sort, 'dir' => $dir,
             'order' => $order, 'orderVariations' => \App\Channels\Listings\ListingSort::options(array_keys($sortMenu)),
-            'groupFilter' => $groupFilter, 'erpStatus' => $erpStatus, 'syncStatus' => $syncStatus,
+            'groupFilter' => $groupFilter, 'catalogStatus' => $catalogStatus, 'syncStatus' => $syncStatus,
             'allGroups' => VentaCartProductGroup::where('store_id', $store)->orderBy('name')->pluck('name', 'id'),
             'groupsByProductId' => $groupsByProductId,
             'variationRowsByProductId' => \App\Support\VariationRows::forListing($pageIds, 'ventacart', $store),

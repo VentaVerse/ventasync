@@ -20,6 +20,15 @@ VentaSync uses one word for each idea. The screens use the words a seller uses; 
 | Extension | `extensions/<id>/`, an `extension` column | A packaged add-on. Every channel is an extension; not every extension is a channel. |
 | Stock | `quantity`, `warehouse_stock`, `stock_history` | How many units of a product or variation there are, in total or in one warehouse. The menu groups the stock pages under Inventory; nothing else says inventory. |
 | Marketplace | `MarketplaceVerdict`, `ch_marketplace_reviews` | Only Shopee, Lazada and TikTok Shop. Anything that applies to every channel says channel. |
+| Customer | `customer_name`, `customer_note`, `CustomerLedger` | The person who ordered. Never buyer, except in a marketplace's own fields such as Shopee's `buyer_username`. |
+| Sales order | `orders`, `sales_order_id` | VentaSync's own record of an order. A store's order links to it by `sales_order_id`. Never ERP: VentaSync is the product's name. |
+| Created | `order_created_at` | When an order was placed on its store. Never Placed, Date or Order date. |
+| Total | `total` | What an order comes to. Amount is only a sum of money moved, such as a payment. |
+| Tracking | `tracking_number` | The courier's tracking number. A waybill is the printed label, not the number. |
+| Telephone | `telephone` | A telephone number. Never phone. |
+| Note | `note`, `internal_note` | Something our staff wrote. What the customer wrote on an order is the Customer note (`customer_note`). Comment is only a review's words. |
+| Enabled | `enabled` | The on/off switch on a record. Never active or is_active. |
+| Logistics | Shopee's and TikTok's menu | Kept on those two channels' menus because their seller centers say it. Everywhere else the company that carries a parcel is the Courier. |
 
 Every channel table starts with `ch_`, so a channel's tables sit together.
 

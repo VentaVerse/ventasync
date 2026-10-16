@@ -48,7 +48,7 @@ final class CustomerLedger
                 [$kind, $value] = array_pad(explode(':', $key, 2), 2, '');
                 match ($kind) {
                     'email' => $q->orWhereRaw('LOWER(TRIM(o.email)) = ?', [$value]),
-                    'phone' => $q->orWhereRaw(self::PHONE_DIGITS . ' LIKE ?', ['%' . substr($value, -7)]),
+                    'telephone', 'phone' => $q->orWhereRaw(self::PHONE_DIGITS . ' LIKE ?', ['%' . substr($value, -7)]),
                     'name' => $q->orWhereRaw("LOWER(TRIM(CONCAT(COALESCE(o.firstname,''), ' ', COALESCE(o.lastname,'')))) = ?", [$value])
                         ->orWhereRaw('LOWER(TRIM(o.firstname)) = ?', [$value]),
                     default => null,
@@ -173,7 +173,7 @@ final class CustomerLedger
         $phone = (string) ($order->telephone ?? '');
         $digits = preg_replace('/\D+/', '', $phone);
         if (! str_contains($phone, '*') && strlen((string) $digits) >= 7) {
-            return 'phone:' . substr((string) $digits, -10);
+            return 'telephone:' . substr((string) $digits, -10);
         }
 
         $name = mb_strtolower(trim(preg_replace('/\s+/', ' ', trim(($order->firstname ?? '') . ' ' . ($order->lastname ?? '')))));
@@ -201,6 +201,7 @@ final class CustomerLedger
                     'key' => $key,
                     'name' => trim($latest->firstname . ' ' . $latest->lastname),
                     'email' => ($latest->email && ! str_contains($latest->email, '*')) ? $latest->email : null,
+                    'telephone' => ($latest->telephone && ! str_contains($latest->telephone, '*')) ? $latest->telephone : null,
                     'phone' => ($latest->telephone && ! str_contains($latest->telephone, '*')) ? $latest->telephone : null,
                     'customer_types' => $g->pluck('customer_group')->filter()->unique()->values()->all(),
                     'stores' => $g->map(fn ($o) => $o->store_name ?: ($o->channel ?: 'Manual'))->unique()->values()->all(),

@@ -472,7 +472,7 @@ class VentaCartProductPush
 
     public function rememberHeld(int $productId, iterable $skus): void
     {
-        if ((\App\Channels\Push\PushLedger::erpVariationSkus([$productId])[$productId] ?? []) === []) {
+        if ((\App\Channels\Push\PushLedger::catalogVariationSkus([$productId])[$productId] ?? []) === []) {
             return;
         }
         $own = DB::table('products')->where('product_id', $productId)->first(['sku']);
@@ -569,8 +569,8 @@ class VentaCartProductPush
         }
 
         return ['ok' => true, 'message' => $active
-            ? 'Relisted on ' . $this->store->store_name . '. Buyers see it again.'
-            : 'Unlisted on ' . $this->store->store_name . '. Buyers stop seeing it; it can be relisted at any time.'];
+            ? 'Relisted on ' . $this->store->store_name . '. Customers see it again.'
+            : 'Unlisted on ' . $this->store->store_name . '. Customers stop seeing it; it can be relisted at any time.'];
     }
 
     public static function failureText(array $result, string $sku): string
@@ -580,7 +580,7 @@ class VentaCartProductPush
 
         if (stripos($raw, 'images_unavailable') !== false) {
             return 'VentaCart will not create a product it cannot fetch images for, so nothing was listed. '
-                . 'It reads images over the web from the address this ERP publishes, and that address is a '
+                . 'It reads images over the web from the address VentaSync publishes, and that address is a '
                 . 'private one, so the images never reach it. Nothing in the Master Catalog needs fixing.';
         }
 

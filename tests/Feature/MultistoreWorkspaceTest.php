@@ -670,7 +670,7 @@ class MultistoreWorkspaceTest extends TestCase
             'shipping_postcode' => '', 'shipping_country' => '',
             'shipping_zone' => '',
             'shipping_method' => '',
-            'comment' => '',
+            'customer_note' => '',
             'ip' => '',
             'courier_id' => 0, 'tracking_number' => '',
         ]);

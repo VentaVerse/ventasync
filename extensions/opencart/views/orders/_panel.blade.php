@@ -39,7 +39,7 @@
     <input type="hidden" name="dir" value="{{ $dir }}">
 
     <x-ui.input type="search" name="q" class="x-filters__search"
-                value="{{ $openCartQ }}" placeholder="Order no, buyer, product or tracking" aria-label="Search orders" />
+                value="{{ $openCartQ }}" placeholder="Order no, customer, product or tracking" aria-label="Search orders" />
 
     <div class="x-select-wrap x-filters__select">
         <select name="status" class="x-input" data-autosubmit aria-label="Filter by status">
@@ -90,12 +90,6 @@
                 </a>
             </th>
             <th scope="col" class="oc-col-status">Status</th>
-            <th scope="col" class="oc-col-date">
-                <a class="x-th-sort" href="{{ $openCartSortUrl('date_added') }}">
-                    Date
-                    @if($sort === 'date_added')<x-ui.icon name="{{ $dir === 'asc' ? 'chevron-up' : 'chevron-down' }}" size="12" />@endif
-                </a>
-            </th>
             <th scope="col" class="oc-col-act"><span class="x-sr">Actions</span></th>
         </tr>
     </x-slot:head>
@@ -114,30 +108,33 @@
             $openCartTone = \App\Support\OrderStatusTone::for($openCartStatusName);
         @endphp
         <tr class="co-band">
-            <td colspan="7">
+            <td colspan="6">
                 <div class="co-band__row">
                     <div class="co-band__left">
-                        <span class="co-band__label">Order</span>
-                        @if($canOpenOcOrders)
-                            <a class="co-sn" href="{{ route('orders.show', $o->order_id) }}">{{ $o->order_id }}</a>
-                        @else
-                            <span class="co-band__value co-band__value--mono">{{ $o->order_id }}</span>
-                        @endif
                         <span class="co-band__label">Customer</span>
                         @if($openCartCustomer !== '')
                             <span class="co-band__value">{{ $openCartCustomer }}</span>
                         @else
-                            <span class="co-empty-mark">Guest</span>
+                            <span class="co-empty-mark">Not recorded</span>
+                        @endif
+                        <span class="co-band__label">Order</span>
+                        @if($openCartExternal !== '')
+                            <span class="co-band__value co-band__value--mono">{{ $openCartExternal }}</span>
+                        @else
+                            <span class="co-empty-mark">No order number</span>
                         @endif
                         @if($openCartItemCount > 0)
                             <span class="co-band__muted">({{ $openCartItemCount }} {{ $openCartItemCount === 1 ? 'item' : 'items' }})</span>
                         @endif
+                        @if($canOpenOcOrders)
+                            <a class="co-ref" href="{{ route('orders.show', $o->order_id) }}">Sales order {{ $o->order_id }}</a>
+                        @else
+                            <span class="co-band__muted">Sales order {{ $o->order_id }}</span>
+                        @endif
                     </div>
                     <div class="co-band__right">
-                        @if($openCartExternal !== '')
-                            <span class="co-band__label">Channel order</span>
-                            <span class="oc-ext">{{ $openCartExternal }}</span>
-                        @endif
+                        <span class="co-band__label">Created</span>
+                        <span class="co-band__value co-band__value--mono">{{ \Illuminate\Support\Carbon::parse($o->date_added)->format('Y-m-d H:i') }}</span>
                     </div>
                 </div>
             </td>
@@ -206,9 +203,6 @@
                 </div>
             </td>
 
-            <td class="oc-col-date" rowspan="{{ $openCartLineCount }}" data-label="Date">
-                <span class="co-date">{{ \Illuminate\Support\Carbon::parse($o->date_added)->format('Y-m-d H:i') }}</span>
-            </td>
 
             <td class="oc-col-act" rowspan="{{ $openCartLineCount }}">
                 @if(!$canManageOcOrders)

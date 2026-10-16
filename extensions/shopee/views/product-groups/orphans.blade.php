@@ -43,7 +43,7 @@
 @else
     <p class="x-page-sub cc-orphans__lede">
         These exist on Shopee and nothing in the Master Catalog points at them. That is not automatically wrong:
-        an item may have been created in Seller Centre, or its Master Catalog twin removed. To bring one under ERP control,
+        an item may have been created in Seller Centre, or its Master Catalog twin removed. To bring one into VentaSync,
         give the Master Catalog product the same SKU and press Send on its row.
     </p>
 

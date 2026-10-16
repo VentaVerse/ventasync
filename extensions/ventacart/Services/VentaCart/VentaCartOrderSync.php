@@ -231,7 +231,7 @@ class VentaCartOrderSync
         }
     }
 
-    // Only follow the payload when it carries the courier object; a storefront that omits it must not blank the ERP's booking.
+    // Only follow the payload when it carries the courier object; a storefront that omits it must not blank VentaSync's booking.
     public static function courierFieldsFrom(array $raw): array
     {
         $courier = $raw['courier'] ?? null;
@@ -303,8 +303,8 @@ class VentaCartOrderSync
         }
 
         if ($this->feesOnly) {
-            if ($ventaCartOrder->catalog_order_id) {
-                app(\App\Services\Orders\ChannelFeeNormalizer::class)->forOrder((int) $ventaCartOrder->catalog_order_id);
+            if ($ventaCartOrder->sales_order_id) {
+                app(\App\Services\Orders\ChannelFeeNormalizer::class)->forOrder((int) $ventaCartOrder->sales_order_id);
             }
 
             return $wasCreated;
@@ -386,7 +386,7 @@ class VentaCartOrderSync
                 'shipping_zone'          => trim($shipping['state'] ?? ''),
                 'shipping_method'        => $raw['shipping_method'] ?? '',
                 'shipping_cost'          => 0,
-                'comment'                => $raw['comment'] ?? '',
+                'customer_note'          => $raw['comment'] ?? '',
                 'total'                  => \App\Services\OrderCurrencyService::toBase((float) ($totals['total'] ?? ($totals['subtotal'] ?? 0)), $rate),
                 'foreign_total'          => $isDefault ? null : round((float) ($totals['total'] ?? ($totals['subtotal'] ?? 0)), $moneyScale),
                 'extra_cost'             => 0,
@@ -534,14 +534,14 @@ class VentaCartOrderSync
                     'order_id'        => $coreOrderId,
                     'order_status_id' => $coreStatusId,
                     'notify'          => 0,
-                    'comment'         => 'Synced from VentaCart (status: ' . ($raw['status'] ?? 'unknown') . ')',
+                    'note'            => 'Synced from VentaCart (status: ' . ($raw['status'] ?? 'unknown') . ')',
                     'date_added'      => now()->toDateTimeString(),
                     'user_id'         => null,
                     'user_name'       => 'VentaCart Sync',
                 ]);
             }
 
-            $ventaCartOrder->update(['catalog_order_id' => $coreOrderId]);
+            $ventaCartOrder->update(['sales_order_id' => $coreOrderId]);
 
             app(\App\Services\Orders\ChannelFeeNormalizer::class)->forOrder($coreOrderId);
         });

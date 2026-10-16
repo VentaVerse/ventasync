@@ -42,7 +42,7 @@ class Order extends BaseModel
         'shipping_zone',
         'shipping_method',
         'shipping_cost',
-        'comment',
+        'customer_note',
         'total',
         'foreign_total',
         'extra_cost',

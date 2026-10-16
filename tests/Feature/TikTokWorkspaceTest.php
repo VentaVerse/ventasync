@@ -326,7 +326,7 @@ class TikTokWorkspaceTest extends TestCase
                 'order_id' => '57600000000000' . $i,
                 'status' => $status,
                 'order_created_at' => now()->subDays($i + 1),
-                'buyer_name' => 'Buyer number ' . $i,
+                'customer_name' => 'Customer number ' . $i,
                 'raw' => [
                     'payment' => ['total_amount' => '1250.00', 'currency' => 'PHP'],
                     'shipping_provider' => 'Flash Express',
@@ -382,7 +382,7 @@ class TikTokWorkspaceTest extends TestCase
         $response = $this->actingAs($this->tiktokOrdersOnlyOperator())->get('/channels/tiktok/'.$this->tiktokStore->id.'/orders?tab=ALL');
 
         $response->assertOk();
-        $response->assertSee('To pack');
+        $response->assertSee('Awaiting shipment');
 
         $response->assertDontSee('id="btnFetchOrders"', false);
         $response->assertDontSee('id="btnUpdateOrders"', false);
@@ -425,12 +425,12 @@ class TikTokWorkspaceTest extends TestCase
     {
         $expected = [
             'UNPAID'              => ['warning', 'Unpaid'],
-            'AWAITING_SHIPMENT'   => ['warning', 'To pack'],
-            'AWAITING_COLLECTION' => ['info', 'To hand over'],
-            'IN_TRANSIT'          => ['info', 'Shipped'],
+            'AWAITING_SHIPMENT'   => ['warning', 'Awaiting shipment'],
+            'AWAITING_COLLECTION' => ['info', 'Awaiting collection'],
+            'IN_TRANSIT'          => ['info', 'In transit'],
             'DELIVERED'           => ['success', 'Delivered'],
             'COMPLETED'           => ['success', 'Completed'],
-            'CANCELLED'           => ['danger', 'Canceled'],
+            'CANCELLED'           => ['danger', 'Cancelled'],
         ];
 
         foreach ($expected as $status => [$tone, $label]) {
@@ -470,8 +470,8 @@ class TikTokWorkspaceTest extends TestCase
         $response = $this->actingAs($this->tiktokManager())->get('/channels/tiktok/'.$this->tiktokStore->id.'/orders?tab=ALL');
 
         $response->assertOk();
-        $response->assertSee('To pack');
-        $response->assertSee('To hand over');
+        $response->assertSee('Awaiting shipment');
+        $response->assertSee('Awaiting collection');
         $response->assertDontSee('AWAITING_SHIPMENT');
         $response->assertDontSee('AWAITING SHIPMENT');
         $response->assertDontSee('AWAITING_COLLECTION');

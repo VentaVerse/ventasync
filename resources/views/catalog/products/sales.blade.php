@@ -75,7 +75,7 @@
         <x-slot:head>
             <tr>
                 <th scope="col" class="fm-vcol-qty">Order</th>
-                <th scope="col" class="fm-vcol-price">Date</th>
+                <th scope="col" class="fm-vcol-price">Created</th>
                 <th scope="col" class="x-col-chan">Channel</th>
                 <th scope="col">Product</th>
                 <th scope="col" class="x-td-num fm-vcol-qty">Qty</th>
@@ -90,7 +90,7 @@
         @foreach($sales as $s)
             <tr>
                 <td data-label="Order"><a class="x-row-link x-num" href="{{ route('orders.show', $s->order_id) }}">{{ $s->order_id }}</a></td>
-                <td data-label="Date"><span class="x-num">{{ \Carbon\Carbon::parse($s->date_added)->format('Y-m-d') }}</span></td>
+                <td data-label="Created"><span class="x-num">{{ \Carbon\Carbon::parse($s->date_added)->format('Y-m-d') }}</span></td>
                 @php
                     $src = trim((string) ($s->channel ?? ''));
                     $chanKey = $src === '' ? '' : strtok($src, ':');

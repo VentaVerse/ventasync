@@ -22,6 +22,12 @@ class SchemaWordsTest extends TestCase
         'platform' => 'channel',
         'model' => 'sku',
         'fulfilment' => 'fulfillment',
+        'buyer' => 'customer',
+        'erp' => 'sales_order (or say what it holds)',
+        'notes' => 'note',
+        'comment' => 'note, or customer_note for what the customer wrote',
+        'phone' => 'telephone',
+        'active' => 'enabled',
     ];
 
     private const CHANNELS = ['shopee', 'lazada', 'tiktok', 'shopify', 'woocommerce', 'ventacart', 'opencart', 'pedallion'];
@@ -34,6 +40,9 @@ class SchemaWordsTest extends TestCase
         'ch_order_fetch_runs.options' => 'the settings of a run, not a variation',
         'job_batches.options' => 'Laravel\'s own table',
         'scheduled_jobs.options' => 'the settings of a job, not a variation',
+        'ch_marketplace_reviews.comment' => 'the words of a review',
+        'ch_pedallion_orders.buyer_name' => 'Pedallion is frozen until it gets its real name',
+        'ch_pedallion_orders.erp_order_id' => 'Pedallion is frozen until it gets its real name',
     ];
 
     private const DROPPED = [

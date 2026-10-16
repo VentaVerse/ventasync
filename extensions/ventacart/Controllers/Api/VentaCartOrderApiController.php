@@ -88,18 +88,17 @@ class VentaCartOrderApiController extends Controller
             $firstProduct = $order->products()->orderBy('id')->first();
             $raw = $order->raw ?? [];
 
-            $image = $firstProduct?->raw['image'] ?? null;
-            if (empty($image) && $firstProduct) {
-                $image = $this->resolveProductImage($firstProduct->sku);
+            $storeImage = (string) ($firstProduct?->raw['image'] ?? '');
+            if ($storeImage !== '' && !str_starts_with($storeImage, 'http')) {
+                $storeImage = $baseUrl . '/' . ltrim($storeImage, '/');
             }
-            if ($image && !str_starts_with($image, 'http')) {
-                $image = $baseUrl . '/' . ltrim($image, '/');
-            }
+            $image = $firstProduct ? \App\Support\LineImage::url($firstProduct->sku, $storeImage) : null;
 
             return [
                 'id'              => $order->id,
                 'order_id'        => $order->ventacart_order_number ?: (string) $order->ventacart_order_id,
                 'status'          => $order->status ?? '',
+                'customer_name'   => $order->customer_name ?? '',
                 'buyer_name'      => $order->customer_name ?? '',
                 'total_amount'    => $order->total !== null ? (float) $order->total : null,
                 'currency'        => $raw['currency'] ?? Money::defaultCode(),
@@ -148,13 +147,11 @@ class VentaCartOrderApiController extends Controller
         $shippingAddr = $order->shipping_address ?? [];
 
         $products = $order->products->map(function ($p) use ($baseUrl) {
-            $image = $p->raw['image'] ?? '';
-            if (empty($image)) {
-                $image = $this->resolveProductImage($p->sku) ?? '';
+            $storeImage = (string) ($p->raw['image'] ?? '');
+            if ($storeImage !== '' && !str_starts_with($storeImage, 'http')) {
+                $storeImage = $baseUrl . '/' . ltrim($storeImage, '/');
             }
-            if ($image && !str_starts_with($image, 'http')) {
-                $image = $baseUrl . '/' . ltrim($image, '/');
-            }
+            $image = \App\Support\LineImage::url($p->sku, $storeImage) ?? '';
             return [
                 'name'      => $p->name ?? '',
                 'sku'       => $p->sku ?? '',
@@ -169,6 +166,7 @@ class VentaCartOrderApiController extends Controller
             'id'                => $order->id,
             'order_id'          => $order->ventacart_order_number ?: (string) $order->ventacart_order_id,
             'status'            => $order->status ?? '',
+            'customer_name'     => $order->customer_name ?? '',
             'buyer_name'        => $order->customer_name ?? '',
             'total_amount'      => $order->total !== null ? (float) $order->total : null,
             'currency'          => $raw['currency'] ?? Money::defaultCode(),
@@ -176,6 +174,7 @@ class VentaCartOrderApiController extends Controller
             'shipping_provider' => $order->shipping_method ?? '',
             'tracking_number'   => $order->tracking_number ?? '',
             'shipping_name'     => $shippingAddr['name'] ?? $shippingAddr['first_name'] ?? '',
+            'shipping_telephone' => $shippingAddr['phone'] ?? $shippingAddr['telephone'] ?? '',
             'shipping_phone'    => $shippingAddr['phone'] ?? $shippingAddr['telephone'] ?? '',
             'shipping_address'  => trim(implode(', ', array_filter([
                 $shippingAddr['address_1'] ?? $shippingAddr['address'] ?? '',
@@ -211,45 +210,6 @@ class VentaCartOrderApiController extends Controller
             $step === 'to_pack' ? ['book', 'book_manual'] : [],
             in_array($step, ['to_handover', 'shipped'], true) ? ['awb', 'tracking'] : [],
         );
-    }
-
-    private function resolveProductImage(?string $sku): ?string
-    {
-        if (empty($sku)) {
-            return null;
-        }
-
-        $productId = null;
-
-        $pov = DB::table('product_variation_values')
-            ->where('sku', $sku)
-            ->first(['product_id']);
-
-        if ($pov) {
-            $productId = $pov->product_id;
-        }
-
-        if (! $productId) {
-            $product = DB::table('products')
-                ->where('sku', $sku)
-                ->first(['product_id', 'image']);
-
-            if ($product && $product->image) {
-                return url('/storage/' . $product->image);
-            }
-
-            return null;
-        }
-
-        $product = DB::table('products')
-            ->where('product_id', $productId)
-            ->first(['image']);
-
-        if ($product && $product->image) {
-            return url('/storage/' . $product->image);
-        }
-
-        return null;
     }
 
     public function serviceability(int $store, int $id): JsonResponse

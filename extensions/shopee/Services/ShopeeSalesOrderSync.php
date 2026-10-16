@@ -1,19 +1,20 @@
 <?php
 
-namespace Extensions\TikTok\Services;
+namespace Extensions\Shopee\Services;
 
-use Extensions\TikTok\Models\TikTokOrder;
-use Extensions\TikTok\Models\TikTokOrderStatusMap;
+use Extensions\Shopee\Models\ShopeeOrder;
+use Extensions\Shopee\Models\ShopeeOrderStatusMap;
 use App\Models\Catalog\Order;
 use App\Models\Catalog\OrderHistory;
 use App\Models\Catalog\OrderVariation;
 use App\Models\Catalog\OrderProduct;
 use App\Models\Catalog\OrderTotal;
 use App\Services\OrderStockService;
-use App\Services\ActivityLogger;
 use Illuminate\Support\Facades\DB;
 
-class TikTokCatalogOrderSync
+use App\Services\ActivityLogger;
+
+class ShopeeSalesOrderSync
 {
     private bool $skipStockAdjust = false;
 
@@ -23,84 +24,82 @@ class TikTokCatalogOrderSync
         return $this;
     }
 
-    public function sync(TikTokOrder $tiktokOrder): void
+    public function sync(ShopeeOrder $shopeeOrder): void
     {
-        DB::transaction(function () use ($tiktokOrder) {
-            $raw = is_array($tiktokOrder->raw) ? $tiktokOrder->raw : [];
+        DB::transaction(function () use ($shopeeOrder) {
+            $raw = is_array($shopeeOrder->raw) ? $shopeeOrder->raw : [];
 
-            $statusMap = TikTokOrderStatusMap::where('context', 'order')->pluck('order_status_id', 'tiktok_status')->all();
-            $statusId = $statusMap[$tiktokOrder->status ?? ''] ?? 1;
+            $orderStatusMap = ShopeeOrderStatusMap::where('context', 'order')->pluck('order_status_id', 'shopee_status')->all();
+            $returnStatusMap = ShopeeOrderStatusMap::where('context', 'return')->pluck('order_status_id', 'shopee_status')->all();
+            $shopeeStatus = $shopeeOrder->status ?? '';
+            $statusId = $orderStatusMap[$shopeeStatus] ?? $returnStatusMap[$shopeeStatus] ?? null;
 
-            $addr = $raw['recipient_address'] ?? [];
+            $customerUsername = trim((string) ($raw['buyer_username'] ?? ($raw['buyer_user_name'] ?? '')));
+            $firstname = $customerUsername;
+            $lastname = '';
+
+            $addr = $raw['recipient_address'] ?? $raw['shipping_address'] ?? [];
             if (!is_array($addr)) $addr = [];
-
-            $buyerName = trim((string) ($addr['name'] ?? ($tiktokOrder->buyer_name ?? '')));
-            $parts = preg_split('/\s+/', $buyerName, 2);
-            $firstname = $parts[0] ?? '';
-            $lastname = $parts[1] ?? '';
 
             $shippingFirstname = mb_substr(trim((string) ($addr['name'] ?? $firstname)), 0, 128);
             $shippingLastname = '';
-            $shippingAddress1 = mb_substr(trim((string) ($addr['full_address'] ?? ($addr['address_line1'] ?? ''))), 0, 256);
-            $shippingAddress2 = mb_substr(trim((string) ($addr['address_line2'] ?? ($addr['address_detail'] ?? ''))), 0, 256);
-            $shippingCity = mb_substr(trim((string) ($addr['city'] ?? ($addr['district'] ?? ''))), 0, 128);
-            $shippingPostcode = mb_substr(trim((string) ($addr['zipcode'] ?? ($addr['postal_code'] ?? ''))), 0, 10);
-            $shippingCountry = mb_substr(trim((string) ($addr['country'] ?? ($addr['region_code'] ?? ''))), 0, 128);
+            $shippingAddress1 = mb_substr(trim((string) ($addr['full_address'] ?? ($addr['address1'] ?? ''))), 0, 256);
+            $shippingAddress2 = '';
+            $shippingCity = mb_substr(trim((string) ($addr['city'] ?? ($addr['town'] ?? ''))), 0, 128);
+            $shippingPostcode = mb_substr(trim((string) ($addr['zipcode'] ?? ($addr['zip_code'] ?? ''))), 0, 10);
+            $shippingCountry = mb_substr(trim((string) ($addr['country'] ?? '')), 0, 128);
             $shippingZone = mb_substr(trim((string) ($addr['state'] ?? ($addr['region'] ?? ''))), 0, 128);
-            $telephone = mb_substr(trim((string) ($addr['phone_number'] ?? ($addr['phone'] ?? ''))), 0, 32);
+            $telephone = mb_substr(trim((string) ($addr['phone'] ?? '')), 0, 32);
 
-            $paymentInfo = $raw['payment_info'] ?? $raw['payment'] ?? [];
-            if (!is_array($paymentInfo)) $paymentInfo = [];
-
-            $paymentMethod = trim((string) ($paymentInfo['payment_method'] ?? ($paymentInfo['payment_method_name'] ?? '')));
-            $apiTotal = (float) ($paymentInfo['total_amount'] ?? ($paymentInfo['original_total_product_price'] ?? 0));
-            $currencyCode = trim((string) ($paymentInfo['currency'] ?? 'PHP'));
+            $shippingMethod = trim((string) ($raw['shipping_carrier'] ?? ($raw['checkout_shipping_carrier'] ?? '')));
+            $paymentMethod = trim((string) ($raw['payment_method'] ?? ''));
+            $trackingNumber = trim((string) ($raw['tracking_no'] ?? ($raw['tracking_number'] ?? '')));
+            $apiTotal = (float) ($raw['total_amount'] ?? ($raw['escrow_amount'] ?? 0));
+            $currencyCode = trim((string) ($raw['currency'] ?? 'PHP'));
             if ($currencyCode === '') $currencyCode = 'PHP';
 
             $currencySvc = app(\App\Services\OrderCurrencyService::class);
             try {
                 $currency = $currencySvc->resolve($currencyCode);
             } catch (\InvalidArgumentException $e) {
-                \Log::warning("Unknown marketplace currency '{$currencyCode}', defaulting.", ['order' => $tiktokOrder->order_id]);
+                \Log::warning("Unknown marketplace currency '{$currencyCode}', defaulting.", ['order' => $shopeeOrder->order_sn]);
                 $currency = $currencySvc->resolve($currencySvc->defaultCode());
             }
 
-            $shippingInfo = $raw['shipping_info'] ?? $raw['logistics'] ?? [];
-            if (is_array($shippingInfo) && isset($shippingInfo[0]) && is_array($shippingInfo[0])) {
-                $shippingInfo = $shippingInfo[0];
-            }
-            if (!is_array($shippingInfo)) $shippingInfo = [];
+            $orderSn = (string) $shopeeOrder->order_sn;
 
-            $shippingMethod = trim((string) ($shippingInfo['shipping_provider_name'] ?? ($shippingInfo['shipping_provider'] ?? '')));
-            $trackingNumber = trim((string) ($shippingInfo['tracking_number'] ?? ''));
+            $createdAt = $shopeeOrder->order_created_at ?? now();
+            $updatedAt = $shopeeOrder->order_updated_at ?? now();
 
-            $tiktokOrderId = (string) $tiktokOrder->order_id;
+            $salesOrder = null;
 
-            $createdAt = $tiktokOrder->order_created_at ?? now();
-            $updatedAt = $tiktokOrder->order_updated_at ?? now();
-
-            $catalogOrder = null;
-
-            if ($tiktokOrder->catalog_order_id) {
-                $catalogOrder = Order::where('order_id', $tiktokOrder->catalog_order_id)->first();
+            if ($shopeeOrder->sales_order_id) {
+                $salesOrder = Order::where('order_id', $shopeeOrder->sales_order_id)->first();
             }
 
-            if (!$catalogOrder) {
-                $catalogOrder = Order::where('channel', 'tiktok')
-                    ->where('channel_order_id', $tiktokOrderId)
+            if (!$salesOrder) {
+                $salesOrder = Order::where('channel', 'shopee')
+                    ->where('channel_order_id', $orderSn)
                     ->first();
+            }
+
+            if ($statusId === null) {
+                if (! $salesOrder) {
+                    return;
+                }
+                $statusId = (int) $salesOrder->order_status_id;
             }
 
             // Once an order is normalized its currency_value is a frozen rate; a re-sync must not overwrite it
             // with today's rate, nor apply it if the order is no longer foreign.
             $rate = $currency['rate'];
             $isDefault = $currency['is_default'];
-            if ($catalogOrder && !$isDefault && $catalogOrder->foreign_total !== null) {
-                $rate = (float) $catalogOrder->currency_value;
+            if ($salesOrder && !$isDefault && $salesOrder->foreign_total !== null) {
+                $rate = (float) $salesOrder->currency_value;
             }
 
-            $storeId = (int) $tiktokOrder->store_id;
-            $storeName = mb_substr((string) (\Extensions\TikTok\Models\TikTokStore::query()->find($storeId)?->store_name ?? ''), 0, 64);
+            $storeId = (int) $shopeeOrder->store_id;
+            $storeName = mb_substr((string) (\Extensions\Shopee\Models\ShopeeStore::query()->find($storeId)?->store_name ?? ''), 0, 64);
 
             $orderData = [
                 'store_id'              => $storeId,
@@ -131,7 +130,7 @@ class TikTokCatalogOrderSync
                 'shipping_zone'         => $shippingZone,
                 'shipping_method'       => $shippingMethod,
                 'shipping_cost'         => 0,
-                'comment'               => '',
+                'customer_note'         => '',
                 'total'                 => $apiTotal,
                 'extra_cost'            => 0,
                 'order_status_id'       => $statusId,
@@ -141,47 +140,47 @@ class TikTokCatalogOrderSync
                 'ip'                    => '',
                 'courier_id'            => 0,
                 'tracking_number'       => $trackingNumber,
-                'channel'    => 'tiktok',
-                'channel_order_id'  => $tiktokOrderId,
+                'channel'    => 'shopee',
+                'channel_order_id'  => $orderSn,
             ];
 
-            if ($catalogOrder) {
-                $oldStatusId = (int) $catalogOrder->order_status_id;
-                if ((int) ($catalogOrder->sync_override ?? 0) === 1) {
+            if ($salesOrder) {
+                $oldStatusId = (int) $salesOrder->order_status_id;
+                if ((int) ($salesOrder->sync_override ?? 0) === 1) {
                     $statusId = $oldStatusId;
                     $orderData['order_status_id'] = $oldStatusId;
                 }
                 $orderData['date_modified'] = $updatedAt;
-                $catalogOrder->update($orderData);
+                $salesOrder->update($orderData);
             } else {
                 $oldStatusId = 0;
                 $orderData['date_added'] = $createdAt;
                 $orderData['date_modified'] = $updatedAt;
-                $catalogOrder = Order::create($orderData);
+                $salesOrder = Order::create($orderData);
             }
 
-            OrderProduct::where('order_id', $catalogOrder->order_id)->delete();
-            OrderVariation::where('order_id', $catalogOrder->order_id)->delete();
+            OrderProduct::where('order_id', $salesOrder->order_id)->delete();
+            OrderVariation::where('order_id', $salesOrder->order_id)->delete();
 
             $subTotal = 0;
             $shippingTotal = 0;
 
             $grouped = [];
-            foreach ($tiktokOrder->products as $tp) {
-                $tpRaw = is_array($tp->raw) ? $tp->raw : [];
-                $key = trim((string) ($tp->sku ?? ''));
-                if ($key === '') $key = '_nosku_' . $tp->id;
+            foreach ($shopeeOrder->products as $sp) {
+                $spRaw = is_array($sp->raw) ? $sp->raw : [];
+                $key = trim((string) ($sp->sku ?? ''));
+                if ($key === '') $key = '_nosku_' . $sp->id;
 
-                $itemPrice = (float) ($tp->sale_price ?? ($tp->item_price ?? ($tpRaw['sale_price'] ?? ($tpRaw['original_price'] ?? 0))));
-                $itemQty = max(1, (int) $tp->quantity);
+                $itemPrice = (float) ($sp->price ?? ($spRaw['model_discounted_price'] ?? ($spRaw['model_original_price'] ?? 0)));
+                $itemQty = max(1, (int) $sp->quantity);
 
-                $shippingTotal += (float) ($tpRaw['shipping_fee'] ?? 0);
+                $shippingTotal += (float) ($spRaw['shipping_fee'] ?? 0);
 
                 if (!isset($grouped[$key])) {
                     $grouped[$key] = [
-                        'sku'       => trim((string) ($tp->sku ?? '')),
-                        'name'      => $tp->name ?? '',
-                        'variation' => $tp->variation ?? '',
+                        'sku'       => trim((string) ($sp->sku ?? '')),
+                        'name'      => $sp->name ?? '',
+                        'variation' => $sp->variation ?? '',
                         'price'     => $itemPrice,
                         'quantity'  => $itemQty,
                     ];
@@ -231,7 +230,7 @@ class TikTokCatalogOrderSync
                 $productCost = \App\Support\LineCost::resolve((int) $resolvedProductId, (int) $resolvedVariationValueId);
 
                 $op = OrderProduct::create([
-                    'order_id'      => $catalogOrder->order_id,
+                    'order_id'      => $salesOrder->order_id,
                     'product_id'    => $resolvedProductId,
                     'name'          => $item['name'],
                     'sku'           => $sellerSku,
@@ -247,7 +246,7 @@ class TikTokCatalogOrderSync
 
                 if ($item['variation'] && trim($item['variation']) !== '') {
                     OrderVariation::create([
-                        'order_id'                => $catalogOrder->order_id,
+                        'order_id'                => $salesOrder->order_id,
                         'order_product_id'        => $op->order_product_id,
                         'product_variation_type_id'       => 0,
                         'product_variation_value_id' => $resolvedVariationValueId,
@@ -258,18 +257,28 @@ class TikTokCatalogOrderSync
                 }
             }
 
-            $total = $subTotal;
-            $catalogOrder->update([
+            $feeData = is_array($shopeeOrder->fees) ? $shopeeOrder->fees : [];
+            $orderIncome = $feeData['order_income'] ?? $feeData;
+
+            $customerPaidShipping = abs((float) ($orderIncome['buyer_paid_shipping_fee'] ?? 0));
+            $voucherSeller = abs((float) ($orderIncome['voucher_from_seller'] ?? 0));
+
+            if ($customerPaidShipping > 0 && $shippingTotal == 0) {
+                $shippingTotal = $customerPaidShipping;
+            }
+
+            $total = $subTotal - $voucherSeller;
+            $salesOrder->update([
                 'total'         => \App\Services\OrderCurrencyService::toBase($total, $rate),
                 'foreign_total' => $isDefault ? null : round($total, \App\Services\OrderCurrencyService::MONEY_SCALE),
             ]);
 
-            OrderTotal::where('order_id', $catalogOrder->order_id)->delete();
+            OrderTotal::where('order_id', $salesOrder->order_id)->delete();
 
             $sortOrder = 1;
-            foreach (\Extensions\TikTok\Services\TikTokSaleLines::lines(is_array($raw['payment'] ?? null) ? $raw['payment'] : [], $subTotal, $shippingTotal) as $line) {
+            foreach (\Extensions\Shopee\Services\ShopeeSaleLines::lines(is_array($orderIncome) ? $orderIncome : [], $subTotal, $shippingTotal) as $line) {
                 OrderTotal::create([
-                    'order_id'   => $catalogOrder->order_id,
+                    'order_id'   => $salesOrder->order_id,
                     'code'       => $line['code'],
                     'title'      => $line['title'],
                     'value'      => \App\Services\OrderCurrencyService::toBase($line['value'], $rate),
@@ -279,28 +288,28 @@ class TikTokCatalogOrderSync
 
             if ($oldStatusId !== $statusId) {
                 OrderHistory::create([
-                    'order_id'        => $catalogOrder->order_id,
+                    'order_id'        => $salesOrder->order_id,
                     'order_status_id' => $statusId,
                     'notify'          => 0,
-                    'comment'         => 'Synced from TikTok (status: ' . ($tiktokOrder->status ?? 'unknown') . ')',
+                    'note'            => 'Synced from Shopee (status: ' . ($shopeeOrder->status ?? 'unknown') . ')',
                     'date_added'      => now(),
                     'user_id'         => null,
-                    'user_name'       => 'TikTok Sync',
+                    'user_name'       => 'Shopee Sync',
                 ]);
 
-                ActivityLogger::log('updated', 'Order', $catalogOrder->order_id, 'TikTok #' . ($tiktokOrder->order_id ?? ''), [
+                ActivityLogger::log('updated', 'Order', $salesOrder->order_id, 'Shopee #' . ($shopeeOrder->order_sn ?? ''), [
                     'order_status_id' => [(string) $oldStatusId, (string) $statusId],
                 ], source: 'system');
 
                 if (!$this->skipStockAdjust) {
-                    OrderStockService::adjustStock($catalogOrder, $oldStatusId, $statusId);
+                    OrderStockService::adjustStock($salesOrder, $oldStatusId, $statusId);
                 }
             }
 
-            $tiktokOrder->catalog_order_id = $catalogOrder->order_id;
-            $tiktokOrder->saveQuietly();
+            $shopeeOrder->sales_order_id = $salesOrder->order_id;
+            $shopeeOrder->saveQuietly();
 
-            app(\App\Services\Orders\ChannelFeeNormalizer::class)->forOrder((int) $catalogOrder->order_id);
+            app(\App\Services\Orders\ChannelFeeNormalizer::class)->forOrder((int) $salesOrder->order_id);
 
         });
     }

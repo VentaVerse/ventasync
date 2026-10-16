@@ -31,7 +31,7 @@ final class LazadaCreateGuard
             }
         }
 
-        $skus = $this->check->erpSkusByProduct([$productId])[$productId] ?? [];
+        $skus = $this->check->catalogSkusByProduct([$productId])[$productId] ?? [];
         if ($skus === []) {
             return ['verdict' => 'create', 'item_id' => null, 'message' => null];
         }

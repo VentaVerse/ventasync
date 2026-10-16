@@ -10,7 +10,7 @@ class ProcessChannelWebhooks extends Command
 {
     protected $signature = 'webhooks:process {--limit=200}';
 
-    protected $description = 'Apply verified channel webhook deliveries to the ERP';
+    protected $description = 'Apply verified channel webhook deliveries to VentaSync';
 
     public function handle(ChannelRegistry $registry): int
     {

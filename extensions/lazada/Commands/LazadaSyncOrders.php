@@ -8,7 +8,7 @@ use Extensions\Lazada\Models\LazadaOrderProduct;
 use Extensions\Lazada\Models\LazadaReverseOrder;
 use Extensions\Lazada\Models\LazadaStore;
 use Extensions\Lazada\Services\Lazada\LazadaClient;
-use Extensions\Lazada\Services\LazadaCatalogOrderSync;
+use Extensions\Lazada\Services\LazadaSalesOrderSync;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
@@ -202,7 +202,7 @@ class LazadaSyncOrders extends Command implements \App\Channels\Contracts\Steppa
                 }
 
                 try {
-                    (new LazadaCatalogOrderSync)->sync($existing);
+                    (new LazadaSalesOrderSync)->sync($existing);
                 } catch (\Throwable $e) {
                     Log::warning('Lazada sync: catalog sync failed for order ' . $orderId, ['error' => $e->getMessage()]);
                 }
@@ -227,7 +227,7 @@ class LazadaSyncOrders extends Command implements \App\Channels\Contracts\Steppa
                     }
 
                     try {
-                        (new LazadaCatalogOrderSync)->sync($newOrder);
+                        (new LazadaSalesOrderSync)->sync($newOrder);
                     } catch (\Throwable $e) {
                         Log::warning('Lazada sync: failed to sync order ' . $orderId . ' to catalog', ['error' => $e->getMessage()]);
                     }

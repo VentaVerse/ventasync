@@ -300,7 +300,7 @@ class OrderControllerCurrencyTest extends TestCase
             'lastname'        => 'Dela Cruz',
             'order_status_id' => 2,
             'currency_code'   => 'PHP',
-            'comment'         => 'status bump only, line items untouched',
+            'customer_note'   => 'status bump only, line items untouched',
         ];
 
         $response = $this->put(route('orders.update', $order->order_id), $updatePayload);

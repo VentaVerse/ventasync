@@ -30,7 +30,7 @@ class TikTokStockPricePush
         }
 
         $productIds = $pivots->pluck('product_id')->map(fn ($v) => (int) $v)->unique()->values()->all();
-        $erpSkus = PushLedger::erpVariationSkus($productIds);
+        $catalogSkus = PushLedger::catalogVariationSkus($productIds);
         $storeId = (int) (\Extensions\TikTok\Models\TikTokStore::defaultStore()?->id ?? 0);
         $hidden = \App\Channels\Listings\ListingVariations::hidden('tiktok', $storeId, $productIds);
         $soldSkus = \App\Channels\Listings\ListingVariations::sold('tiktok', $storeId, $productIds);
@@ -38,7 +38,7 @@ class TikTokStockPricePush
         foreach ($pivots as $pivot) {
             $pid = (int) $pivot->product_id;
             $map = TikTokVariationPush::existingIds($pivot->tiktok_sku_id ?? null);
-            $hasVariations = !empty($erpSkus[$pid]);
+            $hasVariations = !empty($catalogSkus[$pid]);
             $needsHeal = $map === []
                 || ($hasVariations && isset($map['__single__']))
                 || ($hasVariations && array_diff(array_map('strval', $soldSkus[$pid] ?? []), array_map('strval', array_keys($map))) !== []);
@@ -54,13 +54,13 @@ class TikTokStockPricePush
         $resolved = $this->resolver->resolve($pivots, $priceFor);
 
         foreach ($resolved as $row) {
-            $this->pushProduct($kind, $c, $row, $priceFor, $erpSkus, $hidden, $out, true);
+            $this->pushProduct($kind, $c, $row, $priceFor, $catalogSkus, $hidden, $out, true);
         }
 
         return $out;
     }
 
-    private function pushProduct(string $kind, array $c, array $row, ?callable $priceFor, array $erpSkus, array $hidden, array &$out, bool $mayHeal): void
+    private function pushProduct(string $kind, array $c, array $row, ?callable $priceFor, array $catalogSkus, array $hidden, array &$out, bool $mayHeal): void
     {
         $pivot = $row['pivot'];
         $pid = (int) $pivot->product_id;
@@ -74,7 +74,7 @@ class TikTokStockPricePush
         $sentSkus = [];
         $payload = [];
         foreach ($row['skus'] as $sku) {
-            if (!$sku['matched'] && $sku['seller_sku'] !== '' && !empty($erpSkus[$pid])) {
+            if (!$sku['matched'] && $sku['seller_sku'] !== '' && !empty($catalogSkus[$pid])) {
                 continue;
             }
             if (!\App\Channels\Listings\ListingVariations::allows($hidden, $pid, (string) $sku['seller_sku'])) {
@@ -141,7 +141,7 @@ class TikTokStockPricePush
                 $pivot->tiktok_sku_id = json_encode($r['map']);
                 $fresh = $this->resolver->resolve([$pivot], $priceFor);
                 if (!empty($fresh)) {
-                    $this->pushProduct($kind, $c, $fresh[0], $priceFor, $erpSkus, $hidden, $out,false);
+                    $this->pushProduct($kind, $c, $fresh[0], $priceFor, $catalogSkus, $hidden, $out,false);
                 }
 
                 return;

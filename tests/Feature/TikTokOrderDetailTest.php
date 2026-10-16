@@ -62,7 +62,7 @@ class TikTokOrderDetailTest extends TestCase
         $order = TikTokOrder::create(array_merge([
             'order_id' => $orderId,
             'status' => $status,
-            'buyer_name' => 'k***n',
+            'customer_name' => 'k***n',
             'order_created_at' => '2026-08-04 08:30:00',
             'order_updated_at' => '2026-08-06 19:05:00',
             'raw' => [
@@ -155,7 +155,7 @@ class TikTokOrderDetailTest extends TestCase
         $response->assertOk();
 
         $response->assertSee($order->order_id);
-        $response->assertSee('To hand over');
+        $response->assertSee('Awaiting collection');
         $response->assertSee('2026-08-04 08:30');
         $response->assertSee('2026-08-06 19:05');
 
@@ -330,7 +330,7 @@ class TikTokOrderDetailTest extends TestCase
             && str_contains($request->url(), 'ids=TT7788990011299'));
         Http::assertSentCount(1);
         $this->assertSame('AWAITING_SHIPMENT', $order->fresh()->status);
-        $this->assertSame('Karen Lim', $order->fresh()->buyer_name);
+        $this->assertSame('Karen Lim', $order->fresh()->customer_name);
     }
 
     public function test_a_refusal_in_the_body_leaves_the_order_and_says_so(): void

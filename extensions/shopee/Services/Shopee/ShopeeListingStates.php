@@ -219,7 +219,7 @@ class ShopeeListingStates
             return;
         }
         $variations = [];
-        foreach (PushLedger::erpVariationSkus([$productId])[$productId] ?? [] as $sku) {
+        foreach (PushLedger::catalogVariationSkus([$productId])[$productId] ?? [] as $sku) {
             $variations[strtolower(trim((string) $sku))] = true;
         }
         if ($variations === []) {

@@ -628,8 +628,8 @@ function initAttributeFetch(root) {
     }
 }
 
-function erpFieldValues() {
-    const island = document.querySelector('[data-erp-fields]');
+function catalogFieldValues() {
+    const island = document.querySelector('[data-catalog-fields]');
     if (!island) return {};
     try {
         return JSON.parse(island.textContent || '{}') || {};
@@ -639,7 +639,7 @@ function erpFieldValues() {
 }
 
 function bindAttributeRows() {
-    const values = erpFieldValues();
+    const values = catalogFieldValues();
 
     document.querySelectorAll('[data-attr-row]').forEach(function (row) {
         if (row.dataset.attrBound === '1') return;

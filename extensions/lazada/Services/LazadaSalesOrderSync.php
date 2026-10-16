@@ -16,7 +16,7 @@ use Illuminate\Support\Facades\DB;
 
 use App\Services\ActivityLogger;
 
-class LazadaCatalogOrderSync
+class LazadaSalesOrderSync
 {
     private bool $skipStockAdjust = false;
 
@@ -37,7 +37,7 @@ class LazadaCatalogOrderSync
             $orderStatusMap = LazadaOrderStatusMap::where('context', 'order')->pluck('order_status_id', 'lazada_status')->all();
             $returnStatusMap = LazadaOrderStatusMap::where('context', 'return')->pluck('order_status_id', 'lazada_status')->all();
             $lazadaStatus = strtolower($lazadaOrder->status ?? '');
-            $statusId = $orderStatusMap[$lazadaStatus] ?? $returnStatusMap[$lazadaStatus] ?? 1;
+            $statusId = $orderStatusMap[$lazadaStatus] ?? $returnStatusMap[$lazadaStatus] ?? null;
 
             $firstname = trim((string) ($src['customer_first_name'] ?? ''));
             $lastname = trim((string) ($src['customer_last_name'] ?? ''));
@@ -87,23 +87,30 @@ class LazadaCatalogOrderSync
             $createdAt = $lazadaOrder->order_created_at ?? now();
             $updatedAt = $lazadaOrder->order_updated_at ?? now();
 
-            $catalogOrder = null;
+            $salesOrder = null;
 
-            if ($lazadaOrder->catalog_order_id) {
-                $catalogOrder = Order::where('order_id', $lazadaOrder->catalog_order_id)->first();
+            if ($lazadaOrder->sales_order_id) {
+                $salesOrder = Order::where('order_id', $lazadaOrder->sales_order_id)->first();
             }
 
-            if (!$catalogOrder) {
-                $catalogOrder = Order::where('channel', 'lazada')
+            if (!$salesOrder) {
+                $salesOrder = Order::where('channel', 'lazada')
                     ->where('channel_order_id', $lazadaOrderId)
                     ->first();
+            }
+
+            if ($statusId === null) {
+                if (! $salesOrder) {
+                    return;
+                }
+                $statusId = (int) $salesOrder->order_status_id;
             }
 
             // Never overwrite a frozen as-transacted currency_value on re-sync, or it drifts from the stored totals.
             $rate = $currency['rate'];
             $isDefault = $currency['is_default'];
-            if ($catalogOrder && !$isDefault && $catalogOrder->foreign_total !== null) {
-                $rate = (float) $catalogOrder->currency_value;
+            if ($salesOrder && !$isDefault && $salesOrder->foreign_total !== null) {
+                $rate = (float) $salesOrder->currency_value;
             }
 
             $storeId = (int) $lazadaOrder->store_id;
@@ -138,7 +145,7 @@ class LazadaCatalogOrderSync
                 'shipping_zone'         => $shippingZone,
                 'shipping_method'       => $shippingMethod,
                 'shipping_cost'         => 0,
-                'comment'               => '',
+                'customer_note'         => '',
                 'total'                 => \App\Services\OrderCurrencyService::toBase($total, $rate),
                 'foreign_total'         => $isDefault ? null : round($total, \App\Services\OrderCurrencyService::MONEY_SCALE),
                 'extra_cost'            => 0,
@@ -153,23 +160,23 @@ class LazadaCatalogOrderSync
                 'channel_order_id'  => $lazadaOrderId,
             ];
 
-            if ($catalogOrder) {
-                $oldStatusId = (int) $catalogOrder->order_status_id;
-                if ((int) ($catalogOrder->sync_override ?? 0) === 1) {
+            if ($salesOrder) {
+                $oldStatusId = (int) $salesOrder->order_status_id;
+                if ((int) ($salesOrder->sync_override ?? 0) === 1) {
                     $statusId = $oldStatusId;
                     $orderData['order_status_id'] = $oldStatusId;
                 }
                 $orderData['date_modified'] = $updatedAt;
-                $catalogOrder->update($orderData);
+                $salesOrder->update($orderData);
             } else {
                 $oldStatusId = 0;
                 $orderData['date_added'] = $createdAt;
                 $orderData['date_modified'] = $updatedAt;
-                $catalogOrder = Order::create($orderData);
+                $salesOrder = Order::create($orderData);
             }
 
-            OrderProduct::where('order_id', $catalogOrder->order_id)->delete();
-            OrderVariation::where('order_id', $catalogOrder->order_id)->delete();
+            OrderProduct::where('order_id', $salesOrder->order_id)->delete();
+            OrderVariation::where('order_id', $salesOrder->order_id)->delete();
 
             $subTotal = 0;
             $shippingTotal = 0;
@@ -244,7 +251,7 @@ class LazadaCatalogOrderSync
                 $productCost = \App\Support\LineCost::resolve((int) $resolvedProductId, (int) $resolvedVariationValueId);
 
                 $op = OrderProduct::create([
-                    'order_id'      => $catalogOrder->order_id,
+                    'order_id'      => $salesOrder->order_id,
                     'product_id'    => $resolvedProductId,
                     'name'          => $item['name'],
                     'sku'           => $sellerSku,
@@ -260,7 +267,7 @@ class LazadaCatalogOrderSync
 
                 if ($item['variation'] && trim($item['variation']) !== '') {
                     OrderVariation::create([
-                        'order_id'                => $catalogOrder->order_id,
+                        'order_id'                => $salesOrder->order_id,
                         'order_product_id'        => $op->order_product_id,
                         'product_variation_type_id'       => 0,
                         'product_variation_value_id' => $resolvedVariationValueId,
@@ -271,12 +278,12 @@ class LazadaCatalogOrderSync
                 }
             }
 
-            OrderTotal::where('order_id', $catalogOrder->order_id)->delete();
+            OrderTotal::where('order_id', $salesOrder->order_id)->delete();
 
             $sortOrder = 1;
             foreach (\Extensions\Lazada\Services\LazadaSaleLines::lines($raw, $subTotal, $shippingTotal) as $line) {
                 OrderTotal::create([
-                    'order_id'   => $catalogOrder->order_id,
+                    'order_id'   => $salesOrder->order_id,
                     'code'       => $line['code'],
                     'title'      => $line['title'],
                     'value'      => \App\Services\OrderCurrencyService::toBase($line['value'], $rate),
@@ -286,28 +293,28 @@ class LazadaCatalogOrderSync
 
             if ($oldStatusId !== $statusId) {
                 OrderHistory::create([
-                    'order_id'        => $catalogOrder->order_id,
+                    'order_id'        => $salesOrder->order_id,
                     'order_status_id' => $statusId,
                     'notify'          => 0,
-                    'comment'         => 'Synced from Lazada (status: ' . ($lazadaOrder->status ?? 'unknown') . ')',
+                    'note'            => 'Synced from Lazada (status: ' . ($lazadaOrder->status ?? 'unknown') . ')',
                     'date_added'      => now(),
                     'user_id'         => null,
                     'user_name'       => 'Lazada Sync',
                 ]);
 
-                ActivityLogger::log('updated', 'Order', $catalogOrder->order_id, 'Lazada #' . ($lazadaOrder->order_id ?? ''), [
+                ActivityLogger::log('updated', 'Order', $salesOrder->order_id, 'Lazada #' . ($lazadaOrder->order_id ?? ''), [
                     'order_status_id' => [(string) $oldStatusId, (string) $statusId],
                 ], source: 'system');
 
                 if (!$this->skipStockAdjust) {
-                    OrderStockService::adjustStock($catalogOrder, $oldStatusId, $statusId);
+                    OrderStockService::adjustStock($salesOrder, $oldStatusId, $statusId);
                 }
             }
 
-            $lazadaOrder->catalog_order_id = $catalogOrder->order_id;
+            $lazadaOrder->sales_order_id = $salesOrder->order_id;
             $lazadaOrder->saveQuietly();
 
-            app(\App\Services\Orders\ChannelFeeNormalizer::class)->forOrder((int) $catalogOrder->order_id);
+            app(\App\Services\Orders\ChannelFeeNormalizer::class)->forOrder((int) $salesOrder->order_id);
 
         });
     }

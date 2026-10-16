@@ -48,7 +48,7 @@ final class PushLedger
         return 'Variations do not match ' . $channelName . ': ' . $names . '. Nothing was pushed. ' . implode(' ', $fixes);
     }
 
-    public static function erpVariationSkus(array $productIds): array
+    public static function catalogVariationSkus(array $productIds): array
     {
         $skus = [];
         foreach (DB::table('product_variations')

@@ -55,8 +55,8 @@
     }
 
     $lzSortLabels = $lzSortLabels ?? [
-        'created_desc'           => 'Order date, newest first',
-        'created_asc'            => 'Order date, oldest first',
+        'created_desc'           => 'Created, newest first',
+        'created_asc'            => 'Created, oldest first',
         'confirmed_created_desc' => 'Lazada create time, newest first',
         'confirmed_created_asc'  => 'Lazada create time, oldest first',
         'confirmed_updated_desc' => 'Last update, newest first',
@@ -171,10 +171,10 @@
 
     <x-ui.input type="search" name="q" class="x-filters__find"
                 value="{{ $findFilter }}"
-                placeholder="Order no, buyer, product or tracking"
-                aria-label="Find an order by order number, buyer, product or tracking" />
+                placeholder="Order no, customer, product or tracking"
+                aria-label="Find an order by order number, customer, product or tracking" />
 
-    <x-ui.hint label="About searching Lazada buyers">Lazada sends buyer names already masked, so the rows show
+    <x-ui.hint label="About searching Lazada customers">Lazada sends customer names already masked, so the rows show
         "J*******e" and a name typed here will not match. Order number, product and the date range all
         search normally.</x-ui.hint>
 
@@ -303,7 +303,7 @@
             <th scope="col" class="lz-col-products">Products</th>
             <th scope="col" class="lz-col-qty">Qty</th>
             <th scope="col" class="lz-col-price x-td-num">Price</th>
-            <th scope="col" class="lz-col-total x-td-num">Amount</th>
+            <th scope="col" class="lz-col-total x-td-num">Total</th>
             <th scope="col" class="lz-col-ship">Shipping</th>
             <th scope="col" class="lz-col-status">Status</th>
             <th scope="col" class="lz-col-act"><span class="x-sr">Actions</span></th>
@@ -333,7 +333,7 @@
                 ? $o->order_created_at->format('Y-m-d H:i')
                 : ($raw['created_at'] ?? $raw['createdAt'] ?? $raw['created_time'] ?? null);
 
-            $buyer = (string) ($raw['customer_first_name'] ?? $raw['customer_name'] ?? $raw['buyer_name'] ?? '');
+            $customer = (string) ($raw['customer_first_name'] ?? $raw['customer_name'] ?? $raw['buyer_name'] ?? '');
 
             $items = [];
             if (method_exists($o, 'products') && $o->relationLoaded('products')) {
@@ -421,9 +421,9 @@
                         <input type="checkbox" class="x-pick" data-selection-item
                                name="ids[]" value="{{ $o->id }}" form="lazada-print-pick"
                                aria-label="Select order {{ $orderId }}">
-                        <span class="co-band__label">Buyer</span>
-                        @if($buyer !== '')
-                            <span class="co-band__value">{{ $buyer }}</span>
+                        <span class="co-band__label">Customer</span>
+                        @if($customer !== '')
+                            <span class="co-band__value">{{ $customer }}</span>
                         @else
                             <span class="co-empty-mark">Not recorded</span>
                         @endif
@@ -436,8 +436,8 @@
                         @if($itemCount > 0)
                             <span class="co-band__muted">({{ $itemCount }} {{ $itemCount === 1 ? 'item' : 'items' }})</span>
                         @endif
-                        @if($o->catalog_order_id)
-                            <a class="co-ref" href="{{ url('/sales/orders/'.$o->catalog_order_id) }}">Sales order {{ $o->catalog_order_id }}</a>
+                        @if($o->sales_order_id)
+                            <a class="co-ref" href="{{ url('/sales/orders/'.$o->sales_order_id) }}">Sales order {{ $o->sales_order_id }}</a>
                         @endif
                     </div>
                     <div class="co-band__right">
@@ -494,7 +494,7 @@
             </td>
 
             @if($idx === 0)
-            <td class="lz-col-total x-td-num" rowspan="{{ $lineCount }}" data-label="Amount">
+            <td class="lz-col-total x-td-num" rowspan="{{ $lineCount }}" data-label="Total">
                 <span class="co-total">
                     @if($totalAmount !== null && $totalAmount !== '' && is_numeric($totalAmount))
                         {{ $currencyCode !== ''

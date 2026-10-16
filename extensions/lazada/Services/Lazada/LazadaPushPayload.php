@@ -91,7 +91,7 @@ class LazadaPushPayload
         $imageUrls = array_values(array_filter(array_map(fn($u) => app(LazadaImages::class)->normalizeImageUrl((string)$u), $imageUrls)));
         if (empty($imageUrls)) {
             throw \Illuminate\Validation\ValidationException::withMessages([
-                'images' => 'At least 1 product image is required. Please upload a main image (and optional additional images) in the core ERP Product page first.'
+                'images' => 'At least 1 product image is required. Please upload a main image (and optional additional images) on the Master Catalog product page first.'
             ]);
         }
 
@@ -235,7 +235,7 @@ class LazadaPushPayload
                     ->groupBy('product_variation_id');
             } elseif ($variationTypeIds->count() > 1) {
                 throw \Illuminate\Validation\ValidationException::withMessages([
-                    'variants' => 'This ERP product has more than one variation type but no combinations stored. Re-save the product to populate combinations, then retry.'
+                    'variants' => 'This product has more than one variation type but no combinations stored. Re-save the product to populate combinations, then retry.'
                 ]);
             }
 
@@ -309,8 +309,8 @@ class LazadaPushPayload
                 }
                 $usedSellerSkus[$candidate] = true;
 
-                $erpPrice = (float)($c->absolute_price ?? $basePrice);
-                $finalPrice = self::computeFinalPrice($erpPrice, $effectiveFixed, $effectivePercent);
+                $catalogPrice = (float)($c->absolute_price ?? $basePrice);
+                $finalPrice = self::computeFinalPrice($catalogPrice, $effectiveFixed, $effectivePercent);
                 $skuRow = [
                     'SellerSku' => $candidate,
                     'price' => $finalPrice,
@@ -369,8 +369,8 @@ class LazadaPushPayload
                     $usedSellerSkus[$candidate] = true;
                 }
 
-                $erpPrice = (float)($r->absolute_price ?? $basePrice);
-                $finalPrice = $m && $m->price !== null ? (float)$m->price : (float)$erpPrice;
+                $catalogPrice = (float)($r->absolute_price ?? $basePrice);
+                $finalPrice = $m && $m->price !== null ? (float)$m->price : (float)$catalogPrice;
                 $finalPrice = self::computeFinalPrice($finalPrice, $effectiveFixed, $effectivePercent);
                 $skuRow = [
                     'SellerSku' => $candidate,
@@ -499,7 +499,7 @@ class LazadaPushPayload
             foreach ($skus as $s) {
                 if (!isset($s['price']) || (float)$s['price'] <= 0) {
                     throw \Illuminate\Validation\ValidationException::withMessages([
-                        'variants' => 'Price is mandatory. Please set product price in ERP (base price) and/or variation prices, or fill Variant Mapping overrides.'
+                        'variants' => 'Price is mandatory. Please set product price in the Master Catalog (base price) and/or variation prices, or fill Variant Mapping overrides.'
                     ]);
                 }
             }
@@ -883,7 +883,7 @@ public function extractCreatedItemId(array $result): ?string
         return $actionLabel . ' refused by Lazada: ' . $e['message'] . ($e['code'] && $e['code'] !== 'UNKNOWN' ? ' (code ' . $e['code'] . ')' : '');
     }
 
-    public function getErpVariantStockByProductId(int $productId): array
+    public function getCatalogVariantStockByProductId(int $productId): array
     {
 
         $rows = DB::table('product_variation_values as pov')
@@ -907,7 +907,7 @@ public function extractCreatedItemId(array $result): ?string
         return $out;
     }
 
-    public function getErpVariantPricesByProductId(int $productId, float $basePrice): array
+    public function getCatalogVariantPricesByProductId(int $productId, float $basePrice): array
     {
 
         $rows = DB::table('product_variation_values as pov')

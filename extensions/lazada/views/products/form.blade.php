@@ -41,7 +41,7 @@
     $coreDescription = (string) ($productRow->description ?? '');
 
     $jsonFlags = JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE;
-    $erpFieldValues = $productRow ? [
+    $catalogFieldValues = $productRow ? [
         'name'             => (string) ($productRow->name ?? ''),
         'description'      => $productRow->description
             ? strip_tags(html_entity_decode((string) $productRow->description, ENT_QUOTES | ENT_HTML5, 'UTF-8'))
@@ -168,14 +168,14 @@
                 <x-slot:verbs>
                     @if(($live['status'] ?? '') === 'active')
                         <form method="POST" action="{{ route('ext.lazada.listings.toggle', $listing->product_id) }}"
-                              data-guard-stale data-confirm="Deactivate this item on Lazada? Buyers stop seeing it immediately. It stays here and can be activated again." data-confirm-verb="Deactivate">
+                              data-guard-stale data-confirm="Deactivate this item on Lazada? Customers stop seeing it immediately. It stays here and can be activated again." data-confirm-verb="Deactivate">
                             @csrf
                             <input type="hidden" name="action" value="deactivate">
                             <x-ui.button type="submit" size="sm">Deactivate on Lazada</x-ui.button>
                         </form>
                     @elseif(($live['status'] ?? '') === 'inactive')
                         <form method="POST" action="{{ route('ext.lazada.listings.toggle', $listing->product_id) }}"
-                              data-guard-stale data-confirm="Activate this item on Lazada? Buyers see it again once Lazada applies it." data-confirm-tone="primary" data-confirm-verb="Activate">
+                              data-guard-stale data-confirm="Activate this item on Lazada? Customers see it again once Lazada applies it." data-confirm-tone="primary" data-confirm-verb="Activate">
                             @csrf
                             <input type="hidden" name="action" value="activate">
                             <x-ui.button type="submit" variant="oncolor" size="sm">Activate on Lazada</x-ui.button>
@@ -354,13 +354,13 @@
                                     'suggested' => $suggested,
                                     'groupAttrs' => $groupAttrs,
                                     'productOwnAttrs' => $productOwnAttrs,
-                                    'erpSourceFields' => $erpSourceFields,
+                                    'catalogSourceFields' => $catalogSourceFields,
                                 ])
                             @endif
                         </div>
                     </section>
 
-                    <script type="application/json" data-erp-fields>{!! json_encode($erpFieldValues, $jsonFlags) !!}</script>
+                    <script type="application/json" data-catalog-fields>{!! json_encode($catalogFieldValues, $jsonFlags) !!}</script>
                 @endif
 
                 @if($mode === 'edit')

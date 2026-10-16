@@ -52,14 +52,14 @@ class VentaCartController extends Controller
             ->groupBy('store_id');
 
         $langId = (int) config('catalog.default_language_id');
-        $erpOrderStatuses = DB::table('order_statuses')
+        $salesOrderStatuses = DB::table('order_statuses')
             ->where('language_id', $langId)
             ->orderBy('order_status_id')
             ->get(['order_status_id', 'name']);
 
         $singleStore = true;
 
-        return view('ext-ventacart::settings.index', compact('stores', 'syncLogs', 'syncLogCount', 'apiLogs', 'orderStatusMaps', 'erpOrderStatuses', 'singleStore'));
+        return view('ext-ventacart::settings.index', compact('stores', 'syncLogs', 'syncLogCount', 'apiLogs', 'orderStatusMaps', 'salesOrderStatuses', 'singleStore'));
     }
 
     public function createStore(Request $request)

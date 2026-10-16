@@ -272,8 +272,8 @@
                         <tr>
                             <th scope="col">Order</th>
                             <th scope="col">Channel</th>
-                            <th scope="col">Buyer</th>
-                            <th scope="col">Placed</th>
+                            <th scope="col">Customer</th>
+                            <th scope="col">Created</th>
                             <th scope="col" class="num">Total</th>
                             <th scope="col">State</th>
                         </tr>
@@ -283,7 +283,7 @@
                             @php
                                 $src = $order->channel ?: 'direct';
                                 $opt = $sourceLabelsMap[$src] ?? null;
-                                $buyer = trim(($order->firstname ?? '') . ' ' . ($order->lastname ?? ''));
+                                $customer = trim(($order->firstname ?? '') . ' ' . ($order->lastname ?? ''));
                             @endphp
                             <tr>
                                 <td>
@@ -302,7 +302,7 @@
                                     @endif
                                     <span class="ml-1.5">{{ $opt['label'] ?? 'Direct' }}</span>
                                 </td>
-                                <td>{{ $buyer !== '' ? $buyer : 'No name recorded' }}</td>
+                                <td>{{ $customer !== '' ? $customer : 'No name recorded' }}</td>
                                 <td class="whitespace-nowrap text-[12px] text-ink-3">
                                     {{ \Illuminate\Support\Carbon::parse($order->date_added)->diffForHumans(short: true) }}
                                 </td>

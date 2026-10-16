@@ -261,7 +261,7 @@ class VentaCartFulfillmentTest extends TestCase
             ->assertOk();
     }
 
-    public function test_an_order_the_erp_has_no_booking_for_is_still_asked_about_at_the_store(): void
+    public function test_an_order_ventasync_has_no_booking_for_is_still_asked_about_at_the_store(): void
     {
         $store = $this->store();
         $order = $this->order($store, 'Order Processed');

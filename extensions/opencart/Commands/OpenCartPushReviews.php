@@ -83,7 +83,7 @@ class OpenCartPushReviews extends Command
                 try {
                     $res = $client->createReview([
                         'product_id'         => $openCartProductId,
-                        'author'             => $review->author ?: 'Marketplace Buyer',
+                        'author'             => $review->author ?: 'Marketplace customer',
                         'text'               => $review->comment ?? '',
                         'rating'             => $review->rating,
                         'status'             => $autoApprove ? 1 : 0,

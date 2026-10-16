@@ -125,8 +125,8 @@
                         </div>
                     </div>
                     <div class="od-field">
-                        <label class="od-field__k" for="od-status-comment">Comment</label>
-                        <input class="x-input" id="od-status-comment" name="comment" value="" placeholder="Optional note">
+                        <label class="od-field__k" for="od-status-note">Note</label>
+                        <input class="x-input" id="od-status-note" name="note" value="">
                     </div>
                     <div class="od-field">
                         <x-ui.button variant="primary" type="submit">Update status</x-ui.button>
@@ -225,7 +225,7 @@
                     @endif
                     @if($order->tracking_number)
                     <div class="od-fact">
-                        <span class="od-fact__k">Tracking number</span>
+                        <span class="od-fact__k">Tracking</span>
                         <span class="od-fact__v od-fact__v--mono">
                             @if($trackingHref = $order->trackingHref())
                                 <a href="{{ $trackingHref }}" target="_blank" rel="noopener">
@@ -297,13 +297,13 @@
 
                 </div>
             </section>
-            @if($order->comment)
+            @if($order->customer_note)
             <section class="od-card">
                 <div class="od-card__head">
-                    <h2 class="od-card__title">Order comment</h2>
+                    <h2 class="od-card__title">Customer note</h2>
                 </div>
                 <div class="od-card__body">
-                    <p class="od-fact__v">{{ $order->comment }}</p>
+                    <p class="od-fact__v">{{ $order->customer_note }}</p>
                 </div>
             </section>
             @endif
@@ -509,8 +509,8 @@
                     @if($orderProfit->shippingIncome() > 0)
                     <div class="od-ledger__row">
                         <span class="od-ledger__k">
-                            Shipping the buyer paid
-                            <x-ui.hint label="Why the buyer's shipping counts">On your own store the buyer pays shipping to you, and you pay the courier. The buyer's shipping is your income; what you paid the courier is the shipping cost below.</x-ui.hint>
+                            Shipping the customer paid
+                            <x-ui.hint label="Why the customer's shipping counts">On your own store the customer pays shipping to you, and you pay the courier. The customer's shipping is your income; what you paid the courier is the shipping cost below.</x-ui.hint>
                         </span>
                         <span class="od-ledger__v od-pos">+{{ \App\Support\Money::base($orderProfit->shippingIncome()) }}</span>
                     </div>
@@ -669,7 +669,7 @@
                                     </span>
                                     @endif
                                     <span class="od-pay__meta">
-                                        {{ $pay->payment_method }}@if($pay->reference_no) &middot; {{ $pay->reference_no }}@endif @if($pay->notes) &middot; {{ $pay->notes }}@endif
+                                        {{ $pay->payment_method }}@if($pay->reference_no) &middot; {{ $pay->reference_no }}@endif @if($pay->note) &middot; {{ $pay->note }}@endif
                                     </span>
                                 </div>
                                 @endforeach
@@ -709,8 +709,8 @@
                                         <input type="text" id="od-pay-ref" name="reference_no" class="x-input" placeholder="Transaction/check #">
                                     </div>
                                     <div class="od-field od-field--wide">
-                                        <label class="od-field__k" for="od-pay-notes">Notes</label>
-                                        <input type="text" id="od-pay-notes" name="notes" class="x-input" placeholder="Optional">
+                                        <label class="od-field__k" for="od-pay-note">Note</label>
+                                        <input type="text" id="od-pay-note" name="note" class="x-input" placeholder="Optional">
                                     </div>
                                 </div>
                                 <div class="od-form__actions">
@@ -751,8 +751,8 @@
                     @if($h->user_name)
                         <div class="od-time__who">by {{ $h->user_name }}</div>
                     @endif
-                    @if($h->comment)
-                        <div class="od-time__note">{{ $h->comment }}</div>
+                    @if($h->note)
+                        <div class="od-time__note">{{ $h->note }}</div>
                     @endif
                 </div>
             </div>

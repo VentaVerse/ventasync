@@ -18,8 +18,8 @@
             </div>
         </div>
 
-        @if($o['buyer'] !== '')
-            <p class="pl-orders">Buyer: {{ $o['buyer'] }}</p>
+        @if($o['customer'] !== '')
+            <p class="pl-orders">Customer: {{ $o['customer'] }}</p>
         @endif
 
         <table class="pl-table">

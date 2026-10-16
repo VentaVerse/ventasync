@@ -126,7 +126,7 @@ class ShopeeProductController extends Controller
         }
         $brandFilter = (string) $request->get('brand', 'all');
         $groupFilter = \App\Channels\Listings\StatusMenu::group($request->get('group'));
-        $erpStatus = (string) $request->get('erp_status', 'all');
+        $catalogStatus = (string) $request->get('catalog_status', 'all');
 
         if ($request->query('list') === 'add') {
             return $this->addCatalog($request);
@@ -203,9 +203,9 @@ class ShopeeProductController extends Controller
             $query->where('p.brand_id', (int) $brandFilter);
         }
 
-        if ($erpStatus === 'enabled') {
+        if ($catalogStatus === 'enabled') {
             $query->where('p.status', 1);
-        } elseif ($erpStatus === 'disabled') {
+        } elseif ($catalogStatus === 'disabled') {
             $query->where('p.status', 0);
         } else {
             $query->where(function ($sub) {
@@ -437,7 +437,7 @@ class ShopeeProductController extends Controller
             'syncStatus' => $syncStatus,
             'brandFilter' => $brandFilter,
             'groupFilter' => $groupFilter,
-            'erpStatus' => $erpStatus,
+            'catalogStatus' => $catalogStatus,
             'allBrands' => $allBrands,
             'allGroups' => $allGroups,
             'groupsByProductId' => $pageGroupMap,
@@ -1142,8 +1142,8 @@ class ShopeeProductController extends Controller
             return redirect()->back()->with('error', 'Product not linked to Shopee. Sync Product IDs first.');
         }
 
-        $erpStatus = DB::table('products')->where('product_id', $productId)->value('status');
-        if ((int) $erpStatus === 0) {
+        $catalogStatus = DB::table('products')->where('product_id', $productId)->value('status');
+        if ((int) $catalogStatus === 0) {
             return redirect()->back()->with('error', 'Cannot sync quantity for a disabled product. Enable it first.');
         }
 
@@ -1467,15 +1467,15 @@ class ShopeeProductController extends Controller
             $linkedSet[$key] = true;
         }
 
-        $erpSkus = [];
-        $erpProducts = DB::table('products')->whereNotNull('sku')->where('sku', '!=', '')->get(['sku']);
-        foreach ($erpProducts as $ep) {
-            if ($ep->sku !== null && $ep->sku !== '') $erpSkus[strtolower(trim($ep->sku))] = true;
+        $catalogSkus = [];
+        $catalogProducts = DB::table('products')->whereNotNull('sku')->where('sku', '!=', '')->get(['sku']);
+        foreach ($catalogProducts as $ep) {
+            if ($ep->sku !== null && $ep->sku !== '') $catalogSkus[strtolower(trim($ep->sku))] = true;
         }
         $optSkus = DB::table('product_variation_values')
             ->whereNotNull('sku')->where('sku', '!=', '')->pluck('sku');
         foreach ($optSkus as $os) {
-            $erpSkus[strtolower(trim($os))] = true;
+            $catalogSkus[strtolower(trim($os))] = true;
         }
 
         $found = 0;
@@ -1525,7 +1525,7 @@ class ShopeeProductController extends Controller
                         if ($modelSku !== '') $modelSkus[] = $modelSku;
                         if (!$modelId) continue;
                         if (isset($linkedSet[$itemId . ':' . $modelId])) continue;
-                        if ($modelSku !== '' && isset($erpSkus[strtolower($modelSku)])) continue;
+                        if ($modelSku !== '' && isset($catalogSkus[strtolower($modelSku)])) continue;
                         $unplaced = $modelSku ?: $unplaced;
                         $unplaced = $unplaced ?? '';
                     }
@@ -1542,7 +1542,7 @@ class ShopeeProductController extends Controller
                     ];
                 } else {
                     if (isset($linkedSet[$itemId . ':'])) continue;
-                    if ($itemSku !== '' && isset($erpSkus[strtolower($itemSku)])) continue;
+                    if ($itemSku !== '' && isset($catalogSkus[strtolower($itemSku)])) continue;
 
                     $rows[] = [
                         'ref' => $itemId,
@@ -1685,7 +1685,7 @@ class ShopeeProductController extends Controller
         $allSkus = $ovSkus;
         if ($mainSku !== '' && !in_array($mainSku, $allSkus)) $allSkus[] = $mainSku;
 
-        Log::info("$tag ERP product fields: sku: '$mainSku', variation_skus: " . json_encode($ovSkus));
+        Log::info("$tag catalog product fields: sku: '$mainSku', variation_skus: " . json_encode($ovSkus));
         Log::info("$tag Looking for these SKUs: " . json_encode($allSkus));
 
         if (empty($allSkus)) {
@@ -1713,7 +1713,7 @@ class ShopeeProductController extends Controller
                         ->whereNotNull('shopee_model_id')
                         ->exists();
                     if ($hasModelEntries) {
-                        Log::info("$tag Cache: skipping parent hit (item {$hit->shopee_item_id}, sku: {$hit->sku}), ERP has variation SKUs");
+                        Log::info("$tag Cache: skipping parent hit (item {$hit->shopee_item_id}, sku: {$hit->sku}), the catalog has variation SKUs");
                         continue;
                     }
                 }
@@ -1810,8 +1810,8 @@ class ShopeeProductController extends Controller
                     );
 
                     if (in_array(strtolower($itemSku), $lcSkus)) {
-                        $erpHasVariations = $hasModel && !empty($ovSkus);
-                        if (!$erpHasVariations) {
+                        $catalogHasVariations = $hasModel && !empty($ovSkus);
+                        if (!$catalogHasVariations) {
                             ShopeeListingLink::create([
                                 'product_id' => $productId, 'shopee_item_id' => $itemId,
                                 'shopee_model_id' => null, 'sku' => $itemSku,
@@ -1820,7 +1820,7 @@ class ShopeeProductController extends Controller
                             return redirect()->back()
                                 ->with('status', "Linked to Shopee item {$itemId} \"{$itemName}\" (SKU: {$itemSku}).");
                         }
-                        Log::info("$tag item_sku '$itemSku' matches but ERP has variation SKUs, deferring to model-level matching");
+                        Log::info("$tag item_sku '$itemSku' matches but the catalog has variation SKUs, deferring to model-level matching");
                     }
                 }
 
@@ -1886,7 +1886,7 @@ class ShopeeProductController extends Controller
         }
 
         Log::warning("$tag NO MATCH: simple items scanned: $simpleCount, model items scanned: $modelItemCount, total Shopee SKUs seen: " . count($allShopeeSkus));
-        Log::warning("$tag ERP SKUs wanted: " . json_encode($allSkus));
+        Log::warning("$tag catalog SKUs wanted: " . json_encode($allSkus));
         Log::warning("$tag Shopee SKUs sample (first 50): " . json_encode(array_slice($allShopeeSkus, 0, 50)));
 
         return redirect()->back()
@@ -2859,7 +2859,7 @@ class ShopeeProductController extends Controller
         );
 
         return redirect()->back()->with('status', $unlist
-            ? 'Delisted. Buyers no longer see this item on Shopee.'
+            ? 'Delisted. Customers no longer see this item on Shopee.'
             : 'Published. The item is visible on Shopee again.');
     }
 

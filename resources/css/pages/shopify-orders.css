@@ -1,10 +1,9 @@
-.sf-col-products { width: 34%; }
+.sf-col-products { width: 47%; }
 .sf-col-qty      { width: 5%; }
 .sf-col-price    { width: 9%; }
 .sf-col-total    { width: 10%; }
 .sf-col-pay      { width: 12%; }
 .sf-col-status   { width: 12%; }
-.sf-col-date     { width: 13%; }
 .sf-col-act      { width: 5%; }
 
 @media (min-width: 641px) and (max-width: 1000px) {

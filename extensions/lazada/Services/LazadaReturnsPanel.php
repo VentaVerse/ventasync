@@ -153,11 +153,11 @@ class LazadaReturnsPanel
             ->appends($request->query());
 
         $tradeIds = collect($orders->items())->pluck('trade_order_id')->filter()->unique()->values();
-        $erpMap = $tradeIds->isEmpty() ? collect() : \DB::table('ch_lazada_orders')
+        $salesOrderMap = $tradeIds->isEmpty() ? collect() : \DB::table('ch_lazada_orders')
             ->whereIn('order_id', $tradeIds->all())
-            ->whereNotNull('catalog_order_id')
+            ->whereNotNull('sales_order_id')
             ->when(app()->bound('lazada.route-store'), fn ($q) => $q->where('store_id', app('lazada.route-store')->id))
-            ->pluck('catalog_order_id', 'order_id');
+            ->pluck('sales_order_id', 'order_id');
 
         $skus = collect($orders->items())
             ->flatMap(fn ($o) => collect(is_array($o->items) ? $o->items : [])
@@ -210,7 +210,7 @@ class LazadaReturnsPanel
         return [
             'setting' => $store,
             'orders' => $orders,
-            'erpMap' => $erpMap,
+            'salesOrderMap' => $salesOrderMap,
             'imgMap' => $imgMap,
             'nameMap' => $nameMap,
             'per_page' => $perPage,

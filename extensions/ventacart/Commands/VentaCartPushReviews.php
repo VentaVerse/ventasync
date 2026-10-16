@@ -87,7 +87,7 @@ class VentaCartPushReviews extends Command
 
                     $res = $client->createReview([
                         'product_sku'        => $productSku,
-                        'author'             => $review->author ?: 'Marketplace Buyer',
+                        'author'             => $review->author ?: 'Marketplace customer',
                         'rating'             => $review->rating,
                         'title'              => '',
                         'body'               => $review->comment ?? '',

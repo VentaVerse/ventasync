@@ -92,7 +92,7 @@
                 <tr>
                     <th scope="col" class="x-col-id">Order</th>
                     <th scope="col">Customer</th>
-                    <th scope="col" class="x-col-date">Placed</th>
+                    <th scope="col" class="x-col-date">Created</th>
                     <th scope="col" class="x-td-num">Invoiced</th>
                     <th scope="col" class="x-td-num">Received</th>
                     <th scope="col" class="x-td-num">Balance</th>
@@ -115,7 +115,7 @@
                         <a class="x-row-link x-num" href="{{ route('orders.show', $order->order_id) }}">{{ $order->order_id }}</a>
                     </td>
                     <td class="x-cell-strong" data-label="Customer">{{ trim($order->firstname . ' ' . $order->lastname) ?: 'Not recorded' }}</td>
-                    <td class="x-col-date x-cell-muted x-num" data-label="Placed">{{ \Carbon\Carbon::parse($order->date_added)->format('Y-m-d') }}</td>
+                    <td class="x-col-date x-cell-muted x-num" data-label="Created">{{ \Carbon\Carbon::parse($order->date_added)->format('Y-m-d') }}</td>
                     <td class="x-td-num" data-label="Invoiced">
                         <x-money :php="(float) $order->total"
                                  :foreign="$order->foreign_total !== null ? (float) $order->foreign_total : null"

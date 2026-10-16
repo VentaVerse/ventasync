@@ -25,7 +25,7 @@
 
 .po-col-id    { width: 64px; }
 .po-col-check { width: 36px; }
-.po-col-phone { width: 132px; }
+.po-col-telephone { width: 132px; }
 .po-col-mail  { width: 200px; }
 
 .po-check { width: 14px; height: 14px; accent-color: var(--bl-brand-deep); cursor: pointer; }
@@ -40,7 +40,7 @@
 .po-link:hover { border-bottom-color: var(--bl-rule-2); }
 
 .po-col-mail,
-.po-col-phone { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.po-col-telephone { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 .po-bulkbar {
     position: sticky;
@@ -224,7 +224,7 @@
 
 .po-charges-form { display: grid; gap: var(--bl-space-3); }
 .po-charges-form .po-charges { border-top: 0; padding: 0; }
-.po-internal-notes { margin: 0; white-space: pre-line; font-size: 13px; color: var(--bl-ink-2); }
+.po-internal-note { margin: 0; white-space: pre-line; font-size: 13px; color: var(--bl-ink-2); }
 
 .po-add {
     display: flex;

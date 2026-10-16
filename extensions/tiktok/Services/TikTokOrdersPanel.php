@@ -105,7 +105,7 @@ class TikTokOrdersPanel
 
             $query->where(function ($w) use ($like) {
                 $w->where('order_id', 'like', $like)
-                    ->orWhere('buyer_name', 'like', $like)
+                    ->orWhere('customer_name', 'like', $like)
                     ->orWhere('raw->tracking_number', 'like', $like)
                     ->orWhere('raw->line_items[0]->tracking_number', 'like', $like)
                     ->orWhereHas('products', function ($p) use ($like) {

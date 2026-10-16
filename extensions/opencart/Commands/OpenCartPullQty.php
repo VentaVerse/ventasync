@@ -12,7 +12,7 @@ class OpenCartPullQty extends Command
     protected $signature = 'opencart:pull-qty
         {--store= : Store ID (ch_opencart_stores.id). Omit to pull from all enabled stores}';
 
-    protected $description = 'Pull product quantities from OpenCart stores into the ERP (quantity only, no other fields)';
+    protected $description = 'Pull product quantities from OpenCart stores into VentaSync (quantity only, no other fields)';
 
     public function handle(): int
     {

@@ -120,8 +120,8 @@
 
     <x-ui.input type="search" name="q" class="x-filters__find"
                 value="{{ $vtQ }}"
-                placeholder="Order no, buyer, product or tracking"
-                aria-label="Find an order by order number, buyer, product or tracking" />
+                placeholder="Order no, customer, product or tracking"
+                aria-label="Find an order by order number, customer, product or tracking" />
 
     <x-ui.foldout label="Filters" :count="$vtActiveFilters ?: null">
         <span class="x-filters__group">
@@ -232,7 +232,7 @@
             <th scope="col" class="vt-col-price x-td-num">Price</th>
             <th scope="col" class="vt-col-total x-td-num">
                 <a class="x-th-sort x-th-sort--num" href="{{ $vtSortUrl('total') }}">
-                    Amount
+                    Total
                     @if($sort === 'total')<x-ui.icon name="{{ $dir === 'asc' ? 'chevron-up' : 'chevron-down' }}" size="12" />@endif
                 </a>
             </th>
@@ -252,12 +252,6 @@
                 <a class="x-th-sort" href="{{ $vtSortUrl('status') }}">
                     Status
                     @if($sort === 'status')<x-ui.icon name="{{ $dir === 'asc' ? 'chevron-up' : 'chevron-down' }}" size="12" />@endif
-                </a>
-            </th>
-            <th scope="col" class="vt-col-date">
-                <a class="x-th-sort" href="{{ $vtSortUrl('order_created_at') }}">
-                    Date
-                    @if($sort === 'order_created_at')<x-ui.icon name="{{ $dir === 'asc' ? 'chevron-up' : 'chevron-down' }}" size="12" />@endif
                 </a>
             </th>
             <th scope="col" class="vt-col-act"><span class="x-sr">Actions</span></th>
@@ -303,7 +297,7 @@
             }, $vtItems), $vtBooked ? $vtCourierName : null, trim((string) ($vtAddr['city'] ?? '')) ?: null);
         @endphp
         <tr class="co-band">
-            <td colspan="9">
+            <td colspan="8">
                 <div class="co-band__row">
                     <div class="co-band__left">
                         @if($canManageVentaOrders)
@@ -326,12 +320,16 @@
                         @if($vtItemCount > 0)
                             <span class="co-band__muted">({{ $vtItemCount }} {{ $vtItemCount === 1 ? 'item' : 'items' }})</span>
                         @endif
+                        @if($o->sales_order_id && $canOpenSalesOrders)
+                            <a class="co-ref" href="{{ route('orders.show', $o->sales_order_id) }}">Sales order {{ $o->sales_order_id }}</a>
+                        @elseif($o->sales_order_id)
+                            <span class="co-band__muted">Sales order {{ $o->sales_order_id }}</span>
+                        @endif
                     </div>
                     <div class="co-band__right">
-                        @if($o->catalog_order_id && $canOpenSalesOrders)
-                            <a class="co-ref" href="{{ route('orders.show', $o->catalog_order_id) }}">Sales order {{ $o->catalog_order_id }}</a>
-                        @elseif($o->catalog_order_id)
-                            <span class="co-band__muted">Sales order {{ $o->catalog_order_id }}</span>
+                        @if($vtCreated)
+                            <span class="co-band__label">Created</span>
+                            <span class="co-band__value co-band__value--mono">{{ $vtCreated }}</span>
                         @endif
                     </div>
                 </div>
@@ -376,7 +374,7 @@
             </td>
 
             @if($vtIdx === 0)
-            <td class="vt-col-total x-td-num" rowspan="{{ $vtLineCount }}" data-label="Amount">
+            <td class="vt-col-total x-td-num" rowspan="{{ $vtLineCount }}" data-label="Total">
                 <span class="co-total">{{ \App\Support\Money::base((float) $o->total) }}</span>
             </td>
 
@@ -405,13 +403,6 @@
                 </div>
             </td>
 
-            <td class="vt-col-date" rowspan="{{ $vtLineCount }}" data-label="Date">
-                @if($vtCreated)
-                    <span class="co-date">{{ $vtCreated }}</span>
-                @else
-                    <span class="co-empty-mark">-</span>
-                @endif
-            </td>
 
             <td class="vt-col-act" rowspan="{{ $vtLineCount }}">
                 @if(!$canManageVentaOrders)

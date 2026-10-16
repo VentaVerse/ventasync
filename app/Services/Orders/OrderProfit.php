@@ -14,7 +14,7 @@ final class OrderProfit
         public readonly float $reportedShippingCost,
         public readonly array $fees,
         public readonly bool $hasLines,
-        public readonly float $buyerShippingCharged = 0.0,
+        public readonly float $customerShippingCharged = 0.0,
         public readonly bool $shippingPaidToSeller = false,
     ) {}
 
@@ -36,9 +36,9 @@ final class OrderProfit
             ->get(['code', 'title', 'value']);
 
         $reportedShipping = 0.0;
-        $buyerShipping = (float) DB::table('order_totals')
+        $customerShipping = (float) DB::table('order_totals')
             ->where('order_id', $orderId)
-            ->where('code', BuyerShipping::TOTAL_CODE)
+            ->where('code', CustomerShipping::TOTAL_CODE)
             ->sum('value');
         $fees = [];
         $vouchers = [];
@@ -80,8 +80,8 @@ final class OrderProfit
             reportedShippingCost: $reportedShipping,
             fees: $fees,
             hasLines: (int) $lines->n > 0,
-            buyerShippingCharged: max(0.0, $buyerShipping),
-            shippingPaidToSeller: app(BuyerShipping::class)->paidToSeller($order->channel),
+            customerShippingCharged: max(0.0, $customerShipping),
+            shippingPaidToSeller: app(CustomerShipping::class)->paidToSeller($order->channel),
         );
     }
 
@@ -90,10 +90,10 @@ final class OrderProfit
         return $this->hasLines ? $this->ownShippingCost + $this->reportedShippingCost : 0.0;
     }
 
-    /** The buyer's shipping counted as income: on the seller's own channels; a marketplace keeps it. */
+    /** The customer's shipping counted as income: on the seller's own channels; a marketplace keeps it. */
     public function shippingIncome(): float
     {
-        return $this->hasLines && $this->shippingPaidToSeller ? $this->buyerShippingCharged : 0.0;
+        return $this->hasLines && $this->shippingPaidToSeller ? $this->customerShippingCharged : 0.0;
     }
 
     public function feesTotal(): float

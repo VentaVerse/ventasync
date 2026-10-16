@@ -125,7 +125,7 @@
 
             <aside class="cl-rail">
                 <section class="fm-section">
-                    <div class="fm-section__head"><h2 class="fm-section__title">What the buyer sees</h2></div>
+                    <div class="fm-section__head"><h2 class="fm-section__title">What the customer sees</h2></div>
                     <p class="fm-section__note" data-wm-preview-note>A real photograph from your catalog, marked exactly as a push would mark it.</p>
                     <div class="wm-preview"><img data-wm-preview alt="" hidden></div>
                 </section>

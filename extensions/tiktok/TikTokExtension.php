@@ -247,7 +247,7 @@ class TikTokExtension extends ExtensionProvider implements ChannelProvider, SkuS
                         ->where('store_id', $storeId)
                         ->orderByDesc('order_created_at')
                         ->limit($limit)
-                        ->get(['id', 'order_id', 'status', 'buyer_name', 'order_created_at']);
+                        ->get(['id', 'order_id', 'status', 'customer_name', 'order_created_at']);
 
                     $totals = DB::table('ch_tiktok_order_products')
                         ->whereIn('tiktok_order_id', $orders->pluck('id'))
@@ -257,7 +257,7 @@ class TikTokExtension extends ExtensionProvider implements ChannelProvider, SkuS
 
                     return $orders->map(fn ($o) => new RecentOrder(
                         reference: (string) $o->order_id,
-                        customerName: $o->buyer_name,
+                        customerName: $o->customer_name,
                         total: (float) ($totals[$o->id] ?? 0),
                         statusLabel: (string) $o->status,
                         orderedAt: $o->order_created_at,
@@ -433,7 +433,7 @@ class TikTokExtension extends ExtensionProvider implements ChannelProvider, SkuS
 
     public function saleLinesForOrder(int $coreOrderId, float $itemsSubtotal, float $shipping): ?array
     {
-        $order = \Extensions\TikTok\Models\TikTokOrder::query()->withoutGlobalScope('tiktokStore')->where('catalog_order_id', $coreOrderId)->first();
+        $order = \Extensions\TikTok\Models\TikTokOrder::query()->withoutGlobalScope('tiktokStore')->where('sales_order_id', $coreOrderId)->first();
         if (! $order) {
             return null;
         }
@@ -449,7 +449,7 @@ class TikTokExtension extends ExtensionProvider implements ChannelProvider, SkuS
         }
 
         $row = \Extensions\TikTok\Models\TikTokOrder::query()->withoutGlobalScope('tiktokStore')
-            ->where('catalog_order_id', $coreOrderId)->first();
+            ->where('sales_order_id', $coreOrderId)->first();
         if (! $row) {
             return null;
         }
@@ -538,7 +538,7 @@ class TikTokExtension extends ExtensionProvider implements ChannelProvider, SkuS
         if ($search !== '') {
             $like = '%' . $search . '%';
             $query->where(function ($q) use ($like) {
-                $q->where('order_id', 'like', $like)->orWhere('buyer_name', 'like', $like);
+                $q->where('order_id', 'like', $like)->orWhere('customer_name', 'like', $like);
             });
         }
 
@@ -557,9 +557,11 @@ class TikTokExtension extends ExtensionProvider implements ChannelProvider, SkuS
             $raw = $order->raw ?? [];
             $firstProduct = $order->products()->orderBy('id')->first();
             $productRaw = $firstProduct?->raw ?? [];
-            $productImage = $firstProduct?->image
-                ?? ($productRaw['image_info']['image_url'] ?? null)
-                ?? ($productRaw['product_main_image'] ?? null);
+            $productImage = $firstProduct
+                ? \App\Support\LineImage::url($firstProduct->sku, $firstProduct->image
+                    ?? ($productRaw['image_info']['image_url'] ?? null)
+                    ?? ($productRaw['product_main_image'] ?? null))
+                : null;
 
             return [
                 'id'              => $order->id,
@@ -567,7 +569,8 @@ class TikTokExtension extends ExtensionProvider implements ChannelProvider, SkuS
                 'store_name'      => (string) ($storeNames[$order->store_id] ?? ''),
                 'order_id'        => (string) $order->order_id,
                 'status'          => $order->status,
-                'buyer_name'      => $order->buyer_name ?? '',
+                'customer_name'   => $order->customer_name ?? '',
+                'buyer_name'      => $order->customer_name ?? '',
                 'total_amount'    => isset($raw['payment']['total_amount']) ? (float) $raw['payment']['total_amount'] : null,
                 'currency'        => $raw['payment']['currency'] ?? \App\Support\Money::defaultSymbol(),
                 'items_count'     => $order->products()->count(),
@@ -610,7 +613,7 @@ class TikTokExtension extends ExtensionProvider implements ChannelProvider, SkuS
                     'variation' => $first->variation ?? '',
                     'quantity'  => $group->sum('quantity'),
                     'price'     => $first->sale_price ?? $first->item_price ?? 0,
-                    'image'     => $first->image ?? '',
+                    'image'     => \App\Support\LineImage::url($first->sku, $first->image) ?? '',
                 ];
             });
 
@@ -620,13 +623,15 @@ class TikTokExtension extends ExtensionProvider implements ChannelProvider, SkuS
             'store_id'          => (int) $order->store_id,
             'store_name'        => (string) TikTokStore::query()->whereKey($order->store_id)->value('store_name'),
             'status'            => $order->status,
-            'buyer_name'        => $order->buyer_name ?? '',
+            'customer_name'     => $order->customer_name ?? '',
+            'buyer_name'        => $order->customer_name ?? '',
             'total_amount'      => isset($payment['total_amount']) ? (float) $payment['total_amount'] : null,
             'currency'          => $payment['currency'] ?? \App\Support\Money::defaultSymbol(),
             'payment_method'    => $payment['payment_method_name'] ?? '',
             'shipping_provider' => $raw['shipping_provider'] ?? $raw['shipping_provider_id'] ?? '',
             'tracking_number'   => $raw['tracking_number'] ?? '',
-            'shipping_name'     => $addr['name'] ?? $order->buyer_name ?? '',
+            'shipping_name'     => $addr['name'] ?? $order->customer_name ?? '',
+            'shipping_telephone' => $addr['phone_number'] ?? $addr['phone'] ?? '',
             'shipping_phone'    => $addr['phone_number'] ?? $addr['phone'] ?? '',
             'shipping_address'  => $addr['full_address']
                 ?? trim(implode(', ', array_filter([

@@ -522,7 +522,7 @@ class VentaCartListingPageTest extends TestCase
             'payment_city' => '', 'payment_postcode' => '', 'payment_country' => '', 'payment_zone' => '',
             'shipping_firstname' => '', 'shipping_lastname' => '', 'shipping_company' => '', 'shipping_address_1' => '', 'shipping_address_2' => '',
             'shipping_city' => '', 'shipping_postcode' => '', 'shipping_country' => '', 'shipping_zone' => '',
-            'comment' => '',
+            'customer_note' => '',
             'total' => 1000, 'order_status_id' => 5,
             'currency_id' => 1, 'currency_code' => 'PHP', 'currency_value' => 1,
             'ip' => '',
@@ -538,7 +538,7 @@ class VentaCartListingPageTest extends TestCase
         ]);
         DB::table('ch_ventacart_orders')->insert([
             'store_id' => $store->id, 'ventacart_order_id' => 77, 'status' => 'delivered',
-            'total' => 1000, 'raw' => '{}', 'catalog_order_id' => $oid,
+            'total' => 1000, 'raw' => '{}', 'sales_order_id' => $oid,
             'created_at' => now(), 'updated_at' => now(),
         ]);
 
@@ -611,7 +611,7 @@ class VentaCartListingPageTest extends TestCase
         ];
         DB::table('ch_ventacart_orders')->insert([
             'store_id' => $store->id, 'ventacart_order_id' => 91, 'status' => 'delivered',
-            'total' => 11990, 'raw' => json_encode($raw), 'catalog_order_id' => 4242,
+            'total' => 11990, 'raw' => json_encode($raw), 'sales_order_id' => 4242,
             'created_at' => now(), 'updated_at' => now(),
         ]);
 
@@ -632,7 +632,7 @@ class VentaCartListingPageTest extends TestCase
         $store = $this->store();
         DB::table('ch_ventacart_orders')->insert([
             'store_id' => $store->id, 'ventacart_order_id' => 92, 'status' => 'pending',
-            'total' => 500, 'catalog_order_id' => 4243,
+            'total' => 500, 'sales_order_id' => 4243,
             'raw' => json_encode(['id' => 92, 'fees' => ['payment_fee' => null, 'shipping_cost' => null, 'net_after_fees' => null]]),
             'created_at' => now(), 'updated_at' => now(),
         ]);

@@ -78,7 +78,7 @@ class DisabledProductsStayOutTest extends TestCase
             'a disabled product still listed needs eyes - it wants unlisting, not hiding');
         $this->assertStringContainsString('Enabled and plain', $page);
 
-        $filtered = $this->actingAs($user)->get(route('ext.shopee.products.index') . '?erp_status=disabled')->assertOk()->getContent();
+        $filtered = $this->actingAs($user)->get(route('ext.shopee.products.index') . '?catalog_status=disabled')->assertOk()->getContent();
         $this->assertStringContainsString('Disabled and nowhere', $filtered,
             'the Disabled filter still shows the hidden ones on purpose');
     }

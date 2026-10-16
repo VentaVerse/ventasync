@@ -131,7 +131,8 @@ final class Receivables
                     'amount' => round((float) $p->amount, 2),
                     'method' => $p->payment_method,
                     'reference' => $p->reference_no,
-                    'notes' => $p->notes,
+                    'note' => $p->note,
+                    'notes' => $p->note,
                 ])->all(),
         ];
     }
@@ -159,9 +160,9 @@ final class Receivables
         return $plan;
     }
 
-    public function record(array $orderIds, float $amount, string $method, string $date, ?string $reference, ?string $notes, string $reason): array
+    public function record(array $orderIds, float $amount, string $method, string $date, ?string $reference, ?string $note, string $reason): array
     {
-        return DB::transaction(function () use ($orderIds, $amount, $method, $date, $reference, $notes, $reason) {
+        return DB::transaction(function () use ($orderIds, $amount, $method, $date, $reference, $note, $reason) {
             Order::whereIn('order_id', $orderIds)->lockForUpdate()->get(['order_id']);
 
             $rows = $this->rows([], $orderIds);
@@ -184,7 +185,7 @@ final class Receivables
                     'payment_method' => $method,
                     'paid_at' => $date,
                     'reference_no' => $reference,
-                    'notes' => trim(implode(' ', array_filter([$notes, $shared]))) ?: null,
+                    'note' => trim(implode(' ', array_filter([$note, $shared]))) ?: null,
                     'created_by' => $actor->userId,
                     'created_at' => now(),
                 ]);

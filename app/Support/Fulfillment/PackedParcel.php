@@ -62,7 +62,7 @@ class PackedParcel
         return self::fromItems($grouped, $pick(['shipment_provider', 'shipping_provider', 'shipping_provider_name']), $city) + [
             'order_id' => $orderId,
             'tracking' => $pick(['tracking_code', 'tracking_number', 'tracking_code_pre']),
-            'buyer' => $pick(['customer_first_name', 'buyer_username', 'customer_name']),
+            'customer' => $pick(['customer_first_name', 'buyer_username', 'customer_name']),
         ];
     }
 

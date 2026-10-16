@@ -103,7 +103,7 @@ class OrderController extends Controller
             'shipping_method'  => 'nullable|string',
             'total'            => 'nullable|numeric|min:0',
             'order_status_id'  => 'required|integer|min:0',
-            'comment'          => 'nullable|string',
+            'customer_note'    => 'nullable|string',
             'currency_code'    => ['nullable', 'string', 'max:3', Rule::exists('currencies', 'code')],
             'currency_rate'    => 'nullable|numeric|gt:0',
         ]);
@@ -150,7 +150,7 @@ class OrderController extends Controller
                 'shipping_zone'        => $request->shipping_zone ?? '',
                 'shipping_method'      => $request->shipping_method ?? '',
                 'shipping_cost'        => 0,
-                'comment'              => $request->comment ?? '',
+                'customer_note'        => $request->customer_note ?? '',
                 'total'                => OrderCurrencyService::toBase($rawTotal, $rate),
                 'foreign_total'        => $isDefault ? null : round($rawTotal, 4),
                 'extra_cost'           => 0,
@@ -169,7 +169,7 @@ class OrderController extends Controller
                 'order_id'        => $order->order_id,
                 'order_status_id' => $request->order_status_id,
                 'notify'          => 0,
-                'comment'         => $request->comment ?? '',
+                'note'            => $request->customer_note ?? '',
                 'date_added'      => $now,
             ]));
 
@@ -393,7 +393,7 @@ class OrderController extends Controller
     {
         $request->validate([
             'order_status_id' => 'required|integer|min:1',
-            'comment'         => 'nullable|string',
+            'note'            => 'nullable|string',
         ]);
 
         $order = Order::where('order_id', (int) $id)->firstOrFail();
@@ -409,7 +409,7 @@ class OrderController extends Controller
             'order_id'        => $order->order_id,
             'order_status_id' => $newStatusId,
             'notify'          => 0,
-            'comment'         => $request->comment ?? '',
+            'note'            => $request->note ?? '',
             'date_added'      => now(),
         ]));
 
@@ -480,7 +480,7 @@ class OrderController extends Controller
             'shipping_method'  => 'nullable|string',
             'total'            => 'nullable|numeric|min:0',
             'order_status_id'  => 'required|integer|min:0',
-            'comment'          => 'nullable|string',
+            'customer_note'    => 'nullable|string',
             'currency_code'    => ['nullable', 'string', 'max:3', Rule::exists('currencies', 'code')],
             'currency_rate'    => 'nullable|numeric|gt:0',
         ]);
@@ -524,7 +524,7 @@ class OrderController extends Controller
             'shipping_country'   => $request->shipping_country ?? '',
             'shipping_zone'      => $request->shipping_zone ?? '',
             'shipping_method'    => $request->shipping_method ?? '',
-            'comment'            => $request->comment ?? '',
+            'customer_note'      => $request->customer_note ?? '',
             'total'              => OrderCurrencyService::toBase($rawTotal, $rate),
             'foreign_total'      => $isDefault ? null : round($rawTotal, 4),
             'order_status_id'    => $request->order_status_id,
@@ -623,7 +623,7 @@ class OrderController extends Controller
             'order_id'        => $order->order_id,
             'order_status_id' => (int) $request->order_status_id,
             'notify'          => 0,
-            'comment'         => $request->comment ?? '',
+            'note'            => $request->customer_note ?? '',
             'date_added'      => now(),
         ]));
 
@@ -891,17 +891,17 @@ class OrderController extends Controller
 
     public static function resolveLazadaImages($orders): array
     {
-        $catalogOrderIds = [];
+        $salesOrderIds = [];
         foreach ($orders as $o) {
-            $catalogOrderIds[] = (int) $o->order_id;
+            $salesOrderIds[] = (int) $o->order_id;
         }
-        if (empty($catalogOrderIds)) {
+        if (empty($salesOrderIds)) {
             return [];
         }
 
         $merged = [];
         foreach (app(ChannelRegistry::class)->orderImagesContributors() as $contributor) {
-            $merged += $contributor->imagesForCatalogOrders($catalogOrderIds);
+            $merged += $contributor->imagesForSalesOrders($salesOrderIds);
         }
         return $merged;
     }
@@ -915,7 +915,7 @@ class OrderController extends Controller
             'payment_method' => 'required|string|max:64',
             'paid_at'        => 'required|date',
             'reference_no'   => 'nullable|string|max:128',
-            'notes'          => 'nullable|string',
+            'note'          => 'nullable|string',
         ]);
 
         OrderPayment::create([
@@ -924,7 +924,7 @@ class OrderController extends Controller
             'payment_method' => $request->payment_method,
             'paid_at'        => $request->paid_at,
             'reference_no'   => $request->reference_no,
-            'notes'          => $request->notes,
+            'note'          => $request->note,
             'created_by'     => auth()->id(),
             'created_at'     => now(),
         ]);

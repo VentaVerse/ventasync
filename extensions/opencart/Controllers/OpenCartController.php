@@ -43,14 +43,14 @@ class OpenCartController extends Controller
             ->get()
             ->groupBy('store_id');
         $langId = (int) config('catalog.default_language_id');
-        $erpOrderStatuses = DB::table('order_statuses')
+        $salesOrderStatuses = DB::table('order_statuses')
             ->where('language_id', $langId)
             ->orderBy('order_status_id')
             ->get(['order_status_id', 'name']);
 
         $singleStore = true;
 
-        return view('ext-opencart::index', compact('stores', 'recentLogs', 'orderStatusMaps', 'erpOrderStatuses', 'singleStore'));
+        return view('ext-opencart::index', compact('stores', 'recentLogs', 'orderStatusMaps', 'salesOrderStatuses', 'singleStore'));
     }
 
     public function createStore(Request $request)
@@ -545,7 +545,7 @@ class OpenCartController extends Controller
             ->map(fn ($r) => [
                 'order_status_id'    => (int) $r->opencart_status_id,
                 'name'               => $r->opencart_status_name,
-                'erp_order_status_id' => (int) $r->order_status_id,
+                'sales_order_status_id' => (int) $r->order_status_id,
             ])
             ->all();
 

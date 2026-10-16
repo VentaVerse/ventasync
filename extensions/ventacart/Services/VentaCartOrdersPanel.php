@@ -12,7 +12,7 @@ use Illuminate\Http\Request;
 class VentaCartOrdersPanel
 {
     private array $sortable = [
-        'catalog_order_id',
+        'sales_order_id',
         'ventacart_order_id',
         'ventacart_order_number',
         'customer_name',

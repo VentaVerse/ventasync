@@ -42,11 +42,11 @@ class TikTokVariationPush
         return mb_strtolower(trim((string) ($first['value_id'] ?? '') !== '' ? 'id:' . $first['value_id'] : 'name:' . ($first['value_name'] ?? '')));
     }
 
-    public function skus(object $erp, \Closure $priceFor, ?string $warehouseId, ?\Closure $uploadUri = null, ?array $existing = null): array
+    public function skus(object $catalog, \Closure $priceFor, ?string $warehouseId, ?\Closure $uploadUri = null, ?array $existing = null): array
     {
         $langId = (int) config('catalog.default_language_id');
-        $productId = (int) $erp->product_id;
-        $basePrice = (float) ($erp->price ?? 0);
+        $productId = (int) $catalog->product_id;
+        $basePrice = (float) ($catalog->price ?? 0);
         $existing = $existing ?? [];
 
         $inventory = function (int $qty) use ($warehouseId): array {
@@ -100,7 +100,7 @@ class TikTokVariationPush
             $skus = [];
             $keys = [];
             foreach ($combos as $combo) {
-                $sellerSku = trim((string) $combo->sku) !== '' ? trim((string) $combo->sku) : (($erp->sku ?: $productId) . '-' . $combo->id);
+                $sellerSku = trim((string) $combo->sku) !== '' ? trim((string) $combo->sku) : (($catalog->sku ?: $productId) . '-' . $combo->id);
                 $base = (float) $combo->absolute_price > 0 ? (float) $combo->absolute_price : $basePrice;
                 $sku = [
                     'seller_sku' => $sellerSku,
@@ -140,7 +140,7 @@ class TikTokVariationPush
             $keys = [];
             $axisName = $variationValues[0]->variation_type_name;
             foreach ($variationValues as $ov) {
-                $sellerSku = trim((string) $ov->sku) !== '' ? trim((string) $ov->sku) : ($erp->sku . '-' . $ov->variation_value_id);
+                $sellerSku = trim((string) $ov->sku) !== '' ? trim((string) $ov->sku) : ($catalog->sku . '-' . $ov->variation_value_id);
                 $sku = [
                     'seller_sku' => $sellerSku,
                     'sales_attributes' => [['name' => $axisName, 'value_name' => $ov->value_name]],
@@ -158,12 +158,12 @@ class TikTokVariationPush
             return ['skus' => $skus, 'kind' => 'pov', 'keys' => $keys, 'refused' => null];
         }
 
-        $sellerSku = $erp->sku ?: (string) $productId;
+        $sellerSku = $catalog->sku ?: (string) $productId;
         $startPrice = \Extensions\TikTok\Models\TikTokListing::ownPrices([$productId])[$productId] ?? $basePrice;
         $sku = [
             'seller_sku' => $sellerSku,
             'price' => $money($priceFor($startPrice)),
-            'inventory' => $inventory((int) ($erp->quantity ?? 0)),
+            'inventory' => $inventory((int) ($catalog->quantity ?? 0)),
         ];
         $single = $existing['__single__'] ?? null;
         if ($single) {

@@ -64,7 +64,7 @@ class ErrorLogController extends Controller
 
     public function test(Request $request)
     {
-        @trigger_error('ERP error.log test warning (web)', E_USER_WARNING);
+        @trigger_error('VentaSync error.log test warning (web)', E_USER_WARNING);
 
         return redirect()->route('error_log.index')->with('status', 'Test warning generated.');
     }

@@ -12,7 +12,7 @@ class ShopeeFindDuplicates extends Command
 {
     protected $signature = 'shopee:find-duplicates {--store= : one store id, default every enabled store}';
 
-    protected $description = 'Report duplicate Shopee items, items with no ERP link, and products with no SKU (read only)';
+    protected $description = 'Report duplicate Shopee items, items with no VentaSync link, and products with no SKU (read only)';
 
     private const PAGES = 40;
 
@@ -197,12 +197,12 @@ class ShopeeFindDuplicates extends Command
 
         $this->line('');
         if ($orphans === []) {
-            $this->line('Every item in the shop has a link in this ERP.');
+            $this->line('Every item in the shop has a link in VentaSync.');
 
             return;
         }
 
-        $this->warn(count($orphans) . ' item(s) in the shop have NO link in this ERP:');
+        $this->warn(count($orphans) . ' item(s) in the shop have NO link in VentaSync:');
         foreach ($orphans as $item) {
             $this->line(sprintf(
                 '  item %d  %s  %s  [%s]',
@@ -220,7 +220,7 @@ class ShopeeFindDuplicates extends Command
             ->get(['product_id', 'shopee_item_id', 'shopee_model_id', 'store_id', 'sku', 'live_status']);
 
         $this->line('');
-        $this->line('Link rows in this ERP (every store): ' . $rows->count());
+        $this->line('Link rows in VentaSync (every store): ' . $rows->count());
 
         $byStore = $rows->groupBy(fn ($r) => (string) ($r->store_id ?? 'NULL'));
         foreach ($byStore as $sid => $group) {

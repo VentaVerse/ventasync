@@ -254,7 +254,7 @@ class VentaCartProductGroupController extends Controller
 
         $q = trim((string) $request->input('q'));
         $syncStatus = (string) $request->input('sync_status', 'all');
-        $erpStatus = (string) $request->input('erp_status', 'all');
+        $catalogStatus = (string) $request->input('catalog_status', 'all');
 
         $query = DB::table('products as p')
             ->join('product_descriptions as pd', function ($j) use ($langId) {
@@ -299,9 +299,9 @@ class VentaCartProductGroupController extends Controller
             });
         }
 
-        if ($erpStatus === 'enabled') {
+        if ($catalogStatus === 'enabled') {
             $query->where('p.status', 1);
-        } elseif ($erpStatus === 'disabled') {
+        } elseif ($catalogStatus === 'disabled') {
             $query->where('p.status', 0);
         }
 
@@ -349,7 +349,7 @@ class VentaCartProductGroupController extends Controller
             'manualIds'            => $manualIds,
             'q'                    => $q,
             'syncStatus'           => $syncStatus,
-            'erpStatus'            => $erpStatus,
+            'catalogStatus'            => $catalogStatus,
         ]);
     }
 

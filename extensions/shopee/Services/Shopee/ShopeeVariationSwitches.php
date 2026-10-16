@@ -113,7 +113,7 @@ final class ShopeeVariationSwitches
         }
 
         $catalog = [];
-        foreach (PushLedger::erpVariationSkus([$productId])[$productId] ?? [] as $sku) {
+        foreach (PushLedger::catalogVariationSkus([$productId])[$productId] ?? [] as $sku) {
             $catalog[$this->key($sku)] = true;
         }
         $held = [];

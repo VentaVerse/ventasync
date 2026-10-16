@@ -20,10 +20,10 @@ class TikTokOrder extends Model
         'order_updated_at',
         'raw',
         'fees',
-        'buyer_name',
+        'customer_name',
         'payout_status',
         'paid_at',
-        'catalog_order_id',
+        'sales_order_id',
     ];
 
     protected $hidden = ['raw'];

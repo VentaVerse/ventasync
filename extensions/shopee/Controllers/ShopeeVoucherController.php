@@ -107,19 +107,19 @@ class ShopeeVoucherController extends Controller
         }
 
         return redirect()->route('ext.shopee.vouchers.index')
-            ->with('status', 'Voucher ' . strtoupper($data['voucher_code']) . ' created. Buyers see it once it starts.');
+            ->with('status', 'Voucher ' . strtoupper($data['voucher_code']) . ' created. Customers see it once it starts.');
     }
 
     public function end(Request $request, int $voucherId, ShopeeClient $client)
     {
         return $this->passThrough($client, '/api/v2/voucher/end_voucher', $voucherId,
-            'Voucher ended. Buyers can no longer claim or use it.', 'End failed');
+            'Voucher ended. Customers can no longer claim or use it.', 'End failed');
     }
 
     public function destroy(Request $request, int $voucherId, ShopeeClient $client)
     {
         return $this->passThrough($client, '/api/v2/voucher/delete_voucher', $voucherId,
-            'Voucher deleted before it started. Buyers never saw it.', 'Delete failed');
+            'Voucher deleted before it started. Customers never saw it.', 'Delete failed');
     }
 
     private function passThrough(ShopeeClient $client, string $path, int $voucherId, string $okWords, string $failWord)

@@ -24,8 +24,8 @@
     };
 
     $items          = is_array($raw['item'] ?? null) ? $raw['item'] : [];
-    $buyerPhotos    = is_array($raw['image'] ?? null) ? $raw['image'] : [];
-    $buyerVideos    = is_array($raw['buyer_videos'] ?? null) ? $raw['buyer_videos'] : [];
+    $customerPhotos    = is_array($raw['image'] ?? null) ? $raw['image'] : [];
+    $customerVideos    = is_array($raw['buyer_videos'] ?? null) ? $raw['buyer_videos'] : [];
     $user           = is_array($raw['user'] ?? null) ? $raw['user'] : [];
     $negotiation    = is_array($raw['negotiation'] ?? null) ? $raw['negotiation'] : [];
     $disputeReasons = is_array($raw['dispute_reason'] ?? null) ? $raw['dispute_reason'] : [];
@@ -113,7 +113,7 @@
         <div class="rs__head">
             <div>
                 <h2 class="rs__title">What can be offered</h2>
-                <p class="rs__sub">Shopee decides which resolutions are open on a return, and up to how much. Asking shows the answer here. Nothing is sent to the buyer and nothing is resolved.</p>
+                <p class="rs__sub">Shopee decides which resolutions are open on a return, and up to how much. Asking shows the answer here. Nothing is sent to the customer and nothing is resolved.</p>
             </div>
             <x-ui.button size="sm" type="button" data-solutions-ask>Ask Shopee</x-ui.button>
         </div>
@@ -191,7 +191,7 @@
 
             <section class="od-section">
                 <div class="od-section__head">
-                    <h2 class="od-section__title">Why the buyer is returning it</h2>
+                    <h2 class="od-section__title">Why the customer is returning it</h2>
                 </div>
 
                 <div class="od-card">
@@ -205,22 +205,22 @@
                             <p class="rt-quote">{{ $return->reason_text }}</p>
                         @endif
 
-                        @if(count($buyerPhotos) || count($buyerVideos))
+                        @if(count($customerPhotos) || count($customerVideos))
                             <div class="rt-media">
-                                @foreach($buyerPhotos as $photo)
+                                @foreach($customerPhotos as $photo)
                                     <a class="rt-media__item" href="{{ $photo }}" target="_blank" rel="noopener">
-                                        <img src="{{ $photo }}" alt="Photograph the buyer uploaded" loading="lazy" decoding="async">
+                                        <img src="{{ $photo }}" alt="Photograph the customer uploaded" loading="lazy" decoding="async">
                                     </a>
                                 @endforeach
-                                @foreach($buyerVideos as $video)
+                                @foreach($customerVideos as $video)
                                     <a class="rt-media__item" href="{{ $video['video_url'] ?? '#' }}" target="_blank" rel="noopener">
-                                        <img src="{{ $video['thumbnail_url'] ?? '' }}" alt="Video the buyer uploaded" loading="lazy" decoding="async">
+                                        <img src="{{ $video['thumbnail_url'] ?? '' }}" alt="Video the customer uploaded" loading="lazy" decoding="async">
                                         <span class="rt-media__play" aria-hidden="true"></span>
                                     </a>
                                 @endforeach
                             </div>
                         @else
-                            <p class="fm-section__note">The buyer uploaded no photographs or video.</p>
+                            <p class="fm-section__note">The customer uploaded no photographs or video.</p>
                         @endif
                     </div>
                 </div>
@@ -285,14 +285,14 @@
                     </div>
                     <div class="od-fact">
                         <span class="od-fact__k">Sales order</span>
-                        @if($return->order && $return->order->catalog_order_id)
-                            <a class="od-fact__va" href="{{ url('/sales/orders/' . $return->order->catalog_order_id) }}">{{ $return->order->catalog_order_id }}</a>
+                        @if($return->order && $return->order->sales_order_id)
+                            <a class="od-fact__va" href="{{ url('/sales/orders/' . $return->order->sales_order_id) }}">{{ $return->order->sales_order_id }}</a>
                         @else
                             <span class="od-fact__v">Not linked</span>
                         @endif
                     </div>
                     <div class="od-fact">
-                        <span class="od-fact__k">Buyer</span>
+                        <span class="od-fact__k">Customer</span>
                         <span class="od-fact__v">{{ $user['username'] ?? 'Not given' }}</span>
                     </div>
                     @if(!empty($user['email']))
@@ -312,7 +312,7 @@
                         <span class="od-fact__v">{{ $return->reverse_logistics_status ? $plain($return->reverse_logistics_status) : 'Nothing shipping' }}</span>
                     </div>
                     <div class="od-fact">
-                        <span class="od-fact__k">Tracking number</span>
+                        <span class="od-fact__k">Tracking</span>
                         <span class="od-fact__v od-fact__v--mono">{{ $return->tracking_number ?: ($raw['tracking_number'] ?? '') ?: 'None yet' }}</span>
                     </div>
                     @if(!empty($raw['seller_compensation']['seller_compensation_status']))

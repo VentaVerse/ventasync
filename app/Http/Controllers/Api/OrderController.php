@@ -6,10 +6,10 @@ use App\Http\Controllers\Controller;
 use App\Models\Catalog\Order;
 use App\Models\Catalog\OrderHistory;
 use App\Models\Catalog\OrderStatus;
-use App\Models\Catalog\Product;
 use App\Services\ActivityLogger;
 use App\Support\Fulfillment\AppFulfillment;
 use App\Services\OrderStockService;
+use App\Support\LineImage;
 use App\Support\Money;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -63,13 +63,9 @@ class OrderController extends Controller
 
         $orders->getCollection()->transform(function ($order) use ($openCartStoreNames, $defaultCode) {
             $firstProduct = $order->products()->first();
-            $productImage = null;
-            if ($firstProduct && $firstProduct->product_id > 0) {
-                $img = Product::where('product_id', $firstProduct->product_id)->value('image');
-                if ($img && trim($img) !== '') {
-                    $productImage = url('/storage/' . ltrim($img, '/'));
-                }
-            }
+            $productImage = $firstProduct
+                ? LineImage::url($firstProduct->sku, null, (int) $firstProduct->product_id ?: null)
+                : null;
 
             return [
                 'order_id'             => $order->order_id,
@@ -125,7 +121,8 @@ class OrderController extends Controller
                 'lastname'           => $order->lastname,
                 'email'              => $order->email,
                 'telephone'          => $order->telephone,
-                'comment'            => $order->comment ?? '',
+                'customer_note'      => $order->customer_note ?? '',
+                'comment'            => $order->customer_note ?? '',
                 'total'              => (float) $order->total,
                 'currency_code'      => Money::defaultCode(),
                 'transaction_currency' => $order->foreign_total !== null ? $order->currency_code : null,
@@ -171,7 +168,8 @@ class OrderController extends Controller
             'history' => $history->map(fn ($h) => [
                 'order_status_id' => (int) $h->order_status_id,
                 'status_name'     => $h->status->name ?? '',
-                'comment'         => $h->comment ?? '',
+                'note'            => $h->note ?? '',
+                'comment'         => $h->note ?? '',
                 'date_added'      => $h->date_added,
             ]),
         ];
@@ -181,11 +179,12 @@ class OrderController extends Controller
     {
         $request->validate([
             'order_status_id' => 'required|integer|min:1',
+            'note'            => 'nullable|string',
             'comment'         => 'nullable|string',
         ]);
 
         $order = Order::where('order_id', (int) $id)->firstOrFail();
-        $this->changeStatus($order, (int) $request->order_status_id, (string) ($request->comment ?? ''));
+        $this->changeStatus($order, (int) $request->order_status_id, (string) ($request->note ?? $request->comment ?? ''));
 
         return response()->json(['message' => 'Order status updated.']);
     }
@@ -196,6 +195,7 @@ class OrderController extends Controller
             'order_status_id' => ['required', 'integer', Rule::exists('order_statuses', 'order_status_id')],
             'tracking_number' => ['required', 'string', 'max:32'],
             'courier_name'    => ['nullable', 'string', 'max:64'],
+            'note'            => ['nullable', 'string', 'max:1000'],
             'comment'         => ['nullable', 'string', 'max:1000'],
         ]);
 
@@ -209,21 +209,21 @@ class OrderController extends Controller
 
         $tracking = trim($data['tracking_number']);
         $courier = trim((string) ($data['courier_name'] ?? ''));
-        $comment = implode("\n", array_filter([
+        $note = implode("\n", array_filter([
             'Shipped' . ($courier !== '' ? ' with ' . $courier : '') . ', tracking ' . $tracking . '.',
-            trim((string) ($data['comment'] ?? '')),
+            trim((string) ($data['note'] ?? $data['comment'] ?? '')),
         ]));
 
-        DB::transaction(function () use ($order, $tracking, $data, $comment) {
+        DB::transaction(function () use ($order, $tracking, $data, $note) {
             $order->tracking_number = $tracking;
             $order->save();
-            $this->changeStatus($order, (int) $data['order_status_id'], $comment);
+            $this->changeStatus($order, (int) $data['order_status_id'], $note);
         });
 
         return AppFulfillment::ok('Shipped.', $this->showPayload($order->fresh()));
     }
 
-    private function changeStatus(Order $order, int $newStatusId, string $comment): void
+    private function changeStatus(Order $order, int $newStatusId, string $note): void
     {
         $oldStatusId = (int) $order->order_status_id;
 
@@ -237,7 +237,7 @@ class OrderController extends Controller
             'order_id'        => $order->order_id,
             'order_status_id' => $newStatusId,
             'notify'          => 0,
-            'comment'         => $comment,
+            'note'            => $note,
             'date_added'      => now(),
             'user_id'         => $user?->id,
             'user_name'       => $user ? ($user->name ?? $user->username ?? 'User #' . $user->id) : 'API',
@@ -416,26 +416,11 @@ class OrderController extends Controller
 
     private function resolveProductImages($orderProducts): array
     {
-        $productIds = $orderProducts
-            ->filter(fn ($p) => $p->product_id > 0)
-            ->pluck('product_id')
-            ->unique()
-            ->values()
-            ->toArray();
-
-        if (empty($productIds)) {
-            return [];
-        }
-
-        $images = Product::whereIn('product_id', $productIds)
-            ->pluck('image', 'product_id')
-            ->toArray();
-
         $result = [];
         foreach ($orderProducts as $op) {
-            $pid = $op->product_id;
-            if ($pid > 0 && isset($images[$pid]) && trim($images[$pid]) !== '') {
-                $result[$op->order_product_id] = url('/storage/' . ltrim($images[$pid], '/'));
+            $url = LineImage::url($op->sku, null, (int) $op->product_id ?: null);
+            if ($url !== null) {
+                $result[$op->order_product_id] = $url;
             }
         }
 

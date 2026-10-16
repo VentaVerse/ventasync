@@ -11,31 +11,31 @@ class OrderPrintLists
         'shopee' => [
             'model' => \Extensions\Shopee\Models\ShopeeOrder::class,
             'ref' => 'order_sn',
-            'buyer' => null,
+            'customer' => null,
             'label' => 'Shopee',
         ],
         'lazada' => [
             'model' => \Extensions\Lazada\Models\LazadaOrder::class,
             'ref' => 'order_id',
-            'buyer' => null,
+            'customer' => null,
             'label' => 'Lazada',
         ],
         'tiktok' => [
             'model' => \Extensions\TikTok\Models\TikTokOrder::class,
             'ref' => 'order_id',
-            'buyer' => 'buyer_name',
+            'customer' => 'buyer_name',
             'label' => 'TikTok',
         ],
         'ventacart' => [
             'model' => \Extensions\VentaCart\Models\VentaCartOrder::class,
             'ref' => 'ventacart_order_number',
-            'buyer' => 'customer_name',
+            'customer' => 'customer_name',
             'label' => 'Storefront',
         ],
         'woocommerce' => [
             'model' => \Extensions\WooCommerce\Models\WooCommerceOrder::class,
             'ref' => 'woo_order_number',
-            'buyer' => 'customer_name',
+            'customer' => 'customer_name',
             'label' => 'WooCommerce',
         ],
     ];
@@ -75,7 +75,7 @@ class OrderPrintLists
 
         return $orders->map(fn (Model $o) => [
             'reference' => (string) ($o->{$spec['ref']} ?? $o->getKey()),
-            'buyer' => self::buyerOf($o, $spec['buyer']),
+            'customer' => self::customerOf($o, $spec['customer']),
             'items' => self::itemsOf($o),
         ])->all();
     }
@@ -136,7 +136,7 @@ class OrderPrintLists
         return $items;
     }
 
-    private static function buyerOf(Model $order, ?string $column): string
+    private static function customerOf(Model $order, ?string $column): string
     {
         if ($column !== null) {
             return trim((string) ($order->{$column} ?? ''));

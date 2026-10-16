@@ -43,7 +43,7 @@ class TikTokProductController extends Controller
         }
         $brandFilter = (string) $request->get('brand', 'all');
         $groupFilter = \App\Channels\Listings\StatusMenu::group($request->get('group'));
-        $erpStatus = (string) $request->get('erp_status', 'all');
+        $catalogStatus = (string) $request->get('catalog_status', 'all');
         $tiktokTab = (string) $request->get('tiktok_tab', 'all');
         if (!array_key_exists($tiktokTab, TikTokLiveListing::TABS)) {
             $tiktokTab = 'all';
@@ -106,9 +106,9 @@ class TikTokProductController extends Controller
         if ($brandFilter !== 'all') {
             $query->where('p.brand_id', (int) $brandFilter);
         }
-        if ($erpStatus === 'enabled') {
+        if ($catalogStatus === 'enabled') {
             $query->where('p.status', 1);
-        } elseif ($erpStatus === 'disabled') {
+        } elseif ($catalogStatus === 'disabled') {
             $query->where('p.status', 0);
         } else {
             $query->where(function ($sub) {
@@ -322,7 +322,7 @@ class TikTokProductController extends Controller
             'listedTotal' => $listedTotal,
             'q' => $q, 'sort' => $sort, 'dir' => $dir,
             'syncStatus' => $syncStatus, 'brandFilter' => $brandFilter,
-            'groupFilter' => $groupFilter, 'erpStatus' => $erpStatus,
+            'groupFilter' => $groupFilter, 'catalogStatus' => $catalogStatus,
             'allBrands' => DB::table('brands')->orderBy('name')->pluck('name', 'brand_id'),
             'allGroups' => TikTokProductGroup::query()->orderBy('name')->pluck('name', 'id'),
             'groupsByProductId' => $groupsByProductId,
@@ -702,7 +702,7 @@ class TikTokProductController extends Controller
             return ['ok' => false, 'message' => $refusal];
         }
 
-        $outcome = app(TikTokProductPush::class)->create($this->erpProduct($productId), $opts, $c, $client);
+        $outcome = app(TikTokProductPush::class)->create($this->catalogProduct($productId), $opts, $c, $client);
         if (!$outcome['ok']) {
             $this->states($c['setting'] ?? null)->recordOutcome($productId, (string) $outcome['message']);
 
@@ -790,17 +790,17 @@ class TikTokProductController extends Controller
         $linked = TikTokListing::query()->whereNotNull('tiktok_product_id')->pluck('tiktok_product_id')
             ->merge(\Extensions\TikTok\Models\TikTokProductGroupProduct::query()->onStore($c['setting'] ?? null)->whereNotNull('tiktok_product_id')->pluck('tiktok_product_id'))
             ->map(fn ($v) => (string) $v)->flip();
-        $erpSkus = [];
+        $catalogSkus = [];
         foreach (DB::table('products')->get(['sku']) as $p) {
             foreach ([$p->sku] as $v) {
-                if (trim((string) $v) !== '') $erpSkus[strtolower(trim((string) $v))] = true;
+                if (trim((string) $v) !== '') $catalogSkus[strtolower(trim((string) $v))] = true;
             }
         }
         foreach (DB::table('product_variation_values')->whereNotNull('sku')->where('sku', '!=', '')->pluck('sku') as $v) {
-            $erpSkus[strtolower(trim((string) $v))] = true;
+            $catalogSkus[strtolower(trim((string) $v))] = true;
         }
         foreach (DB::table('product_variations')->whereNotNull('sku')->where('sku', '!=', '')->pluck('sku') as $v) {
-            $erpSkus[strtolower(trim((string) $v))] = true;
+            $catalogSkus[strtolower(trim((string) $v))] = true;
         }
 
         $found = 0;
@@ -813,7 +813,7 @@ class TikTokProductController extends Controller
             $skus = array_values(array_filter(array_map(fn ($v) => trim((string) $v), (array) ($p['skus'] ?? []))));
             $matched = false;
             foreach ($skus as $sku) {
-                if (isset($erpSkus[strtolower($sku)])) {
+                if (isset($catalogSkus[strtolower($sku)])) {
                     $matched = true;
                     break;
                 }
@@ -1180,7 +1180,7 @@ class TikTokProductController extends Controller
         ];
     }
 
-    private function erpProduct(int $productId): ?object
+    private function catalogProduct(int $productId): ?object
     {
         $langId = (int) config('catalog.default_language_id');
 

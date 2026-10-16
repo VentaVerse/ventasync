@@ -220,7 +220,7 @@ class TikTokListingStates
                 'FAILED' => [ListingState::ATTENTION, 'Failed review', 'TikTok Shop rejected it. Open the product in Seller Center to see why, fix it, and push again.'],
                 'PLATFORM_DEACTIVATED' => [ListingState::ATTENTION, 'Deactivated by TikTok', 'TikTok Shop switched it off. Check the product in Seller Center before pushing again.'],
                 'FREEZE' => [ListingState::ATTENTION, 'Frozen', 'TikTok Shop froze this listing. It cannot be edited or sold until TikTok releases it.'],
-                'DRAFT' => [ListingState::ATTENTION, 'Draft', 'It sits as a draft on TikTok Shop; buyers cannot see it. Publish it in Seller Center, or push an update from here.'],
+                'DRAFT' => [ListingState::ATTENTION, 'Draft', 'It sits as a draft on TikTok Shop; customers cannot see it. Publish it in Seller Center, or push an update from here.'],
                 'DELETED' => [ListingState::ATTENTION, 'Deleted', 'It was deleted on TikTok Shop. Push again to relist it.'],
                 'MISSING' => [ListingState::ATTENTION, 'Not found on TikTok Shop', 'TikTok Shop no longer returns this listing. Refresh from TikTok Shop, or push it again.'],
                 default => [ListingState::UNKNOWN, null, null],
@@ -290,7 +290,7 @@ class TikTokListingStates
             return;
         }
         $variations = [];
-        foreach (PushLedger::erpVariationSkus([$productId])[$productId] ?? [] as $sku) {
+        foreach (PushLedger::catalogVariationSkus([$productId])[$productId] ?? [] as $sku) {
             $variations[strtolower(trim((string) $sku))] = true;
         }
         if ($variations === []) {

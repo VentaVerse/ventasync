@@ -315,13 +315,13 @@ class TikTokProductGroupController extends Controller
                 'variationRowsByProductId' => collect(),
                 'q'                    => '',
                 'syncStatus'           => 'all',
-                'erpStatus'            => 'all',
+                'catalogStatus'            => 'all',
             ]);
         }
 
         $q = trim((string) $request->input('q'));
         $syncStatus = $request->input('sync_status', 'all');
-        $erpStatus = $request->input('erp_status', 'all');
+        $catalogStatus = $request->input('catalog_status', 'all');
 
         $pivotMap = $group->groupProducts()
             ->whereIn('product_id', $productIds)
@@ -357,7 +357,7 @@ class TikTokProductGroupController extends Controller
                 'variationRowsByProductId' => collect(),
                 'q'                    => $q,
                 'syncStatus'           => $syncStatus,
-                'erpStatus'            => $erpStatus,
+                'catalogStatus'            => $catalogStatus,
             ]);
         }
 
@@ -381,9 +381,9 @@ class TikTokProductGroupController extends Controller
             });
         }
 
-        if ($erpStatus === 'enabled') {
+        if ($catalogStatus === 'enabled') {
             $query->where('p.status', 1);
-        } elseif ($erpStatus === 'disabled') {
+        } elseif ($catalogStatus === 'disabled') {
             $query->where('p.status', 0);
         }
 
@@ -442,7 +442,7 @@ class TikTokProductGroupController extends Controller
                 ->errors(array_map('intval', $pageIds)),
             'q'                    => $q,
             'syncStatus'           => $syncStatus,
-            'erpStatus'            => $erpStatus,
+            'catalogStatus'            => $catalogStatus,
         ]);
     }
 
@@ -830,7 +830,7 @@ class TikTokProductGroupController extends Controller
             ->with('status', $deleted . ' product(s) deleted from TikTok Shop.');
     }
 
-    private function erpProducts( int $langId, array $productIds)
+    private function catalogProducts( int $langId, array $productIds)
     {
         return DB::table('products as p')
             ->join('product_descriptions as pd', function ($j) use ($langId) {
@@ -1010,7 +1010,7 @@ class TikTokProductGroupController extends Controller
     private function sendRows(TikTokProductGroup $group, $pivotRows, array $c, TikTokClient $client): array
     {
         $langId = (int) config('catalog.default_language_id');
-        $erpProducts = $this->erpProducts( $langId, $pivotRows->pluck('product_id')->all());
+        $catalogProducts = $this->catalogProducts( $langId, $pivotRows->pluck('product_id')->all());
         $opts = $this->groupPushOptions($group, $c);
         $pusher = app(TikTokProductPush::class);
 
@@ -1023,10 +1023,10 @@ class TikTokProductGroupController extends Controller
         $warnings = [];
 
         foreach ($pivotRows as $pivot) {
-            $erp = $erpProducts->get($pivot->product_id);
-            if (!$erp) {
-                $pivot->update(['sync_status' => 'error', 'push_error' => 'ERP product not found']);
-                $this->states((int) $group->store_id)->recordOutcome((int) $pivot->product_id, 'ERP product not found');
+            $catalog = $catalogProducts->get($pivot->product_id);
+            if (!$catalog) {
+                $pivot->update(['sync_status' => 'error', 'push_error' => 'Catalog product not found']);
+                $this->states((int) $group->store_id)->recordOutcome((int) $pivot->product_id, 'Catalog product not found');
                 $failed++;
                 continue;
             }
@@ -1034,7 +1034,7 @@ class TikTokProductGroupController extends Controller
             $listing = TikTokListing::query()->where('product_id', $pivot->product_id)->first();
             $known = $pivot->tiktok_product_id ?: $listing?->tiktok_product_id;
             if ($known) {
-                $outcome = $this->editLive($group, $pivot, $listing, (string) $known, $erp, $opts, $c, $client, $pusher);
+                $outcome = $this->editLive($group, $pivot, $listing, (string) $known, $catalog, $opts, $c, $client, $pusher);
                 if ($outcome['ok']) {
                     $updated++;
                     if (!empty($outcome['warning'])) {
@@ -1056,7 +1056,7 @@ class TikTokProductGroupController extends Controller
             if ($guard['verdict'] === 'existing') {
                 $note = \Extensions\TikTok\Services\TikTok\TikTokCreateGuard::adopt((int) $pivot->product_id, (string) $guard['product_id'], $pivot);
                 $listing = TikTokListing::query()->where('product_id', $pivot->product_id)->first();
-                $outcome = $this->editLive($group, $pivot->fresh(), $listing, (string) $guard['product_id'], $erp, $opts, $c, $client, $pusher);
+                $outcome = $this->editLive($group, $pivot->fresh(), $listing, (string) $guard['product_id'], $catalog, $opts, $c, $client, $pusher);
                 if ($outcome['ok']) {
                     $updated++;
                     $warnings[] = '#' . $pivot->product_id . ': ' . $note . (!empty($outcome['warning']) ? ' ' . $outcome['warning'] : '');
@@ -1074,7 +1074,7 @@ class TikTokProductGroupController extends Controller
                 $failed++;
                 continue;
             }
-            $outcome = $pusher->create($erp, array_merge($opts, $this->listingOptions((int) $erp->product_id, $group, $c, $client), $this->ownWords((int) $erp->product_id)), $c, $client);
+            $outcome = $pusher->create($catalog, array_merge($opts, $this->listingOptions((int) $catalog->product_id, $group, $c, $client), $this->ownWords((int) $catalog->product_id)), $c, $client);
             if ($outcome['ok']) {
                 $pivot->update([
                     'tiktok_product_id' => $outcome['product_id'],
@@ -1104,10 +1104,10 @@ class TikTokProductGroupController extends Controller
         return ['tone' => $created + $updated === 0 ? 'error' : ($failed > 0 || $warnings ? 'warning' : 'status'), 'summary' => $summary, 'failed' => $failed, 'stop' => false];
     }
 
-    private function editLive(TikTokProductGroup $group, TikTokProductGroupProduct $pivot, ?TikTokListing $listing, string $ttId, object $erp, array $opts, array $c, TikTokClient $client, TikTokProductPush $pusher): array
+    private function editLive(TikTokProductGroup $group, TikTokProductGroupProduct $pivot, ?TikTokListing $listing, string $ttId, object $catalog, array $opts, array $c, TikTokClient $client, TikTokProductPush $pusher): array
     {
         $existingRaw = $pivot->tiktok_sku_id ?: ($listing?->tiktok_sku_id);
-        $outcome = $pusher->edit($erp, $ttId, $existingRaw, array_merge($opts, $this->listingOptions((int) $erp->product_id, $group, $c, $client), $this->ownWords((int) $erp->product_id)), $c, $client);
+        $outcome = $pusher->edit($catalog, $ttId, $existingRaw, array_merge($opts, $this->listingOptions((int) $catalog->product_id, $group, $c, $client), $this->ownWords((int) $catalog->product_id)), $c, $client);
         if (! $outcome['ok']) {
             $pivot->update(['sync_status' => 'error', 'push_error' => $outcome['message']]);
             $this->states((int) $group->store_id)->recordOutcome((int) $pivot->product_id, (string) $outcome['message']);
@@ -1147,7 +1147,7 @@ class TikTokProductGroupController extends Controller
             return $this->productsRedirect($id)->with('error', 'No products found.');
         }
 
-        $erpProducts = $this->erpProducts( $langId, $pivotRows->pluck('product_id')->all());
+        $catalogProducts = $this->catalogProducts( $langId, $pivotRows->pluck('product_id')->all());
         $opts = $this->groupPushOptions($group, $c);
         $pusher = app(TikTokProductPush::class);
 
@@ -1163,15 +1163,15 @@ class TikTokProductGroupController extends Controller
                 $skipped++;
                 continue;
             }
-            $erp = $erpProducts->get($pivot->product_id);
-            if (!$erp) {
-                $pivot->update(['sync_status' => 'error', 'push_error' => 'ERP product not found']);
-                $this->states((int) $group->store_id)->recordOutcome((int) $pivot->product_id, 'ERP product not found');
+            $catalog = $catalogProducts->get($pivot->product_id);
+            if (!$catalog) {
+                $pivot->update(['sync_status' => 'error', 'push_error' => 'Catalog product not found']);
+                $this->states((int) $group->store_id)->recordOutcome((int) $pivot->product_id, 'Catalog product not found');
                 $failed++;
                 continue;
             }
 
-            $outcome = $this->editLive($group, $pivot, $listing, (string) $ttId, $erp, $opts, $c, $client, $pusher);
+            $outcome = $this->editLive($group, $pivot, $listing, (string) $ttId, $catalog, $opts, $c, $client, $pusher);
             if ($outcome['ok']) {
                 $updated++;
                 if (!empty($outcome['warning'])) {

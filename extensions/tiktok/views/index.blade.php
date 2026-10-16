@@ -132,7 +132,7 @@
 
                 <div class="fm-fields">
                     <x-ui.field label="Store name" for="tt-store-name" name="store_name" :required="true" wide
-                                hint="How this store is named across the ERP - the sidebar, the fulfillment tabs, the channels board.">
+                                hint="How this store is named across VentaSync - the sidebar, the fulfillment tabs, the channels board.">
                         <x-ui.input id="tt-store-name" name="store_name" type="text" autocomplete="off" :disabled="!$canManageTiktok"
                                     value="{{ old('store_name', $setting->store_name ?? '') }}" />
                     </x-ui.field>
@@ -243,7 +243,7 @@
 
             <div class="cs-danger">
                 <div>
-                    <span class="cs-danger__title">Remove this store <x-ui.hint label="What removal does">Everything this store holds in the ERP goes with it: listings, groups, TikTok orders and returns. Sales already imported stay under its name. There is no undo.</x-ui.hint></span>
+                    <span class="cs-danger__title">Remove this store <x-ui.hint label="What removal does">Everything this store holds in VentaSync goes with it: listings, groups, TikTok orders and returns. Sales already imported stay under its name. There is no undo.</x-ui.hint></span>
                 </div>
                 <x-ui.button type="button" variant="danger" size="sm" data-delete-open>Delete this store</x-ui.button>
             </div>
@@ -284,7 +284,7 @@
 
                 <div class="fm-fields">
                     <x-ui.field label="Store name" for="tt-sb-store-name" name="store_name" :required="true" wide
-                                hint="How this store is named across the ERP - the sidebar, the fulfillment tabs, the channels board.">
+                                hint="How this store is named across VentaSync - the sidebar, the fulfillment tabs, the channels board.">
                         <x-ui.input id="tt-sb-store-name" name="store_name" type="text" autocomplete="off" :disabled="!$canManageTiktok"
                                     value="{{ old('store_name', $setting->store_name ?? '') }}" />
                     </x-ui.field>
@@ -378,7 +378,7 @@
 
             <div class="cs-danger">
                 <div>
-                    <span class="cs-danger__title">Remove this store <x-ui.hint label="What removal does">Everything this store holds in the ERP goes with it: listings, groups, TikTok orders and returns. Sales already imported stay under its name. There is no undo.</x-ui.hint></span>
+                    <span class="cs-danger__title">Remove this store <x-ui.hint label="What removal does">Everything this store holds in VentaSync goes with it: listings, groups, TikTok orders and returns. Sales already imported stay under its name. There is no undo.</x-ui.hint></span>
                 </div>
                 <x-ui.button type="button" variant="danger" size="sm" data-delete-open>Delete this store</x-ui.button>
             </div>
@@ -421,7 +421,7 @@
                         <th scope="col">Sales order status</th>
                     </tr>
                 </x-slot:head>
-                @foreach($tikTokStatuses as $key => $label)
+                @foreach($tikTokStatuses as $key)
                     <tr>
                         <td class="cs-col-src" data-label="TikTok status">
                             <span class="cs-code">{{ $key }}</span>
@@ -429,7 +429,8 @@
                         <td data-label="Sales order status">
                             <div class="x-select-wrap cs-map-select">
                                 <select name="map[{{ $key }}]" class="x-input" aria-label="Sales order status for {{ $key }}" @disabled(!$canManageTiktok)>
-                                    @foreach($erpOrderStatuses as $os)
+                                    <option value="" @selected(! isset($orderStatusMap[$key]))>Not mapped</option>
+                                    @foreach($salesOrderStatuses as $os)
                                         <option value="{{ $os->order_status_id }}" @selected((int) ($orderStatusMap[$key] ?? 0) === (int) $os->order_status_id)>{{ $os->name }}</option>
                                     @endforeach
                                 </select>
@@ -472,7 +473,7 @@
                             <div class="x-select-wrap cs-map-select">
                                 <select name="map[{{ $key }}]" class="x-input" aria-label="Sales order status for {{ $key }}" @disabled(!$canManageTiktok)>
                                     <option value="">Not mapped</option>
-                                    @foreach($erpOrderStatuses as $os)
+                                    @foreach($salesOrderStatuses as $os)
                                         <option value="{{ $os->order_status_id }}" @selected((int) (($returnStatusMap ?? [])[$key] ?? 0) === (int) $os->order_status_id)>{{ $os->name }}</option>
                                     @endforeach
                                 </select>

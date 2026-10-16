@@ -50,7 +50,7 @@
 @else
     <p class="x-page-sub cc-orphans__lede">
         These exist on {{ $storeName }} and nothing in the Master Catalog points at them. That is not automatically wrong:
-        a product may have been created in VentaCart directly, or its Master Catalog twin removed. To bring one under ERP control,
+        a product may have been created in VentaCart directly, or its Master Catalog twin removed. To bring one into VentaSync,
         give the Master Catalog product the same SKU and press Send on its row.
     </p>
 

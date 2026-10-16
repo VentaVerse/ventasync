@@ -60,7 +60,7 @@
             <h1 class="fm-title">Order #{{ $order->order_id }}</h1>
             <div class="fm-stamps">
                 <span class="fm-stamp">
-                    <span class="fm-stamp__k">Placed</span>
+                    <span class="fm-stamp__k">Created</span>
                     <span class="fm-stamp__v">{{ $order->date_added }}</span>
                 </span>
                 <span class="fm-stamp">
@@ -125,8 +125,8 @@
                                     <span class="of-hist__status">{{ $h->status->name ?? 'Status not recorded' }}</span>
                                     <span class="of-hist__who">{{ $h->user_name ?: 'The system' }}</span>
                                 </span>
-                                @if($h->comment)
-                                    <span class="of-hist__note">{{ $h->comment }}</span>
+                                @if($h->note)
+                                    <span class="of-hist__note">{{ $h->note }}</span>
                                 @endif
                             </li>
                         @endforeach
@@ -149,14 +149,14 @@
                         <p class="fm-hint" data-status-note hidden></p>
                     </x-ui.field>
 
-                    <x-ui.field label="Tracking number" for="of-tracking" name="tracking_number">
+                    <x-ui.field label="Tracking" for="of-tracking" name="tracking_number">
                         <x-ui.input id="of-tracking" name="tracking_number" maxlength="32" class="fm-input--num"
                                     value="{{ old('tracking_number', $order->tracking_number) }}" />
                     </x-ui.field>
 
-                    <x-ui.field label="Comment" for="of-comment" name="comment"
+                    <x-ui.field label="Customer note" for="of-customer-note" name="customer_note"
                                 hint="Added to the history entry this save writes.">
-                        <x-ui.textarea id="of-comment" name="comment" rows="3">{{ old('comment', $order->comment) }}</x-ui.textarea>
+                        <x-ui.textarea id="of-customer-note" name="customer_note" rows="3">{{ old('customer_note', $order->customer_note) }}</x-ui.textarea>
                     </x-ui.field>
                 </div>
             </div>
@@ -186,7 +186,7 @@
     </div>
 
     <x-ui.form-bar :cancel="route('orders.index')">
-        <x-slot:note>Saves the lines, status and comment. A status that takes stock moves it on save.</x-slot:note>
+        <x-slot:note>Saves the lines, status and customer note. A status that takes stock moves it on save.</x-slot:note>
         <x-slot:primary><x-ui.button type="submit" variant="primary">Save order</x-ui.button></x-slot:primary>
     </x-ui.form-bar>
 </form>

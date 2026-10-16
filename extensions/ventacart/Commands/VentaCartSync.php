@@ -16,7 +16,7 @@ class VentaCartSync extends Command implements \App\Channels\Contracts\Steppable
         {--max-pages=0 : Stop after N pages (0 = unlimited)}
         {--no-stock : Skip stock adjustments (use for initial import)}';
 
-    protected $description = 'Sync data between VentaCart stores and the ERP catalog';
+    protected $description = 'Sync data between VentaCart stores and VentaSync catalog';
 
     public function handle(): int
     {

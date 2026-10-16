@@ -25,7 +25,7 @@ class LazadaOrder extends Model
         'fees',
         'payout_status',
         'paid_at',
-        'catalog_order_id',
+        'sales_order_id',
     ];
 
     protected $hidden = ['raw'];
@@ -43,8 +43,8 @@ class LazadaOrder extends Model
         return $this->hasMany(LazadaOrderProduct::class, 'lazada_order_id');
     }
 
-    public function catalogOrder(): BelongsTo
+    public function salesOrder(): BelongsTo
     {
-        return $this->belongsTo(Order::class, 'catalog_order_id', 'order_id');
+        return $this->belongsTo(Order::class, 'sales_order_id', 'order_id');
     }
 }

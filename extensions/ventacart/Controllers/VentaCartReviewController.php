@@ -46,7 +46,7 @@ class VentaCartReviewController extends Controller
 
         $res = $client->createReview([
             'product_sku'        => $link->sku,
-            'author'             => $review->author ?: 'Marketplace Buyer',
+            'author'             => $review->author ?: 'Marketplace customer',
             'rating'             => $review->rating,
             'title'              => '',
             'body'               => $review->comment ?? '',

@@ -19,10 +19,10 @@ class LazadaStockPushService
         $productId = (int) $product->product_id;
         $basePrice = (float) ($product->price ?? 0);
 
-        $erpQtyBySku   = [];
-        $erpPriceBySku = [];
-        $erpQtyByPov   = [];
-        $erpPriceByPov = [];
+        $catalogQtyBySku   = [];
+        $catalogPriceBySku = [];
+        $catalogQtyByPov   = [];
+        $catalogPriceByPov = [];
 
         $combos = DB::table('product_variations')
             ->where('product_id', $productId)
@@ -32,8 +32,8 @@ class LazadaStockPushService
             foreach ($combos as $c) {
                 $sku = trim((string) ($c->sku ?? ''));
                 if ($sku !== '') {
-                    $erpQtyBySku[$sku]   = max(0, (int) ($c->quantity ?? 0));
-                    $erpPriceBySku[$sku] = (float) ($c->absolute_price ?? $basePrice);
+                    $catalogQtyBySku[$sku]   = max(0, (int) ($c->quantity ?? 0));
+                    $catalogPriceBySku[$sku] = (float) ($c->absolute_price ?? $basePrice);
                 }
             }
         } else {
@@ -44,16 +44,16 @@ class LazadaStockPushService
             foreach ($povRows as $row) {
                 $pov = (int) $row->product_variation_value_id;
                 $sku = trim((string) ($row->sku ?? ''));
-                $erpQtyByPov[$pov]   = max(0, (int) ($row->quantity ?? 0));
-                $erpPriceByPov[$pov] = (float) ($row->absolute_price ?? $basePrice);
+                $catalogQtyByPov[$pov]   = max(0, (int) ($row->quantity ?? 0));
+                $catalogPriceByPov[$pov] = (float) ($row->absolute_price ?? $basePrice);
                 if ($sku !== '') {
-                    $erpQtyBySku[$sku]   = max(0, (int) ($row->quantity ?? 0));
-                    $erpPriceBySku[$sku] = (float) ($row->absolute_price ?? $basePrice);
+                    $catalogQtyBySku[$sku]   = max(0, (int) ($row->quantity ?? 0));
+                    $catalogPriceBySku[$sku] = (float) ($row->absolute_price ?? $basePrice);
                 }
             }
         }
 
-        $hasErpVariants = !empty($erpQtyBySku) || !empty($erpQtyByPov);
+        $hasCatalogVariations = !empty($catalogQtyBySku) || !empty($catalogQtyByPov);
 
         $hidden = \App\Channels\Listings\ListingVariations::hidden('lazada', (int) ($listing->store_id ?? 0), [$productId]);
 
@@ -70,13 +70,13 @@ class LazadaStockPushService
             $povId     = $variant->product_variation_value_id;
 
             $matched = true;
-            if ($sellerSku !== '' && array_key_exists($sellerSku, $erpQtyBySku)) {
-                $qty   = $erpQtyBySku[$sellerSku];
-                $price = $erpPriceBySku[$sellerSku] ?? null;
-            } elseif ($povId !== null && array_key_exists((int) $povId, $erpQtyByPov)) {
-                $qty   = $erpQtyByPov[(int) $povId];
-                $price = $erpPriceByPov[(int) $povId] ?? null;
-            } elseif (!$hasErpVariants) {
+            if ($sellerSku !== '' && array_key_exists($sellerSku, $catalogQtyBySku)) {
+                $qty   = $catalogQtyBySku[$sellerSku];
+                $price = $catalogPriceBySku[$sellerSku] ?? null;
+            } elseif ($povId !== null && array_key_exists((int) $povId, $catalogQtyByPov)) {
+                $qty   = $catalogQtyByPov[(int) $povId];
+                $price = $catalogPriceByPov[(int) $povId] ?? null;
+            } elseif (!$hasCatalogVariations) {
                 $qty   = max(0, (int) ($product->quantity ?? 0));
                 $price = \Extensions\Lazada\Services\Lazada\LazadaPushPayload::startingPrice($listing, $basePrice);
             } else {

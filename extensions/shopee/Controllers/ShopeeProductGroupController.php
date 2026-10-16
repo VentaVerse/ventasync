@@ -243,7 +243,7 @@ class ShopeeProductGroupController extends Controller
 
         $q = trim((string) $request->input('q'));
         $syncStatus = (string) $request->input('sync_status', 'all');
-        $erpStatus = (string) $request->input('erp_status', 'all');
+        $catalogStatus = (string) $request->input('catalog_status', 'all');
 
         $tabMap = ['live' => 'NORMAL', 'unlisted' => 'UNLIST', 'violation' => 'BANNED', 'reviewing' => 'REVIEWING'];
         $shopeeTab = (string) $request->get('shopee_tab', 'all');
@@ -292,9 +292,9 @@ class ShopeeProductGroupController extends Controller
             });
         }
 
-        if ($erpStatus === 'enabled') {
+        if ($catalogStatus === 'enabled') {
             $query->where('p.status', 1);
-        } elseif ($erpStatus === 'disabled') {
+        } elseif ($catalogStatus === 'disabled') {
             $query->where('p.status', 0);
         }
 
@@ -380,7 +380,7 @@ class ShopeeProductGroupController extends Controller
             'manualIds' => $manualIds,
             'q' => $q,
             'syncStatus' => $syncStatus,
-            'erpStatus' => $erpStatus,
+            'catalogStatus' => $catalogStatus,
             'shopeeTab' => $shopeeTab,
             'liveCounts' => $liveCounts,
             'liveCheckedAt' => $liveCheckedAt,
@@ -1039,7 +1039,7 @@ class ShopeeProductGroupController extends Controller
             return redirect()->back()->with('error', 'Product has no SKU to match against Shopee.');
         }
 
-        $erpHasVariations = !empty($optSkus);
+        $catalogHasVariations = !empty($optSkus);
 
         $existingLink = ShopeeListingLink::query()
             ->where('product_id', $productId)
@@ -1658,7 +1658,7 @@ class ShopeeProductGroupController extends Controller
                         'last_pushed_at' => now(),
                     ]);
 
-                $erpSkus = DB::table('product_variation_values')
+                $catalogSkus = DB::table('product_variation_values')
                     ->where('product_id', $productId)
                     ->whereNotNull('sku')
                     ->where('sku', '!=', '')
@@ -1672,10 +1672,10 @@ class ShopeeProductGroupController extends Controller
                     ->pluck('sku')
                     ->map(fn ($s) => strtolower(trim((string) $s)))
                     ->all();
-                $allSkus = array_values(array_unique(array_merge($erpSkus, $comboSkus)));
-                $erpHasVariations = !empty($allSkus);
+                $allSkus = array_values(array_unique(array_merge($catalogSkus, $comboSkus)));
+                $catalogHasVariations = !empty($allSkus);
 
-                if ($erpHasVariations) {
+                if ($catalogHasVariations) {
                     try {
                         $pivot = ShopeeProductGroupProduct::where('shopee_product_group_id', $group->id)
                             ->where('product_id', $productId)

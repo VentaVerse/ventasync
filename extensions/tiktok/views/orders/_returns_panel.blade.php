@@ -14,7 +14,7 @@
     $tabs = $tabs ?? [];
     $active_tab = strtoupper((string) ($active_tab ?? 'ALL'));
     $tab_counts = $tab_counts ?? [];
-    $erpMap = $erpMap ?? collect();
+    $salesOrderMap = $salesOrderMap ?? collect();
     $perPage = (int) ($per_page ?? request()->query('per_page', 10));
     $findFilter = (string) ($filters['q'] ?? '');
     $openedFromFilter = (string) ($filters['opened_from'] ?? '');
@@ -128,7 +128,7 @@
                 </div>
             </form>
             <form method="POST" action="{{ route('ext.tiktok.orders.fetch_returns') }}"
-                  data-confirm="Re-read every return TikTok Shop has on file, ignoring the dates? This refreshes statuses for returns the buyer may have canceled." data-confirm-tone="primary" data-confirm-verb="Update statuses">
+                  data-confirm="Re-read every return TikTok Shop has on file, ignoring the dates? This refreshes statuses for returns the customer may have canceled." data-confirm-tone="primary" data-confirm-verb="Update statuses">
                 @csrf
                 <x-ui.button type="submit" variant="secondary">Update statuses</x-ui.button>
             </form>
@@ -170,7 +170,7 @@
             $currencyCode = (string) ($ret->currency ?? '');
             $items = is_array($ret->items) && count($ret->items) ? $ret->items : [[]];
             $lineCount = count($items);
-            $erpId = $erpMap[$ret->order_id] ?? null;
+            $salesOrderId = $salesOrderMap[$ret->order_id] ?? null;
             [$statusLabel, $tone] = $statusMap[(string) $ret->return_status] ?? [str_replace('_', ' ', ucfirst(strtolower((string) $ret->return_status))), 'neutral'];
             $orderShowUrl = $ret->order_id ? route('ext.tiktok.orders.show', ['id' => $ret->order_id]) : null;
             $updated = $ret->return_updated_at?->format('Y-m-d H:i');
@@ -190,8 +190,8 @@
                         @if($ret->return_type)
                             <span class="co-band__muted">{{ $typeMap[$ret->return_type] ?? $ret->return_type }}</span>
                         @endif
-                        @if($erpId)
-                            <a class="co-ref" href="{{ url('/sales/orders/' . $erpId) }}">Sales order {{ $erpId }}</a>
+                        @if($salesOrderId)
+                            <a class="co-ref" href="{{ url('/sales/orders/' . $salesOrderId) }}">Sales order {{ $salesOrderId }}</a>
                         @endif
                     </div>
                     <div class="co-band__right">

@@ -483,7 +483,7 @@ class ShopeeExtension extends ExtensionProvider implements ListingStateSource, C
 
     public function saleLinesForOrder(int $coreOrderId, float $itemsSubtotal, float $shipping): ?array
     {
-        $order = \Extensions\Shopee\Models\ShopeeOrder::query()->withoutGlobalScope('shopeeStore')->where('catalog_order_id', $coreOrderId)->first();
+        $order = \Extensions\Shopee\Models\ShopeeOrder::query()->withoutGlobalScope('shopeeStore')->where('sales_order_id', $coreOrderId)->first();
         if (! $order) {
             return null;
         }
@@ -500,7 +500,7 @@ class ShopeeExtension extends ExtensionProvider implements ListingStateSource, C
         }
 
         $row = ShopeeOrder::query()->withoutGlobalScope('shopeeStore')
-            ->where('catalog_order_id', $coreOrderId)->first();
+            ->where('sales_order_id', $coreOrderId)->first();
         if (! $row) {
             return null;
         }
@@ -641,9 +641,11 @@ class ShopeeExtension extends ExtensionProvider implements ListingStateSource, C
             $raw = $order->raw ?? [];
             $firstProduct = $order->products()->orderBy('id')->first();
             $productRaw = $firstProduct?->raw ?? [];
-            $productImage = $firstProduct?->image
-                ?? ($productRaw['image_info']['image_url'] ?? null)
-                ?? ($productRaw['product_main_image'] ?? null);
+            $productImage = $firstProduct
+                ? \App\Support\LineImage::url($firstProduct->sku, $firstProduct->image
+                    ?? ($productRaw['image_info']['image_url'] ?? null)
+                    ?? ($productRaw['product_main_image'] ?? null))
+                : null;
 
             return [
                 'id'              => $order->id,
@@ -651,6 +653,7 @@ class ShopeeExtension extends ExtensionProvider implements ListingStateSource, C
                 'store_name'      => (string) ($storeNames[$order->store_id] ?? ''),
                 'order_id'        => (string) $order->order_sn,
                 'status'          => $order->status,
+                'customer_name'   => $raw['buyer_username'] ?? $raw['buyer_user_name'] ?? '',
                 'buyer_name'      => $raw['buyer_username'] ?? $raw['buyer_user_name'] ?? '',
                 'total_amount'    => isset($raw['total_amount']) ? (float) $raw['total_amount'] : null,
                 'currency'        => $raw['currency'] ?? \App\Support\Money::defaultSymbol(),
@@ -691,7 +694,7 @@ class ShopeeExtension extends ExtensionProvider implements ListingStateSource, C
                 'variation' => $p->variation ?? '',
                 'quantity'  => $p->quantity,
                 'price'     => $p->price ?? 0,
-                'image'     => $p->image ?? ($pRaw['image_info']['image_url'] ?? ''),
+                'image'     => \App\Support\LineImage::url($p->sku, $p->image ?? ($pRaw['image_info']['image_url'] ?? null)) ?? '',
             ];
         });
 
@@ -701,6 +704,7 @@ class ShopeeExtension extends ExtensionProvider implements ListingStateSource, C
             'store_id'          => (int) $order->store_id,
             'store_name'        => (string) ShopeeStore::query()->whereKey($order->store_id)->value('store_name'),
             'status'            => $order->status,
+            'customer_name'     => $raw['buyer_username'] ?? $raw['buyer_user_name'] ?? '',
             'buyer_name'        => $raw['buyer_username'] ?? $raw['buyer_user_name'] ?? '',
             'total_amount'      => isset($raw['total_amount']) ? (float) $raw['total_amount'] : null,
             'currency'          => $raw['currency'] ?? \App\Support\Money::defaultSymbol(),
@@ -708,6 +712,7 @@ class ShopeeExtension extends ExtensionProvider implements ListingStateSource, C
             'shipping_provider' => $raw['shipping_carrier'] ?? $raw['checkout_shipping_carrier'] ?? '',
             'tracking_number'   => $raw['tracking_no'] ?? $raw['tracking_number'] ?? '',
             'shipping_name'     => $addr['name'] ?? '',
+            'shipping_telephone' => $addr['phone'] ?? '',
             'shipping_phone'    => $addr['phone'] ?? '',
             'shipping_address'  => $addr['full_address']
                 ?? trim(implode(', ', array_filter([

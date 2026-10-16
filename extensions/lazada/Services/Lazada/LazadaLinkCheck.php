@@ -27,7 +27,7 @@ class LazadaLinkCheck
         $limit = 200;
         $skippedForSize = max(0, count($productIds) - $limit);
         $productIds = array_slice($productIds, 0, $limit);
-        $skusByProduct = $this->erpSkusByProduct( $productIds);
+        $skusByProduct = $this->catalogSkusByProduct($productIds);
         $allSkus = array_values(array_unique(array_merge(...array_values($skusByProduct ?: [[]]))));
         try {
             $found = $this->live->itemsBySkus($store, $creds, $allSkus);
@@ -196,7 +196,7 @@ class LazadaLinkCheck
         return $holder !== null ? (int) $holder : null;
     }
 
-    public function erpSkusByProduct(array $productIds): array
+    public function catalogSkusByProduct(array $productIds): array
     {
         $out = [];
         foreach (DB::table('products')->whereIn('product_id', $productIds)->get(['product_id', 'sku']) as $p) {

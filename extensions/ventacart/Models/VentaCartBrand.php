@@ -13,10 +13,10 @@ class VentaCartBrand extends Model
         'ventacart_brand_id',
         'name',
         'slug',
-        'is_active',
+        'enabled',
     ];
 
     protected $casts = [
-        'is_active' => 'boolean',
+        'enabled' => 'boolean',
     ];
 }

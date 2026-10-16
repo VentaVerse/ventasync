@@ -250,7 +250,7 @@
         margin-right: 6px;
     }
 
-    .x-table--stack > tbody > tr:not(.co-band) > td[data-label='Buyer'],
+    .x-table--stack > tbody > tr:not(.co-band) > td[data-label='Customer'],
     .x-table--stack > tbody > tr:not(.co-band) > td[data-label='Date'],
     .x-table--stack > tbody > tr:not(.co-band) > td[data-label='Return'] { order: 8; }
 

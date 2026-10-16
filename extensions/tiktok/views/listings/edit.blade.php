@@ -77,14 +77,14 @@
                 @if($listed)
                     @if($live && $live['status'] === 'ACTIVATE')
                         <form method="POST" action="{{ route('ext.tiktok.listings.toggle', $product->product_id) }}"
-                              data-guard-stale data-confirm="Deactivate this product on TikTok Shop? Buyers stop seeing it. It can be activated again at any time." data-confirm-verb="Deactivate">
+                              data-guard-stale data-confirm="Deactivate this product on TikTok Shop? Customers stop seeing it. It can be activated again at any time." data-confirm-verb="Deactivate">
                             @csrf
                             <input type="hidden" name="action" value="deactivate">
                             <x-ui.button type="submit" size="sm">Deactivate on TikTok Shop</x-ui.button>
                         </form>
                     @elseif($live && $live['status'] === 'SELLER_DEACTIVATED')
                         <form method="POST" action="{{ route('ext.tiktok.listings.toggle', $product->product_id) }}"
-                              data-guard-stale data-confirm="Activate this product on TikTok Shop? Buyers see it again once TikTok applies it." data-confirm-tone="primary" data-confirm-verb="Activate">
+                              data-guard-stale data-confirm="Activate this product on TikTok Shop? Customers see it again once TikTok applies it." data-confirm-tone="primary" data-confirm-verb="Activate">
                             @csrf
                             <input type="hidden" name="action" value="activate">
                             <x-ui.button type="submit" variant="oncolor" size="sm">Activate on TikTok Shop</x-ui.button>

@@ -372,7 +372,7 @@ class VentaCartExtension extends ExtensionProvider implements \App\Channels\Cont
 
     public function saleLinesForOrder(int $coreOrderId, float $itemsSubtotal, float $shipping): ?array
     {
-        $order = VentaCartOrder::query()->where('catalog_order_id', $coreOrderId)->first();
+        $order = VentaCartOrder::query()->where('sales_order_id', $coreOrderId)->first();
         if (! $order) {
             return null;
         }
@@ -387,7 +387,7 @@ class VentaCartExtension extends ExtensionProvider implements \App\Channels\Cont
             return null;
         }
 
-        $row = DB::table('ch_ventacart_orders')->where('catalog_order_id', $coreOrderId)->first(['raw']);
+        $row = DB::table('ch_ventacart_orders')->where('sales_order_id', $coreOrderId)->first(['raw']);
         if (! $row) {
             return null;
         }

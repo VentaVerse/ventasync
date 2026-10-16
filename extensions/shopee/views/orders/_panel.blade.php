@@ -28,8 +28,8 @@
     $pendingSub = $pending_subtab ?? request()->query('pending_sub', 'to_pack');
 
     $spSortLabels = $spSortLabels ?? [
-        'created_desc'          => 'Order date, newest first',
-        'created_asc'           => 'Order date, oldest first',
+        'created_desc'          => 'Created, newest first',
+        'created_asc'           => 'Created, oldest first',
         'confirmed_pay_desc'    => 'Payment time, newest first',
         'confirmed_pay_asc'     => 'Payment time, oldest first',
         'confirmed_update_desc' => 'Last update, newest first',
@@ -129,8 +129,8 @@
 
     <x-ui.input type="search" name="q" class="x-filters__find"
                 value="{{ $findFilter }}"
-                placeholder="Order no, buyer, product or tracking"
-                aria-label="Find an order by order number, buyer, product or tracking" />
+                placeholder="Order no, customer, product or tracking"
+                aria-label="Find an order by order number, customer, product or tracking" />
 
     <x-ui.foldout label="Filters" :count="$spActiveFilters ?: null">
     <span class="x-filters__group">
@@ -248,7 +248,7 @@
             <th scope="col" class="sp-col-products">Products</th>
             <th scope="col" class="sp-col-qty">Qty</th>
             <th scope="col" class="sp-col-price x-td-num">Price</th>
-            <th scope="col" class="sp-col-total x-td-num">Amount</th>
+            <th scope="col" class="sp-col-total x-td-num">Total</th>
             <th scope="col" class="sp-col-ship">Shipping</th>
             <th scope="col" class="sp-col-status">Status</th>
             <th scope="col" class="sp-col-act"><span class="x-sr">Actions</span></th>
@@ -273,7 +273,7 @@
             $shipBy = $awaitingShip ? (int) ($raw['ship_by_date'] ?? 0) : 0;
 
             $created = $o->order_created_at ? $o->order_created_at->format('Y-m-d H:i') : null;
-            $buyer = (string) ($raw['buyer_username'] ?? ($raw['buyer_user_name'] ?? ''));
+            $customer = (string) ($raw['buyer_username'] ?? ($raw['buyer_user_name'] ?? ''));
 
             $items = [];
             if (method_exists($o, 'products') && $o->relationLoaded('products')) {
@@ -342,9 +342,9 @@
                         <input type="checkbox" class="x-pick" data-selection-item
                                name="ids[]" value="{{ $o->id }}" form="shopee-print-pick"
                                aria-label="Select order {{ $orderSn }}">
-                        <span class="co-band__label">Buyer</span>
-                        @if($buyer !== '')
-                            <span class="co-band__value">{{ $buyer }}</span>
+                        <span class="co-band__label">Customer</span>
+                        @if($customer !== '')
+                            <span class="co-band__value">{{ $customer }}</span>
                         @else
                             <span class="co-empty-mark">Not recorded</span>
                         @endif
@@ -357,8 +357,8 @@
                         @if($itemCount > 0)
                             <span class="co-band__muted">({{ $itemCount }} {{ $itemCount === 1 ? 'item' : 'items' }})</span>
                         @endif
-                        @if($o->catalog_order_id)
-                            <a class="co-ref" href="{{ url('/sales/orders/'.$o->catalog_order_id) }}">Sales order {{ $o->catalog_order_id }}</a>
+                        @if($o->sales_order_id)
+                            <a class="co-ref" href="{{ url('/sales/orders/'.$o->sales_order_id) }}">Sales order {{ $o->sales_order_id }}</a>
                         @endif
                     </div>
                     <div class="co-band__right">
@@ -412,7 +412,7 @@
             </td>
 
             @if($idx === 0)
-            <td class="sp-col-total x-td-num" rowspan="{{ $lineCount }}" data-label="Amount">
+            <td class="sp-col-total x-td-num" rowspan="{{ $lineCount }}" data-label="Total">
                 <span class="co-total">
                     @if($totalAmount !== null && $totalAmount !== '' && is_numeric($totalAmount))
                         {{ $currencyCode !== ''
@@ -467,7 +467,7 @@
                                 data-url="{{ route('ext.shopee.orders.tracking_info', ['orderSn' => $orderSn]) }}">Tracking</button>
                     @endif
 
-                    <x-invoice-request-modal :invoice="$o->buyer_invoice" :reference="$orderSn" />
+                    <x-invoice-request-modal :invoice="$o->customer_invoice" :reference="$orderSn" />
                 </div>
                 @endif
             </td>

@@ -72,12 +72,12 @@ public function refreshListing(LazadaListing $listing, object $store, LazadaClie
     }
     $listing->save();
     $skuToPovId = [];
-    $erpOvs = DB::table('product_variation_values')
+    $catalogOvs = DB::table('product_variation_values')
         ->where('product_id', (int) $listing->product_id)
         ->whereNotNull('sku')
         ->where('sku', '!=', '')
         ->get(['product_variation_value_id', 'sku']);
-    foreach ($erpOvs as $ov) {
+    foreach ($catalogOvs as $ov) {
         $skuToPovId[trim((string) $ov->sku)] = (int) $ov->product_variation_value_id;
     }
 
@@ -160,12 +160,12 @@ public function fetchAndCacheVariants(LazadaListing $listing, object $store, Laz
     $skus = data_get($data, 'skus') ?? data_get($data, 'Skus.Sku') ?? [];
     if (!is_array($skus)) return [];
     $skuToPovId = [];
-    $erpOvs = DB::table('product_variation_values')
+    $catalogOvs = DB::table('product_variation_values')
         ->where('product_id', (int) $listing->product_id)
         ->whereNotNull('sku')
         ->where('sku', '!=', '')
         ->get(['product_variation_value_id', 'sku']);
-    foreach ($erpOvs as $ov) {
+    foreach ($catalogOvs as $ov) {
         $skuToPovId[trim((string) $ov->sku)] = (int) $ov->product_variation_value_id;
     }
 
@@ -214,9 +214,9 @@ public function resolveSkuIds(LazadaListing $listing, object $store, LazadaClien
         foreach ($cached as $v) {
             $map[trim((string) $v->seller_sku)] = (int) $v->sku_id;
         }
-        $erpSkus = \App\Channels\Listings\ListingVariations::sold('lazada', (int) ($listing->store_id ?? 0), [(int) $listing->product_id])[(int) $listing->product_id] ?? [];
+        $catalogSkus = \App\Channels\Listings\ListingVariations::sold('lazada', (int) ($listing->store_id ?? 0), [(int) $listing->product_id])[(int) $listing->product_id] ?? [];
 
-        $missingSkus = array_diff($erpSkus, array_keys($map));
+        $missingSkus = array_diff($catalogSkus, array_keys($map));
         if (empty($missingSkus)) {
             return $map;
         }

@@ -21,7 +21,7 @@
     $tabs = $tabs ?? [];
     $active_tab = strtoupper((string) ($active_tab ?? 'ALL'));
     $tab_counts = $tab_counts ?? [];
-    $erpMap = $erpMap ?? collect();
+    $salesOrderMap = $salesOrderMap ?? collect();
     $imgMap = $imgMap ?? collect();
     $nameMap = $nameMap ?? collect();
     $perPage = (int) ($per_page ?? request()->query('per_page', 10));
@@ -169,7 +169,7 @@
         </form>
     
         <form method="POST" action="{{ route('ext.lazada.orders.fetch_returns') }}" id="formUpdateLazadaReturns"
-              data-confirm="Re-read every return Lazada has on file, ignoring the dates? This refreshes statuses for returns the buyer may have canceled."
+              data-confirm="Re-read every return Lazada has on file, ignoring the dates? This refreshes statuses for returns the customer may have canceled."
               data-confirm-tone="primary">
             @csrf
             <x-ui.button type="submit" variant="secondary" id="btnUpdateLazadaReturns">Update statuses</x-ui.button>
@@ -238,8 +238,8 @@
             $lineCount = count($displayItems);
             $itemCount = count(array_values($grouped));
 
-            $erpId = $erpMap[$order->trade_order_id] ?? null;
-            $buyerId = $items[0]['buyer']['buyer_id'] ?? null;
+            $salesOrderId = $salesOrderMap[$order->trade_order_id] ?? null;
+            $customerId = $items[0]['buyer']['buyer_id'] ?? null;
             $firstTracking = $items[0]['tracking_number'] ?? null;
             $ofc = $items[0]['ofc_status'] ?? null;
 
@@ -257,9 +257,9 @@
             <td colspan="7">
                 <div class="co-band__row">
                     <div class="co-band__left">
-                        <span class="co-band__label">Buyer</span>
-                        @if($buyerId)
-                            <span class="co-band__value">#{{ $buyerId }}</span>
+                        <span class="co-band__label">Customer</span>
+                        @if($customerId)
+                            <span class="co-band__value">#{{ $customerId }}</span>
                         @else
                             <span class="co-empty-mark">Not recorded</span>
                         @endif
@@ -277,8 +277,8 @@
                         @if($order->reverse_type)
                             <span class="co-band__muted">{{ \App\Support\ChannelStatusTone::labelFor('lazada.reverse_type', $order->reverse_type) }}</span>
                         @endif
-                        @if($erpId)
-                            <a class="co-ref" href="{{ url('/sales/orders/'.$erpId) }}">Sales order {{ $erpId }}</a>
+                        @if($salesOrderId)
+                            <a class="co-ref" href="{{ url('/sales/orders/'.$salesOrderId) }}">Sales order {{ $salesOrderId }}</a>
                         @endif
                     </div>
                     <div class="co-band__right">

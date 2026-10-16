@@ -174,7 +174,7 @@ class LazadaOrderDetailTest extends TestCase
         $response->assertOk();
 
         $response->assertSee($order->order_id);
-        $response->assertSee('To arrange shipment');
+        $response->assertSee('Packed');
         $response->assertSee('2026-08-03 10:11');
         $response->assertSee('2026-08-06 16:20');
 

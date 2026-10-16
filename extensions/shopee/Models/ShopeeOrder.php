@@ -22,10 +22,10 @@ class ShopeeOrder extends Model
         'order_updated_at',
         'raw',
         'fees',
-        'buyer_invoice',
+        'customer_invoice',
         'payout_status',
         'paid_at',
-        'catalog_order_id',
+        'sales_order_id',
     ];
 
     protected $hidden = ['raw'];
@@ -33,7 +33,7 @@ class ShopeeOrder extends Model
     protected $casts = [
         'raw' => 'array',
         'fees' => 'array',
-        'buyer_invoice' => 'array',
+        'customer_invoice' => 'array',
         'order_created_at' => 'datetime',
         'order_updated_at' => 'datetime',
         'paid_at' => 'datetime',
@@ -49,8 +49,8 @@ class ShopeeOrder extends Model
         return $this->hasMany(ShopeeReturn::class, 'shopee_order_id');
     }
 
-    public function catalogOrder(): BelongsTo
+    public function salesOrder(): BelongsTo
     {
-        return $this->belongsTo(Order::class, 'catalog_order_id', 'order_id');
+        return $this->belongsTo(Order::class, 'sales_order_id', 'order_id');
     }
 }

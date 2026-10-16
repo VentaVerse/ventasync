@@ -107,8 +107,8 @@
                 @if($canStop)
                     <form method="POST" action="{{ route('ext.tiktok.coupons.deactivate', $cp['id']) }}"
                           data-confirm="{{ $notStarted
-                              ? 'Cancel coupon ' . ($cp['title'] ?? '') . ' before it starts? Buyers never see it, and it cannot be brought back.'
-                              : 'End coupon ' . ($cp['title'] ?? '') . ' now? Buyers can no longer claim or use it, and an ended coupon cannot restart.' }}"
+                              ? 'Cancel coupon ' . ($cp['title'] ?? '') . ' before it starts? Customers never see it, and it cannot be brought back.'
+                              : 'End coupon ' . ($cp['title'] ?? '') . ' now? Customers can no longer claim or use it, and an ended coupon cannot restart.' }}"
                           data-confirm-verb="{{ $notStarted ? 'Cancel coupon' : 'End coupon' }}">
                         @csrf
                         <x-ui.button type="submit">{{ $notStarted ? 'Cancel before it starts' : 'End now' }}</x-ui.button>
@@ -126,12 +126,12 @@
     <details class="fm-card fm-card--fold" @if($errors->any() || old('_token')) open @endif>
         <summary class="fm-card__head fm-card__head--summary"><h2 class="fm-card__title">Create a coupon</h2><span class="fm-card__hint">Opens the form</span></summary>
         <div class="fm-card__body">
-            <p class="fm-section__note">A shop coupon: buyers claim it and spend it on anything in the shop. Give an amount off or a percent off, not both. TikTok wants the start in the future.</p>
+            <p class="fm-section__note">A shop coupon: customers claim it and spend it on anything in the shop. Give an amount off or a percent off, not both. TikTok wants the start in the future.</p>
             <div class="fm-fields fm-fields--2">
-                <x-ui.field label="Name (buyers see this)" for="cp-title" name="title">
+                <x-ui.field label="Name (customers see this)" for="cp-title" name="title">
                     <x-ui.input id="cp-title" name="title" maxlength="50" :value="old('title')" />
                 </x-ui.field>
-                <x-ui.field label="How many buyers can use it" for="cp-claims" name="total_claim_count">
+                <x-ui.field label="How many customers can use it" for="cp-claims" name="total_claim_count">
                     <x-ui.input id="cp-claims" name="total_claim_count" type="number" step="1" min="1" :value="old('total_claim_count')" placeholder="100" />
                 </x-ui.field>
             </div>

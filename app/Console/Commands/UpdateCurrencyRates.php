@@ -53,10 +53,10 @@ class UpdateCurrencyRates extends Command
                     continue;
                 }
 
-                $erpRate = round(1 / $rates[$code], 8);
-                Currency::where('code', $code)->update(['exchange_rate' => $erpRate]);
+                $storedRate = round(1 / $rates[$code], 8);
+                Currency::where('code', $code)->update(['exchange_rate' => $storedRate]);
                 $updated++;
-                $this->line("  {$code}: {$erpRate}");
+                $this->line("  {$code}: {$storedRate}");
             }
 
             $this->info("Updated {$updated} currency rates (source date: {$date}).");

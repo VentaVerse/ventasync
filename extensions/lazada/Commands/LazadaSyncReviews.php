@@ -242,7 +242,7 @@ class LazadaSyncReviews extends Command
             'product_id'        => $productId,
             'channel_item_id'  => $itemId ?: null,
             'channel_order_id' => (string) ($r['trade_order_id'] ?? $r['order_id'] ?? ''),
-            'author'            => (string) ($r['buyer_name'] ?? $r['reviewer_name'] ?? $r['buyer'] ?? '') ?: 'Lazada Buyer',
+            'author'            => (string) ($r['buyer_name'] ?? $r['reviewer_name'] ?? $r['buyer'] ?? '') ?: 'Lazada customer',
             'rating'            => $rating,
             'comment'           => (string) ($r['review_content'] ?? $r['content'] ?? $r['comment'] ?? ''),
             'images'            => !empty($images) ? $images : null,

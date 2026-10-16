@@ -18,7 +18,7 @@ class LazadaPushStock extends Command implements \App\Channels\Contracts\Steppab
     protected $signature = 'lazada:push-stock
         {--product-ids= : Comma-separated Lazada listing IDs to push (ch_lazada_listings.id)}';
 
-    protected $description = 'Push ERP product quantities to Lazada for all linked products';
+    protected $description = 'Push catalog quantities to Lazada for all linked products';
 
     public function handle(LazadaClient $client): int
     {
@@ -207,9 +207,9 @@ class LazadaPushStock extends Command implements \App\Channels\Contracts\Steppab
                 ->map(fn ($s) => trim((string) $s))
                 ->toArray();
 
-            $erpSkus = \App\Channels\Listings\ListingVariations::sold('lazada', (int) ($listing->store_id ?? 0), [(int) $listing->product_id])[(int) $listing->product_id] ?? [];
+            $catalogSkus = \App\Channels\Listings\ListingVariations::sold('lazada', (int) ($listing->store_id ?? 0), [(int) $listing->product_id])[(int) $listing->product_id] ?? [];
 
-            if (empty($erpSkus) || empty(array_diff($erpSkus, $cachedSkus))) {
+            if (empty($catalogSkus) || empty(array_diff($catalogSkus, $cachedSkus))) {
                 continue;
             }
 
@@ -227,7 +227,7 @@ class LazadaPushStock extends Command implements \App\Channels\Contracts\Steppab
     {
         $service = app(LazadaStockPushService::class);
         $rows = $service->buildPushItems($listing, $product);
-        $hasVariations = !empty(\App\Channels\Push\PushLedger::erpVariationSkus([(int) $listing->product_id])[(int) $listing->product_id] ?? []);
+        $hasVariations = !empty(\App\Channels\Push\PushLedger::catalogVariationSkus([(int) $listing->product_id])[(int) $listing->product_id] ?? []);
         if ($hasVariations) {
             $rows = array_values(array_filter($rows, fn ($r) => $r['matched'] ?? true));
         }
