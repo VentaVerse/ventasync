@@ -41,7 +41,7 @@ class VentaCartCustomerGroupTest extends TestCase
 
         $this->upsert($sync, $raw);
 
-        $order = Order::where('channel', 'ventacart:' . $setting->id)->where('marketplace_order_id', '777001')->firstOrFail();
+        $order = Order::where('channel', 'ventacart:' . $setting->id)->where('channel_order_id', '777001')->firstOrFail();
         $this->assertSame('Reseller', $order->customer_group);
         $this->assertSame(0, (int) $order->customer_group_id, 'the id stays 0: nothing here to point at (#132)');
         $this->assertSame('Reseller', VentaCartOrder::where('ventacart_order_id', 777001)->value('customer_group'));
@@ -50,7 +50,7 @@ class VentaCartCustomerGroupTest extends TestCase
         $this->assertSame('Wholesale', $order->fresh()->customer_group);
 
         $this->upsert($sync, ['id' => 777002, 'order_number' => 2002, 'status' => 'pending', 'status_id' => 1, 'totals' => ['total' => 1], 'items' => [], 'customer_group' => null]);
-        $this->assertNull(Order::where('marketplace_order_id', '777002')->value('customer_group'));
+        $this->assertNull(Order::where('channel_order_id', '777002')->value('customer_group'));
     }
 
     public function test_the_order_page_names_the_group(): void
@@ -65,7 +65,7 @@ class VentaCartCustomerGroupTest extends TestCase
         [$sync, $setting] = $this->sync();
         $this->upsert($sync, ['id' => 777003, 'order_number' => 2003, 'status' => 'pending', 'status_id' => 1, 'totals' => ['total' => 500], 'items' => [],
             'customer_group' => 'Reseller', 'contact' => ['name' => 'Ana Reyes', 'email' => 'ana@example.test']]);
-        $order = Order::where('marketplace_order_id', '777003')->firstOrFail();
+        $order = Order::where('channel_order_id', '777003')->firstOrFail();
 
         $group = UserGroup::create(['name' => 'Group readers']);
         $group->permissions()->attach(Permission::whereIn('key', ['view_sales/order'])->pluck('id')->all());

@@ -74,10 +74,10 @@ class ExtensionImagesTest extends TestCase
 
     public function test_the_hub_cards_carry_the_channels_mark(): void
     {
-        $fulfilment = File::get(resource_path('views/channels/fulfilment.blade.php'));
-        $this->assertStringContainsString('fh-card__mark', $fulfilment);
-        $this->assertStringContainsString("ExtensionImages::has(\$fhChannelId, 'logo.png')", $fulfilment);
-        $this->assertStringContainsString("\$fhMark && ! empty(\$fhCard['store']) ? \$fhCard['store'] : \$fhCard['label']", $fulfilment, 'with the mark the cap carries the store alone, else the full label');
+        $fulfillment = File::get(resource_path('views/channels/fulfillment.blade.php'));
+        $this->assertStringContainsString('fh-card__mark', $fulfillment);
+        $this->assertStringContainsString("ExtensionImages::has(\$fhChannelId, 'logo.png')", $fulfillment);
+        $this->assertStringContainsString("\$fhMark && ! empty(\$fhCard['store']) ? \$fhCard['store'] : \$fhCard['label']", $fulfillment, 'with the mark the cap carries the store alone, else the full label');
 
         $board = File::get(resource_path('views/channels/board.blade.php'));
         $this->assertStringContainsString('x-board__mark', $board);

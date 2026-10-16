@@ -41,14 +41,13 @@
     $coreDescription = (string) ($productRow->description ?? '');
 
     $jsonFlags = JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE;
-    $erpFieldValues = $productRow ? [
+    $catalogFieldValues = $productRow ? [
         'name'             => (string) ($productRow->name ?? ''),
         'description'      => $productRow->description
             ? strip_tags(html_entity_decode((string) $productRow->description, ENT_QUOTES | ENT_HTML5, 'UTF-8'))
             : '',
         'meta_title'       => (string) ($productRow->meta_title ?? ''),
         'meta_description' => (string) ($productRow->meta_description ?? ''),
-        'model'            => (string) ($productRow->model ?? ''),
         'sku'              => (string) ($productRow->sku ?? ''),
         'upc'              => (string) ($productRow->upc ?? ''),
         'ean'              => (string) ($productRow->ean ?? ''),
@@ -111,7 +110,6 @@
                 @php
                     $summaryParts = [];
                     if (!empty($productRow->sku)) $summaryParts[] = 'SKU ' . $productRow->sku;
-                    if (!empty($productRow->model)) $summaryParts[] = 'Model ' . $productRow->model;
                     if ($basePrice !== null) $summaryParts[] = \App\Support\Money::base($basePrice);
                 @endphp
                 <span class="cl-summary__meta">{{ $summaryParts ? implode(' / ', $summaryParts) : 'No identifiers set' }}</span>
@@ -170,14 +168,14 @@
                 <x-slot:verbs>
                     @if(($live['status'] ?? '') === 'active')
                         <form method="POST" action="{{ route('ext.lazada.listings.toggle', $listing->product_id) }}"
-                              data-guard-stale data-confirm="Deactivate this item on Lazada? Buyers stop seeing it immediately. It stays here and can be activated again." data-confirm-verb="Deactivate">
+                              data-guard-stale data-confirm="Deactivate this item on Lazada? Customers stop seeing it immediately. It stays here and can be activated again." data-confirm-verb="Deactivate">
                             @csrf
                             <input type="hidden" name="action" value="deactivate">
                             <x-ui.button type="submit" size="sm">Deactivate on Lazada</x-ui.button>
                         </form>
                     @elseif(($live['status'] ?? '') === 'inactive')
                         <form method="POST" action="{{ route('ext.lazada.listings.toggle', $listing->product_id) }}"
-                              data-guard-stale data-confirm="Activate this item on Lazada? Buyers see it again once Lazada applies it." data-confirm-tone="primary" data-confirm-verb="Activate">
+                              data-guard-stale data-confirm="Activate this item on Lazada? Customers see it again once Lazada applies it." data-confirm-tone="primary" data-confirm-verb="Activate">
                             @csrf
                             <input type="hidden" name="action" value="activate">
                             <x-ui.button type="submit" variant="oncolor" size="sm">Activate on Lazada</x-ui.button>
@@ -225,7 +223,7 @@
                             <div class="fm-ta">
                                 <x-ui.input id="lz-search" type="search" autocomplete="off"
                                             data-unmatched-search
-                                            placeholder="Search by name, model or SKU" />
+                                            placeholder="Search by name or SKU" />
                                 <div class="fm-ta__list" data-unmatched-results role="listbox" aria-label="Master Catalog matches"></div>
                             </div>
                             <input type="hidden" name="product_id" data-unmatched-id value="{{ old('product_id', $listing->product_id) }}">
@@ -356,13 +354,13 @@
                                     'suggested' => $suggested,
                                     'groupAttrs' => $groupAttrs,
                                     'productOwnAttrs' => $productOwnAttrs,
-                                    'erpSourceFields' => $erpSourceFields,
+                                    'catalogSourceFields' => $catalogSourceFields,
                                 ])
                             @endif
                         </div>
                     </section>
 
-                    <script type="application/json" data-erp-fields>{!! json_encode($erpFieldValues, $jsonFlags) !!}</script>
+                    <script type="application/json" data-catalog-fields>{!! json_encode($catalogFieldValues, $jsonFlags) !!}</script>
                 @endif
 
                 @if($mode === 'edit')
@@ -412,12 +410,12 @@
                                                 @php
                                                     $variantId = (string) $variant->product_variation_value_id;
                                                     $mapped = $variantMap[$variantId] ?? null;
-                                                    $variantLabel = trim((string) ($variant->variation_type_name ?? '')) !== ''
+                                                    $variationLabel = trim((string) ($variant->variation_type_name ?? '')) !== ''
                                                         ? ((string) $variant->variation_type_name) . ': ' . ((string) ($variant->variation_value_name ?? ''))
                                                         : 'Variation ' . $variantId;
                                                 @endphp
                                                 <tr>
-                                                    <td class="fm-vcol-name" data-label="Variation">{{ $variantLabel }}</td>
+                                                    <td class="fm-vcol-name" data-label="Variation">{{ $variationLabel }}</td>
                                                     <td class="fm-vcol-sku" data-label="Master Catalog SKU"><span class="x-num">{{ $variant->sku ?: 'None' }}</span></td>
                                                     <td class="fm-vcol-price fm-num" data-label="Master Catalog price">{{ number_format((float) ($variant->absolute_price ?? 0), 2) }}</td>
                                                     <td class="fm-vcol-qty fm-num" data-label="Master Catalog stock">{{ $variant->quantity }}</td>
@@ -426,7 +424,7 @@
                                                                type="number" step="0.01" min="0"
                                                                value="{{ old('variants.' . $variantId . '.price', $mapped?->price) }}"
                                                                placeholder="Same"
-                                                               aria-label="Lazada price for {{ $variantLabel }}">
+                                                               aria-label="Lazada price for {{ $variationLabel }}">
                                                     </td>
                                                 </tr>
                                             @endforeach

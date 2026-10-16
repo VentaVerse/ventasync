@@ -91,7 +91,7 @@ class ShopeeOrderDetailTest extends TestCase
                 'seller_transaction_fee' => 24.80,
                 'escrow_amount' => 2201.60,
             ],
-            'buyer_invoice' => [
+            'customer_invoice' => [
                 'is_requested' => true,
                 'name' => 'Dela Cruz Trading',
                 'type' => 'business',
@@ -104,8 +104,8 @@ class ShopeeOrderDetailTest extends TestCase
 
         ShopeeOrderProduct::create([
             'shopee_order_id' => $order->id,
-            'item_id' => 88001,
-            'model_id' => 99001,
+            'shopee_item_id' => 88001,
+            'shopee_model_id' => 99001,
             'sku' => 'SKU-ALPHA-01',
             'name' => 'Alpha Wireless Keyboard',
             'variation' => 'Graphite, US layout',
@@ -175,7 +175,7 @@ class ShopeeOrderDetailTest extends TestCase
         $response->assertSee('Estimated Order Income');
         $response->assertSee(\App\Support\Money::foreign(2201.60, 'PHP'));
 
-        $response->assertSee('Requested by buyer');
+        $response->assertSee('Requested by customer');
         $response->assertSee('Dela Cruz Trading');
         $response->assertSee('123-456-789-000');
         $response->assertSee('billing@delacruz.test');

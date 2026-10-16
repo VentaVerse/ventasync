@@ -6,7 +6,7 @@ use Illuminate\Http\Request;
 
 interface MobileMarketplaceProvider
 {
-    public function mobilePlatformSlug(): string;
+    public function mobileChannelSlug(): string;
 
     public function mobileIndexResponse(Request $request): array;
 

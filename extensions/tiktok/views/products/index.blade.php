@@ -14,7 +14,7 @@
         || ($changeFlag ?? false)
         || $brandFilter !== 'all'
         || $groupFilter !== 'all'
-        || $erpStatus !== 'all';
+        || $catalogStatus !== 'all';
     $toggleDir = fn (string $col) => $sort !== $col ? 'asc' : ($dir === 'asc' ? 'desc' : 'asc');
     $sortUrl = function (string $col) use ($toggleDir) {
         $qp = request()->query();
@@ -147,7 +147,7 @@
     @if($changeFlag ?? false)
         <input type="hidden" name="change" value="1">
     @endif
-    <x-ui.input type="search" name="q" class="x-filters__search" value="{{ $q }}" placeholder="Name, model or SKU" aria-label="Search listings" />
+    <x-ui.input type="search" name="q" class="x-filters__search" value="{{ $q }}" placeholder="Name or SKU" aria-label="Search listings" />
     <div class="x-select-wrap x-filters__select">
         <select name="brand" class="x-input" data-autosubmit aria-label="Filter by brand">
             <option value="all">All brands</option>
@@ -158,10 +158,10 @@
         <x-ui.icon name="chevron-down" size="14" class="x-select-wrap__chevron" />
     </div>
     <div class="x-select-wrap x-filters__select x-filters__select--narrow">
-        <select name="erp_status" class="x-input" data-autosubmit aria-label="Filter by Master Catalog status">
-            <option value="all" @selected($erpStatus === 'all')>Any Master Catalog status</option>
-            <option value="enabled" @selected($erpStatus === 'enabled')>Enabled</option>
-            <option value="disabled" @selected($erpStatus === 'disabled')>Disabled</option>
+        <select name="catalog_status" class="x-input" data-autosubmit aria-label="Filter by Master Catalog status">
+            <option value="all" @selected($catalogStatus === 'all')>Any Master Catalog status</option>
+            <option value="enabled" @selected($catalogStatus === 'enabled')>Enabled</option>
+            <option value="disabled" @selected($catalogStatus === 'disabled')>Disabled</option>
         </select>
         <x-ui.icon name="chevron-down" size="14" class="x-select-wrap__chevron" />
     </div>
@@ -194,8 +194,8 @@
         'push' => ['action' => route('ext.tiktok.products.bulk_push'), 'label' => 'Send to TikTok Shop',
             'confirm' => 'Send the selected products to TikTok Shop? Each goes up on its own settings, and anything not ready is named rather than sent.'],
         'switch' => [
-            ['action' => route('ext.tiktok.products.bulk_toggle'), 'verb' => 'deactivate', 'codes' => 'ACTIVATE', 'label' => 'Deactivate :n on TikTok Shop', 'button' => 'Deactivate on TikTok Shop', 'fields' => ['action' => 'deactivate'], 'confirm' => 'Deactivate the selected products on TikTok Shop? Buyers stop seeing them. They can be activated again at any time.'],
-            ['action' => route('ext.tiktok.products.bulk_toggle'), 'verb' => 'activate', 'codes' => 'SELLER_DEACTIVATED', 'label' => 'Activate :n on TikTok Shop', 'button' => 'Activate on TikTok Shop', 'fields' => ['action' => 'activate'], 'confirm' => 'Activate the selected products on TikTok Shop? Buyers see them again once TikTok applies it.'],
+            ['action' => route('ext.tiktok.products.bulk_toggle'), 'verb' => 'deactivate', 'codes' => 'ACTIVATE', 'label' => 'Deactivate :n on TikTok Shop', 'button' => 'Deactivate on TikTok Shop', 'fields' => ['action' => 'deactivate'], 'confirm' => 'Deactivate the selected products on TikTok Shop? Customers stop seeing them. They can be activated again at any time.'],
+            ['action' => route('ext.tiktok.products.bulk_toggle'), 'verb' => 'activate', 'codes' => 'SELLER_DEACTIVATED', 'label' => 'Activate :n on TikTok Shop', 'button' => 'Activate on TikTok Shop', 'fields' => ['action' => 'activate'], 'confirm' => 'Activate the selected products on TikTok Shop? Customers see them again once TikTok applies it.'],
         ],
         'link' => ['action' => route('ext.tiktok.products.check'), 'label' => 'Link IDs'],
         'delete' => ['action' => route('ext.tiktok.products.bulk_delete'), 'label' => 'Delete from TikTok Shop', 'confirm' => 'Delete the selected products from TikTok Shop? They are removed at the marketplace and this cannot be undone.'],
@@ -356,9 +356,9 @@
                         } else {
                             $menu['update'] = ['action' => route('ext.tiktok.listings.push_update', $pid), 'label' => 'Send to TikTok Shop', 'confirm' => "Send this listing's content and settings to the live TikTok Shop product? Title, description, package, category, brand, attributes, price and stock are updated.", 'verb' => 'Send', 'tone' => 'primary'];
                             if ($rowState?->state === $stateClass::LIVE) {
-                                $menu['switch'] = ['action' => route('ext.tiktok.listings.toggle', $pid), 'label' => 'Deactivate on TikTok Shop', 'fields' => ['action' => 'deactivate'], 'confirm' => 'Deactivate this product on TikTok Shop? Buyers stop seeing it. It can be activated again at any time.', 'verb' => 'Deactivate'];
+                                $menu['switch'] = ['action' => route('ext.tiktok.listings.toggle', $pid), 'label' => 'Deactivate on TikTok Shop', 'fields' => ['action' => 'deactivate'], 'confirm' => 'Deactivate this product on TikTok Shop? Customers stop seeing it. It can be activated again at any time.', 'verb' => 'Deactivate'];
                             } elseif ($rowState?->state === $stateClass::INACTIVE) {
-                                $menu['switch'] = ['action' => route('ext.tiktok.listings.toggle', $pid), 'label' => 'Activate on TikTok Shop', 'fields' => ['action' => 'activate'], 'confirm' => 'Activate this product on TikTok Shop? Buyers see it again once TikTok applies it.', 'verb' => 'Activate', 'tone' => 'primary'];
+                                $menu['switch'] = ['action' => route('ext.tiktok.listings.toggle', $pid), 'label' => 'Activate on TikTok Shop', 'fields' => ['action' => 'activate'], 'confirm' => 'Activate this product on TikTok Shop? Customers see it again once TikTok applies it.', 'verb' => 'Activate', 'tone' => 'primary'];
                             }
                             $menu['check'] = ['action' => route('ext.tiktok.products.check'), 'label' => 'Check against TikTok Shop', 'fields' => ['product_ids[]' => $pid]];
                             $menu['unlink'] = ['action' => route('ext.tiktok.products.unlink', $pid), 'confirm' => 'Unlink this product from TikTok Shop? Only the link is removed. The TikTok Shop product stays up and can be linked again later.'];

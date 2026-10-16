@@ -254,7 +254,7 @@ class VentaCartProductGroupController extends Controller
 
         $q = trim((string) $request->input('q'));
         $syncStatus = (string) $request->input('sync_status', 'all');
-        $erpStatus = (string) $request->input('erp_status', 'all');
+        $catalogStatus = (string) $request->input('catalog_status', 'all');
 
         $query = DB::table('products as p')
             ->join('product_descriptions as pd', function ($j) use ($langId) {
@@ -274,7 +274,6 @@ class VentaCartProductGroupController extends Controller
             ->select(
                 'p.product_id',
                 'pd.name',
-                'p.model',
                 'p.sku',
                 'p.price',
                 'p.quantity',
@@ -293,7 +292,6 @@ class VentaCartProductGroupController extends Controller
             $query->where(function ($w) use ($q, $store) {
                 $w->where('pd.name', 'like', "%{$q}%")
                     ->orWhere('p.sku', 'like', "%{$q}%")
-                    ->orWhere('p.model', 'like', "%{$q}%")
                     ->orWhereIn('p.product_id', \Extensions\VentaCart\Models\VentaCartListing::query()
                         ->where('store_id', $store)
                         ->where('name', 'like', "%{$q}%")
@@ -301,9 +299,9 @@ class VentaCartProductGroupController extends Controller
             });
         }
 
-        if ($erpStatus === 'enabled') {
+        if ($catalogStatus === 'enabled') {
             $query->where('p.status', 1);
-        } elseif ($erpStatus === 'disabled') {
+        } elseif ($catalogStatus === 'disabled') {
             $query->where('p.status', 0);
         }
 
@@ -351,7 +349,7 @@ class VentaCartProductGroupController extends Controller
             'manualIds'            => $manualIds,
             'q'                    => $q,
             'syncStatus'           => $syncStatus,
-            'erpStatus'            => $erpStatus,
+            'catalogStatus'            => $catalogStatus,
         ]);
     }
 
@@ -372,7 +370,7 @@ class VentaCartProductGroupController extends Controller
         }
         $client = new VentaCartClient($setting);
 
-        $prod = DB::table('products')->where('product_id', $product)->first(['sku', 'model']);
+        $prod = DB::table('products')->where('product_id', $product)->first(['sku']);
         if (!$prod) {
             return $this->productsRedirect($store, $group)
                 ->with('error', 'Product not found in catalog.');
@@ -381,9 +379,6 @@ class VentaCartProductGroupController extends Controller
         $skus = [];
         if ($prod->sku && trim($prod->sku) !== '') {
             $skus[] = trim($prod->sku);
-        }
-        if ($prod->model && trim($prod->model) !== '' && !in_array(trim($prod->model), $skus)) {
-            $skus[] = trim($prod->model);
         }
 
         $optSkus = DB::table('product_variation_values')
@@ -617,7 +612,7 @@ class VentaCartProductGroupController extends Controller
                 ->leftJoin('brands as m', 'p.brand_id', '=', 'm.brand_id')
                 ->where('p.product_id', $pid)
                 ->first([
-                    'p.product_id', 'pd.name', 'pd.description', 'p.model', 'p.sku',
+                    'p.product_id', 'pd.name', 'pd.description', 'p.sku',
                     'p.price', 'p.cost', 'p.quantity', 'p.status', 'p.image',
                     'p.weight', 'p.length', 'p.width', 'p.height',
                     'm.name as brand_name',
@@ -637,7 +632,7 @@ class VentaCartProductGroupController extends Controller
                 $states->recordOutcome($pid, $refusal);
                 continue;
             }
-            $sku = $prod->sku ?: $prod->model;
+            $sku = $prod->sku;
 
             $ownWords = \App\Channels\Listings\ListingContent::of(
                 \Extensions\VentaCart\Models\VentaCartListing::query()->where('store_id', $store)->where('product_id', $pid)->first(),
@@ -1118,7 +1113,7 @@ class VentaCartProductGroupController extends Controller
                 $j->on('p.product_id', '=', 'pd.product_id')
                     ->where('pd.language_id', '=', $langId);
             })
-            ->select('p.product_id', 'pd.name', 'p.sku', 'p.model', 'p.price', 'p.quantity');
+            ->select('p.product_id', 'pd.name', 'p.sku', 'p.price', 'p.quantity');
 
         if ($categoryId > 0) {
             $query->join('product_categories as ptc', 'p.product_id', '=', 'ptc.product_id')
@@ -1132,8 +1127,7 @@ class VentaCartProductGroupController extends Controller
         if (strlen($q) >= 2) {
             $query->where(function ($w) use ($q) {
                 $w->where('pd.name', 'like', "%{$q}%")
-                    ->orWhere('p.sku', 'like', "%{$q}%")
-                    ->orWhere('p.model', 'like', "%{$q}%");
+                    ->orWhere('p.sku', 'like', "%{$q}%");
             });
         }
 

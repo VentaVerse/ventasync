@@ -81,7 +81,7 @@ class ChannelStatusTone
             'VOIDED'             => 'danger',
         ],
 
-        'shopify.fulfilment' => [
+        'shopify.fulfillment' => [
             'UNFULFILLED' => 'warning',
             'PARTIAL'     => 'warning',
             'FULFILLED'   => 'success',
@@ -182,17 +182,6 @@ class ChannelStatusTone
     ];
 
     private const LABELS = [
-        'shopee.orders' => [
-            'UNPAID'             => 'Unpaid',
-            'READY_TO_SHIP'      => 'Ready to ship',
-            'PROCESSED'          => 'To hand over',
-            'SHIPPED'            => 'Shipped',
-            'TO_CONFIRM_RECEIVE' => 'Awaiting confirmation',
-            'COMPLETED'          => 'Completed',
-            'CANCELLED'          => 'Canceled',
-            'IN_CANCEL'          => 'Canceling',
-            'RETRY_SHIP'         => 'Delivery failed',
-        ],
 
         'shopee.returns' => [
             'REQUESTED'           => 'Requested',
@@ -277,34 +266,6 @@ class ChannelStatusTone
             'DELIVERED'                   => 'Back with us',
         ],
 
-        'lazada.orders' => [
-            'UNPAID'               => 'Unpaid',
-            'PENDING'              => 'To pack',
-            'REPACKED'             => 'To pack again',
-            'PACKED'               => 'To arrange shipment',
-            'READY_TO_SHIP'        => 'To hand over',
-            'SHIPPED'              => 'Shipped',
-            'DELIVERED'            => 'Delivered',
-            'CONFIRMED'            => 'Received by buyer',
-            'CANCELED'             => 'Canceled',
-            'CANCELLED'            => 'Canceled',
-            'FAILED_DELIVERY'      => 'Delivery failed',
-            'LOST_BY_3PL'          => 'Lost by courier',
-            'DAMAGED_BY_3PL'       => 'Damaged by courier',
-            'SHIPPED_BACK'         => 'On its way back',
-            'SHIPPED_BACK_SUCCESS' => 'Returned to you',
-        ],
-
-        'tiktok.orders' => [
-            'UNPAID'               => 'Unpaid',
-            'AWAITING_SHIPMENT'    => 'To pack',
-            'AWAITING_COLLECTION'  => 'To hand over',
-            'IN_TRANSIT'           => 'Shipped',
-            'DELIVERED'            => 'Delivered',
-            'COMPLETED'            => 'Completed',
-            'CANCELLED'            => 'Canceled',
-        ],
-
         'pedallion.orders' => [
             'PENDING'            => 'To process',
             'PROCESSING'         => 'Processing',
@@ -329,7 +290,7 @@ class ChannelStatusTone
             'VOIDED'             => 'Voided',
         ],
 
-        'shopify.fulfilment' => [
+        'shopify.fulfillment' => [
             'UNFULFILLED' => 'To pack',
             'PARTIAL'     => 'Partly packed',
             'FULFILLED'   => 'Packed',
@@ -419,7 +380,7 @@ class ChannelStatusTone
         }
 
         return $raw !== ''
-            ? ucfirst(strtolower(str_replace('_', ' ', $key)))
+            ? str_replace(' 3pl', ' 3PL', ucfirst(strtolower(str_replace('_', ' ', $key))))
             : 'Unknown';
     }
 }

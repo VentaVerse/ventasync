@@ -99,13 +99,13 @@
             <td class="x-td-actions">
                 @if($canManage && $v['state'] === 'upcoming')
                     <form method="POST" action="{{ route('ext.shopee.vouchers.delete', $v['voucher_id']) }}"
-                          data-confirm="Delete voucher {{ $v['voucher_code'] ?? '' }} before it starts? Buyers never see it and this cannot be undone." data-confirm-verb="Delete voucher">
+                          data-confirm="Delete voucher {{ $v['voucher_code'] ?? '' }} before it starts? Customers never see it and this cannot be undone." data-confirm-verb="Delete voucher">
                         @csrf
                         <x-ui.button type="submit" variant="danger">Delete</x-ui.button>
                     </form>
                 @elseif($canManage && $v['state'] === 'ongoing')
                     <form method="POST" action="{{ route('ext.shopee.vouchers.end', $v['voucher_id']) }}"
-                          data-confirm="End voucher {{ $v['voucher_code'] ?? '' }} now? Buyers can no longer claim or use it, and an ended voucher cannot restart." data-confirm-verb="End voucher">
+                          data-confirm="End voucher {{ $v['voucher_code'] ?? '' }} now? Customers can no longer claim or use it, and an ended voucher cannot restart." data-confirm-verb="End voucher">
                         @csrf
                         <x-ui.button type="submit">End now</x-ui.button>
                     </form>
@@ -122,9 +122,9 @@
     <details class="fm-card fm-card--fold" @if($errors->any() || old('_token')) open @endif>
         <summary class="fm-card__head fm-card__head--summary"><h2 class="fm-card__title">Create a voucher</h2><span class="fm-card__hint">Opens the form</span></summary>
         <div class="fm-card__body">
-            <p class="fm-section__note">A shop voucher: buyers claim it and spend it on anything in the shop. Give an amount off or a percent off, not both. Shopee wants the start in the future.</p>
+            <p class="fm-section__note">A shop voucher: customers claim it and spend it on anything in the shop. Give an amount off or a percent off, not both. Shopee wants the start in the future.</p>
             <div class="fm-fields fm-fields--2">
-                <x-ui.field label="Name (buyers see this)" for="vc-name" name="voucher_name">
+                <x-ui.field label="Name (customers see this)" for="vc-name" name="voucher_name">
                     <x-ui.input id="vc-name" name="voucher_name" maxlength="20" :value="old('voucher_name')" />
                 </x-ui.field>
                 <x-ui.field label="Code (5 letters or numbers)" for="vc-code" name="voucher_code">
@@ -148,7 +148,7 @@
                 </x-ui.field>
             </div>
             <div class="fm-fields fm-fields--2">
-                <x-ui.field label="How many buyers can use it" for="vc-qty" name="usage_quantity">
+                <x-ui.field label="How many customers can use it" for="vc-qty" name="usage_quantity">
                     <x-ui.input id="vc-qty" name="usage_quantity" type="number" step="1" min="1" :value="old('usage_quantity')" placeholder="100" />
                 </x-ui.field>
             </div>

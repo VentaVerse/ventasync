@@ -239,7 +239,7 @@ private function persistProductSyncStatus(LazadaListing $listing, string $action
         }
         $groupFilter = \App\Channels\Listings\StatusMenu::group($request->query('group'));
         $brandFilter = (string) $request->query('brand', 'all');
-        $erpStatus = (string) $request->query('erp_status', 'all');
+        $catalogStatus = (string) $request->query('catalog_status', 'all');
 
         $sortColumns = [
             'id' => 'p.product_id',
@@ -275,7 +275,7 @@ private function persistProductSyncStatus(LazadaListing $listing, string $action
             ->leftJoinSub($lpPick, 'lps', 'lps.product_id', '=', 'p.product_id')
             ->leftJoin('ch_lazada_listings as lp', 'lp.id', '=', 'lps.pick_id')
             ->select(
-                'p.product_id', 'pd.name', 'p.image', 'p.model', 'p.sku',
+                'p.product_id', 'pd.name', 'p.image', 'p.sku',
                 'p.price', 'p.quantity', 'p.status', 'm.name as brand_name',
                 'lp.id as listing_id', 'lp.lazada_item_id', 'lp.live_status',
                 'lp.lazada_deleted_at', 'lp.unlinked_at',
@@ -305,9 +305,9 @@ private function persistProductSyncStatus(LazadaListing $listing, string $action
             $query->where('p.brand_id', (int) $brandFilter);
         }
 
-        if ($erpStatus === 'enabled') {
+        if ($catalogStatus === 'enabled') {
             $query->where('p.status', 1);
-        } elseif ($erpStatus === 'disabled') {
+        } elseif ($catalogStatus === 'disabled') {
             $query->where('p.status', 0);
         } else {
             $query->where(function ($sub) {
@@ -320,7 +320,6 @@ private function persistProductSyncStatus(LazadaListing $listing, string $action
         if ($q !== '') {
             $query->where(function ($sub) use ($q) {
                 $sub->where('pd.name', 'like', '%' . $q . '%')
-                    ->orWhere('p.model', 'like', '%' . $q . '%')
                     ->orWhere('p.sku', 'like', '%' . $q . '%')
                     ->orWhere('lp.lazada_item_id', 'like', '%' . $q . '%')
                     ->orWhereIn('p.product_id', LazadaListing::query()
@@ -557,7 +556,7 @@ private function persistProductSyncStatus(LazadaListing $listing, string $action
             'q' => $q,
             'syncStatus' => $syncStatus,
             'brandFilter' => $brandFilter,
-            'erpStatus' => $erpStatus,
+            'catalogStatus' => $catalogStatus,
             'groupFilter' => $groupFilter,
             'paginator' => $products,
             'lazadaTab' => $lazadaTab,
@@ -613,12 +612,11 @@ private function persistProductSyncStatus(LazadaListing $listing, string $action
             })
             ->leftJoin('brands as m', 'p.brand_id', '=', 'm.brand_id')
             ->leftJoinSub($lpPick, 'lps', 'lps.product_id', '=', 'p.product_id')
-            ->select('p.product_id', 'pd.name', 'p.image', 'p.model', 'p.sku', 'p.price', 'p.quantity', 'p.status', 'm.name as brand_name', 'lps.pick_id as listing_id');
+            ->select('p.product_id', 'pd.name', 'p.image', 'p.sku', 'p.price', 'p.quantity', 'p.status', 'm.name as brand_name', 'lps.pick_id as listing_id');
 
         if ($q !== '') {
             $query->where(function ($sub) use ($q) {
                 $sub->where('pd.name', 'like', '%' . $q . '%')
-                    ->orWhere('p.model', 'like', '%' . $q . '%')
                     ->orWhere('p.sku', 'like', '%' . $q . '%');
             });
         }
@@ -687,7 +685,8 @@ private function persistProductSyncStatus(LazadaListing $listing, string $action
 
         $groupId = (int) $request->input('group', 0);
         if ($groupId > 0) {
-            \App\Channels\OneGroupRule::place('ch_lazada_product_group_products', 'lazada_product_group_id', 'ch_lazada_product_groups', 'store_id', \App\Channels\Listings\ListingStore::id('lazada'), $groupId, $productId);
+            // Lazada's group row points at the listing, so it carries the listing just made.
+            \App\Channels\OneGroupRule::place('ch_lazada_product_group_products', 'lazada_product_group_id', 'ch_lazada_product_groups', 'store_id', \App\Channels\Listings\ListingStore::id('lazada'), $groupId, $productId, ['lazada_listing_id' => (int) $row->id]);
         }
 
         if ($request->wantsJson()) {
@@ -715,13 +714,12 @@ private function persistProductSyncStatus(LazadaListing $listing, string $action
                 $j->on('p.product_id', '=', 'pd.product_id')->where('pd.language_id', '=', $langId);
             })
             ->leftJoinSub($lpPick, 'lps', 'lps.product_id', '=', 'p.product_id')
-            ->select('p.product_id', 'pd.name', 'p.image', 'p.sku', 'p.model', 'p.quantity', 'p.price', 'lps.pick_id as listing_id')
+            ->select('p.product_id', 'pd.name', 'p.image', 'p.sku', 'p.quantity', 'p.price', 'lps.pick_id as listing_id')
             ->where('p.status', 1);
 
         if ($q !== '') {
             $query->where(function ($sub) use ($q) {
                 $sub->where('pd.name', 'like', '%' . $q . '%')
-                    ->orWhere('p.model', 'like', '%' . $q . '%')
                     ->orWhere('p.sku', 'like', '%' . $q . '%');
             });
         }
@@ -764,7 +762,7 @@ private function persistProductSyncStatus(LazadaListing $listing, string $action
         $row = $this->listingOrBlank($productId);
         if (! $row->exists) {
             $row->save();
-            ActivityLogger::log('created', 'Lazada Product', $row->id, 'ERP #' . $productId);
+            ActivityLogger::log('created', 'Lazada Product', $row->id, 'product #' . $productId);
         }
 
         return $row;
@@ -876,7 +874,7 @@ private function persistProductSyncStatus(LazadaListing $listing, string $action
 
         if (!$product) {
             return redirect()->to(url()->previous(route('ext.lazada.products.index')))
-                ->with('status', 'Cannot sync: ERP product not found for listing #' . $listing->id . '.');
+                ->with('status', 'Cannot sync: Catalog product not found for listing #' . $listing->id . '.');
         }
 
         if ((int) $product->status === 0) {
@@ -915,7 +913,7 @@ private function persistProductSyncStatus(LazadaListing $listing, string $action
 
         if (!$product) {
             return redirect()->to(url()->previous(route('ext.lazada.products.index')))
-                ->with('status', 'Cannot sync: ERP product not found for listing #' . $listing->id . '.');
+                ->with('status', 'Cannot sync: Catalog product not found for listing #' . $listing->id . '.');
         }
 
         $basePrice = (float) ($product->price ?? 0);
@@ -965,13 +963,13 @@ private function persistProductSyncStatus(LazadaListing $listing, string $action
 
         if (!$product) {
             return redirect()->to(url()->previous(route('ext.lazada.products.index')))
-                ->with('status', 'Cannot delete: ERP product not found for listing #' . $listing->id . '.');
+                ->with('status', 'Cannot delete: Catalog product not found for listing #' . $listing->id . '.');
         }
 
         $productId = (int) ($product->product_id ?? 0);
         $mainSku = trim((string) ($product->sku ?? ''));
 
-        $variantSkus = $this->payload()->getErpVariantStockByProductId($productId);
+        $variantSkus = $this->payload()->getCatalogVariantStockByProductId($productId);
         $sellerSkuList = [];
         foreach ($variantSkus as $v) {
             $s = trim((string)($v['seller_sku'] ?? ''));
@@ -984,7 +982,7 @@ private function persistProductSyncStatus(LazadaListing $listing, string $action
         if (empty($sellerSkuList)) {
             if ($mainSku === '') {
                 return redirect()->to(url()->previous(route('ext.lazada.products.index')))
-                    ->with('status', 'Cannot delete: ERP product SKU is empty for product #' . (int)$productId . '.');
+                    ->with('status', 'Cannot delete: Catalog SKU is empty for product #' . (int)$productId . '.');
             }
             $sellerSkuList = [$mainSku];
         } else {
@@ -1070,7 +1068,7 @@ private function persistProductSyncStatus(LazadaListing $listing, string $action
             ]);
         }
 
-        ActivityLogger::log('deleted', 'Lazada Product', $listing->id, 'ERP #' . (int)$listing->product_id);
+        ActivityLogger::log('deleted', 'Lazada Product', $listing->id, 'product #' . (int)$listing->product_id);
 
         return redirect()->to(url()->previous(route('ext.lazada.products.index')))
             ->with('status', $this->payload()->formatLazadaResultMessage('Delete (Lazada)', $result));
@@ -1094,7 +1092,7 @@ private function persistProductSyncStatus(LazadaListing $listing, string $action
 
         $label = $itemId ? "Lazada item {$itemId}" : "product #{$productId}";
 
-        return redirect()->back()->with('status', "Unlinked ERP product #{$productId} from {$label}.");
+        return redirect()->back()->with('status', "Unlinked product #{$productId} from {$label}.");
     }
 
     public function syncLazadaId(Request $request, int $productId, LazadaClient $client)
@@ -1122,9 +1120,9 @@ private function persistProductSyncStatus(LazadaListing $listing, string $action
             ->first(['p.product_id', 'p.sku']);
 
         if (!$product) {
-            $this->persistProductSyncStatus($listing, 'sync_lazada_id', ['ok' => false, 'body' => ['code' => 'ERP_PRODUCT_NOT_FOUND', 'message' => 'ERP product not found for this Lazada product mapping.']]);
+            $this->persistProductSyncStatus($listing, 'sync_lazada_id', ['ok' => false, 'body' => ['code' => 'CATALOG_PRODUCT_NOT_FOUND', 'message' => 'Catalog product not found for this Lazada product mapping.']]);
             return redirect()->to(url()->previous(route('ext.lazada.products.index')))
-                ->with('status', 'Sync Lazada ID: ERP product not found.');
+                ->with('status', 'Sync Lazada ID: Catalog product not found.');
         }
 
         $mainSku = trim((string) ($product->sku ?? ''));
@@ -1146,7 +1144,7 @@ private function persistProductSyncStatus(LazadaListing $listing, string $action
         }
 
         if (empty($allSkus)) {
-            $this->persistProductSyncStatus($listing, 'sync_lazada_id', ['ok' => false, 'body' => ['code' => 'MISSING_SKU', 'message' => 'ERP product has no SKU (main or variation SKUs).']]);
+            $this->persistProductSyncStatus($listing, 'sync_lazada_id', ['ok' => false, 'body' => ['code' => 'MISSING_SKU', 'message' => 'The catalog product has no SKU (main or variation SKUs).']]);
             return redirect()->to(url()->previous(route('ext.lazada.products.index')))
                 ->with('status', 'Sync Lazada ID: product has no SKU.');
         }
@@ -1210,6 +1208,28 @@ private function persistProductSyncStatus(LazadaListing $listing, string $action
 
         $isUpdate = !empty($listing->lazada_item_id) && empty($listing->lazada_deleted_at);
 
+        $relinkNote = null;
+        if (!$isUpdate) {
+            $guard = app(\Extensions\Lazada\Services\Lazada\LazadaCreateGuard::class)->check($store, $creds, (int) $saved->product_id, $saved);
+            if ($guard['verdict'] === 'refuse') {
+                $this->persistProductSyncStatus($saved, 'upload_to_lazada', ['ok' => false, 'body' => ['code' => 'NOT_CONFIRMED', 'message' => $guard['message']]]);
+                $this->states()->recordOutcome((int) $saved->product_id, $guard['message']);
+
+                return ['ok' => false, 'message' => $guard['message'], 'errors' => []];
+            }
+            if ($guard['verdict'] === 'existing') {
+                $moved = (string) $saved->lazada_item_id !== $guard['item_id'];
+                $relinkNote = \Extensions\Lazada\Services\Lazada\LazadaCreateGuard::adopt($saved, $guard['item_id']);
+                $listing->lazada_item_id = $guard['item_id'];
+                $listing->lazada_deleted_at = null;
+                $listing->unlinked_at = null;
+                if ($moved) {
+                    $this->itemCache()->refreshListing($saved, $store, $client);
+                }
+                $isUpdate = true;
+            }
+        }
+
         if ($listing->primary_category_id && !\Extensions\Lazada\Models\LazadaCategoryTemplate::query()->where('region', (string) $store->region)->where('primary_category_id', (int) $listing->primary_category_id)->whereNotNull('template_body')->exists()) {
             $this->readCategoryTemplate((int) $listing->primary_category_id, $client);
         }
@@ -1245,10 +1265,18 @@ private function persistProductSyncStatus(LazadaListing $listing, string $action
         if ($isUpdate) {
             $productPayload['Request']['Product']['ItemId'] = (int) $listing->lazada_item_id;
 
-            $variantMap = LazadaListingVariation::where('lazada_listing_id', $listing->id)
-                ->whereNotNull('sku_id')
+            $skuIds = fn () => LazadaListingVariation::where('lazada_listing_id', $listing->id)
+                ->whereNotNull('sku_id')->whereNotNull('seller_sku')
                 ->pluck('sku_id', 'seller_sku')
                 ->toArray();
+            $variantMap = $skuIds();
+            // Lazada refuses an update whose SKUs carry no SkuId, so a missing one is read from Lazada first.
+            $unknown = array_filter(array_map(fn ($sku) => (string) ($sku['SellerSku'] ?? ''), $productPayload['Request']['Product']['Skus']['Sku']),
+                fn ($sellerSku) => $sellerSku !== '' && ! isset($variantMap[$sellerSku]));
+            if ($unknown !== []) {
+                $this->itemCache()->refreshListing($saved, $store, $client);
+                $variantMap = $skuIds();
+            }
 
             foreach ($productPayload['Request']['Product']['Skus']['Sku'] as $idx => $sku) {
                 $sellerSku = $sku['SellerSku'] ?? '';
@@ -1290,12 +1318,12 @@ private function persistProductSyncStatus(LazadaListing $listing, string $action
                 if ($failure !== null) {
                     $this->states()->recordOutcome((int) $saved->product_id, $failure);
 
-                    return ['ok' => false, 'message' => LazadaVariationSwitch::line($kept === null ? 'Update pushed.' : null, $switchNote, $pictureNote, $failure), 'errors' => []];
+                    return ['ok' => false, 'message' => LazadaVariationSwitch::line($kept === null ? 'Update pushed.' : null, $relinkNote, $switchNote, $pictureNote, $failure), 'errors' => []];
                 }
 
                 $note = $this->payload()->renameWarning($preview);
 
-                return ['ok' => true, 'message' => LazadaVariationSwitch::line('Update pushed.', $switchNote, $pictureNote, $note), 'errors' => [], 'warning' => $pictureNote !== null];
+                return ['ok' => true, 'message' => LazadaVariationSwitch::line('Update pushed.', $relinkNote, $switchNote, $pictureNote, $note), 'errors' => [], 'warning' => $pictureNote !== null];
             }
 
             $itemId = $this->payload()->extractCreatedItemId($result);
@@ -1304,19 +1332,19 @@ private function persistProductSyncStatus(LazadaListing $listing, string $action
                     $saved->lazada_item_id = $itemId;
                 }
                 $saved->lazada_deleted_at = null;
-                $listing->unlinked_at = null;
+                $saved->unlinked_at = null;
                 $saved->live_status = null;
                 $saved->live_checked_at = null;
                 $saved->save();
                 $skuList = data_get($result, 'body.data.sku_list', []);
                 if (is_array($skuList)) {
-                    $erpPovRows = DB::table('product_variation_values')
+                    $catalogPovRows = DB::table('product_variation_values')
                         ->where('product_id', (int) $listing->product_id)
                         ->whereNotNull('sku')
                         ->where('sku', '!=', '')
                         ->get(['product_variation_value_id', 'sku']);
                     $skuToPovId = [];
-                    foreach ($erpPovRows as $epov) {
+                    foreach ($catalogPovRows as $epov) {
                         $skuToPovId[trim((string) $epov->sku)] = (int) $epov->product_variation_value_id;
                     }
 
@@ -1339,8 +1367,8 @@ private function persistProductSyncStatus(LazadaListing $listing, string $action
                         if ($povId === null) {
                             $povId = $skuToPovId[(string) $sellerSku] ?? null;
                             if ($povId === null) {
-                                foreach ($skuToPovId as $erpSku => $id) {
-                                    if (str_starts_with((string) $sellerSku, $erpSku . '-')) {
+                                foreach ($skuToPovId as $catalogSku => $id) {
+                                    if (str_starts_with((string) $sellerSku, $catalogSku . '-')) {
                                         $povId = $id;
                                         break;
                                     }
@@ -1348,24 +1376,15 @@ private function persistProductSyncStatus(LazadaListing $listing, string $action
                             }
                         }
 
-                        try {
-                            \Extensions\Lazada\Models\LazadaListingVariation::updateOrCreate(
-                                [
-                                    'lazada_listing_id' => $listing->id,
-                                    'seller_sku' => (string) $sellerSku,
-                                ],
-                                [
-                                    'product_variation_value_id' => $povId,
-                                    'shop_sku' => $shopSku ? (string) $shopSku : null,
-                                    'sku_id' => $skuId !== null ? (int) $skuId : null,
-                                ]
-                            );
-                        } catch (\Throwable $ex2) {
-                        }
+                        \Extensions\Lazada\Models\LazadaListingVariation::remember((int) $listing->id, (string) $sellerSku, $povId !== null ? (int) $povId : null, [
+                            'shop_sku' => $shopSku ? (string) $shopSku : null,
+                            'sku_id' => $skuId !== null ? (int) $skuId : null,
+                        ]);
                     }
                 }
 
-                $this->itemCache()->refreshListing($listing, $store, $client);
+                // Read back the item just created: $listing is the push's copy and still holds the previous number.
+                $this->itemCache()->refreshListing($saved, $store, $client);
             } catch (\Throwable $ex) {
             }
         }
@@ -1450,7 +1469,7 @@ private function persistProductSyncStatus(LazadaListing $listing, string $action
         }
 
         return redirect()->back()->with('status', $deactivate
-            ? 'Deactivated. Buyers no longer see this item on Lazada.'
+            ? 'Deactivated. Customers no longer see this item on Lazada.'
             : 'Activation sent. Lazada usually applies it within a minute; Refresh from Lazada reads the truth back.');
     }
 
@@ -1571,7 +1590,8 @@ private function persistProductSyncStatus(LazadaListing $listing, string $action
             'sign_method' => 'sha256',
             'timestamp' => $timestamp,
             'access_token' => (string) $creds['access_token'],
-            'payload' => json_encode($productPayload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+            // Lazada's deactivate call reads its body from apiRequestBody; update reads payload.
+            ($deactivate ? 'apiRequestBody' : 'payload') => json_encode($productPayload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
         ];
         $params['sign'] = $client->sign($apiPath, $params, (string) $creds['app_secret']);
         try {
@@ -1709,7 +1729,7 @@ private function persistProductSyncStatus(LazadaListing $listing, string $action
             }
 
             if (empty($allSkus)) {
-                $this->persistProductSyncStatus($listing, 'bulk_sync_lazada_id', ['ok' => false, 'body' => ['code' => 'MISSING_SKU', 'message' => 'ERP product has no SKU (main or variation SKUs).']]);
+                $this->persistProductSyncStatus($listing, 'bulk_sync_lazada_id', ['ok' => false, 'body' => ['code' => 'MISSING_SKU', 'message' => 'The catalog product has no SKU (main or variation SKUs).']]);
                 $errCount++;
                 continue;
             }
@@ -1897,7 +1917,7 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
             ->first(['p.product_id', 'p.sku']);
 
         if (!$product) {
-            $this->persistProductSyncStatus($listing, 'bulk_delete_from_lazada', ['ok' => false, 'body' => ['code' => 'ERP_PRODUCT_NOT_FOUND', 'message' => 'ERP product not found']]);
+            $this->persistProductSyncStatus($listing, 'bulk_delete_from_lazada', ['ok' => false, 'body' => ['code' => 'CATALOG_PRODUCT_NOT_FOUND', 'message' => 'Catalog product not found']]);
             $errCount++;
             continue;
         }
@@ -1905,7 +1925,7 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
         $productId = (int) ($product->product_id ?? 0);
         $mainSku = trim((string) ($product->sku ?? ''));
 
-        $variantSkus = $this->payload()->getErpVariantStockByProductId($productId);
+        $variantSkus = $this->payload()->getCatalogVariantStockByProductId($productId);
         $sellerSkuList = [];
         foreach ($variantSkus as $v) {
             $s = trim((string)($v['seller_sku'] ?? ''));
@@ -1917,7 +1937,7 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
 
         if (empty($sellerSkuList)) {
             if ($mainSku === '') {
-                $this->persistProductSyncStatus($listing, 'bulk_delete_from_lazada', ['ok' => false, 'body' => ['code' => 'EMPTY_SKU', 'message' => 'ERP product SKU is empty']]);
+                $this->persistProductSyncStatus($listing, 'bulk_delete_from_lazada', ['ok' => false, 'body' => ['code' => 'EMPTY_SKU', 'message' => 'Catalog SKU is empty']]);
                 $errCount++;
                 continue;
             }
@@ -2053,7 +2073,7 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
             })
             ->orderByDesc('p.product_id')
             ->limit(200)
-            ->get(['p.product_id', 'p.sku', 'p.model', 'p.quantity', 'p.status', 'p.image', 'pd.name']);
+            ->get(['p.product_id', 'p.sku', 'p.quantity', 'p.status', 'p.image', 'pd.name']);
 
         $categories = LazadaCategory::query()
             ->orderBy('name')
@@ -2179,7 +2199,7 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
             'brands' => collect(),
             'brandSuggestion' => $brandSuggestion,
             'selectedBrandName' => $selectedBrandName,
-            'erpSourceFields' => LazadaAttributes::ERP_SOURCE_FIELDS,
+            'catalogSourceFields' => LazadaAttributes::CATALOG_SOURCE_FIELDS,
             'live' => $live,
             'liveError' => $liveError,
         ]);
@@ -2375,7 +2395,7 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
             \App\Channels\Listings\ListingVariations::save('lazada', (int) ($listing->store_id ?? 0), (int) $listing->product_id, $sellHere);
         }
 
-        ActivityLogger::log('updated', 'Lazada Product', $listing->id, 'ERP #' . (int)$listing->product_id);
+        ActivityLogger::log('updated', 'Lazada Product', $listing->id, 'product #' . (int)$listing->product_id);
 
         if ($request->boolean('push')) {
             return $this->uploadToLazada($request, $productId, app(LazadaClient::class));
@@ -2468,7 +2488,7 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
             ->leftJoin('brands as m', 'p.brand_id', '=', 'm.brand_id')
             ->where('p.product_id', (int)$listing->product_id)
             ->first([
-                'p.product_id','p.sku','p.model','p.image','p.price','p.quantity',
+                'p.product_id','p.sku','p.image','p.price','p.quantity',
                 'p.weight','p.length','p.width','p.height','p.date_modified',
                 'p.upc','p.ean','p.jan','p.isbn','p.mpn',
                 'pd.name','pd.description','pd.meta_title','pd.meta_description',
@@ -2520,7 +2540,7 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
             'suggested' => $sheet['suggested'],
             'groupAttrs' => $sheet['groupAttrs'],
             'productOwnAttrs' => $sheet['productOwnAttrs'],
-            'erpSourceFields' => LazadaAttributes::ERP_SOURCE_FIELDS,
+            'catalogSourceFields' => LazadaAttributes::CATALOG_SOURCE_FIELDS,
         ])->render();
 
         return response()->json([
@@ -2944,8 +2964,7 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
             ->unique()
             ->all();
         $existingSkus = [];
-        foreach (DB::table('products')->get(['model', 'sku']) as $ep) {
-            if ($ep->model !== null && trim((string) $ep->model) !== '') $existingSkus[strtolower(trim((string) $ep->model))] = true;
+        foreach (DB::table('products')->get(['sku']) as $ep) {
             if ($ep->sku !== null && trim((string) $ep->sku) !== '') $existingSkus[strtolower(trim((string) $ep->sku))] = true;
         }
         $ovSkus = DB::table('product_variation_values')

@@ -2933,6 +2933,57 @@
         color: var(--bl-ink-3);
     }
 
+    .x-attention-note {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: flex-start;
+        gap: var(--bl-space-3) var(--bl-space-5);
+        margin: var(--bl-space-3) var(--bl-gutter) 0;
+        padding: var(--bl-space-4) var(--bl-pad);
+        border: 1px solid var(--bl-bad);
+        border-radius: var(--bl-r-panel);
+        background: var(--bl-bad-wash);
+        color: var(--bl-ink);
+        font-size: 13px;
+    }
+
+    .x-attention-note__lead {
+        flex: 1 1 100%;
+        margin: 0;
+        font-weight: 600;
+    }
+
+    .x-attention-note__list {
+        flex: 1 1 420px;
+        min-width: 0;
+        display: grid;
+        gap: var(--bl-space-2);
+        margin: 0;
+        padding: 0;
+        list-style: none;
+    }
+
+    .x-attention-note__item {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: baseline;
+        gap: var(--bl-space-2);
+        color: var(--bl-ink-2);
+    }
+
+    .x-attention-note__code {
+        font-family: var(--font-mono);
+        font-size: 12.5px;
+        padding: 1px 8px;
+        border-radius: var(--bl-r-pill);
+        background: var(--bl-sheet);
+        color: var(--bl-bad);
+    }
+
+    .x-attention-note__item--attn .x-attention-note__code {
+        color: var(--bl-attn);
+    }
+
     .x-segment-groups {
         display: flex;
         align-items: center;
@@ -3913,8 +3964,8 @@
     .po-lines__body { display: flex; flex-direction: column; }
 
     .sp-col-order { width: 178px; }
-    .sp-col-buyer { width: 150px; }
-    .sp-buyer { font-size: 12.5px; }
+    .sp-col-customer { width: 150px; }
+    .sp-customer { font-size: 12.5px; }
     .sp-item__qty { font-variant-numeric: tabular-nums; color: var(--bl-ink-2); }
     .co-date { display: block; font-family: var(--font-mono); font-size: 11.5px; color: var(--bl-ink-3); }
     .co-status__note { font-size: 11.5px; color: var(--bl-ink-3); }

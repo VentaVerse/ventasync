@@ -17,7 +17,7 @@ use App\Channels\MenuItem;
 use App\Channels\OrderTab;
 use App\Channels\StoreLink;
 use App\Models\Catalog\OrderStatus;
-use App\Support\FulfilmentSteps;
+use App\Support\FulfillmentSteps;
 use Extensions\VentaCart\Models\VentaCartOrder;
 use Extensions\VentaCart\Models\VentaCartListingLink;
 use Extensions\VentaCart\Models\VentaCartStore;
@@ -30,7 +30,7 @@ use Illuminate\Support\Facades\Schema;
 use App\Channels\Contracts\CredentialRevealer;
 use App\Channels\Concerns\RevealsCredentials;
 
-class VentaCartExtension extends ExtensionProvider implements \App\Channels\Contracts\MarketplaceFeeSource, ChannelProvider, SkuSyncContributor, DashboardContributor, ChannelOptionsProvider, CredentialRevealer, ProductActionContributor, \App\Channels\Contracts\StoreOptionsProvider, \App\Channels\Contracts\ProductRemover, ListingStateSource, \App\Channels\Contracts\SaleLinesSource
+class VentaCartExtension extends ExtensionProvider implements \App\Channels\Contracts\ChannelFeeSource, ChannelProvider, SkuSyncContributor, DashboardContributor, ChannelOptionsProvider, CredentialRevealer, ProductActionContributor, \App\Channels\Contracts\StoreOptionsProvider, \App\Channels\Contracts\ProductRemover, ListingStateSource, \App\Channels\Contracts\SaleLinesSource
 {
     protected string $id = 'ventacart';
 
@@ -182,7 +182,7 @@ class VentaCartExtension extends ExtensionProvider implements \App\Channels\Cont
     public static function stepCounts(int $storeId): array
     {
         if (!Schema::hasTable('ch_ventacart_orders')) {
-            return array_fill_keys(FulfilmentSteps::placements(), 0);
+            return array_fill_keys(FulfillmentSteps::placements(), 0);
         }
 
         $statusCounts = VentaCartOrder::query()
@@ -193,7 +193,7 @@ class VentaCartExtension extends ExtensionProvider implements \App\Channels\Cont
 
         return array_map(
             fn (array $bucket) => $bucket['count'],
-            FulfilmentSteps::bucket('ventacart.orders', $statusCounts, VentaCartStatusPlacements::resolver($storeId))
+            FulfillmentSteps::bucket('ventacart.orders', $statusCounts, VentaCartStatusPlacements::resolver($storeId))
         );
     }
 
@@ -248,14 +248,14 @@ class VentaCartExtension extends ExtensionProvider implements \App\Channels\Cont
                     ->leftJoin($catalogProductTable . ' as cp', 'cp.product_id', '=', 'p.product_id')
                     ->where('o.channel', $orderChannel)
                     ->where('o.date_added', '>=', now()->startOfDay())
-                    ->whereNotNull('p.model')
-                    ->where('p.model', '!=', '')
+                    ->whereNotNull('p.sku')
+                    ->where('p.sku', '!=', '')
                     ->leftJoin(DB::raw('(SELECT order_product_id, GROUP_CONCAT(CONCAT(name, \': \', value) ORDER BY order_variation_id SEPARATOR \', \') AS variation FROM `order_variations` GROUP BY order_product_id) AS oo'), 'oo.order_product_id', '=', 'p.order_product_id')
-                    ->groupBy('p.model', 'oo.variation')
+                    ->groupBy('p.sku', 'oo.variation')
                     ->orderByDesc('qty_sold')->orderByDesc('revenue')->orderBy('name')
                     ->limit($limit)
                     ->select(
-                        'p.model as sku',
+                        'p.sku',
                         DB::raw('MAX(p.name) as name'),
                         DB::raw('MAX(cp.image) as image'),
                         DB::raw('oo.variation as variation'),
@@ -372,7 +372,7 @@ class VentaCartExtension extends ExtensionProvider implements \App\Channels\Cont
 
     public function saleLinesForOrder(int $coreOrderId, float $itemsSubtotal, float $shipping): ?array
     {
-        $order = VentaCartOrder::query()->where('catalog_order_id', $coreOrderId)->first();
+        $order = VentaCartOrder::query()->where('sales_order_id', $coreOrderId)->first();
         if (! $order) {
             return null;
         }
@@ -387,7 +387,7 @@ class VentaCartExtension extends ExtensionProvider implements \App\Channels\Cont
             return null;
         }
 
-        $row = DB::table('ch_ventacart_orders')->where('catalog_order_id', $coreOrderId)->first(['raw']);
+        $row = DB::table('ch_ventacart_orders')->where('sales_order_id', $coreOrderId)->first(['raw']);
         if (! $row) {
             return null;
         }

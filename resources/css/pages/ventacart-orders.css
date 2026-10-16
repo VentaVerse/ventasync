@@ -1,11 +1,10 @@
-.vt-col-products { width: 28%; }
+.vt-col-products { width: 41%; }
 .vt-col-qty      { width: 4%; }
 .vt-col-price    { width: 7%; }
 .vt-col-total    { width: 9%; }
 .vt-col-pay      { width: 11%; }
 .vt-col-track    { width: 13%; }
 .vt-col-status   { width: 11%; }
-.vt-col-date     { width: 13%; }
 .vt-col-act      { width: 4%; }
 
 .vt-pay { font-size: 13px; color: var(--bl-ink-2); }

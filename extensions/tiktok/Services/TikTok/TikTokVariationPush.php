@@ -8,11 +8,45 @@ class TikTokVariationPush
 {
     public const MAX_AXES = 3;
 
-    public function skus(object $erp, \Closure $priceFor, ?string $warehouseId, ?\Closure $uploadUri = null, ?array $existing = null): array
+    /**
+     * TikTok Shop reads a variation's picture from its first sales attribute and ignores one on the SKU.
+     * The picture rides on the SKU while the payload is built and shaped, and moves to its place here, just before sending.
+     */
+    public static function withImages(array $skus): array
+    {
+        // The picture belongs to the first attribute's value, so every SKU sharing that value shows the same one.
+        $byValue = [];
+        foreach ($skus as $sku) {
+            if (is_array($sku) && isset($sku['sku_img'], $sku['sales_attributes'][0])) {
+                $byValue[self::firstValue($sku)] ??= $sku['sku_img'];
+            }
+        }
+        foreach ($skus as $i => $sku) {
+            if (! is_array($sku)) {
+                continue;
+            }
+            unset($skus[$i]['sku_img']);
+            $image = isset($sku['sales_attributes'][0]) && is_array($sku['sales_attributes'][0]) ? ($byValue[self::firstValue($sku)] ?? null) : null;
+            if ($image !== null) {
+                $skus[$i]['sales_attributes'][0]['sku_img'] = $image;
+            }
+        }
+
+        return $skus;
+    }
+
+    private static function firstValue(array $sku): string
+    {
+        $first = (array) $sku['sales_attributes'][0];
+
+        return mb_strtolower(trim((string) ($first['value_id'] ?? '') !== '' ? 'id:' . $first['value_id'] : 'name:' . ($first['value_name'] ?? '')));
+    }
+
+    public function skus(object $catalog, \Closure $priceFor, ?string $warehouseId, ?\Closure $uploadUri = null, ?array $existing = null): array
     {
         $langId = (int) config('catalog.default_language_id');
-        $productId = (int) $erp->product_id;
-        $basePrice = (float) ($erp->price ?? 0);
+        $productId = (int) $catalog->product_id;
+        $basePrice = (float) ($catalog->price ?? 0);
         $existing = $existing ?? [];
 
         $inventory = function (int $qty) use ($warehouseId): array {
@@ -66,7 +100,7 @@ class TikTokVariationPush
             $skus = [];
             $keys = [];
             foreach ($combos as $combo) {
-                $sellerSku = trim((string) $combo->sku) !== '' ? trim((string) $combo->sku) : (($erp->sku ?: $erp->model ?: $productId) . '-' . $combo->id);
+                $sellerSku = trim((string) $combo->sku) !== '' ? trim((string) $combo->sku) : (($catalog->sku ?: $productId) . '-' . $combo->id);
                 $base = (float) $combo->absolute_price > 0 ? (float) $combo->absolute_price : $basePrice;
                 $sku = [
                     'seller_sku' => $sellerSku,
@@ -106,7 +140,7 @@ class TikTokVariationPush
             $keys = [];
             $axisName = $variationValues[0]->variation_type_name;
             foreach ($variationValues as $ov) {
-                $sellerSku = trim((string) $ov->sku) !== '' ? trim((string) $ov->sku) : ($erp->sku . '-' . $ov->variation_value_id);
+                $sellerSku = trim((string) $ov->sku) !== '' ? trim((string) $ov->sku) : ($catalog->sku . '-' . $ov->variation_value_id);
                 $sku = [
                     'seller_sku' => $sellerSku,
                     'sales_attributes' => [['name' => $axisName, 'value_name' => $ov->value_name]],
@@ -124,12 +158,12 @@ class TikTokVariationPush
             return ['skus' => $skus, 'kind' => 'pov', 'keys' => $keys, 'refused' => null];
         }
 
-        $sellerSku = $erp->sku ?: ($erp->model ?: (string) $productId);
+        $sellerSku = $catalog->sku ?: (string) $productId;
         $startPrice = \Extensions\TikTok\Models\TikTokListing::ownPrices([$productId])[$productId] ?? $basePrice;
         $sku = [
             'seller_sku' => $sellerSku,
             'price' => $money($priceFor($startPrice)),
-            'inventory' => $inventory((int) ($erp->quantity ?? 0)),
+            'inventory' => $inventory((int) ($catalog->quantity ?? 0)),
         ];
         $single = $existing['__single__'] ?? null;
         if ($single) {

@@ -22,18 +22,18 @@ class TikTokReturnsPanel
         'RETURNING' => 'Package returning',
         'REFUNDED' => 'Refunded',
         'REJECTED' => 'Rejected',
-        'CANCELLED' => 'Cancelled by buyer',
+        'CANCELLED' => 'Canceled by customer',
     ];
 
     public const STATUS_MAP = [
         'RETURN_OR_REFUND_REQUEST_PENDING' => ['Waiting for your answer', 'warning'],
         'REFUND_OR_RETURN_REQUEST_REJECT' => ['Rejected', 'neutral'],
         'REJECTED' => ['Rejected', 'neutral'],
-        'AWAITING_BUYER_SHIP' => ['Waiting for the buyer to ship', 'info'],
+        'AWAITING_BUYER_SHIP' => ['Waiting for the customer to ship', 'info'],
         'BUYER_SHIPPED_ITEM' => ['Package on its way back', 'info'],
         'RETURN_OR_REFUND_REQUEST_SUCCESS' => ['Approved', 'success'],
         'RETURN_OR_REFUND_REQUEST_COMPLETE' => ['Refunded', 'success'],
-        'RETURN_OR_REFUND_REQUEST_CANCEL' => ['Canceled by buyer', 'neutral'],
+        'RETURN_OR_REFUND_REQUEST_CANCEL' => ['Canceled by customer', 'neutral'],
     ];
 
     public const TYPE_MAP = [
@@ -117,11 +117,11 @@ class TikTokReturnsPanel
         $orders = $query->orderByDesc('id')->paginate($perPage)->appends($request->query());
 
         $orderIds = collect($orders->items())->pluck('order_id')->filter()->unique()->values();
-        $erpMap = $orderIds->isEmpty() ? collect() : \DB::table('ch_tiktok_orders')
+        $salesOrderMap = $orderIds->isEmpty() ? collect() : \DB::table('ch_tiktok_orders')
             ->whereIn('order_id', $orderIds->all())
-            ->whereNotNull('catalog_order_id')
+            ->whereNotNull('sales_order_id')
             ->when(app()->bound('tiktok.route-store'), fn ($q) => $q->where('store_id', app('tiktok.route-store')->id))
-            ->pluck('catalog_order_id', 'order_id');
+            ->pluck('sales_order_id', 'order_id');
 
         return [
             'orders' => $orders,
@@ -131,7 +131,7 @@ class TikTokReturnsPanel
             'filters' => $filters,
             'sort' => $sortKey,
             'per_page' => $perPage,
-            'erpMap' => $erpMap,
+            'salesOrderMap' => $salesOrderMap,
             'last_result' => session('tiktok_returns_last_result'),
         ];
     }

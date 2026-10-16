@@ -299,13 +299,11 @@ class TikTokClient
 
     private function sendImage(string $appKey, string $appSecret, string $accessToken, string $imageData, ?string $shopCipher, ?string $useCase): array
     {
+        // Image upload is not a shop call: TikTok Shop refuses it when shop_cipher is sent (36009004).
         $params = [
             'app_key' => $appKey,
             'timestamp' => time(),
         ];
-        if ($shopCipher) {
-            $params['shop_cipher'] = $shopCipher;
-        }
 
         $params['sign'] = $this->generateSign('/product/202309/images/upload', $params, null, $appSecret);
 

@@ -76,7 +76,7 @@ class LazadaBrandController extends Controller
             $body = $result['body'] ?? null;
 
             if (!(bool)($result['ok'] ?? false)) {
-                $msg = \App\Support\MarketplaceAnswer::plain('Lazada', ['ok' => false, 'body' => is_array($body) ? $body : []]);
+                $msg = \App\Support\ChannelAnswer::plain('Lazada', ['ok' => false, 'body' => is_array($body) ? $body : []]);
                 return redirect()->route('ext.lazada.brands.index')->with('error', 'Fetch failed: ' . $msg);
             }
 

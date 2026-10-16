@@ -12,7 +12,7 @@
         <div class="of-pick__body">
             <label class="x-sr" for="of-search">Search the catalog</label>
             <x-ui.input type="search" id="of-search" autocomplete="off"
-                        placeholder="Search by name, model or SKU. Two letters is enough." />
+                        placeholder="Search by name or SKU. Two letters is enough." />
 
             <p class="of-pick__added" id="of-pick-added" hidden></p>
 

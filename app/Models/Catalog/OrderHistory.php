@@ -14,7 +14,7 @@ class OrderHistory extends BaseModel
         'user_id',
         'user_name',
         'notify',
-        'comment',
+        'note',
         'date_added',
         'slug',
         'tracking_number',

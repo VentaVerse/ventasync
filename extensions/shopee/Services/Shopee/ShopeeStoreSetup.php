@@ -2,7 +2,7 @@
 
 namespace Extensions\Shopee\Services\Shopee;
 
-use App\Support\MarketplaceAnswer;
+use App\Support\ChannelAnswer;
 use Extensions\Shopee\Models\ShopeeApiLog;
 use Extensions\Shopee\Models\ShopeeLogistic;
 use Illuminate\Support\Facades\DB;
@@ -39,7 +39,7 @@ class ShopeeStoreSetup
         }
         if (!($result['ok'] ?? false) || empty($nodes)) {
             return ['ok' => false, 'count' => 0, 'message' => 'Shopee did not answer with its categories: '
-                . MarketplaceAnswer::plain('Shopee', ['ok' => false, 'body' => is_array($body) ? $body : []])];
+                . ChannelAnswer::plain('Shopee', ['ok' => false, 'body' => is_array($body) ? $body : []])];
         }
 
         $rows = [];
@@ -80,7 +80,7 @@ class ShopeeStoreSetup
         if (!($result['ok'] ?? false)) {
             $body = $result['body'] ?? null;
             return ['ok' => false, 'count' => 0, 'message' => 'Shopee did not answer with its couriers: '
-                . MarketplaceAnswer::plain('Shopee', ['ok' => false, 'body' => is_array($body) ? $body : []])];
+                . ChannelAnswer::plain('Shopee', ['ok' => false, 'body' => is_array($body) ? $body : []])];
         }
 
         $body = $result['body'] ?? [];

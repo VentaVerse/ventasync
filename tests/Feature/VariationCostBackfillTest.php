@@ -20,9 +20,9 @@ class VariationCostBackfillTest extends TestCase
         $langId = (int) config('catalog.default_language_id', 1);
 
         $this->productId = DB::table('products')->insertGetId([
-            'model' => 'GP200', 'sku' => 'valeton-gp-200', 'quantity' => 0, 'price' => 21990, 'status' => 1, 'image' => '',
+            'sku' => 'valeton-gp-200', 'quantity' => 0, 'price' => 21990, 'status' => 1, 'image' => '',
             'cost_amount' => 10000, 'cost_percentage' => 0, 'cost_additional' => 220, 'cost' => 10220,
-            'date_added' => now(), 'date_modified' => now(), 'date_available' => now(),
+            'date_added' => now(), 'date_modified' => now(),
         ]);
         DB::table('product_descriptions')->insert([
             'product_id' => $this->productId, 'language_id' => $langId, 'name' => 'Valeton GP-200',
@@ -50,7 +50,7 @@ class VariationCostBackfillTest extends TestCase
                 'product_id' => $this->productId, 'sku' => 'gp-' . $key, 'status' => 1, 'quantity' => 0,
                 'absolute_price' => $cols['absolute_price'], 'cost_amount' => $cols['cost_amount'],
                 'cost_additional' => $cols['cost_additional'], 'absolute_cost' => $cols['absolute_cost'],
-                'subtract' => 1, 'sort_order' => 0, 'created_at' => now(), 'updated_at' => now(),
+                'subtract_stock' => 1, 'sort_order' => 0, 'created_at' => now(), 'updated_at' => now(),
             ]);
             DB::table('product_variation_parts')->insert([
                 'product_variation_id' => $this->combo[$key], 'product_variation_value_id' => $this->pov[$key],

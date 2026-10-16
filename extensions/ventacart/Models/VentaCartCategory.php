@@ -14,10 +14,10 @@ class VentaCartCategory extends Model
         'name',
         'slug',
         'parent_id',
-        'is_active',
+        'enabled',
     ];
 
     protected $casts = [
-        'is_active' => 'boolean',
+        'enabled' => 'boolean',
     ];
 }

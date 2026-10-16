@@ -12,7 +12,7 @@ class ShopeeFindDuplicates extends Command
 {
     protected $signature = 'shopee:find-duplicates {--store= : one store id, default every enabled store}';
 
-    protected $description = 'Report duplicate Shopee items, items with no ERP link, and products with no SKU (read only)';
+    protected $description = 'Report duplicate Shopee items, items with no VentaSync link, and products with no SKU (read only)';
 
     private const PAGES = 40;
 
@@ -197,12 +197,12 @@ class ShopeeFindDuplicates extends Command
 
         $this->line('');
         if ($orphans === []) {
-            $this->line('Every item in the shop has a link in this ERP.');
+            $this->line('Every item in the shop has a link in VentaSync.');
 
             return;
         }
 
-        $this->warn(count($orphans) . ' item(s) in the shop have NO link in this ERP:');
+        $this->warn(count($orphans) . ' item(s) in the shop have NO link in VentaSync:');
         foreach ($orphans as $item) {
             $this->line(sprintf(
                 '  item %d  %s  %s  [%s]',
@@ -220,7 +220,7 @@ class ShopeeFindDuplicates extends Command
             ->get(['product_id', 'shopee_item_id', 'shopee_model_id', 'store_id', 'sku', 'live_status']);
 
         $this->line('');
-        $this->line('Link rows in this ERP (every store): ' . $rows->count());
+        $this->line('Link rows in VentaSync (every store): ' . $rows->count());
 
         $byStore = $rows->groupBy(fn ($r) => (string) ($r->store_id ?? 'NULL'));
         foreach ($byStore as $sid => $group) {
@@ -294,18 +294,17 @@ class ShopeeFindDuplicates extends Command
             })
             ->whereIn('p.product_id', \Extensions\Shopee\Services\ShopeeStoreProducts::query())
             ->where(fn ($q) => $q->whereNull('p.sku')->orWhere('p.sku', ''))
-            ->where(fn ($q) => $q->whereNull('p.model')->orWhere('p.model', ''))
             ->orderBy('p.product_id')
             ->get(['p.product_id', 'pd.name']);
 
         $this->line('');
         if ($rows->isEmpty()) {
-            $this->line('Every product on this store carries an SKU or a model.');
+            $this->line('Every product on this store carries an SKU.');
 
             return;
         }
 
-        $this->warn($rows->count() . ' product(s) on this store carry neither an SKU nor a model.');
+        $this->warn($rows->count() . ' product(s) on this store carry no SKU.');
         $this->line('A push of one of these cannot be matched back to its Shopee item, so a lost link');
         $this->line('can never be recovered and the next push creates a second item.');
         foreach ($rows as $row) {

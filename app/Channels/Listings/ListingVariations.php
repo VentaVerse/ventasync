@@ -67,7 +67,7 @@ final class ListingVariations
 
     public static function sold(string $channel, int $storeId, array $productIds): array
     {
-        $all = PushLedger::erpVariationSkus($productIds);
+        $all = PushLedger::catalogVariationSkus($productIds);
         $hidden = self::hidden($channel, $storeId, $productIds);
         foreach ($all as $pid => $skus) {
             $all[$pid] = array_values(array_filter($skus, fn ($sku) => self::allows($hidden, (int) $pid, $sku)));
@@ -78,7 +78,7 @@ final class ListingVariations
 
     public static function noneSold(string $channel, int $storeId, int $productId): bool
     {
-        $all = PushLedger::erpVariationSkus([$productId])[$productId] ?? [];
+        $all = PushLedger::catalogVariationSkus([$productId])[$productId] ?? [];
 
         return $all !== [] && (self::sold($channel, $storeId, [$productId])[$productId] ?? []) === [];
     }
@@ -228,11 +228,9 @@ final class ListingVariations
         }
 
         $parent = [];
-        $product = DB::table('products')->where('product_id', $productId)->first(['sku', 'model']);
-        foreach ([$product->sku ?? '', $product->model ?? ''] as $own) {
-            if (($k = self::key($own)) !== '') {
-                $parent[$k] = true;
-            }
+        $product = DB::table('products')->where('product_id', $productId)->first(['sku']);
+        if (($k = self::key($product->sku ?? '')) !== '') {
+            $parent[$k] = true;
         }
 
         $extras = [];
@@ -260,7 +258,7 @@ final class ListingVariations
         $on = array_flip(array_map(fn ($s) => self::key($s), $onSkus));
         $coreOff = self::offInCatalog([$productId])[$productId] ?? [];
         $shown = [];
-        foreach (PushLedger::erpVariationSkus([$productId])[$productId] ?? [] as $sku) {
+        foreach (PushLedger::catalogVariationSkus([$productId])[$productId] ?? [] as $sku) {
             $k = self::key($sku);
             if ($k !== '' && ! isset($coreOff[$k])) {
                 $shown[$k] = trim((string) $sku);

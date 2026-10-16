@@ -1,5 +1,5 @@
 @props([
-    'invoice'   => null,   // The buyer_invoice array (or null)
+    'invoice'   => null,   // The customer_invoice array (or null)
     'reference' => '',     // Order reference (used to build a unique modal id)
 ])
 
@@ -20,7 +20,7 @@
 
 <button type="button"
         class="btn-invoice-req"
-        title="Buyer requested an invoice. Click for details."
+        title="Customer requested an invoice. Click for details."
         onclick="document.getElementById('{{ $modalId }}').classList.add('active')">
     <svg class="btn-invoice-req__icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
         <path d="M3 1.5h7.5L13 4v10a.5.5 0 0 1-.5.5h-9a.5.5 0 0 1-.5-.5V2a.5.5 0 0 1 .5-.5z"/>
@@ -40,7 +40,7 @@
         </div>
         <div class="inv-modal-body">
             <div class="inv-row">
-                <span class="inv-row__label">Buyer</span>
+                <span class="inv-row__label">Customer</span>
                 <span class="inv-row__value">{{ $name !== '' ? $name : '-' }}</span>
                 <span></span>
             </div>
@@ -70,7 +70,7 @@
                 @endif
             </div>
             <div class="inv-row">
-                <span class="inv-row__label">Phone</span>
+                <span class="inv-row__label">Telephone</span>
                 <span class="inv-row__value {{ $phone === '' ? 'inv-row__value--muted' : '' }}">{{ $phone !== '' ? $phone : '-' }}</span>
                 <span></span>
             </div>

@@ -12,7 +12,7 @@
     $syncStatus = (string) ($syncStatus ?? 'all');
     $brandFilter = (string) ($brandFilter ?? 'all');
     $groupFilter = (string) ($groupFilter ?? 'all');
-    $erpStatus = (string) ($erpStatus ?? 'all');
+    $catalogStatus = (string) ($catalogStatus ?? 'all');
     $sort = (string) ($sort ?? 'id');
     $dir = (string) ($dir ?? 'desc');
 
@@ -23,7 +23,7 @@
         || ($changeFlag ?? false)
         || $brandFilter !== 'all'
         || $groupFilter !== 'all'
-        || $erpStatus !== 'all';
+        || $catalogStatus !== 'all';
 
     $toggleDir = function (string $col) use ($sort, $dir) {
         if ($sort !== $col) return 'asc';
@@ -169,7 +169,7 @@
         <input type="hidden" name="change" value="1">
     @endif
     <x-ui.input type="search" name="q" class="x-filters__search"
-                value="{{ $q }}" placeholder="Name, model, SKU or Lazada ID" aria-label="Search listings" />
+                value="{{ $q }}" placeholder="Name, SKU or Lazada ID" aria-label="Search listings" />
 
     <div class="x-select-wrap x-filters__select">
         <select name="brand" class="x-input" data-autosubmit aria-label="Filter by brand">
@@ -183,10 +183,10 @@
 
 
     <div class="x-select-wrap x-filters__select x-filters__select--narrow">
-        <select name="erp_status" class="x-input" data-autosubmit aria-label="Filter by Master Catalog status">
-            <option value="all" @selected($erpStatus === 'all')>Any Master Catalog status</option>
-            <option value="enabled" @selected($erpStatus === 'enabled')>Enabled</option>
-            <option value="disabled" @selected($erpStatus === 'disabled')>Disabled</option>
+        <select name="catalog_status" class="x-input" data-autosubmit aria-label="Filter by Master Catalog status">
+            <option value="all" @selected($catalogStatus === 'all')>Any Master Catalog status</option>
+            <option value="enabled" @selected($catalogStatus === 'enabled')>Enabled</option>
+            <option value="disabled" @selected($catalogStatus === 'disabled')>Disabled</option>
         </select>
         <x-ui.icon name="chevron-down" size="14" class="x-select-wrap__chevron" />
     </div>
@@ -236,8 +236,8 @@
         'push' => ['action' => route('ext.lazada.products.bulk_push'), 'label' => 'Send to Lazada',
             'confirm' => 'Send the selected products to Lazada? Each goes up on its own settings, and anything not ready is named rather than sent.'],
         'switch' => [
-            ['action' => route('ext.lazada.products.bulk_toggle'), 'verb' => 'deactivate', 'codes' => 'active', 'label' => 'Deactivate :n on Lazada', 'button' => 'Deactivate on Lazada', 'fields' => ['action' => 'deactivate'], 'confirm' => 'Deactivate the selected items on Lazada? Buyers stop seeing them. They stay here and can be activated again at any time.'],
-            ['action' => route('ext.lazada.products.bulk_toggle'), 'verb' => 'activate', 'codes' => 'inactive', 'label' => 'Activate :n on Lazada', 'button' => 'Activate on Lazada', 'fields' => ['action' => 'activate'], 'confirm' => 'Activate the selected items on Lazada? Buyers see them again once Lazada applies it.'],
+            ['action' => route('ext.lazada.products.bulk_toggle'), 'verb' => 'deactivate', 'codes' => 'active', 'label' => 'Deactivate :n on Lazada', 'button' => 'Deactivate on Lazada', 'fields' => ['action' => 'deactivate'], 'confirm' => 'Deactivate the selected items on Lazada? Customers stop seeing them. They stay here and can be activated again at any time.'],
+            ['action' => route('ext.lazada.products.bulk_toggle'), 'verb' => 'activate', 'codes' => 'inactive', 'label' => 'Activate :n on Lazada', 'button' => 'Activate on Lazada', 'fields' => ['action' => 'activate'], 'confirm' => 'Activate the selected items on Lazada? Customers see them again once Lazada applies it.'],
         ],
         'link' => ['action' => route('ext.lazada.products.bulk_sync_lazada_id'), 'label' => 'Link IDs'],
         'delete' => ['action' => route('ext.lazada.products.bulk_delete'), 'label' => 'Delete from Lazada', 'confirm' => 'Delete the selected listings from Lazada? The listings are removed at the marketplace and this cannot be undone.'],
@@ -439,11 +439,13 @@
                                 $menu['link'] = ['action' => route('ext.lazada.products.sync_lazada_id', $pid)];
                             }
                         } else {
-                            $menu['update'] = ['action' => route('ext.lazada.products.upload', $pid), 'label' => 'Send to Lazada', 'confirm' => "Send this listing's content and settings to the live Lazada item? Name, description, package, category, brand, attributes, price and stock are updated.", 'verb' => 'Send', 'tone' => 'primary'];
+                            $menu['update'] = ['action' => route('ext.lazada.products.upload', $pid), 'label' => 'Send to Lazada', 'confirm' => $listing->lazada_deleted_at
+                                ? "Lazada last reported item {$listing->lazada_item_id} as gone. Sending asks Lazada first: if the item is still there it is updated, and only if it is gone is the product listed again as a new item."
+                                : "Send this listing's content and settings to the live Lazada item? Name, description, package, category, brand, attributes, price and stock are updated.", 'verb' => 'Send', 'tone' => 'primary'];
                             if ($rowState?->state === $stateClass::LIVE) {
-                                $menu['switch'] = ['action' => route('ext.lazada.listings.toggle', $pid), 'label' => 'Deactivate on Lazada', 'fields' => ['action' => 'deactivate'], 'confirm' => "Deactivate {$rowLabel} on Lazada? Buyers stop seeing it. It can be activated again at any time.", 'verb' => 'Deactivate'];
+                                $menu['switch'] = ['action' => route('ext.lazada.listings.toggle', $pid), 'label' => 'Deactivate on Lazada', 'fields' => ['action' => 'deactivate'], 'confirm' => "Deactivate {$rowLabel} on Lazada? Customers stop seeing it. It can be activated again at any time.", 'verb' => 'Deactivate'];
                             } elseif ($rowState?->state === $stateClass::INACTIVE) {
-                                $menu['switch'] = ['action' => route('ext.lazada.listings.toggle', $pid), 'label' => 'Activate on Lazada', 'fields' => ['action' => 'activate'], 'confirm' => "Activate {$rowLabel} on Lazada? Buyers see it again once Lazada applies it.", 'verb' => 'Activate', 'tone' => 'primary'];
+                                $menu['switch'] = ['action' => route('ext.lazada.listings.toggle', $pid), 'label' => 'Activate on Lazada', 'fields' => ['action' => 'activate'], 'confirm' => "Activate {$rowLabel} on Lazada? Customers see it again once Lazada applies it.", 'verb' => 'Activate', 'tone' => 'primary'];
                             }
                             $menu['check'] = ['action' => route('ext.lazada.products.check'), 'label' => 'Check against Lazada', 'fields' => ['product_ids[]' => $pid]];
                             $menu['unlink'] = ['action' => route('ext.lazada.products.unlink', $pid), 'confirm' => "Unlink {$rowLabel} from Lazada? Only the link is removed. The Lazada listing stays up and can be linked again later."];

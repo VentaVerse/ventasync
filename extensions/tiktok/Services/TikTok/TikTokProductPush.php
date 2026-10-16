@@ -12,7 +12,7 @@ class TikTokProductPush
         private TikTokDescriptionImages $descriptionImages,
     ) {}
 
-    public function build(object $erp, array $opts, array $c, TikTokClient $client, ?array $existingIds = null): array
+    public function build(object $catalog, array $opts, array $c, TikTokClient $client, ?array $existingIds = null): array
     {
         $categoryId = trim((string) ($opts['category_id'] ?? ''));
         if ($categoryId === '' || ! preg_match('/^\d+$/', $categoryId)) {
@@ -40,11 +40,11 @@ class TikTokProductPush
 
         $own = array_key_exists('image_order', $opts)
             ? $opts['image_order']
-            : \Extensions\TikTok\Models\TikTokListing::query()->where('product_id', (int) $erp->product_id)->value('image_order');
-        $paths = \App\Support\Catalog\ProductImages::paths((int) $erp->product_id, $own);
-        $marking = \Extensions\TikTok\Models\TikTokListing::query()->where('product_id', (int) $erp->product_id)
+            : \Extensions\TikTok\Models\TikTokListing::query()->where('product_id', (int) $catalog->product_id)->value('image_order');
+        $paths = \App\Support\Catalog\ProductImages::paths((int) $catalog->product_id, $own);
+        $marking = \Extensions\TikTok\Models\TikTokListing::query()->where('product_id', (int) $catalog->product_id)
             ->first(['store_id', 'watermark_template_id', 'watermark_all_images']);
-        $paths = \App\Services\Media\ListingWatermark::paths(\App\Channels\Listings\ListingImages::sending($paths, $marking), $marking, \App\Services\Media\ListingWatermark::groupTemplateId('ch_tiktok_product_groups', 'ch_tiktok_product_group_products', 'tiktok_product_group_id', (int) $erp->product_id, 'store_id', (int) ($marking?->store_id ?? 0) ?: null), 'tiktok', (int) ($marking?->store_id ?? 0));
+        $paths = \App\Services\Media\ListingWatermark::paths(\App\Channels\Listings\ListingImages::sending($paths, $marking), $marking, \App\Services\Media\ListingWatermark::groupTemplateId('ch_tiktok_product_groups', 'ch_tiktok_product_group_products', 'tiktok_product_group_id', (int) $catalog->product_id, 'store_id', (int) ($marking?->store_id ?? 0) ?: null), 'tiktok', (int) ($marking?->store_id ?? 0));
         $imageUris = [];
         foreach ($paths as $path) {
             $uri = $uploadUri($path);
@@ -56,22 +56,22 @@ class TikTokProductPush
             return ['refused' => 'No product image reached TikTok Shop; it requires at least one main image.'];
         }
 
-        $built = $this->variations->skus($erp, $opts['priceFor'], $opts['warehouse_id'] ?? null, $uploadUri, $existingIds);
+        $built = $this->variations->skus($catalog, $opts['priceFor'], $opts['warehouse_id'] ?? null, $uploadUri, $existingIds);
         if ($built['refused']) {
             return ['refused' => $built['refused']];
         }
 
-        $title = trim((string) ($opts['title'] ?? '')) !== '' ? trim((string) $opts['title']) : ($erp->name ?: ('Product ' . $erp->product_id));
+        $title = trim((string) ($opts['title'] ?? '')) !== '' ? trim((string) $opts['title']) : ($catalog->name ?: ('Product ' . $catalog->product_id));
         $title = html_entity_decode($title, ENT_QUOTES | ENT_HTML5, 'UTF-8');
         if (mb_strlen($title) < 25) {
-            $title = rtrim($title . ' ' . ($erp->model ?: $erp->sku ?: ('#' . $erp->product_id)));
+            $title = rtrim($title . ' ' . ($catalog->sku ?: ('#' . $catalog->product_id)));
             while (mb_strlen($title) < 25) {
                 $title .= ' .';
             }
         }
         $title = mb_substr($title, 0, 255);
 
-        $rawDesc = trim((string) ($opts['description'] ?? '')) !== '' ? (string) $opts['description'] : (string) ($erp->description ?? '');
+        $rawDesc = trim((string) ($opts['description'] ?? '')) !== '' ? (string) $opts['description'] : (string) ($catalog->description ?? '');
         $desc = \App\Channels\Listings\RichDescription::forTikTok($rawDesc);
         $leftOut = max(0, \App\Channels\Listings\RichDescription::imageCount($rawDesc) - \App\Channels\Listings\RichDescription::imageCount($desc));
         $blank = fn (string $html): bool => trim(strip_tags($html)) === '' && stripos($html, '<img') === false;
@@ -79,7 +79,7 @@ class TikTokProductPush
             $desc = $title;
         }
 
-        $ttListing = \Extensions\TikTok\Models\TikTokListing::query()->where('product_id', (int) $erp->product_id)->first();
+        $ttListing = \Extensions\TikTok\Models\TikTokListing::query()->where('product_id', (int) $catalog->product_id)->first();
         $desc = \App\Channels\Listings\ListingContent::wrapDescription(
             $desc, 'tiktok', (int) ($ttListing->store_id ?? 0), $ttListing
         );
@@ -94,9 +94,9 @@ class TikTokProductPush
 
         $desc = mb_substr($desc, 0, 10000);
 
-        $weight = (float) ($ttListing?->weight ?? 0) > 0 ? (float) $ttListing->weight : (float) ($erp->weight ?? 0);
+        $weight = (float) ($ttListing?->weight ?? 0) > 0 ? (float) $ttListing->weight : (float) ($catalog->weight ?? 0);
         $side = fn (string $own, string $core): string => (string) \App\Channels\Listings\ParcelPrecision::of(
-            $ttListing?->{$own}, $erp->{$core} ?? 0, \App\Channels\Listings\ParcelPrecision::TIKTOK['dimension']
+            $ttListing?->{$own}, $catalog->{$core} ?? 0, \App\Channels\Listings\ParcelPrecision::TIKTOK['dimension']
         );
 
         $payload = [
@@ -137,12 +137,13 @@ class TikTokProductPush
             : $leftOut . ' pictures in the description could not be sent to TikTok Shop and were left out.';
     }
 
-    public function create(object $erp, array $opts, array $c, TikTokClient $client): array
+    public function create(object $catalog, array $opts, array $c, TikTokClient $client): array
     {
-        $b = $this->build($erp, $opts, $c, $client, null);
+        $b = $this->build($catalog, $opts, $c, $client, null);
         if (isset($b['refused'])) {
             return ['ok' => false, 'message' => $b['refused'], 'result' => []];
         }
+        $b['payload']['skus'] = TikTokVariationPush::withImages((array) ($b['payload']['skus'] ?? []));
         try {
             $result = $client->createProduct($c['app_key'], $c['app_secret'], $c['token'], $b['payload'], $c['shop_cipher'] ?: null);
         } catch (\Throwable $e) {
@@ -165,13 +166,13 @@ class TikTokProductPush
         ];
     }
 
-    public function edit(object $erp, string $tiktokProductId, ?string $existingRaw, array $opts, array $c, TikTokClient $client): array
+    public function edit(object $catalog, string $tiktokProductId, ?string $existingRaw, array $opts, array $c, TikTokClient $client): array
     {
         $existing = TikTokVariationPush::existingIds($existingRaw);
         $builtIn = $this->builtInTypes((string) ($opts['category_id'] ?? ''), $client, $c);
 
         $live = null;
-        $probe = $this->variations->skus($erp, $opts['priceFor'], $opts['warehouse_id'] ?? null, null, $existing);
+        $probe = $this->variations->skus($catalog, $opts['priceFor'], $opts['warehouse_id'] ?? null, null, $existing);
         if (!$probe['refused'] && $probe['kind'] !== 'single') {
             $read = (new TikTokLiveListing($client))->variationSkus($tiktokProductId, $c);
             if ($read['skus'] === null) {
@@ -180,7 +181,7 @@ class TikTokProductPush
             $live = $read['skus'];
         }
 
-        $b = $this->build($erp, $opts, $c, $client, $existing);
+        $b = $this->build($catalog, $opts, $c, $client, $existing);
         if (isset($b['refused'])) {
             return ['ok' => false, 'message' => $b['refused'], 'result' => []];
         }
@@ -221,6 +222,7 @@ class TikTokProductPush
 
     private function sendEdit(TikTokClient $client, array $c, string $tiktokProductId, array $payload): array
     {
+        $payload['skus'] = TikTokVariationPush::withImages((array) ($payload['skus'] ?? []));
         try {
             $result = $client->editProduct($c['app_key'], $c['app_secret'], $c['token'], $tiktokProductId, $payload, $c['shop_cipher'] ?: null);
         } catch (\Throwable $e) {
@@ -268,7 +270,7 @@ class TikTokProductPush
 
     private function message(array $result): string
     {
-        return \App\Support\MarketplaceAnswer::errorText('TikTok Shop', $result);
+        return \App\Support\ChannelAnswer::errorText('TikTok Shop', $result);
     }
 
     private function log(string $method, string $path, array $params, array $result): void

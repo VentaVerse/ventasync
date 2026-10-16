@@ -18,7 +18,7 @@ class EnsureApiScope
 
         if (! $user instanceof ApiClient
             || ! $token instanceof PersonalAccessToken
-            || ! $user->active
+            || ! $user->enabled
             || ! $token->can($scope)) {
             return response()->json([
                 'message' => "Missing required scope: {$scope}",

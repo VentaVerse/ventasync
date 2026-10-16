@@ -2,8 +2,8 @@
 
 namespace Extensions\Lazada\Services;
 
-use App\Support\Fulfilment\CourierTally;
-use App\Support\FulfilmentSteps;
+use App\Support\Fulfillment\CourierTally;
+use App\Support\FulfillmentSteps;
 use Extensions\Lazada\Models\LazadaOrder;
 use Extensions\Lazada\Models\LazadaStore;
 use Illuminate\Http\Request;
@@ -56,7 +56,7 @@ class LazadaOrdersPanel
             'DELIVERED',
             'CANCELLATION',
             'FAILED_DELIVERY',
-            'OTHER',
+            \App\Support\OrderAttention::TAB,
         ];
         if (!in_array($tab, $allowedTabs, true)) { $tab = 'ALL'; }
 
@@ -95,14 +95,15 @@ class LazadaOrdersPanel
             'UNPAID'          => ['unpaid'],
             'TO_SHIP'         => ['pending', 'repacked', 'packed', 'ready_to_ship'],
             'SHIPPING'        => ['shipped'],
-            'DELIVERED'       => ['delivered', 'confirmed'],
+            // returned: delivered, then sent back by the buyer; the return itself is on the Returns page.
+            'DELIVERED'       => ['delivered', 'confirmed', 'returned'],
             'CANCELLATION'    => ['canceled', 'cancelled'],
-            'FAILED_DELIVERY' => ['failed_delivery', 'lost_by_3pl', 'damaged_by_3pl', 'shipped_back', 'shipped_back_success'],
+            'FAILED_DELIVERY' => ['failed_delivery', 'lost_by_3pl', 'damaged_by_3pl', 'package_scrapped', 'shipped_back', 'shipped_back_success'],
         ];
 
         $mappedStatuses = array_values(array_unique(array_merge(...array_values($tabStatusMap))));
 
-        $tabs = FulfilmentSteps::tabs([
+        $tabs = FulfillmentSteps::tabs([
             'ALL'             => 'all',
             'UNPAID'          => 'unpaid',
             'TO_SHIP'         => 'to_ship',
@@ -126,6 +127,11 @@ class LazadaOrdersPanel
             ->with('products');
 
         $baseCountQuery = LazadaOrder::query()->where('region', $store->region ?? 'ph');
+        $attention = \App\Support\OrderAttention::reasons($baseCountQuery, $mappedStatuses,
+            \Extensions\Lazada\Models\LazadaOrderStatusMap::query()->pluck('lazada_status')->all());
+        if ($tab === \App\Support\OrderAttention::TAB && $attention === []) {
+            $tab = 'ALL';
+        }
 
 
         if ($tab !== 'ALL') {
@@ -141,12 +147,12 @@ class LazadaOrdersPanel
                 $fdMap = [
                     'failed_delivery' => ['failed_delivery'],
                     'shipped_back' => ['shipped_back', 'shipped_back_success'],
-                    'lost_damaged' => ['lost_by_3pl', 'damaged_by_3pl'],
+                    'lost_damaged' => ['lost_by_3pl', 'damaged_by_3pl', 'package_scrapped'],
                 ];
                 $statuses = $fdMap[$fdSub] ?? ['failed_delivery'];
                 $query->whereIn('status', $statuses);
-            } elseif ($tab === 'OTHER') {
-                $query->whereNotIn('status', $mappedStatuses);
+            } elseif ($tab === \App\Support\OrderAttention::TAB) {
+                $query->whereIn('status', array_keys($attention) ?: ['']);
             } else {
                 $statuses = $tabStatusMap[$tab] ?? [];
                 if (!empty($statuses)) {
@@ -172,7 +178,7 @@ class LazadaOrdersPanel
         $fd_sub_counts = [
             'failed_delivery' => (clone $baseCountQuery)->whereIn('status', ['failed_delivery'])->count(),
             'shipped_back' => (clone $baseCountQuery)->whereIn('status', ['shipped_back', 'shipped_back_success'])->count(),
-            'lost_damaged' => (clone $baseCountQuery)->whereIn('status', ['lost_by_3pl', 'damaged_by_3pl'])->count(),
+            'lost_damaged' => (clone $baseCountQuery)->whereIn('status', ['lost_by_3pl', 'damaged_by_3pl', 'package_scrapped'])->count(),
         ];
         if ($find !== '') {
             $like = '%' . $find . '%';
@@ -210,11 +216,7 @@ class LazadaOrdersPanel
                 : 0;
         }
 
-        $otherCount = (clone $baseCountQuery)->whereNotIn('status', $mappedStatuses)->count();
-        if ($otherCount > 0) {
-            $tabs['OTHER'] = FulfilmentSteps::label('other');
-            $tab_counts['OTHER'] = $otherCount;
-        }
+        [$tabs, $tab_counts] = \App\Support\OrderAttention::prepend($tabs, $tab_counts, $baseCountQuery, $attention);
 
         if ($sortBy === 'confirmed_created') {
             $query->orderByRaw("JSON_UNQUOTE(JSON_EXTRACT(raw, '$.created_at')) {$sortDir}");
@@ -234,7 +236,7 @@ class LazadaOrdersPanel
         $savedAwbs = [];
         foreach ($orders as $o) {
             $oid = (string) ($o->order_id ?? '');
-            if ($oid !== '' && file_exists(\App\Support\Fulfilment\Waybills::path('lazada', (int) $o->store_id, $oid))) {
+            if ($oid !== '' && file_exists(\App\Support\Fulfillment\Waybills::path('lazada', (int) $o->store_id, $oid))) {
                 $savedAwbs[$o->order_id] = true;
             }
         }
@@ -249,6 +251,8 @@ class LazadaOrdersPanel
             'pending_subtab' => $pendingSubtab,
             'fd_subtab' => $fdSub,
             'tab_counts' => $tab_counts,
+            'attention' => $attention,
+            'attention_mapping_url' => route('ext.lazada.index', ['store' => $store->id ?? 1]) . '?tab=status',
             'pending_sub_counts' => $pending_sub_counts,
             'fd_sub_counts' => $fd_sub_counts,
             'courier_tally' => $courierTally->forStrip($courierKey),
@@ -280,7 +284,7 @@ class LazadaOrdersPanel
             ->with('products')
             ->first();
 
-        return \App\Support\Fulfilment\PackedParcel::fromOrder($order, $orderId);
+        return \App\Support\Fulfillment\PackedParcel::fromOrder($order, $orderId);
     }
 
     private function buildToShipCourierTally(string $region, array $statuses): CourierTally

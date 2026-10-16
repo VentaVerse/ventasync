@@ -11,9 +11,9 @@
     $returnTo = request()->getRequestUri();
 
     $q = (string) ($q ?? '');
-    $erpStatus = (string) ($erpStatus ?? 'all');
+    $catalogStatus = (string) ($catalogStatus ?? 'all');
     $syncStatus = (string) ($syncStatus ?? 'all');
-    $hasFilters = $q !== '' || $erpStatus !== 'all' || $syncStatus !== 'all';
+    $hasFilters = $q !== '' || $catalogStatus !== 'all' || $syncStatus !== 'all';
 
     $listUrl = route('ext.lazada.product-groups.products', $group->id);
 @endphp
@@ -34,7 +34,7 @@
     <div class="cc-head-actions">
         @if($canManageLazada)
             <form method="POST" action="{{ route('ext.lazada.product-groups.check', $group->id) }}"
-                  data-confirm="Check every product in this product group against Lazada? Nothing is sent or changed on Lazada; the ERP updates its own records to match what it finds." data-confirm-tone="primary" data-confirm-verb="Check against Lazada">
+                  data-confirm="Check every product in this product group against Lazada? Nothing is sent or changed on Lazada; VentaSync updates its own records to match what it finds." data-confirm-tone="primary" data-confirm-verb="Check against Lazada">
                 @csrf
                 <input type="hidden" name="_return" value="{{ $returnTo ?? request()->getRequestUri() }}">
                 <x-ui.button type="submit" variant="secondary">Check against Lazada</x-ui.button>
@@ -52,13 +52,13 @@
 
 <form method="GET" action="{{ $listUrl }}" class="x-filters">
     <x-ui.input type="search" name="q" class="x-filters__search"
-                value="{{ $q }}" placeholder="Name, model or SKU" aria-label="Search products in this product group" />
+                value="{{ $q }}" placeholder="Name or SKU" aria-label="Search products in this product group" />
 
     <div class="x-select-wrap x-filters__select x-filters__select--narrow">
-        <select name="erp_status" class="x-input" data-autosubmit aria-label="Filter by Master Catalog status">
-            <option value="all" @selected($erpStatus === 'all')>Any Master Catalog status</option>
-            <option value="enabled" @selected($erpStatus === 'enabled')>Enabled</option>
-            <option value="disabled" @selected($erpStatus === 'disabled')>Disabled</option>
+        <select name="catalog_status" class="x-input" data-autosubmit aria-label="Filter by Master Catalog status">
+            <option value="all" @selected($catalogStatus === 'all')>Any Master Catalog status</option>
+            <option value="enabled" @selected($catalogStatus === 'enabled')>Enabled</option>
+            <option value="disabled" @selected($catalogStatus === 'disabled')>Disabled</option>
         </select>
         <x-ui.icon name="chevron-down" size="14" class="x-select-wrap__chevron" />
     </div>
@@ -92,8 +92,8 @@
         'push' => ['action' => route('ext.lazada.product-groups.push', $group->id), 'label' => 'Send to Lazada', 'fields' => $gf, 'confirm' => 'Send the selected products to Lazada with this product group\'s settings? Anything already on Lazada is updated there.'],
         'link' => ['action' => route('ext.lazada.product-groups.check', $group->id), 'label' => 'Link IDs', 'fields' => $gf],
         'switch' => [
-            ['action' => route('ext.lazada.products.bulk_toggle'), 'field' => 'product_ids[]', 'verb' => 'deactivate', 'codes' => 'active', 'label' => 'Deactivate :n on Lazada', 'button' => 'Deactivate on Lazada', 'fields' => ['action' => 'deactivate'], 'confirm' => 'Deactivate the selected items on Lazada? Buyers stop seeing them. They can be activated again at any time.'],
-            ['action' => route('ext.lazada.products.bulk_toggle'), 'field' => 'product_ids[]', 'verb' => 'activate', 'codes' => 'inactive', 'label' => 'Activate :n on Lazada', 'button' => 'Activate on Lazada', 'fields' => ['action' => 'activate'], 'confirm' => 'Activate the selected items on Lazada? Buyers see them again once Lazada applies it.'],
+            ['action' => route('ext.lazada.products.bulk_toggle'), 'field' => 'product_ids[]', 'verb' => 'deactivate', 'codes' => 'active', 'label' => 'Deactivate :n on Lazada', 'button' => 'Deactivate on Lazada', 'fields' => ['action' => 'deactivate'], 'confirm' => 'Deactivate the selected items on Lazada? Customers stop seeing them. They can be activated again at any time.'],
+            ['action' => route('ext.lazada.products.bulk_toggle'), 'field' => 'product_ids[]', 'verb' => 'activate', 'codes' => 'inactive', 'label' => 'Activate :n on Lazada', 'button' => 'Activate on Lazada', 'fields' => ['action' => 'activate'], 'confirm' => 'Activate the selected items on Lazada? Customers see them again once Lazada applies it.'],
         ],
         'delete' => ['action' => route('ext.lazada.product-groups.deleteFromLazada', $group->id), 'label' => 'Delete from Lazada', 'fields' => $gf, 'confirm' => 'Delete the selected products from Lazada? They are removed at the marketplace and this cannot be undone.'],
         'remove' => ['action' => route('ext.lazada.product-groups.massRemove', $group->id), 'label' => 'Remove from product group', 'fields' => $gf, 'confirm' => 'Take the selected products out of this product group? Nothing is deleted from the Master Catalog, and nothing already live on Lazada is touched.'],
@@ -172,7 +172,7 @@
             $stateClass = \App\Channels\Listings\ListingState::class;
 
             $pName = (string) ($rowTitles[(int) $p->product_id] ?? html_entity_decode((string) ($p->name ?? ''), ENT_QUOTES | ENT_HTML5, 'UTF-8'));
-            $pSku = (string) ($p->sku ?: ($p->model ?: ''));
+            $pSku = (string) ($p->sku ?: '');
             $isManual = in_array((int) $p->product_id, $manualIds, true);
 
             $metaParts = [$pSku !== '' ? $pSku : 'No SKU'];
@@ -259,9 +259,9 @@
                     if ($listed) {
                         $menu['update'] = ['action' => route('ext.lazada.product-groups.updateProduct', $group->id), 'label' => 'Send to Lazada', 'fields' => $gf];
                         if ($canToggleListing && $lzId && $rowState?->state === $stateClass::LIVE) {
-                            $menu['switch'] = ['action' => route('ext.lazada.listings.toggle', $p->product_id), 'label' => 'Deactivate on Lazada', 'fields' => ['action' => 'deactivate'], 'confirm' => "Deactivate {$pName} on Lazada? Buyers stop seeing it. It can be activated again at any time.", 'verb' => 'Deactivate'];
+                            $menu['switch'] = ['action' => route('ext.lazada.listings.toggle', $p->product_id), 'label' => 'Deactivate on Lazada', 'fields' => ['action' => 'deactivate'], 'confirm' => "Deactivate {$pName} on Lazada? Customers stop seeing it. It can be activated again at any time.", 'verb' => 'Deactivate'];
                         } elseif ($canToggleListing && $lzId && $rowState?->state === $stateClass::INACTIVE) {
-                            $menu['switch'] = ['action' => route('ext.lazada.listings.toggle', $p->product_id), 'label' => 'Activate on Lazada', 'fields' => ['action' => 'activate'], 'confirm' => "Activate {$pName} on Lazada? Buyers see it again once Lazada applies it.", 'verb' => 'Activate', 'tone' => 'primary'];
+                            $menu['switch'] = ['action' => route('ext.lazada.listings.toggle', $p->product_id), 'label' => 'Activate on Lazada', 'fields' => ['action' => 'activate'], 'confirm' => "Activate {$pName} on Lazada? Customers see it again once Lazada applies it.", 'verb' => 'Activate', 'tone' => 'primary'];
                         }
                         $menu['check'] = ['action' => route('ext.lazada.product-groups.check', $group->id), 'label' => 'Check against Lazada', 'fields' => $gf];
                         $menu['unlink'] = ['action' => route('ext.lazada.product-groups.unlinkProduct', [$group->id, $p->product_id]), 'fields' => ['_return' => $returnTo], 'confirm' => "Unlink {$pName} from Lazada? The product stays in the product group but sync will stop."];

@@ -51,7 +51,7 @@ class LazadaListingReadiness
                 $j->on('p.product_id', '=', 'pd.product_id')->where('pd.language_id', '=', $langId);
             })
             ->whereIn('p.product_id', $productIds)
-            ->get(['p.product_id', 'p.sku', 'p.model', 'p.image', 'p.price', 'pd.name', 'pd.description'])
+            ->get(['p.product_id', 'p.sku', 'p.image', 'p.price', 'pd.name', 'pd.description'])
             ->keyBy('product_id');
         $ownPictures = $listings->filter(fn ($l) => ! empty($l->image_order))->pluck('product_id')
             ->map(fn ($v) => (int) $v)->all();

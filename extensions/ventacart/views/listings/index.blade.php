@@ -8,7 +8,7 @@
     $canEditCatalog = auth()->user()?->hasPermission('manage_catalog/product') ?? false;
     $storeName = $setting->store_name;
 
-    $hasFilters = $q !== '' || $groupFilter !== 'all' || $erpStatus !== 'all' || $syncStatus !== 'all'
+    $hasFilters = $q !== '' || $groupFilter !== 'all' || $catalogStatus !== 'all' || $syncStatus !== 'all'
         || $ventaCartTab !== 'all' || ($failedFlag ?? false) || ($changeFlag ?? false);
     $toggleDir = fn (string $col) => $sort !== $col ? 'asc' : ($dir === 'asc' ? 'desc' : 'asc');
     $sortUrl = function (string $col) use ($toggleDir) {
@@ -147,12 +147,12 @@
     @if($changeFlag ?? false)
         <input type="hidden" name="change" value="1">
     @endif
-    <x-ui.input type="search" name="q" class="x-filters__search" value="{{ $q }}" placeholder="Name, model or SKU" aria-label="Search listings" />
+    <x-ui.input type="search" name="q" class="x-filters__search" value="{{ $q }}" placeholder="Name or SKU" aria-label="Search listings" />
     <div class="x-select-wrap x-filters__select x-filters__select--narrow">
-        <select name="erp_status" class="x-input" data-autosubmit aria-label="Filter by Master Catalog status">
-            <option value="all" @selected($erpStatus === 'all')>Any Master Catalog status</option>
-            <option value="enabled" @selected($erpStatus === 'enabled')>Enabled</option>
-            <option value="disabled" @selected($erpStatus === 'disabled')>Disabled</option>
+        <select name="catalog_status" class="x-input" data-autosubmit aria-label="Filter by Master Catalog status">
+            <option value="all" @selected($catalogStatus === 'all')>Any Master Catalog status</option>
+            <option value="enabled" @selected($catalogStatus === 'enabled')>Enabled</option>
+            <option value="disabled" @selected($catalogStatus === 'disabled')>Disabled</option>
         </select>
         <x-ui.icon name="chevron-down" size="14" class="x-select-wrap__chevron" />
     </div>
@@ -185,8 +185,8 @@
         'push' => ['action' => route('ext.ventacart.listings.bulk_push', $setting->id), 'label' => 'Send to ' . $storeName,
             'confirm' => "Send the selected products to {$storeName}? Each goes up on its own settings, and anything not ready is named rather than sent."],
         'switch' => [
-            ['action' => route('ext.ventacart.listings.bulk_toggle', $setting->id), 'verb' => 'unlist', 'codes' => 'active', 'label' => 'Unlist :n on ' . $storeName, 'button' => 'Unlist on ' . $storeName, 'fields' => ['action' => 'unlist'], 'confirm' => "Unlist the selected products on {$storeName}? Buyers stop seeing them. They can be relisted at any time."],
-            ['action' => route('ext.ventacart.listings.bulk_toggle', $setting->id), 'verb' => 'relist', 'codes' => 'inactive', 'label' => 'Relist :n on ' . $storeName, 'button' => 'Relist on ' . $storeName, 'fields' => ['action' => 'relist'], 'confirm' => "Relist the selected products on {$storeName}? Buyers see them again at once."],
+            ['action' => route('ext.ventacart.listings.bulk_toggle', $setting->id), 'verb' => 'unlist', 'codes' => 'active', 'label' => 'Unlist :n on ' . $storeName, 'button' => 'Unlist on ' . $storeName, 'fields' => ['action' => 'unlist'], 'confirm' => "Unlist the selected products on {$storeName}? Customers stop seeing them. They can be relisted at any time."],
+            ['action' => route('ext.ventacart.listings.bulk_toggle', $setting->id), 'verb' => 'relist', 'codes' => 'inactive', 'label' => 'Relist :n on ' . $storeName, 'button' => 'Relist on ' . $storeName, 'fields' => ['action' => 'relist'], 'confirm' => "Relist the selected products on {$storeName}? Customers see them again at once."],
         ],
         'link' => ['action' => route('ext.ventacart.listings.check', $setting->id), 'label' => 'Link IDs'],
         'delete' => ['action' => route('ext.ventacart.products.bulk_delete', $setting->id), 'label' => 'Delete from ' . $storeName, 'confirm' => "Delete the selected products from {$storeName}? They are removed at the storefront and this cannot be undone."],
@@ -278,7 +278,7 @@
                     <div class="co-item__body">
                         <a class="x-row-link co-item__name" href="{{ $listingUrl }}">{{ ($rowTitles[(int) $p->product_id] ?? $p->name) ?: 'Unnamed product' }}</a>
                         <div class="co-item__meta">
-                            <span class="co-item__sku">{{ $p->sku ?: ($p->model ?: 'No SKU') }}</span>
+                            <span class="co-item__sku">{{ $p->sku ?: 'No SKU' }}</span>
                             @if($listed)
                                 <span class="co-item__sku lsm-chanid">VentaCart {{ $link->ventacart_product_id }}</span>
                             @endif
@@ -318,9 +318,9 @@
                         } else {
                             $menu['update'] = ['action' => route('ext.ventacart.listings.push', [$setting->id, $pid]), 'label' => 'Send to ' . $storeName, 'confirm' => "Send this listing's content and price rule to the live {$storeName} product? Name, description, price, stock, images and variations are updated in place.", 'verb' => 'Send', 'tone' => 'primary'];
                             if ($rowLiveStatus === \Extensions\VentaCart\Models\VentaCartListing::STATUS_ACTIVE) {
-                                $menu['switch'] = ['action' => route('ext.ventacart.listings.toggle', [$setting->id, $pid]), 'label' => 'Unlist on ' . $storeName, 'fields' => ['action' => 'unlist'], 'confirm' => "Unlist this product on {$storeName}? Buyers stop seeing it. It can be relisted at any time.", 'verb' => 'Unlist'];
+                                $menu['switch'] = ['action' => route('ext.ventacart.listings.toggle', [$setting->id, $pid]), 'label' => 'Unlist on ' . $storeName, 'fields' => ['action' => 'unlist'], 'confirm' => "Unlist this product on {$storeName}? Customers stop seeing it. It can be relisted at any time.", 'verb' => 'Unlist'];
                             } elseif ($rowLiveStatus === \Extensions\VentaCart\Models\VentaCartListing::STATUS_INACTIVE) {
-                                $menu['switch'] = ['action' => route('ext.ventacart.listings.toggle', [$setting->id, $pid]), 'label' => 'Relist on ' . $storeName, 'fields' => ['action' => 'relist'], 'confirm' => "Relist this product on {$storeName}? Buyers see it again at once.", 'verb' => 'Relist', 'tone' => 'primary'];
+                                $menu['switch'] = ['action' => route('ext.ventacart.listings.toggle', [$setting->id, $pid]), 'label' => 'Relist on ' . $storeName, 'fields' => ['action' => 'relist'], 'confirm' => "Relist this product on {$storeName}? Customers see it again at once.", 'verb' => 'Relist', 'tone' => 'primary'];
                             }
                             $menu['check'] = ['action' => route('ext.ventacart.listings.check', $setting->id), 'label' => 'Check against ' . $storeName, 'fields' => ['product_ids[]' => $pid]];
                             $menu['unlink'] = ['action' => route('ext.ventacart.products.unlink', [$setting->id, $pid]), 'confirm' => "Unlink this product from {$storeName}? Only the link is removed. The store product stays up and can be linked again later."];

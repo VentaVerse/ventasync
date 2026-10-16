@@ -2,7 +2,7 @@
 
 namespace Extensions\Shopee\Services\Shopee;
 
-use App\Support\MarketplaceAnswer;
+use App\Support\ChannelAnswer;
 use Extensions\Shopee\Models\ShopeeListing;
 use Extensions\Shopee\Models\ShopeeListingLink;
 use Illuminate\Http\Request;
@@ -50,7 +50,6 @@ class ShopeeItemImport
 
             $productId = DB::transaction(function () use ( $langId, $item, $models, $name, $sku, $price, $qty, $itemId, $auth) {
                 $productId = DB::table('products')->insertGetId([
-                    'model' => $sku !== '' ? $sku : ('SHP-' . $itemId),
                     'sku' => $sku,
                     'quantity' => $qty,
                     'price' => $price,
@@ -61,7 +60,7 @@ class ShopeeItemImport
                     'width' => (float) data_get($item, 'dimension.package_width', 0),
                     'height' => (float) data_get($item, 'dimension.package_height', 0),
                     'brand_id' => 0,
-                    'date_added' => now(), 'date_modified' => now(), 'date_available' => now(),
+                    'date_added' => now(), 'date_modified' => now(),
                 ]);
 
                 DB::table('product_descriptions')->insert([
@@ -146,7 +145,7 @@ class ShopeeItemImport
         );
         $item = data_get($res, 'body.response.item_list.0');
         if (! is_array($item)) {
-            return ['error' => 'Shopee did not hand the item over: ' . MarketplaceAnswer::errorText('Shopee', is_array($res) ? $res : ['ok' => false, 'body' => []])];
+            return ['error' => 'Shopee did not hand the item over: ' . ChannelAnswer::errorText('Shopee', is_array($res) ? $res : ['ok' => false, 'body' => []])];
         }
 
         return ['item' => $item];
@@ -162,7 +161,7 @@ class ShopeeItemImport
         );
         $models = data_get($res, 'body.response.model');
         if (! is_array($models)) {
-            return ['error' => 'Shopee did not hand the variations over: ' . MarketplaceAnswer::errorText('Shopee', is_array($res) ? $res : ['ok' => false, 'body' => []])];
+            return ['error' => 'Shopee did not hand the variations over: ' . ChannelAnswer::errorText('Shopee', is_array($res) ? $res : ['ok' => false, 'body' => []])];
         }
 
         return [

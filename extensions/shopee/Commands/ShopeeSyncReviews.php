@@ -2,7 +2,7 @@
 
 namespace Extensions\Shopee\Commands;
 
-use Extensions\OpenCart\Models\MarketplaceReview;
+use App\Models\MarketplaceReview;
 use Extensions\Shopee\Models\ShopeeApiLog;
 use Extensions\Shopee\Models\ShopeeListingLink;
 use Extensions\Shopee\Models\ShopeeStore;

@@ -8,7 +8,7 @@ use Extensions\TikTok\Models\TikTokOrderProduct;
 use Extensions\TikTok\Models\TikTokStore;
 use Extensions\TikTok\Services\TikTok\TikTokClient;
 use Extensions\TikTok\Services\TikTok\TikTokReturnSync;
-use Extensions\TikTok\Services\TikTokCatalogOrderSync;
+use Extensions\TikTok\Services\TikTokSalesOrderSync;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Log;
 
@@ -184,7 +184,7 @@ class TikTokSyncOrders extends Command implements \App\Channels\Contracts\Steppa
 
         $saved = 0;
         $updated = 0;
-        $catalogSync = new TikTokCatalogOrderSync();
+        $catalogSync = new TikTokSalesOrderSync();
         $region = $raw->region ?? 'PH';
 
         foreach ($allOrders as $o) {
@@ -194,7 +194,7 @@ class TikTokSyncOrders extends Command implements \App\Channels\Contracts\Steppa
             $status = $o['status'] ?? null;
             $createdAt = isset($o['create_time']) ? \Carbon\Carbon::createFromTimestamp((int) $o['create_time']) : null;
             $updatedAt = isset($o['update_time']) ? \Carbon\Carbon::createFromTimestamp((int) $o['update_time']) : null;
-            $buyer = $o['recipient_address']['name'] ?? '';
+            $customer = $o['recipient_address']['name'] ?? '';
 
             $existing = TikTokOrder::where('order_id', $orderId)->first();
 
@@ -205,7 +205,7 @@ class TikTokSyncOrders extends Command implements \App\Channels\Contracts\Steppa
                 'order_created_at' => $createdAt,
                 'order_updated_at' => $updatedAt,
                 'raw'              => $o,
-                'buyer_name'       => $buyer,
+                'customer_name'       => $customer,
             ];
 
             if ($existing) {

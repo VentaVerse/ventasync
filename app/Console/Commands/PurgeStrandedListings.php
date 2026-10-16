@@ -37,7 +37,7 @@ class PurgeStrandedListings extends Command
         }
 
         if (!$this->option('apply')) {
-            $this->line(count($ids) . ' stranded. Run again with --apply to forget them here; the marketplace items stay where they are.');
+            $this->line(count($ids) . ' stranded. Run again with --apply to forget them here; the items on the stores stay where they are.');
 
             return self::SUCCESS;
         }

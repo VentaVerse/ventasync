@@ -219,16 +219,16 @@ class ShopeeListingStates
             return;
         }
         $variations = [];
-        foreach (PushLedger::erpVariationSkus([$productId])[$productId] ?? [] as $sku) {
+        foreach (PushLedger::catalogVariationSkus([$productId])[$productId] ?? [] as $sku) {
             $variations[strtolower(trim((string) $sku))] = true;
         }
         if ($variations === []) {
             return;
         }
 
-        $parent = DB::table('products')->where('product_id', $productId)->first(['sku', 'model']);
+        $parent = DB::table('products')->where('product_id', $productId)->first(['sku']);
         $own = [];
-        foreach ([$parent->sku ?? '', $parent->model ?? ''] as $s) {
+        foreach ([$parent->sku ?? ''] as $s) {
             $k = strtolower(trim((string) $s));
             if ($k !== '' && !isset($variations[$k])) {
                 $own[$k] = true;

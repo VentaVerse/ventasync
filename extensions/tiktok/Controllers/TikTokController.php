@@ -72,21 +72,24 @@ class TikTokController extends Controller
         $orderStatusMap = TikTokOrderStatusMap::where('context', 'order')
             ->pluck('order_status_id', 'tiktok_status')->all();
 
-        $erpOrderStatuses = DB::table('order_statuses')
+        $salesOrderStatuses = DB::table('order_statuses')
             ->where('language_id', $langId)
             ->orderBy('order_status_id')
             ->get(['order_status_id', 'name']);
 
-        $tikTokStatuses = [
-            'UNPAID'              => 'Unpaid',
-            'ON_HOLD'             => 'On Hold',
-            'AWAITING_SHIPMENT'   => 'Awaiting Shipment',
-            'AWAITING_COLLECTION' => 'Awaiting Collection',
-            'IN_TRANSIT'          => 'In Transit',
-            'DELIVERED'           => 'Delivered',
-            'COMPLETED'           => 'Completed',
-            'CANCELLED'           => 'Canceled',
-        ];
+        $tikTokStatuses = collect([
+            'UNPAID',
+            'ON_HOLD',
+            'AWAITING_SHIPMENT',
+            'AWAITING_COLLECTION',
+            'IN_TRANSIT',
+            'DELIVERED',
+            'COMPLETED',
+            'CANCELLED',
+        ])->merge(
+            DB::table('ch_tiktok_orders')->whereNotNull('status')->where('status', '!=', '')->distinct()->pluck('status')
+                ->map(fn ($s) => strtoupper(trim((string) $s)))
+        )->unique()->values()->all();
 
         $tikTokReturnStatuses = [];
         foreach (\Extensions\TikTok\Services\TikTokReturnsPanel::STATUS_MAP as $key => [$label, $tone]) {
@@ -101,7 +104,7 @@ class TikTokController extends Controller
             'result' => session('tiktok_result'),
             'logs' => $logs,
             'orderStatusMap' => $orderStatusMap,
-            'erpOrderStatuses' => $erpOrderStatuses,
+            'salesOrderStatuses' => $salesOrderStatuses,
             'tikTokStatuses' => $tikTokStatuses,
             'tikTokReturnStatuses' => $tikTokReturnStatuses,
             'returnStatusMap' => $returnStatusMap,

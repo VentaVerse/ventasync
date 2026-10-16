@@ -82,7 +82,7 @@ class ChannelMetrics
             ->join('orders as o', 'o.order_id', '=', 'op.order_id')
             ->selectRaw('op.product_id')
             ->selectRaw('MAX(op.name) as name')
-            ->selectRaw('MAX(op.model) as model')
+            ->selectRaw('MAX(op.sku) as sku')
             ->selectRaw('SUM(op.quantity) as units')
             ->selectRaw('SUM(op.total) as revenue')
             ->tap(fn ($q) => StoreKey::apply($q, [$source], 'o'))
@@ -94,7 +94,7 @@ class ChannelMetrics
             ->get()
             ->map(fn ($r) => [
                 'name' => (string) $r->name,
-                'model' => $r->model !== '' ? (string) $r->model : null,
+                'sku' => $r->sku !== '' ? (string) $r->sku : null,
                 'units' => (int) $r->units,
                 'revenue' => round((float) $r->revenue, 2),
             ])

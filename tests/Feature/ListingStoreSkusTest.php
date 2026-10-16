@@ -14,8 +14,8 @@ class ListingStoreSkusTest extends TestCase
     private function product(): int
     {
         $pid = (int) DB::table('products')->insertGetId([
-            'model' => 'EXL110', 'sku' => 'EXL110', 'quantity' => 9, 'price' => 420, 'status' => 1, 'image' => '',
-            'date_added' => now(), 'date_modified' => now(), 'date_available' => now(),
+            'sku' => 'EXL110', 'quantity' => 9, 'price' => 420, 'status' => 1, 'image' => '',
+            'date_added' => now(), 'date_modified' => now(),
         ]);
         foreach ([['EXL110-1046', 1], ['EXL110-0942', 2], ['EXL110-1149', 3]] as [$sku, $sort]) {
             DB::table('product_variations')->insert([

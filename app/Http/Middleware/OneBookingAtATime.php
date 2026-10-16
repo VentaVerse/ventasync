@@ -2,7 +2,7 @@
 
 namespace App\Http\Middleware;
 
-use App\Support\Fulfilment\PackingCheck;
+use App\Support\Fulfillment\PackingCheck;
 use Closure;
 use Illuminate\Contracts\Cache\Lock;
 use Illuminate\Http\Request;
@@ -18,8 +18,8 @@ class OneBookingAtATime
 
     public function handle(Request $request, Closure $next, string $channel): Response
     {
-        if ($channel === 'platform') {
-            $channel = (string) $request->route('platform');
+        if ($channel === 'channel') {
+            $channel = (string) $request->route('channel');
         }
 
         $ids = PackingCheck::ordersOf($channel, $request);
@@ -27,7 +27,7 @@ class OneBookingAtATime
 
         $held = [];
         foreach ($ids as $id) {
-            $lock = Cache::lock('fulfilment:' . $channel . ':' . $id, self::SECONDS);
+            $lock = Cache::lock('fulfillment:' . $channel . ':' . $id, self::SECONDS);
             if (! $lock->get()) {
                 foreach ($held as $taken) {
                     $taken->release();

@@ -21,7 +21,7 @@ class PermissionCatalog
         'App\\Http\\Controllers\\Channels\\CredentialRevealController',
         'App\\Http\\Controllers\\Channels\\WebhookController',
         'App\\Http\\Controllers\\AutomationsController',
-        'App\\Http\\Controllers\\Fulfilment\\',
+        'App\\Http\\Controllers\\Fulfillment\\',
     ];
 
     private const MACHINE_AREAS = ['api', 'api_v1'];

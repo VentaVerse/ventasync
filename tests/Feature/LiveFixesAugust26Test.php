@@ -36,21 +36,20 @@ class LiveFixesAugust26Test extends TestCase
     public function test_a_variation_sku_falls_back_to_the_product_picture(): void
     {
         $productId = DB::table('products')->insertGetId([
-            'model' => 'LF-1', 'sku' => 'LF', 'quantity' => 10, 'price' => 100,
+            'sku' => 'LF', 'quantity' => 10, 'price' => 100,
             'status' => 1, 'image' => 'catalog/parent.png', 'weight' => 1, 'length' => 1, 'width' => 1, 'height' => 1,
-            'brand_id' => 0, 'date_added' => now(), 'date_modified' => now(), 'date_available' => now(),
+            'brand_id' => 0, 'date_added' => now(), 'date_modified' => now(),
         ]);
         DB::table('product_variations')->insert([
             ['product_id' => $productId, 'sku' => 'LF-RED', 'quantity' => 1, 'absolute_price' => 100, 'image' => 'catalog/red.png', 'status' => 1, 'sort_order' => 1, 'created_at' => now(), 'updated_at' => now()],
             ['product_id' => $productId, 'sku' => 'LF-BLUE', 'quantity' => 1, 'absolute_price' => 100, 'image' => null, 'status' => 1, 'sort_order' => 2, 'created_at' => now(), 'updated_at' => now()],
         ]);
 
-        $images = CatalogImages::forSkus(['LF-RED', 'LF-BLUE', 'LF', 'LF-1', 'NOPE']);
+        $images = CatalogImages::forSkus(['LF-RED', 'LF-BLUE', 'LF', 'NOPE']);
 
         $this->assertSame('catalog/red.png', $images['LF-RED'], 'a variation with its own picture keeps it');
         $this->assertSame('catalog/parent.png', $images['LF-BLUE'], 'a variation without one shows the product');
         $this->assertSame('catalog/parent.png', $images['LF'], 'the product SKU itself');
-        $this->assertSame('catalog/parent.png', $images['LF-1'], 'the model too');
         $this->assertArrayNotHasKey('NOPE', $images, 'an unknown SKU resolves to nothing, never a guess');
         $this->assertStringEndsWith('storage/catalog/parent.png', (string) CatalogImages::urlFor('LF-BLUE'));
         $this->assertNull(CatalogImages::urlFor(''));

@@ -30,7 +30,7 @@ use Illuminate\Support\Facades\Schema;
 use App\Channels\Contracts\CredentialRevealer;
 use App\Channels\Concerns\RevealsCredentials;
 
-class TikTokExtension extends ExtensionProvider implements ChannelProvider, SkuSyncContributor, DashboardContributor, OrderFeesContributor, \App\Channels\Contracts\MarketplaceFeeSource, MobileMarketplaceProvider, \App\Channels\Contracts\MobileFulfilmentProvider, LayoutBannerContributor, ChannelOptionsProvider, CredentialRevealer, \App\Channels\Contracts\ListingStateSource, \App\Channels\Contracts\WebhookReceiver, \App\Channels\Contracts\StoreOptionsProvider, \App\Channels\Contracts\ProductRemover, \App\Channels\Contracts\VariationForgetter, \App\Channels\Contracts\SaleLinesSource, \App\Channels\Contracts\MarketplaceOrderRefRenderer
+class TikTokExtension extends ExtensionProvider implements ChannelProvider, SkuSyncContributor, DashboardContributor, OrderFeesContributor, \App\Channels\Contracts\ChannelFeeSource, MobileMarketplaceProvider, \App\Channels\Contracts\MobileFulfillmentProvider, LayoutBannerContributor, ChannelOptionsProvider, CredentialRevealer, \App\Channels\Contracts\ListingStateSource, \App\Channels\Contracts\WebhookReceiver, \App\Channels\Contracts\StoreOptionsProvider, \App\Channels\Contracts\ProductRemover, \App\Channels\Contracts\VariationForgetter, \App\Channels\Contracts\SaleLinesSource, \App\Channels\Contracts\ChannelOrderRefRenderer
 {
     private const MOBILE_TAB_STATUS_MAP = [
         'UNPAID'              => ['UNPAID'],
@@ -247,7 +247,7 @@ class TikTokExtension extends ExtensionProvider implements ChannelProvider, SkuS
                         ->where('store_id', $storeId)
                         ->orderByDesc('order_created_at')
                         ->limit($limit)
-                        ->get(['id', 'order_id', 'status', 'buyer_name', 'order_created_at']);
+                        ->get(['id', 'order_id', 'status', 'customer_name', 'order_created_at']);
 
                     $totals = DB::table('ch_tiktok_order_products')
                         ->whereIn('tiktok_order_id', $orders->pluck('id'))
@@ -257,7 +257,7 @@ class TikTokExtension extends ExtensionProvider implements ChannelProvider, SkuS
 
                     return $orders->map(fn ($o) => new RecentOrder(
                         reference: (string) $o->order_id,
-                        customerName: $o->buyer_name,
+                        customerName: $o->customer_name,
                         total: (float) ($totals[$o->id] ?? 0),
                         statusLabel: (string) $o->status,
                         orderedAt: $o->order_created_at,
@@ -421,19 +421,19 @@ class TikTokExtension extends ExtensionProvider implements ChannelProvider, SkuS
         return ['channelPending' => $pending, 'channelSyncStatuses' => $statuses];
     }
 
-    public function renderOrderRef(string $orderChannel, string $marketplaceOrderId): ?array
+    public function renderOrderRef(string $orderChannel, string $channelOrderId): ?array
     {
         if ($orderChannel !== 'tiktok') {
             return null;
         }
-        $row = \Extensions\TikTok\Models\TikTokOrder::query()->withoutGlobalScope('tiktokStore')->where('order_id', $marketplaceOrderId)->first(['id', 'store_id']);
+        $row = \Extensions\TikTok\Models\TikTokOrder::query()->withoutGlobalScope('tiktokStore')->where('order_id', $channelOrderId)->first(['id', 'store_id']);
 
-        return ['display' => $marketplaceOrderId, 'url' => $row && $row->store_id ? route('ext.tiktok.orders.show', ['store' => $row->store_id, 'id' => $row->id]) : null];
+        return ['display' => $channelOrderId, 'url' => $row && $row->store_id ? route('ext.tiktok.orders.show', ['store' => $row->store_id, 'id' => $row->id]) : null];
     }
 
     public function saleLinesForOrder(int $coreOrderId, float $itemsSubtotal, float $shipping): ?array
     {
-        $order = \Extensions\TikTok\Models\TikTokOrder::query()->withoutGlobalScope('tiktokStore')->where('catalog_order_id', $coreOrderId)->first();
+        $order = \Extensions\TikTok\Models\TikTokOrder::query()->withoutGlobalScope('tiktokStore')->where('sales_order_id', $coreOrderId)->first();
         if (! $order) {
             return null;
         }
@@ -449,7 +449,7 @@ class TikTokExtension extends ExtensionProvider implements ChannelProvider, SkuS
         }
 
         $row = \Extensions\TikTok\Models\TikTokOrder::query()->withoutGlobalScope('tiktokStore')
-            ->where('catalog_order_id', $coreOrderId)->first();
+            ->where('sales_order_id', $coreOrderId)->first();
         if (! $row) {
             return null;
         }
@@ -482,7 +482,7 @@ class TikTokExtension extends ExtensionProvider implements ChannelProvider, SkuS
             return null;
         }
 
-        $mktOrderId = (string) $order->marketplace_order_id;
+        $mktOrderId = (string) $order->channel_order_id;
         if ($mktOrderId === '' || !Schema::hasTable('ch_tiktok_orders')) {
             return null;
         }
@@ -507,7 +507,7 @@ class TikTokExtension extends ExtensionProvider implements ChannelProvider, SkuS
         return ['total' => round($total, 2), 'items' => $items, 'source' => 'tiktok'];
     }
 
-    public function mobilePlatformSlug(): string
+    public function mobileChannelSlug(): string
     {
         return 'tiktok';
     }
@@ -538,7 +538,7 @@ class TikTokExtension extends ExtensionProvider implements ChannelProvider, SkuS
         if ($search !== '') {
             $like = '%' . $search . '%';
             $query->where(function ($q) use ($like) {
-                $q->where('order_id', 'like', $like)->orWhere('buyer_name', 'like', $like);
+                $q->where('order_id', 'like', $like)->orWhere('customer_name', 'like', $like);
             });
         }
 
@@ -553,21 +553,25 @@ class TikTokExtension extends ExtensionProvider implements ChannelProvider, SkuS
 
         $orders = $query->orderByDesc('order_created_at')->orderByDesc('created_at')->paginate(20);
 
-        $data = $orders->map(function ($order) use ($storeNames) {
+        $stamped = \App\Support\OrderSnapshot::storeNames($orders->pluck('sales_order_id')->all());
+        $data = $orders->map(function ($order) use ($storeNames, $stamped) {
             $raw = $order->raw ?? [];
             $firstProduct = $order->products()->orderBy('id')->first();
             $productRaw = $firstProduct?->raw ?? [];
-            $productImage = $firstProduct?->image
-                ?? ($productRaw['image_info']['image_url'] ?? null)
-                ?? ($productRaw['product_main_image'] ?? null);
+            $productImage = $firstProduct
+                ? \App\Support\LineImage::url($firstProduct->sku, $firstProduct->image
+                    ?? ($productRaw['image_info']['image_url'] ?? null)
+                    ?? ($productRaw['product_main_image'] ?? null))
+                : null;
 
             return [
                 'id'              => $order->id,
                 'store_id'        => (int) $order->store_id,
-                'store_name'      => (string) ($storeNames[$order->store_id] ?? ''),
+                'store_name'      => (string) ($stamped[(int) $order->sales_order_id] ?? $storeNames[$order->store_id] ?? ''),
                 'order_id'        => (string) $order->order_id,
                 'status'          => $order->status,
-                'buyer_name'      => $order->buyer_name ?? '',
+                'customer_name'   => $order->customer_name ?? '',
+                'buyer_name'      => $order->customer_name ?? '',
                 'total_amount'    => isset($raw['payment']['total_amount']) ? (float) $raw['payment']['total_amount'] : null,
                 'currency'        => $raw['payment']['currency'] ?? \App\Support\Money::defaultSymbol(),
                 'items_count'     => $order->products()->count(),
@@ -575,7 +579,7 @@ class TikTokExtension extends ExtensionProvider implements ChannelProvider, SkuS
                 'payment_method'  => $raw['payment']['payment_method_name'] ?? null,
                 'tracking_number' => $raw['tracking_number'] ?? null,
                 'date'            => $order->order_created_at?->format('Y-m-d H:i'),
-                'fulfilment'      => \Extensions\TikTok\Services\TikTokAppFulfilment::block($order),
+                'fulfillment'      => \Extensions\TikTok\Services\TikTokAppFulfillment::block($order),
             ];
         });
 
@@ -602,15 +606,15 @@ class TikTokExtension extends ExtensionProvider implements ChannelProvider, SkuS
 
         $products = $order->products
             ->groupBy(fn ($p) => ($p->sku ?? '') . '|' . ($p->variation ?? ''))
-            ->map(function ($group) {
+            ->map(function ($group) use ($order) {
                 $first = $group->first();
                 return [
                     'name'      => $first->name,
                     'sku'       => $first->sku ?? '',
-                    'variation' => $first->variation ?? '',
+                    'variation' => \App\Support\LineVariation::label($first->sku, $first->variation, $order->sales_order_id, $first->name),
                     'quantity'  => $group->sum('quantity'),
                     'price'     => $first->sale_price ?? $first->item_price ?? 0,
-                    'image'     => $first->image ?? '',
+                    'image'     => \App\Support\LineImage::url($first->sku, $first->image) ?? '',
                 ];
             });
 
@@ -618,15 +622,17 @@ class TikTokExtension extends ExtensionProvider implements ChannelProvider, SkuS
             'id'                => $order->id,
             'order_id'          => (string) $order->order_id,
             'store_id'          => (int) $order->store_id,
-            'store_name'        => (string) TikTokStore::query()->whereKey($order->store_id)->value('store_name'),
+            'store_name'        => (string) (\App\Support\OrderSnapshot::storeNames([$order->sales_order_id])[(int) $order->sales_order_id] ?? TikTokStore::query()->whereKey($order->store_id)->value('store_name')),
             'status'            => $order->status,
-            'buyer_name'        => $order->buyer_name ?? '',
+            'customer_name'     => $order->customer_name ?? '',
+            'buyer_name'        => $order->customer_name ?? '',
             'total_amount'      => isset($payment['total_amount']) ? (float) $payment['total_amount'] : null,
             'currency'          => $payment['currency'] ?? \App\Support\Money::defaultSymbol(),
             'payment_method'    => $payment['payment_method_name'] ?? '',
             'shipping_provider' => $raw['shipping_provider'] ?? $raw['shipping_provider_id'] ?? '',
             'tracking_number'   => $raw['tracking_number'] ?? '',
-            'shipping_name'     => $addr['name'] ?? $order->buyer_name ?? '',
+            'shipping_name'     => $addr['name'] ?? $order->customer_name ?? '',
+            'shipping_telephone' => $addr['phone_number'] ?? $addr['phone'] ?? '',
             'shipping_phone'    => $addr['phone_number'] ?? $addr['phone'] ?? '',
             'shipping_address'  => $addr['full_address']
                 ?? trim(implode(', ', array_filter([
@@ -638,18 +644,18 @@ class TikTokExtension extends ExtensionProvider implements ChannelProvider, SkuS
                 ]))),
             'date'              => $order->order_created_at?->format('Y-m-d H:i'),
             'products'          => $products->values(),
-            'fulfilment'        => \Extensions\TikTok\Services\TikTokAppFulfilment::block($order),
+            'fulfillment'        => \Extensions\TikTok\Services\TikTokAppFulfillment::block($order),
         ];
     }
 
-    public function mobileFulfilmentActions(): array
+    public function mobileFulfillmentActions(): array
     {
-        return \Extensions\TikTok\Services\TikTokAppFulfilment::ACTIONS;
+        return \Extensions\TikTok\Services\TikTokAppFulfillment::ACTIONS;
     }
 
-    public function mobileFulfilmentAction(string $action, int $id, Request $request): \Symfony\Component\HttpFoundation\Response
+    public function mobileFulfillmentAction(string $action, int $id, Request $request): \Symfony\Component\HttpFoundation\Response
     {
-        return app(\Extensions\TikTok\Services\TikTokAppFulfilment::class)->handle($action, $id, $request);
+        return app(\Extensions\TikTok\Services\TikTokAppFulfillment::class)->handle($action, $id, $request);
     }
 
     public function layoutBanners(): array

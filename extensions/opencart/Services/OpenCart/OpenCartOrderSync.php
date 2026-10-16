@@ -148,7 +148,7 @@ class OpenCartOrderSync
         $idMap = [];
         $storeMap = OpenCartOrderStatusMap::where('store_id', $this->store->id)->get();
         foreach ($storeMap as $row) {
-            $idMap[(int) $row->oc_status_id] = (int) $row->order_status_id;
+            $idMap[(int) $row->opencart_status_id] = (int) $row->order_status_id;
         }
 
         $nameMap = [];
@@ -163,10 +163,10 @@ class OpenCartOrderSync
         return ['by_id' => $idMap, 'by_name' => $nameMap];
     }
 
-    private function resolveOrderStatus(array $statusMap, int $ocStatusId, string $statusName): int
+    private function resolveOrderStatus(array $statusMap, int $openCartStatusId, string $statusName): int
     {
-        if (isset($statusMap['by_id'][$ocStatusId])) {
-            return $statusMap['by_id'][$ocStatusId];
+        if (isset($statusMap['by_id'][$openCartStatusId])) {
+            return $statusMap['by_id'][$openCartStatusId];
         }
 
         if ($statusName !== '') {
@@ -176,19 +176,19 @@ class OpenCartOrderSync
             }
         }
 
-        return $ocStatusId;
+        return $openCartStatusId;
     }
 
     private function upsertOrder(array $raw, array $statusMap): bool
     {
-        $ocOrderId = (int) ($raw['order_id'] ?? 0);
-        if ($ocOrderId <= 0) {
+        $openCartOrderId = (int) ($raw['order_id'] ?? 0);
+        if ($openCartOrderId <= 0) {
             throw new \RuntimeException('Missing order_id');
         }
 
-        $ocStatusId = (int) ($raw['order_status_id'] ?? 0);
+        $openCartStatusId = (int) ($raw['order_status_id'] ?? 0);
         $statusName = trim($raw['order_status_name'] ?? '');
-        $coreStatusId = $this->resolveOrderStatus($statusMap, $ocStatusId, $statusName);
+        $coreStatusId = $this->resolveOrderStatus($statusMap, $openCartStatusId, $statusName);
 
         $created = false;
         $oldStatusId = 0;
@@ -196,43 +196,36 @@ class OpenCartOrderSync
 
         $orderChannel = 'opencart:' . $this->store->id;
 
-        DB::transaction(function () use ($raw, $ocOrderId, $coreStatusId, $orderChannel, $statusMap, &$created, &$oldStatusId, &$coreOrderId) {
+        DB::transaction(function () use ($raw, $openCartOrderId, $coreStatusId, $orderChannel, $statusMap, &$created, &$oldStatusId, &$coreOrderId) {
             $existing = DB::table('orders')
                 ->where('channel', $orderChannel)
-                ->where('marketplace_order_id', (string) $ocOrderId)
+                ->where('channel_order_id', (string) $openCartOrderId)
                 ->first();
 
             if (! $existing) {
                 $existing = DB::table('orders')
                     ->where('channel', 'opencart')
-                    ->where('marketplace_order_id', (string) $ocOrderId)
+                    ->where('channel_order_id', (string) $openCartOrderId)
                     ->first();
             }
 
-            $ocRate = (float) ($raw['currency_value'] ?? 1);
-            $ocTotal = (float) ($raw['total'] ?? 0);
+            $openCartRate = (float) ($raw['currency_value'] ?? 1);
+            $openCartTotal = (float) ($raw['total'] ?? 0);
 
             $defaultCurrencyCode = app(\App\Services\OrderCurrencyService::class)->defaultCode();
-            $ocCurrencyCode = trim((string) ($raw['currency_code'] ?? $defaultCurrencyCode));
-            if ($ocCurrencyCode === '') {
-                $ocCurrencyCode = $defaultCurrencyCode;
+            $openCartCurrencyCode = trim((string) ($raw['currency_code'] ?? $defaultCurrencyCode));
+            if ($openCartCurrencyCode === '') {
+                $openCartCurrencyCode = $defaultCurrencyCode;
             }
-            $isDefault = strcasecmp($ocCurrencyCode, $defaultCurrencyCode) === 0;
+            $isDefault = strcasecmp($openCartCurrencyCode, $defaultCurrencyCode) === 0;
 
             $orderData = [
-                'invoice_no'             => (int) ($raw['invoice_no'] ?? 0),
-                'invoice_prefix'         => $raw['invoice_prefix'] ?? '',
                 'store_id'               => (int) ($raw['store_id'] ?? 0),
                 'store_name'             => $raw['store_name'] ?? '',
-                'store_url'              => $raw['store_url'] ?? '',
-                'customer_id'            => (int) ($raw['customer_id'] ?? 0),
-                'customer_group_id'      => (int) ($raw['customer_group_id'] ?? 0),
                 'firstname'              => $raw['firstname'] ?? '',
                 'lastname'               => $raw['lastname'] ?? '',
                 'email'                  => $raw['email'] ?? '',
                 'telephone'              => $raw['telephone'] ?? '',
-                'fax'                    => $raw['fax'] ?? '',
-                'custom_field'           => $raw['custom_field'] ?? '',
                 'payment_firstname'      => $raw['payment_firstname'] ?? '',
                 'payment_lastname'       => $raw['payment_lastname'] ?? '',
                 'payment_company'        => $raw['payment_company'] ?? '',
@@ -241,14 +234,9 @@ class OpenCartOrderSync
                 'payment_city'           => $raw['payment_city'] ?? '',
                 'payment_postcode'       => $raw['payment_postcode'] ?? '',
                 'payment_country'        => $raw['payment_country'] ?? '',
-                'payment_country_id'     => (int) ($raw['payment_country_id'] ?? 0),
                 'payment_zone'           => $raw['payment_zone'] ?? '',
-                'payment_zone_id'        => (int) ($raw['payment_zone_id'] ?? 0),
-                'payment_address_format' => $raw['payment_address_format'] ?? '',
-                'payment_custom_field'   => $raw['payment_custom_field'] ?? '',
                 'payment_method'         => $raw['payment_method'] ?? '',
                 'payment_cost'           => (float) ($raw['payment_cost'] ?? 0),
-                'payment_code'           => $raw['payment_code'] ?? '',
                 'shipping_firstname'     => $raw['shipping_firstname'] ?? '',
                 'shipping_lastname'      => $raw['shipping_lastname'] ?? '',
                 'shipping_company'       => $raw['shipping_company'] ?? '',
@@ -257,40 +245,26 @@ class OpenCartOrderSync
                 'shipping_city'          => $raw['shipping_city'] ?? '',
                 'shipping_postcode'      => $raw['shipping_postcode'] ?? '',
                 'shipping_country'       => $raw['shipping_country'] ?? '',
-                'shipping_country_id'    => (int) ($raw['shipping_country_id'] ?? 0),
                 'shipping_zone'          => $raw['shipping_zone'] ?? '',
-                'shipping_zone_id'       => (int) ($raw['shipping_zone_id'] ?? 0),
-                'shipping_address_format'=> $raw['shipping_address_format'] ?? '',
-                'shipping_custom_field'  => $raw['shipping_custom_field'] ?? '',
                 'shipping_method'        => $raw['shipping_method'] ?? '',
                 'shipping_cost'          => (float) ($raw['shipping_cost'] ?? 0),
-                'shipping_code'          => $raw['shipping_code'] ?? '',
-                'comment'                => $raw['comment'] ?? '',
-                'total'                  => $ocTotal,
+                'customer_note'          => $raw['comment'] ?? '',
+                'total'                  => $openCartTotal,
                 'extra_cost'             => (float) ($raw['extra_cost'] ?? 0),
                 'order_status_id'        => $coreStatusId,
-                'affiliate_id'           => (int) ($raw['affiliate_id'] ?? 0),
-                'commission'             => (float) ($raw['commission'] ?? 0),
-                'marketing_id'           => (int) ($raw['marketing_id'] ?? 0),
-                'tracking'               => $raw['tracking'] ?? '',
-                'language_id'            => (int) ($raw['language_id'] ?? 0),
                 'currency_id'            => (int) ($raw['currency_id'] ?? 0),
                 'currency_code'          => $raw['currency_code'] ?? $defaultCurrencyCode,
-                'currency_value'         => $ocRate > 0 ? round(1 / $ocRate, \App\Services\OrderCurrencyService::RATE_SCALE) : 1.0,
+                'currency_value'         => $openCartRate > 0 ? round(1 / $openCartRate, \App\Services\OrderCurrencyService::RATE_SCALE) : 1.0,
                 // foreign_total must stay NULL for a default-currency order; the re-sync guard keys off NULL.
-                'foreign_total'          => ($ocRate > 0 && !$isDefault)
-                    ? round($ocTotal * $ocRate, \App\Services\OrderCurrencyService::MONEY_SCALE)
+                'foreign_total'          => ($openCartRate > 0 && !$isDefault)
+                    ? round($openCartTotal * $openCartRate, \App\Services\OrderCurrencyService::MONEY_SCALE)
                     : null,
                 'ip'                     => $raw['ip'] ?? '',
-                'forwarded_ip'           => $raw['forwarded_ip'] ?? '',
-                'user_agent'             => $raw['user_agent'] ?? '',
-                'accept_language'        => $raw['accept_language'] ?? '',
                 'courier_id'             => 0,
                 'tracking_number'        => '',
                 'date_modified'          => (isset($raw['date_modified']) && $raw['date_modified'] !== '0000-00-00 00:00:00') ? $raw['date_modified'] : now()->toDateTimeString(),
-                'oe_import'              => 0,
                 'channel'     => $orderChannel,
-                'marketplace_order_id'   => (string) $ocOrderId,
+                'channel_order_id'   => (string) $openCartOrderId,
             ];
 
             $dateAdded = (isset($raw['date_added']) && $raw['date_added'] !== '0000-00-00 00:00:00') ? $raw['date_added'] : now()->toDateTimeString();
@@ -304,7 +278,7 @@ class OpenCartOrderSync
                 }
                 $orderData['date_added'] = $dateAdded;
                 Log::info('OC sync update order', [
-                    'oc_order_id'      => $ocOrderId,
+                    'opencart_order_id'      => $openCartOrderId,
                     'core_order_id'    => $coreOrderId,
                     'old_date_added'   => $existing->date_added,
                     'new_date_added'   => $dateAdded,
@@ -321,6 +295,7 @@ class OpenCartOrderSync
             }
 
             if (isset($raw['products']) && is_array($raw['products'])) {
+                $snapshot = \App\Support\OrderSnapshot::take((int) $coreOrderId);
                 DB::table('order_products')
                     ->where('order_id', $coreOrderId)
                     ->delete();
@@ -369,18 +344,16 @@ class OpenCartOrderSync
                         }
                     }
 
-                    $productCost = \App\Support\LineCost::resolve((int) $coreProductId, (int) ($firstMatchedPovId ?? 0));
+                    $productCost = $snapshot->cost($p['model'] ?? '', $p['name'] ?? '', (int) $coreProductId, (int) $firstMatchedPovId);
 
                     $opId = DB::table('order_products')->insertGetId([
                         'order_id'   => $coreOrderId,
                         'product_id' => $coreProductId,
                         'name'       => $p['name'] ?? '',
-                        'model'      => $p['model'] ?? '',
+                        'sku'        => $p['model'] ?? '',
                         'quantity'   => (int) ($p['quantity'] ?? 0),
                         'price'      => (float) ($p['price'] ?? 0),
                         'total'      => (float) ($p['total'] ?? 0),
-                        'tax'        => (float) ($p['tax'] ?? 0),
-                        'reward'     => (int) ($p['reward'] ?? 0),
                         'cost'       => $productCost,
                     ]);
 
@@ -424,7 +397,7 @@ class OpenCartOrderSync
                         'order_id'        => $coreOrderId,
                         'order_status_id' => $hCoreStatusId,
                         'notify'          => (int) ($h['notify'] ?? 0),
-                        'comment'         => $h['comment'] ?? '',
+                        'note'            => $h['comment'] ?? '',
                         'date_added'      => (isset($h['date_added']) && $h['date_added'] !== '0000-00-00 00:00:00') ? $h['date_added'] : now()->toDateTimeString(),
                         'user_id'         => null,
                         'user_name'       => 'OpenCart Sync',
@@ -462,11 +435,11 @@ class OpenCartOrderSync
 
     private function resolveProductBySku( array $p): int
     {
-        $ocProductId = (int) ($p['product_id'] ?? 0);
-        if ($ocProductId > 0) {
+        $openCartProductId = (int) ($p['product_id'] ?? 0);
+        if ($openCartProductId > 0) {
             $link = DB::table('ch_opencart_listing_links')
                 ->where('store_id', $this->store->id)
-                ->where('oc_product_id', $ocProductId)
+                ->where('opencart_product_id', $openCartProductId)
                 ->select('product_id')
                 ->first();
             if ($link && (int) $link->product_id > 0) {

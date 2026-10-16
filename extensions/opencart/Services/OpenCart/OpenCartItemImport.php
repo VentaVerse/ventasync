@@ -11,7 +11,7 @@ use Illuminate\Support\Str;
 
 class OpenCartItemImport
 {
-    public function import(OpenCartStore $store, int $ocProductId): array
+    public function import(OpenCartStore $store, int $openCartProductId): array
     {
         if ($refused = \App\Plans\Quota::importRefusal()) {
             return $refused;
@@ -19,18 +19,18 @@ class OpenCartItemImport
 
         $client = new OpenCartClient($store);
 
-        $answer = $client->getProducts(1, 1, null, (int) $ocProductId);
+        $answer = $client->getProducts(1, 1, null, (int) $openCartProductId);
         if (! ($answer['ok'] ?? false)) {
-            return ['ok' => false, 'message' => 'OpenCart did not answer for product ' . $ocProductId . ': '
-                . \App\Support\MarketplaceAnswer::plain('OpenCart', $answer)];
+            return ['ok' => false, 'message' => 'OpenCart did not answer for product ' . $openCartProductId . ': '
+                . \App\Support\ChannelAnswer::plain('OpenCart', $answer)];
         }
         $item = ($answer['body']['data'] ?? [])[0] ?? [];
         if (empty($item)) {
-            return ['ok' => false, 'message' => 'OpenCart answered with no product for ' . $ocProductId . '.'];
+            return ['ok' => false, 'message' => 'OpenCart answered with no product for ' . $openCartProductId . '.'];
         }
         $langId = (int) config('catalog.default_language_id');
 
-        $name = trim(html_entity_decode((string) ($item['name'] ?? ''), ENT_QUOTES | ENT_HTML5, 'UTF-8')) ?: ('OpenCart product ' . $ocProductId);
+        $name = trim(html_entity_decode((string) ($item['name'] ?? ''), ENT_QUOTES | ENT_HTML5, 'UTF-8')) ?: ('OpenCart product ' . $openCartProductId);
         $sku = trim((string) ($item['sku'] ?? '')) ?: trim((string) ($item['model'] ?? ''));
 
         $variationValues = array_values((array) ($item['option_values'] ?? []));
@@ -38,9 +38,8 @@ class OpenCartItemImport
         $multiType = count($typeNames) > 1;
 
         try {
-            $productId = DB::transaction(function () use ( $langId, $item, $variationValues, $multiType, $name, $sku, $store, $ocProductId) {
+            $productId = DB::transaction(function () use ( $langId, $item, $variationValues, $multiType, $name, $sku, $store, $openCartProductId) {
                 $productId = DB::table('products')->insertGetId([
-                    'model' => trim((string) ($item['model'] ?? '')) ?: $sku,
                     'sku' => $sku,
                     'quantity' => (int) ($item['quantity'] ?? 0),
                     'price' => (float) ($item['price'] ?? 0),
@@ -51,7 +50,7 @@ class OpenCartItemImport
                     'width' => (float) ($item['width'] ?? 0),
                     'height' => (float) ($item['height'] ?? 0),
                     'brand_id' => 0,
-                    'date_added' => now(), 'date_modified' => now(), 'date_available' => now(),
+                    'date_added' => now(), 'date_modified' => now(),
                 ]);
 
                 DB::table('product_descriptions')->insert([
@@ -74,7 +73,7 @@ class OpenCartItemImport
                         $urls[] = $base . '/image/' . ltrim($rel, '/');
                     }
                 }
-                $paths = $this->downloadImages($urls, (string) $ocProductId);
+                $paths = $this->downloadImages($urls, (string) $openCartProductId);
                 if ($paths !== []) {
                     DB::table('products')->where('product_id', $productId)->update(['image' => $paths[0]]);
                     foreach (array_slice($paths, 1) as $i => $path) {
@@ -89,7 +88,7 @@ class OpenCartItemImport
                 }
 
                 OpenCartListingLink::updateOrCreate(
-                    ['store_id' => $store->id, 'oc_product_id' => (int) $ocProductId],
+                    ['store_id' => $store->id, 'opencart_product_id' => (int) $openCartProductId],
                     ['product_id' => $productId, 'sku' => $sku ?: null]
                 );
 

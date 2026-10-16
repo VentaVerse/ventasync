@@ -139,7 +139,7 @@
                         @include('ext-lazada::product-groups._attributes', [
                             'attributes' => $attributes,
                             'saved' => $saved,
-                            'erpSourceFields' => $erpSourceFields,
+                            'catalogSourceFields' => $catalogSourceFields,
                             'template' => $template,
                             'canManage' => $canManageLazada,
                         ])

@@ -16,12 +16,12 @@
         ? 'Manual'
         : ($registry->resolveChannelLabel($src) ?: ucfirst($chanKey));
 
-    $orderRef = $order->marketplace_order_id
-        ? $registry->resolveOrderRef((string) $order->channel, (string) $order->marketplace_order_id)
+    $orderRef = $order->channel_order_id
+        ? $registry->resolveOrderRef((string) $order->channel, (string) $order->channel_order_id)
         : null;
 
     $refUrl = $orderRef['url'] ?? null;
-    $refText = $orderRef['display'] ?? (string) $order->marketplace_order_id;
+    $refText = $orderRef['display'] ?? (string) $order->channel_order_id;
 
     $defaultSymbol = \App\Support\Money::defaultSymbol();
     $isForeign = (string) $order->currency_code !== ''
@@ -92,16 +92,16 @@
                             role="switch"
                             aria-checked="{{ $order->sync_override ? 'true' : 'false' }}"
                             aria-label="{{ $order->sync_override
-                                ? 'Hand status back to the marketplace'
+                                ? 'Hand status back to the channel'
                                 : 'Take over this order\'s status' }}">
                     </button>
                     <div class="od-override__body">
                         <div class="od-override__title">Status override</div>
                         <div class="od-override__note">
                             @if($order->sync_override)
-                                On. This order's status no longer syncs from the marketplace, and syncs will not change its stock.
+                                On. This order's status no longer syncs from the channel, and syncs will not change its stock.
                             @else
-                                Off. Turning it on stops syncing this order's status from the marketplace.
+                                Off. Turning it on stops syncing this order's status from the channel.
                             @endif
                         </div>
                     </div>
@@ -125,8 +125,8 @@
                         </div>
                     </div>
                     <div class="od-field">
-                        <label class="od-field__k" for="od-status-comment">Comment</label>
-                        <input class="x-input" id="od-status-comment" name="comment" value="" placeholder="Optional note">
+                        <label class="od-field__k" for="od-status-note">Note</label>
+                        <input class="x-input" id="od-status-note" name="note" value="">
                     </div>
                     <div class="od-field">
                         <x-ui.button variant="primary" type="submit">Update status</x-ui.button>
@@ -158,9 +158,9 @@
             <span class="od-stamp__k">Created</span>
             <span class="od-stamp__v">{{ $order->date_added }}</span>
         </span>
-        @if($order->marketplace_order_id)
+        @if($order->channel_order_id)
         <span class="od-stamp">
-            <span class="od-stamp__k">Marketplace order</span>
+            <span class="od-stamp__k">Channel order</span>
             @if($refUrl)
                 <a class="od-stamp__v" href="{{ $refUrl }}">{{ $refText }}</a>
             @else
@@ -225,7 +225,7 @@
                     @endif
                     @if($order->tracking_number)
                     <div class="od-fact">
-                        <span class="od-fact__k">Tracking number</span>
+                        <span class="od-fact__k">Tracking</span>
                         <span class="od-fact__v od-fact__v--mono">
                             @if($trackingHref = $order->trackingHref())
                                 <a href="{{ $trackingHref }}" target="_blank" rel="noopener">
@@ -297,13 +297,13 @@
 
                 </div>
             </section>
-            @if($order->comment)
+            @if($order->customer_note)
             <section class="od-card">
                 <div class="od-card__head">
-                    <h2 class="od-card__title">Order comment</h2>
+                    <h2 class="od-card__title">Customer note</h2>
                 </div>
                 <div class="od-card__body">
-                    <p class="od-fact__v">{{ $order->comment }}</p>
+                    <p class="od-fact__v">{{ $order->customer_note }}</p>
                 </div>
             </section>
             @endif
@@ -331,7 +331,7 @@
                 @if($products->count())
                 @php
                     $totalRevenue = 0; $totalCogs = 0;
-                    $lineImages = \App\Support\CatalogImages::forSkus($products->pluck('model')->map(fn ($m) => trim((string) $m))->filter()->all());
+                    $lineImages = \App\Support\CatalogImages::forSkus($products->pluck('sku')->map(fn ($m) => trim((string) $m))->filter()->all());
                 @endphp
                 <div class="od-items">
                     <div class="od-items__head" aria-hidden="true">
@@ -345,7 +345,7 @@
                     @foreach($products as $p)
                         @php
                             $catalogProduct = $catalogProducts[$p->order_product_id] ?? null;
-                            $img = $lineImages[trim((string) $p->model)] ?? ($catalogProduct ? trim((string) ($catalogProduct->image ?? '')) : '');
+                            $img = $lineImages[trim((string) $p->sku)] ?? ($catalogProduct ? trim((string) ($catalogProduct->image ?? '')) : '');
                             $imgSrc = $img !== '' ? \App\Services\Media\ImageCache::url($img) : '';
                             if ($imgSrc === '') {
                                 $channelImg = trim($orderLineImages[$p->order_product_id] ?? '');
@@ -378,8 +378,8 @@
                                     <span class="co-item__name od-item__name">{{ $p->name }}</span>
                                 @endif
                                 <div class="co-item__meta">
-                                    @if(trim((string) $p->model) !== '')
-                                        <span class="co-item__sku">{{ $p->model }}</span>
+                                    @if(trim((string) $p->sku) !== '')
+                                        <span class="co-item__sku">{{ $p->sku }}</span>
                                     @endif
                                     @foreach($p->variations as $variation)
                                         <span class="co-item__var">{{ $variation->name }}: {{ $variation->value }}</span>
@@ -447,7 +447,7 @@
             </section>
 
             @php
-                $feeCodes = array_column(\App\Services\Orders\MarketplaceFeeNormalizer::CODES, 0);
+                $feeCodes = array_column(\App\Services\Orders\ChannelFeeNormalizer::CODES, 0);
                 $notSale = array_merge($feeCodes, ['total', 'escrow_amount', 'total_amount', 'partial_payment_total']);
                 $totalRow = $orderTotals->firstWhere('code', 'total');
                 $saleTotal = $totalRow ? (float) $totalRow->value : (float) $order->total;
@@ -506,6 +506,16 @@
                         </span>
                     </div>
 
+                    @if($orderProfit->shippingIncome() > 0)
+                    <div class="od-ledger__row">
+                        <span class="od-ledger__k">
+                            Shipping the customer paid
+                            <x-ui.hint label="Why the customer's shipping counts">On your own store the customer pays shipping to you, and you pay the courier. The customer's shipping is your income; what you paid the courier is the shipping cost below.</x-ui.hint>
+                        </span>
+                        <span class="od-ledger__v od-pos">+{{ \App\Support\Money::base($orderProfit->shippingIncome()) }}</span>
+                    </div>
+                    @endif
+
                     <div class="od-ledger__row">
                         <span class="od-ledger__k">Shipping cost</span>
                         <span class="od-ledger__v">
@@ -520,6 +530,7 @@
                             @endif
                         </span>
                     </div>
+
 
                     @foreach($orderProfit->fees as $fee)
                     <div class="od-ledger__row">
@@ -658,7 +669,7 @@
                                     </span>
                                     @endif
                                     <span class="od-pay__meta">
-                                        {{ $pay->payment_method }}@if($pay->reference_no) &middot; {{ $pay->reference_no }}@endif @if($pay->notes) &middot; {{ $pay->notes }}@endif
+                                        {{ $pay->payment_method }}@if($pay->reference_no) &middot; {{ $pay->reference_no }}@endif @if($pay->note) &middot; {{ $pay->note }}@endif
                                     </span>
                                 </div>
                                 @endforeach
@@ -698,8 +709,8 @@
                                         <input type="text" id="od-pay-ref" name="reference_no" class="x-input" placeholder="Transaction/check #">
                                     </div>
                                     <div class="od-field od-field--wide">
-                                        <label class="od-field__k" for="od-pay-notes">Notes</label>
-                                        <input type="text" id="od-pay-notes" name="notes" class="x-input" placeholder="Optional">
+                                        <label class="od-field__k" for="od-pay-note">Note</label>
+                                        <input type="text" id="od-pay-note" name="note" class="x-input" placeholder="Optional">
                                     </div>
                                 </div>
                                 <div class="od-form__actions">
@@ -740,8 +751,8 @@
                     @if($h->user_name)
                         <div class="od-time__who">by {{ $h->user_name }}</div>
                     @endif
-                    @if($h->comment)
-                        <div class="od-time__note">{{ $h->comment }}</div>
+                    @if($h->note)
+                        <div class="od-time__note">{{ $h->note }}</div>
                     @endif
                 </div>
             </div>

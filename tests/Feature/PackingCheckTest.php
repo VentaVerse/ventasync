@@ -70,7 +70,7 @@ class PackingCheckTest extends TestCase
     {
         $order = $this->lazadaOrder();
 
-        $res = $this->actingAs($this->packer())->getJson(route('fulfilment.packing_check.show', ['channel' => 'lazada', 'order' => $order->id]))
+        $res = $this->actingAs($this->packer())->getJson(route('fulfillment.packing_check.show', ['channel' => 'lazada', 'order' => $order->id]))
             ->assertOk()
             ->assertJsonPath('reference', '1105065607396146');
 
@@ -86,7 +86,7 @@ class PackingCheckTest extends TestCase
     {
         $order = $this->lazadaOrder();
         $packer = $this->packer();
-        $verify = route('fulfilment.packing_check.verify', ['channel' => 'lazada', 'order' => $order->id]);
+        $verify = route('fulfillment.packing_check.verify', ['channel' => 'lazada', 'order' => $order->id]);
 
         foreach ([['l0' => '2', 'l1' => '3'], ['l0' => '4', 'l1' => '2'], ['l0' => '2'], ['l0' => '2', 'l1' => '4.0'], ['l0' => ' ', 'l1' => '4']] as $counts) {
             $this->actingAs($packer)->postJson($verify, ['counts' => $counts])
@@ -116,7 +116,7 @@ class PackingCheckTest extends TestCase
         $b = $this->lazadaOrder('B-1');
         $packer = $this->packer();
 
-        $this->actingAs($packer)->postJson(route('fulfilment.packing_check.verify', ['channel' => 'lazada', 'order' => $a->id]), ['counts' => ['l0' => '2', 'l1' => '4']])->assertOk();
+        $this->actingAs($packer)->postJson(route('fulfillment.packing_check.verify', ['channel' => 'lazada', 'order' => $a->id]), ['counts' => ['l0' => '2', 'l1' => '4']])->assertOk();
 
         $this->actingAs($packer)
             ->post(route('ext.lazada.orders.bulk_pack_print', ['store' => $this->lazada->id]), ['ids' => [$a->id, $b->id]])
@@ -141,13 +141,13 @@ class PackingCheckTest extends TestCase
     private function countRight(User $packer, LazadaOrder $order): void
     {
         $this->actingAs($packer)
-            ->postJson(route('fulfilment.packing_check.verify', ['channel' => 'lazada', 'order' => $order->id]), ['counts' => ['l0' => '2', 'l1' => '4']])
+            ->postJson(route('fulfillment.packing_check.verify', ['channel' => 'lazada', 'order' => $order->id]), ['counts' => ['l0' => '2', 'l1' => '4']])
             ->assertOk();
     }
 
     private function counted(User $packer, LazadaOrder $order): bool
     {
-        return \App\Support\Fulfilment\PackingCheck::passed($packer, 'lazada', $order->id);
+        return \App\Support\Fulfillment\PackingCheck::passed($packer, 'lazada', $order->id);
     }
 
     public function test_one_count_books_once(): void
@@ -230,7 +230,7 @@ class PackingCheckTest extends TestCase
         Setting::singleton()->update(['packing_check' => false]);
         $order = $this->lazadaOrder();
 
-        $this->actingAs($this->packer())->getJson(route('fulfilment.packing_check.show', ['channel' => 'lazada', 'order' => $order->id]))->assertNotFound();
+        $this->actingAs($this->packer())->getJson(route('fulfillment.packing_check.show', ['channel' => 'lazada', 'order' => $order->id]))->assertNotFound();
         $this->actingAs($this->packer())
             ->post(route('ext.lazada.orders.pack_print', ['store' => $this->lazada->id, 'orderId' => '1105065607396146']))
             ->assertSessionMissing('error');
@@ -241,30 +241,30 @@ class PackingCheckTest extends TestCase
         $order = $this->lazadaOrder();
 
         $this->actingAs($this->packer(['manage_shopee/order']))
-            ->getJson(route('fulfilment.packing_check.show', ['channel' => 'lazada', 'order' => $order->id]))->assertForbidden();
+            ->getJson(route('fulfillment.packing_check.show', ['channel' => 'lazada', 'order' => $order->id]))->assertForbidden();
         $this->actingAs($this->packer(['manage_shopee/order']))
-            ->postJson(route('fulfilment.packing_check.verify', ['channel' => 'lazada', 'order' => $order->id]), ['counts' => ['l0' => '2', 'l1' => '4']])->assertForbidden();
+            ->postJson(route('fulfillment.packing_check.verify', ['channel' => 'lazada', 'order' => $order->id]), ['counts' => ['l0' => '2', 'l1' => '4']])->assertForbidden();
     }
 
-    public function test_the_switch_lives_on_settings_fulfilment(): void
+    public function test_the_switch_lives_on_settings_fulfillment(): void
     {
         Setting::singleton()->update(['packing_check' => false]);
-        $admin = $this->packer(['manage_settings/fulfilment', 'view_settings/settings_hub']);
+        $admin = $this->packer(['manage_settings/fulfillment', 'view_settings/settings_hub']);
 
-        $this->actingAs($admin)->get(route('settings.hub'))->assertOk()->assertSee(route('settings.fulfilment'), false);
-        $this->actingAs($admin)->get(route('settings.fulfilment'))->assertOk()->assertSee('Count every item before booking');
+        $this->actingAs($admin)->get(route('settings.hub'))->assertOk()->assertSee(route('settings.fulfillment'), false);
+        $this->actingAs($admin)->get(route('settings.fulfillment'))->assertOk()->assertSee('Count every item before booking');
 
-        $this->actingAs($admin)->put(route('settings.fulfilment.update'), ['packing_check' => '1'])
-            ->assertRedirect(route('settings.fulfilment'))->assertSessionHas('status', 'Fulfilment settings saved.');
+        $this->actingAs($admin)->put(route('settings.fulfillment.update'), ['packing_check' => '1'])
+            ->assertRedirect(route('settings.fulfillment'))->assertSessionHas('status', 'Fulfillment settings saved.');
         $this->assertTrue((bool) Setting::singleton()->fresh()->packing_check);
 
-        $this->actingAs($admin)->get(route('settings.fulfilment'))->assertSee('name="packing-check"', false);
+        $this->actingAs($admin)->get(route('settings.fulfillment'))->assertSee('name="packing-check"', false);
 
-        $this->actingAs($admin)->put(route('settings.fulfilment.update'), [])->assertRedirect();
+        $this->actingAs($admin)->put(route('settings.fulfillment.update'), [])->assertRedirect();
         $this->assertFalse((bool) Setting::singleton()->fresh()->packing_check);
 
-        $viewer = $this->packer(['view_settings/fulfilment']);
-        $this->actingAs($viewer)->put(route('settings.fulfilment.update'), ['packing_check' => '1']);
+        $viewer = $this->packer(['view_settings/fulfillment']);
+        $this->actingAs($viewer)->put(route('settings.fulfillment.update'), ['packing_check' => '1']);
         $this->assertFalse((bool) Setting::singleton()->fresh()->packing_check, 'looking is not changing');
     }
 

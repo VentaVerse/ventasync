@@ -12,7 +12,7 @@
     $syncStatus = (string) ($syncStatus ?? 'all');
     $brandFilter = (string) ($brandFilter ?? 'all');
     $groupFilter = (string) ($groupFilter ?? 'all');
-    $erpStatus = (string) ($erpStatus ?? 'all');
+    $catalogStatus = (string) ($catalogStatus ?? 'all');
 
     $hasFilters = $q !== ''
         || $syncStatus !== 'all'
@@ -22,7 +22,7 @@
         || ($changeFlag ?? false)
         || $brandFilter !== 'all'
         || $groupFilter !== 'all'
-        || $erpStatus !== 'all';
+        || $catalogStatus !== 'all';
 
     $sort = (string) ($sort ?? 'id');
     $dir = (string) ($dir ?? 'asc');
@@ -127,7 +127,7 @@
         <input type="hidden" name="change" value="1">
     @endif
     <x-ui.input type="search" name="q" class="x-filters__search"
-                value="{{ $q }}" placeholder="Name, model or SKU" aria-label="Search listings" />
+                value="{{ $q }}" placeholder="Name or SKU" aria-label="Search listings" />
 
     <div class="x-select-wrap x-filters__select">
         <select name="brand" class="x-input" data-autosubmit aria-label="Filter by brand">
@@ -141,10 +141,10 @@
 
 
     <div class="x-select-wrap x-filters__select x-filters__select--narrow">
-        <select name="erp_status" class="x-input" data-autosubmit aria-label="Filter by Master Catalog status">
-            <option value="all" @selected($erpStatus === 'all')>Any Master Catalog status</option>
-            <option value="enabled" @selected($erpStatus === 'enabled')>Enabled</option>
-            <option value="disabled" @selected($erpStatus === 'disabled')>Disabled</option>
+        <select name="catalog_status" class="x-input" data-autosubmit aria-label="Filter by Master Catalog status">
+            <option value="all" @selected($catalogStatus === 'all')>Any Master Catalog status</option>
+            <option value="enabled" @selected($catalogStatus === 'enabled')>Enabled</option>
+            <option value="disabled" @selected($catalogStatus === 'disabled')>Disabled</option>
         </select>
         <x-ui.icon name="chevron-down" size="14" class="x-select-wrap__chevron" />
     </div>
@@ -179,8 +179,8 @@
         'push' => ['action' => route('ext.shopee.products.bulk_push'), 'label' => 'Send to Shopee',
             'confirm' => 'Send the selected products to Shopee? Each goes up on its own settings, and anything not ready is named rather than sent.'],
         'switch' => [
-            ['action' => route('ext.shopee.products.bulk_toggle'), 'verb' => 'unlist', 'codes' => 'NORMAL', 'label' => 'Delist :n from Shopee', 'button' => 'Delist from Shopee', 'fields' => ['action' => 'unlist'], 'confirm' => 'Delist the selected items from Shopee? Buyers stop seeing them immediately. They stay here and can be published again at any time.'],
-            ['action' => route('ext.shopee.products.bulk_toggle'), 'verb' => 'list', 'codes' => 'UNLIST', 'label' => 'Publish :n on Shopee', 'button' => 'Publish on Shopee', 'fields' => ['action' => 'list'], 'confirm' => 'Publish the selected items on Shopee? Buyers see them again immediately.'],
+            ['action' => route('ext.shopee.products.bulk_toggle'), 'verb' => 'unlist', 'codes' => 'NORMAL', 'label' => 'Delist :n from Shopee', 'button' => 'Delist from Shopee', 'fields' => ['action' => 'unlist'], 'confirm' => 'Delist the selected items from Shopee? Customers stop seeing them immediately. They stay here and can be published again at any time.'],
+            ['action' => route('ext.shopee.products.bulk_toggle'), 'verb' => 'list', 'codes' => 'UNLIST', 'label' => 'Publish :n on Shopee', 'button' => 'Publish on Shopee', 'fields' => ['action' => 'list'], 'confirm' => 'Publish the selected items on Shopee? Customers see them again immediately.'],
         ],
         'link' => ['action' => route('ext.shopee.products.check'), 'label' => 'Link IDs'],
         'delete' => ['action' => route('ext.shopee.products.bulk_delete'), 'label' => 'Delete from Shopee', 'confirm' => 'Delete the selected products from Shopee? The listings are removed at the marketplace and this cannot be undone.'],
@@ -379,11 +379,11 @@
                         } else {
                             $menu['update'] = ['action' => route('ext.shopee.listings.push_update', $p->product_id), 'label' => 'Send to Shopee', 'confirm' => "Send this listing's content and settings to the live Shopee item? Title, description, package, category, couriers, attributes, price and stock are updated.", 'verb' => 'Send', 'tone' => 'primary'];
                             if ($rowState?->state === \App\Channels\Listings\ListingState::LIVE) {
-                                $menu['switch'] = ['action' => route('ext.shopee.listings.toggle', $p->product_id), 'label' => 'Delist from Shopee', 'fields' => ['action' => 'unlist'], 'confirm' => 'Delist this item from Shopee? Buyers stop seeing it immediately. It can be published again at any time.', 'verb' => 'Delist'];
+                                $menu['switch'] = ['action' => route('ext.shopee.listings.toggle', $p->product_id), 'label' => 'Delist from Shopee', 'fields' => ['action' => 'unlist'], 'confirm' => 'Delist this item from Shopee? Customers stop seeing it immediately. It can be published again at any time.', 'verb' => 'Delist'];
                             } elseif ($rowState?->state === \App\Channels\Listings\ListingState::INACTIVE) {
                                 $menu['switch'] = ($parcelGaps[$p->product_id] ?? null) !== null
                                     ? ['href' => route('products.edit', $p->product_id), 'label' => 'Add weight and size, then publish', 'title' => 'Shopee will refuse to publish without ' . $parcelGaps[$p->product_id]]
-                                    : ['action' => route('ext.shopee.listings.toggle', $p->product_id), 'label' => 'Publish on Shopee', 'fields' => ['action' => 'list'], 'confirm' => 'Publish this item on Shopee? Buyers see it again immediately.', 'verb' => 'Publish', 'tone' => 'primary'];
+                                    : ['action' => route('ext.shopee.listings.toggle', $p->product_id), 'label' => 'Publish on Shopee', 'fields' => ['action' => 'list'], 'confirm' => 'Publish this item on Shopee? Customers see it again immediately.', 'verb' => 'Publish', 'tone' => 'primary'];
                             }
                             $menu['check'] = ['action' => route('ext.shopee.products.check'), 'label' => 'Check against Shopee', 'fields' => ['product_ids[]' => $p->product_id]];
                             $menu['unlink'] = ['action' => route('ext.shopee.products.unlink', $p->product_id), 'confirm' => 'Unlink this product from Shopee? Only the link is removed. The Shopee listing stays up and can be linked again later.'];

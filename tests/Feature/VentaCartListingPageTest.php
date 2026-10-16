@@ -78,7 +78,7 @@ class VentaCartListingPageTest extends TestCase
     private function product(string $sku = 'GP-200', float $price = 1000): int
     {
         $pid = (int) DB::table('products')->insertGetId([
-            'model' => $sku, 'sku' => $sku, 'price' => $price, 'quantity' => 7, 'status' => 1,
+            'sku' => $sku, 'price' => $price, 'quantity' => 7, 'status' => 1,
             'image' => '', 'weight' => 0, 'length' => 0, 'width' => 0, 'height' => 0,
             'date_added' => now(), 'date_modified' => now(),
         ]);
@@ -516,32 +516,29 @@ class VentaCartListingPageTest extends TestCase
         $pid = $this->product();
 
         $oid = (int) DB::table('orders')->insertGetId([
-            'invoice_prefix' => 'INV-', 'store_id' => 0, 'store_name' => 'Test store', 'store_url' => '',
-            'customer_id' => 0, 'customer_group_id' => 0, 'firstname' => 'A', 'lastname' => 'B', 'email' => 'a@b.test',
-            'telephone' => '', 'fax' => '', 'custom_field' => '',
+            'store_name' => 'Test store', 'firstname' => 'A', 'lastname' => 'B', 'email' => 'a@b.test', 'payment_method' => '', 'shipping_method' => '',
+            'telephone' => '',
             'payment_firstname' => '', 'payment_lastname' => '', 'payment_company' => '', 'payment_address_1' => '', 'payment_address_2' => '',
-            'payment_city' => '', 'payment_postcode' => '', 'payment_country' => '', 'payment_country_id' => 0, 'payment_zone' => '', 'payment_zone_id' => 0,
-            'payment_address_format' => '', 'payment_custom_field' => '', 'payment_method' => '', 'payment_code' => '',
+            'payment_city' => '', 'payment_postcode' => '', 'payment_country' => '', 'payment_zone' => '',
             'shipping_firstname' => '', 'shipping_lastname' => '', 'shipping_company' => '', 'shipping_address_1' => '', 'shipping_address_2' => '',
-            'shipping_city' => '', 'shipping_postcode' => '', 'shipping_country' => '', 'shipping_country_id' => 0, 'shipping_zone' => '', 'shipping_zone_id' => 0,
-            'shipping_address_format' => '', 'shipping_custom_field' => '', 'shipping_method' => '', 'shipping_code' => '',
-            'comment' => '', 'affiliate_id' => 0, 'commission' => 0, 'marketing_id' => 0, 'tracking' => '',
-            'total' => 1000, 'order_status_id' => 5, 'language_id' => (int) config('catalog.default_language_id'),
+            'shipping_city' => '', 'shipping_postcode' => '', 'shipping_country' => '', 'shipping_zone' => '',
+            'customer_note' => '',
+            'total' => 1000, 'order_status_id' => 5,
             'currency_id' => 1, 'currency_code' => 'PHP', 'currency_value' => 1,
-            'ip' => '', 'forwarded_ip' => '', 'user_agent' => '', 'accept_language' => '',
-            'courier_id' => 0, 'tracking_number' => '', 'oe_import' => 0,
-            'channel' => 'ventacart:' . $store->id, 'marketplace_order_id' => '77',
+            'ip' => '',
+            'courier_id' => 0, 'tracking_number' => '',
+            'channel' => 'ventacart:' . $store->id, 'channel_order_id' => '77',
             'shipping_cost' => 0, 'payment_cost' => 0, 'extra_cost' => 0,
             'date_added' => '2026-06-15 10:00:00', 'date_modified' => '2026-06-15 10:00:00',
         ]);
         DB::table('order_products')->insert([
-            'order_id' => $oid, 'product_id' => $pid, 'name' => 'Guitar Pedal 200', 'model' => 'GP-200',
-            'quantity' => 1, 'price' => 1000, 'total' => 1000, 'tax' => 0, 'reward' => 0,
+            'order_id' => $oid, 'product_id' => $pid, 'name' => 'Guitar Pedal 200', 'sku' => 'GP-200',
+            'quantity' => 1, 'price' => 1000, 'total' => 1000,
             'cost' => 111.11,
         ]);
         DB::table('ch_ventacart_orders')->insert([
             'store_id' => $store->id, 'ventacart_order_id' => 77, 'status' => 'delivered',
-            'total' => 1000, 'raw' => '{}', 'catalog_order_id' => $oid,
+            'total' => 1000, 'raw' => '{}', 'sales_order_id' => $oid,
             'created_at' => now(), 'updated_at' => now(),
         ]);
 
@@ -568,9 +565,9 @@ class VentaCartListingPageTest extends TestCase
         $this->assertSame(1, DB::table('order_products')->where('order_id', $oid)->count());
 
         $rows = DB::table('order_totals')->where('order_id', $oid)
-            ->whereIn('code', ['marketplace_payment_fee', 'marketplace_shipping_fee'])->pluck('value', 'code');
-        $this->assertSame(-25.5, round((float) ($rows['marketplace_payment_fee'] ?? 0), 2));
-        $this->assertSame(-60.0, round((float) ($rows['marketplace_shipping_fee'] ?? 0), 2));
+            ->whereIn('code', ['channel_payment_fee', 'channel_shipping_fee'])->pluck('value', 'code');
+        $this->assertSame(-25.5, round((float) ($rows['channel_payment_fee'] ?? 0), 2));
+        $this->assertSame(-60.0, round((float) ($rows['channel_shipping_fee'] ?? 0), 2));
     }
 
     public function test_the_storefronts_tracking_page_reaches_the_order(): void
@@ -596,7 +593,7 @@ class VentaCartListingPageTest extends TestCase
         };
 
         $pull($order);
-        $url = fn () => DB::table('orders')->where('channel', 'ventacart:' . $store->id)->where('marketplace_order_id', '88')->value('tracking_url');
+        $url = fn () => DB::table('orders')->where('channel', 'ventacart:' . $store->id)->where('channel_order_id', '88')->value('tracking_url');
         $this->assertSame('https://app.gogoxpress.com/track/QX12345', $url());
 
         unset($order['tracking_link']);
@@ -614,7 +611,7 @@ class VentaCartListingPageTest extends TestCase
         ];
         DB::table('ch_ventacart_orders')->insert([
             'store_id' => $store->id, 'ventacart_order_id' => 91, 'status' => 'delivered',
-            'total' => 11990, 'raw' => json_encode($raw), 'catalog_order_id' => 4242,
+            'total' => 11990, 'raw' => json_encode($raw), 'sales_order_id' => 4242,
             'created_at' => now(), 'updated_at' => now(),
         ]);
 
@@ -635,7 +632,7 @@ class VentaCartListingPageTest extends TestCase
         $store = $this->store();
         DB::table('ch_ventacart_orders')->insert([
             'store_id' => $store->id, 'ventacart_order_id' => 92, 'status' => 'pending',
-            'total' => 500, 'catalog_order_id' => 4243,
+            'total' => 500, 'sales_order_id' => 4243,
             'raw' => json_encode(['id' => 92, 'fees' => ['payment_fee' => null, 'shipping_cost' => null, 'net_after_fees' => null]]),
             'created_at' => now(), 'updated_at' => now(),
         ]);
@@ -1193,7 +1190,7 @@ class VentaCartListingPageTest extends TestCase
             return (int) DB::table('product_variation_values')->insertGetId([
                 'product_variation_type_id' => $productTypeId, 'product_id' => $pid,
                 'variation_type_id' => $typeId, 'variation_value_id' => $valueId,
-                'sku' => $sku, 'quantity' => 4, 'subtract' => 1,
+                'sku' => $sku, 'quantity' => 4, 'subtract_stock' => 1,
                 'price' => 0, 'price_prefix' => '+', 'points' => 0, 'points_prefix' => '+',
                 'weight' => 0, 'weight_prefix' => '+',
                 'cost' => 0, 'cost_amount' => 0, 'cost_percentage' => 0, 'cost_additional' => 0,

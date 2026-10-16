@@ -50,10 +50,10 @@ class LazadaAttributeAutoFillTest extends TestCase
     private function seedProduct(string $name, string $sku, string $description = 'A real description.'): int
     {
         $productId = DB::table('products')->insertGetId([
-            'model' => $sku, 'sku' => $sku, 'quantity' => 5, 'price' => 100,
+            'sku' => $sku, 'quantity' => 5, 'price' => 100,
             'status' => 1, 'image' => 'catalog/x.png', 'weight' => 0.5, 'length' => 10, 'width' => 10, 'height' => 5,
             'brand_id' => 0,
-            'date_added' => now(), 'date_modified' => now(), 'date_available' => now(),
+            'date_added' => now(), 'date_modified' => now(),
         ]);
         DB::table('product_descriptions')->insert([
             'product_id' => $productId, 'language_id' => (int) config('catalog.default_language_id'),
@@ -297,6 +297,7 @@ class LazadaAttributeAutoFillTest extends TestCase
         \Illuminate\Support\Facades\Http::fake([
             '*/images/migrate*' => \Illuminate\Support\Facades\Http::response(['code' => '0', 'data' => ['images' => [['url' => 'https://ph-live.slatic.net/x.jpg', 'hash_code' => 'h']]]], 200),
             '*/image/migrate*' => \Illuminate\Support\Facades\Http::response(['code' => '0', 'data' => ['image' => ['url' => 'https://ph-live.slatic.net/x.jpg', 'hash_code' => 'h']]], 200),
+            '*/products/get*' => \Illuminate\Support\Facades\Http::response(['code' => '0', 'data' => ['total_products' => 0, 'products' => []]], 200),
             '*' => \Illuminate\Support\Facades\Http::response(['code' => '4108', 'type' => 'ISP', 'message' => 'E500: Create product failed', 'detail' => [
                 ['field' => 'p-100005514', 'message' => 'C004: cannot be blank.', 'code' => 'CHK_BASIC_REQUIRED'],
                 ['field' => '', 'message' => 'Musical_Instrument_Type is mandatory', 'code' => 'CHK_BASIC_REQUIRED'],
@@ -310,7 +311,7 @@ class LazadaAttributeAutoFillTest extends TestCase
         $r->assertSessionHasErrors(['attributes.Musical_Instrument_Type']);
         $r->assertSessionMissing('status');
         $this->assertStringContainsString('Musical_Instrument_Type', (string) session('error'));
-        \Illuminate\Support\Facades\Http::assertNothingSent();
+        \Illuminate\Support\Facades\Http::assertNotSent(fn ($request) => ! str_contains($request->url(), '/products/get'));
         $html = $this->actingAs($user)->withSession(['errors' => session('errors')])->get(route('ext.lazada.products.edit', $listing->product_id))->assertOk()->getContent();
         $this->assertStringContainsString('Musical_Instrument_Type is mandatory', $html);
 

@@ -9,7 +9,7 @@ class Setting extends Model
     protected $fillable = [
         'company_name',
         'company_email',
-        'phone',
+        'telephone',
         'address_line1',
         'address_line2',
         'city',

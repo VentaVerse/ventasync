@@ -210,7 +210,6 @@ class SecurityHardeningTest extends TestCase
     private function testProduct(): Product
     {
         return Product::create([
-            'model' => 'SEC-HARDEN-' . uniqid(),
             'sku' => 'SEC-HARDEN-SKU-' . uniqid(),
             'price' => 10,
             'quantity' => 1,
@@ -222,7 +221,6 @@ class SecurityHardeningTest extends TestCase
     {
         return [
             'name' => 'Security Hardening Test Product',
-            'model' => $product->model,
             'sku' => $product->sku,
             'price' => 10,
             'quantity' => 1,
@@ -312,7 +310,6 @@ class SecurityHardeningTest extends TestCase
 
         $response = $this->actingAs($user)->post(route('products.store'), [
             'name' => 'Sec Test XSS Product ' . uniqid(),
-            'model' => 'SEC-XSS-' . uniqid(),
             'sku' => 'SEC-XSS-SKU-' . uniqid(),
             'price' => 10,
             'quantity' => 1,

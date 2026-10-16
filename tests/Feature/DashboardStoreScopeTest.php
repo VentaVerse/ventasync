@@ -56,7 +56,7 @@ class DashboardStoreScopeTest extends TestCase
         $this->assertSame(1, $one->viewData('totalOrders'));
         $this->assertSame(300.0, (float) $one->viewData('totalRevenue'));
         $this->assertSame('shopee:' . $b->id, $one->viewData('storeKey'));
-        $this->assertCount(1, $one->viewData('platformSlices'));
+        $this->assertCount(1, $one->viewData('channelSlices'));
         $this->assertCount(1, $one->viewData('recentOrders'));
         $one->assertSee(e(route('dashboard', ['range' => '30d', 'store' => 'shopee:' . $b->id])), false, 'the range links keep the store');
 
@@ -70,7 +70,7 @@ class DashboardStoreScopeTest extends TestCase
         $a = ShopeeStore::create(['mode' => 'live', 'store_name' => 'Main store']);
         $this->coreOrder(['channel' => 'shopee', 'store_id' => $a->id, 'store_name' => 'Main store']);
 
-        $slices = $this->actingAs($this->viewer())->get(route('dashboard'))->assertOk()->viewData('platformSlices');
+        $slices = $this->actingAs($this->viewer())->get(route('dashboard'))->assertOk()->viewData('channelSlices');
         $this->assertSame('Shopee: Main store', $slices[0]['name']);
         $this->assertSame('Main store', $slices[0]['store']);
     }

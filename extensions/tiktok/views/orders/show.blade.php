@@ -11,9 +11,9 @@
     $created = $order->order_created_at ? $order->order_created_at->format('Y-m-d H:i') : null;
     $updated = $order->order_updated_at ? $order->order_updated_at->format('Y-m-d H:i') : null;
 
-    $buyer = (string)($raw['buyer_name'] ?? $raw['recipient_address']['name'] ?? $order->buyer_name ?? '');
+    $customer = (string)($raw['buyer_name'] ?? $raw['recipient_address']['name'] ?? $order->customer_name ?? '');
     $phone = (string)($raw['recipient_address']['phone_number'] ?? $raw['recipient_address']['phone'] ?? '');
-    $receiverName = (string)($raw['recipient_address']['name'] ?? $raw['recipient_address']['full_name'] ?? $buyer);
+    $receiverName = (string)($raw['recipient_address']['name'] ?? $raw['recipient_address']['full_name'] ?? $customer);
     $address = (string)($raw['recipient_address']['full_address'] ?? '');
     $city = (string)($raw['recipient_address']['city'] ?? '');
     $state = (string)($raw['recipient_address']['state'] ?? '');
@@ -84,10 +84,10 @@
             <span class="od-stamp__v">{{ $updated }}</span>
         </span>
         @endif
-        @if($order->catalog_order_id)
+        @if($order->sales_order_id)
         <span class="od-stamp">
             <span class="od-stamp__k">Sales order</span>
-            <a class="od-stamp__v" href="{{ url('/sales/orders/' . $order->catalog_order_id) }}">{{ $order->catalog_order_id }}</a>
+            <a class="od-stamp__v" href="{{ url('/sales/orders/' . $order->sales_order_id) }}">{{ $order->sales_order_id }}</a>
         </span>
         @endif
     </div>
@@ -172,7 +172,7 @@
                                     @if(trim($ci['sku']) !== '')
                                         <span class="co-item__sku">{{ $ci['sku'] }}</span>
                                     @endif
-                                    <x-fulfilment.variation :sku="$ci['sku']" :fallback="$ci['variation']" />
+                                    <x-fulfillment.variation :sku="$ci['sku']" :fallback="$ci['variation']" :order="$order->sales_order_id" />
                                 </div>
                             </div>
 
@@ -224,8 +224,8 @@
                 </div>
                 <div class="od-card__body">
                     <div class="od-fact">
-                        <span class="od-fact__k">Buyer</span>
-                        <span class="od-fact__v">{{ $buyer !== '' ? $buyer : 'Not recorded' }}</span>
+                        <span class="od-fact__k">Customer</span>
+                        <span class="od-fact__v">{{ $customer !== '' ? $customer : 'Not recorded' }}</span>
                     </div>
                     <div class="od-fact">
                         <span class="od-fact__k">Delivery address</span>
@@ -286,7 +286,7 @@
                         <span class="od-fact__v">{{ $shipping !== '' ? $shipping : 'Not recorded' }}</span>
                     </div>
                     <div class="od-fact">
-                        <span class="od-fact__k">Tracking number</span>
+                        <span class="od-fact__k">Tracking</span>
                         <span class="od-fact__v {{ $trackingNo !== '' ? 'od-fact__v--mono' : '' }}">{{ $trackingNo !== '' ? $trackingNo : 'Not recorded' }}</span>
                     </div>
                 </div>

@@ -190,7 +190,7 @@
             </span>
         </a>
 
-        <a class="bl-stat bl-stat--amber" href="{{ route('channels.fulfilment') }}">
+        <a class="bl-stat bl-stat--amber" href="{{ route('channels.fulfillment') }}">
             <span class="bl-stat__top">
                 <span class="bl-stat__k">Waiting to ship</span>
                 <span class="bl-stat__ic"><x-ui.icon name="send" size="17" /></span>
@@ -206,8 +206,8 @@
                 <span class="bl-stat__k">Stock at cost</span>
                 <span class="bl-stat__ic"><x-ui.icon name="boxes" size="17" /></span>
             </span>
-            <span class="bl-stat__v">{{ abs($inventoryAtCost) >= 1000000 ? Money::compactAxis($inventoryAtCost) : Money::base($inventoryAtCost) }}</span>
-            <span class="bl-stat__d">{{ number_format($inventoryMargin, 1) }}% margin at list</span>
+            <span class="bl-stat__v">{{ abs($stockAtCost) >= 1000000 ? Money::compactAxis($stockAtCost) : Money::base($stockAtCost) }}</span>
+            <span class="bl-stat__d">{{ number_format($stockMargin, 1) }}% margin at list</span>
         </a>
     </div>
 
@@ -272,8 +272,8 @@
                         <tr>
                             <th scope="col">Order</th>
                             <th scope="col">Channel</th>
-                            <th scope="col">Buyer</th>
-                            <th scope="col">Placed</th>
+                            <th scope="col">Customer</th>
+                            <th scope="col">Created</th>
                             <th scope="col" class="num">Total</th>
                             <th scope="col">State</th>
                         </tr>
@@ -283,7 +283,7 @@
                             @php
                                 $src = $order->channel ?: 'direct';
                                 $opt = $sourceLabelsMap[$src] ?? null;
-                                $buyer = trim(($order->firstname ?? '') . ' ' . ($order->lastname ?? ''));
+                                $customer = trim(($order->firstname ?? '') . ' ' . ($order->lastname ?? ''));
                             @endphp
                             <tr>
                                 <td>
@@ -302,7 +302,7 @@
                                     @endif
                                     <span class="ml-1.5">{{ $opt['label'] ?? 'Direct' }}</span>
                                 </td>
-                                <td>{{ $buyer !== '' ? $buyer : 'No name recorded' }}</td>
+                                <td>{{ $customer !== '' ? $customer : 'No name recorded' }}</td>
                                 <td class="whitespace-nowrap text-[12px] text-ink-3">
                                     {{ \Illuminate\Support\Carbon::parse($order->date_added)->diffForHumans(short: true) }}
                                 </td>
@@ -463,7 +463,7 @@
                 </div>
             </div>
 
-            @if(!empty($platformSlices))
+            @if(!empty($channelSlices))
                 <div class="bl-panel-head">
                     <h2>Orders by store</h2>
                     <span class="text-[12px] text-ink-3">{{ $rangeHeading }}</span>
@@ -473,7 +473,7 @@
                         sold under.</x-ui.hint>
                 </div>
                 @php
-                    $ringTotal = max(1, collect($platformSlices)->sum('orders'));
+                    $ringTotal = max(1, collect($channelSlices)->sum('orders'));
                     $ringR = 70;
                     $ringC = 2 * M_PI * $ringR;
                     $ringAt = 0.0;
@@ -494,7 +494,7 @@
                     <div class="bl-split-ring__ring">
             <svg class="bl-ring" width="100%" height="188" viewBox="0 0 200 200" data-ring
             role="img" aria-label="Share of orders by channel">
-            @foreach($platformSlices as $i => $slice)
+            @foreach($channelSlices as $i => $slice)
             @php
             $share = $slice['orders'] / $ringTotal;
             $dash = round($share * $ringC, 2);
@@ -531,8 +531,8 @@
                             </tr>
                         </thead>
                         <tbody>
-                            @php $sliceTotal = max(1, collect($platformSlices)->sum('orders')); @endphp
-                            @foreach($platformSlices as $i => $slice)
+                            @php $sliceTotal = max(1, collect($channelSlices)->sum('orders')); @endphp
+                            @foreach($channelSlices as $i => $slice)
                                 @php
                                     $brand = $brandFor($slice['label']);
                                     $href = $channelFor($slice['label'])['link'] ?? null;
@@ -581,7 +581,7 @@
             <div class="bl-panel-head">
                 <h2>Inventory</h2>
                 <span class="text-[12px] text-ink-3">
-                    {{ number_format($inventoryProducts) }} {{ Str::plural('product', $inventoryProducts) }}
+                    {{ number_format($stockProducts) }} {{ Str::plural('product', $stockProducts) }}
                 </span>
             </div>
 
@@ -592,12 +592,12 @@
             </div>
             <dl class="bl-panel__body grid grid-cols-[auto_1fr] items-baseline gap-x-4 gap-y-1.5 text-[13px]">
                 <dt class="bl-label whitespace-nowrap">At cost</dt>
-                <dd class="font-medium">{{ Money::base($inventoryAtCost) }}</dd>
+                <dd class="font-medium">{{ Money::base($stockAtCost) }}</dd>
                 <dt class="bl-label whitespace-nowrap">At sale price</dt>
-                <dd class="font-medium">{{ Money::base($inventoryAtSale) }}</dd>
+                <dd class="font-medium">{{ Money::base($stockAtSale) }}</dd>
                 <dt class="bl-label whitespace-nowrap">Margin on stock</dt>
-                <dd class="font-medium {{ $inventoryMargin > 0 ? 'text-good' : '' }}">
-                    {{ number_format($inventoryMargin, 1) }}%
+                <dd class="font-medium {{ $stockMargin > 0 ? 'text-good' : '' }}">
+                    {{ number_format($stockMargin, 1) }}%
                 </dd>
                 <dt class="bl-label whitespace-nowrap">All time</dt>
                 <dd class="font-medium">{{ Money::base($totalRevenue) }}</dd>

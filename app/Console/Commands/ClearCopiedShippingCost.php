@@ -10,7 +10,7 @@ class ClearCopiedShippingCost extends Command
     protected $signature = 'orders:clear-copied-shipping-cost
         {--apply : Clear the values; without it the command only reports what it would change}';
 
-    protected $description = "Clear VentaCart and WooCommerce shipping costs that were copied from the buyer's shipping charge";
+    protected $description = "Clear VentaCart and WooCommerce shipping costs that were copied from the customer's shipping charge";
 
     public function handle(): int
     {
@@ -37,7 +37,7 @@ class ClearCopiedShippingCost extends Command
         }
 
         if (! $this->option('apply')) {
-            $this->info(count($orderIds) . ' orders carry the buyer\'s shipping charge as their shipping cost. Run with --apply to clear them.');
+            $this->info(count($orderIds) . ' orders carry the customer\'s shipping charge as their shipping cost. Run with --apply to clear them.');
 
             return self::SUCCESS;
         }

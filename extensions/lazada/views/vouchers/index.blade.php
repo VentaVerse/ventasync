@@ -101,8 +101,8 @@
                 @if($canStop)
                     <form method="POST" action="{{ route('ext.lazada.vouchers.deactivate', $v['id'] ?? ($v['voucher_id'] ?? 0)) }}"
                           data-confirm="{{ $notStarted
-                              ? 'Cancel voucher ' . ($v['name'] ?? '') . ' before it starts? Buyers never see it, and it cannot be brought back.'
-                              : 'End voucher ' . ($v['name'] ?? '') . ' now? Buyers can no longer collect or use it, and an ended voucher cannot restart.' }}"
+                              ? 'Cancel voucher ' . ($v['name'] ?? '') . ' before it starts? Customers never see it, and it cannot be brought back.'
+                              : 'End voucher ' . ($v['name'] ?? '') . ' now? Customers can no longer collect or use it, and an ended voucher cannot restart.' }}"
                           data-confirm-verb="{{ $notStarted ? 'Cancel voucher' : 'End voucher' }}">
                         @csrf
                         <x-ui.button type="submit">{{ $notStarted ? 'Cancel before it starts' : 'End now' }}</x-ui.button>
@@ -120,12 +120,12 @@
     <details class="fm-card fm-card--fold" @if($errors->any() || old('_token')) open @endif>
         <summary class="fm-card__head fm-card__head--summary"><h2 class="fm-card__title">Create a voucher</h2><span class="fm-card__hint">Opens the form</span></summary>
         <div class="fm-card__body">
-            <p class="fm-section__note">A collectible shop voucher: buyers collect it and spend it on anything in the shop. Give an amount off or a percent off, not both. Lazada wants the start in the future.</p>
+            <p class="fm-section__note">A collectible shop voucher: customers collect it and spend it on anything in the shop. Give an amount off or a percent off, not both. Lazada wants the start in the future.</p>
             <div class="fm-fields fm-fields--2">
-                <x-ui.field label="Name (buyers see this)" for="lv-name" name="name">
+                <x-ui.field label="Name (customers see this)" for="lv-name" name="name">
                     <x-ui.input id="lv-name" name="name" maxlength="50" :value="old('name')" />
                 </x-ui.field>
-                <x-ui.field label="How many buyers can use it" for="lv-issued" name="issued">
+                <x-ui.field label="How many customers can use it" for="lv-issued" name="issued">
                     <x-ui.input id="lv-issued" name="issued" type="number" step="1" min="1" :value="old('issued')" placeholder="100" />
                 </x-ui.field>
             </div>

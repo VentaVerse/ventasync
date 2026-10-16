@@ -105,14 +105,14 @@
                 @if($link)
                     @if($live && $live['item_status'] === 'NORMAL')
                         <form method="POST" action="{{ route('ext.shopee.listings.toggle', $product->product_id) }}"
-                              data-confirm="Delist this item from Shopee? Buyers stop seeing it immediately. It stays here and can be published again at any time." data-confirm-verb="Unlist">
+                              data-confirm="Delist this item from Shopee? Customers stop seeing it immediately. It stays here and can be published again at any time." data-confirm-verb="Unlist">
                             @csrf
                             <input type="hidden" name="action" value="unlist">
                             <x-ui.button type="submit" size="sm">Delist from Shopee</x-ui.button>
                         </form>
                     @elseif($live && $live['item_status'] === 'UNLIST')
                         <form method="POST" action="{{ route('ext.shopee.listings.toggle', $product->product_id) }}"
-                              data-confirm="Publish this item on Shopee? Buyers see it again immediately." data-confirm-tone="primary" data-confirm-verb="Relist">
+                              data-confirm="Publish this item on Shopee? Customers see it again immediately." data-confirm-tone="primary" data-confirm-verb="Relist">
                             @csrf
                             <input type="hidden" name="action" value="list">
                             <x-ui.button type="submit" variant="oncolor" size="sm">Publish on Shopee</x-ui.button>

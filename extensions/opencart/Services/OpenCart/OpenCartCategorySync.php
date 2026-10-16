@@ -53,16 +53,16 @@ class OpenCartCategorySync
 
             foreach ($categories as $raw) {
                 try {
-                    $ocCatId = (int) ($raw['category_id'] ?? 0);
-                    if ($ocCatId <= 0) continue;
+                    $openCartCatId = (int) ($raw['category_id'] ?? 0);
+                    if ($openCartCatId <= 0) continue;
 
                     $name = trim($raw['name'] ?? '');
                     if ($name === '') continue;
 
-                    $ocParentId = (int) ($raw['parent_id'] ?? 0);
+                    $openCartParentId = (int) ($raw['parent_id'] ?? 0);
                     $coreParentId = 0;
-                    if ($ocParentId > 0 && isset($this->categoryMap[$ocParentId])) {
-                        $coreParentId = $this->categoryMap[$ocParentId];
+                    if ($openCartParentId > 0 && isset($this->categoryMap[$openCartParentId])) {
+                        $coreParentId = $this->categoryMap[$openCartParentId];
                     }
 
                     $existing = DB::table('categories AS c')
@@ -118,11 +118,11 @@ class OpenCartCategorySync
 
                     if (isset($raw['path']) && is_array($raw['path'])) {
                         foreach ($raw['path'] as $p) {
-                            $ocPathId = (int) ($p['path_id'] ?? 0);
-                            if ($ocPathId === $ocCatId) {
+                            $openCartPathId = (int) ($p['path_id'] ?? 0);
+                            if ($openCartPathId === $openCartCatId) {
                                 $corePathId = $coreCatId;
-                            } elseif (isset($this->categoryMap[$ocPathId])) {
-                                $corePathId = $this->categoryMap[$ocPathId];
+                            } elseif (isset($this->categoryMap[$openCartPathId])) {
+                                $corePathId = $this->categoryMap[$openCartPathId];
                             } else {
                                 $corePathId = $coreCatId;
                             }
@@ -141,7 +141,7 @@ class OpenCartCategorySync
                         ]);
                     }
 
-                    $this->categoryMap[$ocCatId] = $coreCatId;
+                    $this->categoryMap[$openCartCatId] = $coreCatId;
                 } catch (\Throwable $e) {
                     $failed++;
                     $errors[] = [

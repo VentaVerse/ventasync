@@ -6,7 +6,7 @@ use App\Models\Catalog\Order;
 use App\Models\Setting;
 use App\Observers\OrderObserver;
 use App\Support\ChannelWorkspace;
-use App\Support\FulfilmentBadge;
+use App\Support\FulfillmentBadge;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -21,6 +21,7 @@ class AppServiceProvider extends ServiceProvider
         \Laravel\Passport\Passport::ignoreRoutes();
         $this->app->singleton(\App\Channels\ChannelRegistry::class);
         $this->app->singleton(\App\Services\Payouts\PayoutRegistry::class);
+        $this->app->singleton(\App\Services\Orders\CustomerShipping::class);
     }
 
     public function boot(): void
@@ -38,7 +39,7 @@ class AppServiceProvider extends ServiceProvider
 
         View::composer('partials.nav-blotter', function ($view) {
             $view->with('navBadges', [
-                'channels.fulfilment' => FulfilmentBadge::pending(auth()->user()),
+                'channels.fulfillment' => FulfillmentBadge::pending(auth()->user()),
             ]);
         });
 

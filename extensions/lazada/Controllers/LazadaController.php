@@ -103,36 +103,38 @@ class LazadaController extends Controller
             })
             ->orderByDesc('p.product_id')
             ->limit(200)
-            ->get(['p.product_id', 'p.sku', 'p.model', 'pd.name']);
+            ->get(['p.product_id', 'p.sku', 'pd.name']);
 
         foreach ($products as $row) {
             $row->name = html_entity_decode((string)($row->name ?? ''), ENT_QUOTES | ENT_HTML5, 'UTF-8');
             $row->sku = html_entity_decode((string)($row->sku ?? ''), ENT_QUOTES | ENT_HTML5, 'UTF-8');
-            $row->model = html_entity_decode((string)($row->model ?? ''), ENT_QUOTES | ENT_HTML5, 'UTF-8');
         }
 
         $orderStatusMap = \Extensions\Lazada\Models\LazadaOrderStatusMap::where('context', 'order')->pluck('order_status_id', 'lazada_status')->all();
 
-        $erpOrderStatuses = DB::table('order_statuses')
+        $salesOrderStatuses = DB::table('order_statuses')
             ->where('language_id', $langId)
             ->orderBy('order_status_id')
             ->get(['order_status_id', 'name']);
 
-        $lazadaStatuses = [
-            'unpaid'          => 'Unpaid',
-            'pending'         => 'Pending',
-            'repacked'        => 'Repacked',
-            'packed'          => 'Packed',
-            'ready_to_ship'   => 'Ready to Ship',
-            'shipped'         => 'Shipped',
-            'delivered'       => 'Delivered',
-            'confirmed'       => 'Confirmed (Buyer received)',
-            'failed_delivery' => 'Failed Delivery',
-            'lost_by_3pl'     => 'Lost by 3PL',
-            'damaged_by_3pl'  => 'Damaged by 3PL',
-            'canceled'        => 'Canceled',
-            'cancelled'       => 'Canceled',
-        ];
+        $lazadaStatuses = collect([
+            'unpaid',
+            'pending',
+            'repacked',
+            'packed',
+            'ready_to_ship',
+            'shipped',
+            'delivered',
+            'confirmed',
+            'failed_delivery',
+            'lost_by_3pl',
+            'damaged_by_3pl',
+            'canceled',
+            'cancelled',
+        ])->merge(
+            DB::table('ch_lazada_orders')->whereNotNull('status')->where('status', '!=', '')->distinct()->pluck('status')
+                ->map(fn ($s) => strtolower(trim((string) $s)))
+        )->unique()->values()->all();
 
         $reverseStatuses = [
             'returned'            => 'Returned',
@@ -162,7 +164,7 @@ class LazadaController extends Controller
             'products' => $products,
             'logs' => $logs,
             'orderStatusMap' => $orderStatusMap,
-            'erpOrderStatuses' => $erpOrderStatuses,
+            'salesOrderStatuses' => $salesOrderStatuses,
             'lazadaStatuses' => $lazadaStatuses,
             'reverseStatuses' => $reverseStatuses,
             'reverseStatusMap' => $reverseStatusMap,
@@ -1705,7 +1707,7 @@ class LazadaController extends Controller
             })
             ->where('p.product_id', $productId)
             ->first([
-                'p.product_id','p.model','p.sku','p.price','p.quantity','p.status','pd.name','pd.description'
+                'p.product_id','p.sku','p.price','p.quantity','p.status','pd.name','pd.description'
             ]);
 
         $name = html_entity_decode((string)($product->name ?? ''), ENT_QUOTES | ENT_HTML5, 'UTF-8');
@@ -1714,9 +1716,6 @@ class LazadaController extends Controller
             : html_entity_decode((string)($product->description ?? ''), ENT_QUOTES | ENT_HTML5, 'UTF-8');
 
         $baseSku = trim((string)($product->sku ?? ''));
-        if ($baseSku === '') {
-            $baseSku = trim((string)($product->model ?? ''));
-        }
         if ($baseSku === '') {
             $baseSku = 'P'.$productId;
         }

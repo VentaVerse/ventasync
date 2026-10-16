@@ -1381,9 +1381,9 @@ class WorkspaceInteriorsTest extends TestCase
         $langId = (int) config('catalog.default_language_id');
 
         $id = DB::table('products')->insertGetId([
-            'model' => $sku, 'sku' => $sku, 'quantity' => 6,
+            'sku' => $sku, 'quantity' => 6,
             'price' => 249.0000, 'status' => 1, 'image' => null,
-            'date_added' => now(), 'date_modified' => now(), 'date_available' => now(),
+            'date_added' => now(), 'date_modified' => now(),
         ]);
 
         DB::table('product_descriptions')->insert([
@@ -2544,21 +2544,21 @@ class WorkspaceInteriorsTest extends TestCase
         [$one, $two] = $this->seedOpencartStores();
 
         OpenCartOrderStatusMap::create([
-            'store_id' => $two, 'oc_status_id' => 3,
-            'oc_status_name' => 'Shipped', 'order_status_id' => 3,
+            'store_id' => $two, 'opencart_status_id' => 3,
+            'opencart_status_name' => 'Shipped', 'order_status_id' => 3,
         ]);
 
         $this->actingAs($this->opencartManager())->postJson(route('ext.opencart.save_status_map'), [
             'store_id' => $one,
             'mappings' => [
-                ['oc_status_id' => 3, 'oc_status_name' => 'Shipped', 'order_status_id' => 5],
+                ['opencart_status_id' => 3, 'opencart_status_name' => 'Shipped', 'order_status_id' => 5],
             ],
         ])->assertOk();
 
         $this->assertSame(5, (int) OpenCartOrderStatusMap::where('store_id', $one)
-            ->where('oc_status_id', 3)->value('order_status_id'));
+            ->where('opencart_status_id', 3)->value('order_status_id'));
         $this->assertSame(3, (int) OpenCartOrderStatusMap::where('store_id', $two)
-            ->where('oc_status_id', 3)->value('order_status_id'));
+            ->where('opencart_status_id', 3)->value('order_status_id'));
     }
 
     public function test_opencart_interiors_render_their_seeded_records(): void
@@ -2572,8 +2572,8 @@ class WorkspaceInteriorsTest extends TestCase
         ]);
 
         OpenCartOrderStatusMap::create([
-            'store_id' => $one, 'oc_status_id' => 5,
-            'oc_status_name' => 'Complete', 'order_status_id' => 0,
+            'store_id' => $one, 'opencart_status_id' => 5,
+            'opencart_status_name' => 'Complete', 'order_status_id' => 0,
         ]);
         OpenCartSyncLog::create([
             'store_id' => $one, 'entity_type' => 'orders', 'direction' => 'pull',
@@ -2606,8 +2606,8 @@ class WorkspaceInteriorsTest extends TestCase
 
         $group = OpenCartProductGroup::create(['store_id' => $one, 'name' => $payload]);
         OpenCartOrderStatusMap::create([
-            'store_id' => $one, 'oc_status_id' => 11,
-            'oc_status_name' => $payload, 'order_status_id' => 0,
+            'store_id' => $one, 'opencart_status_id' => 11,
+            'opencart_status_name' => $payload, 'order_status_id' => 0,
         ]);
         OpenCartSyncLog::create([
             'store_id' => $one, 'entity_type' => 'orders', 'direction' => 'pull',
@@ -2690,10 +2690,10 @@ class WorkspaceInteriorsTest extends TestCase
                 ->assertDontSee('TikTok Shop: Sign-in expired.', false);
         }
 
-        [$ocStore] = $this->seedOpencartStores();
-        $ocGroup = OpenCartProductGroup::create(['store_id' => $ocStore, 'name' => 'Pedals']);
+        [$openCartStore] = $this->seedOpencartStores();
+        $openCartGroup = OpenCartProductGroup::create(['store_id' => $openCartStore, 'name' => 'Pedals']);
 
-        foreach ($this->opencartInteriorUrls($ocStore, $ocGroup->id) as $label => $url) {
+        foreach ($this->opencartInteriorUrls($openCartStore, $openCartGroup->id) as $label => $url) {
             $this->actingAs($this->opencartManager())->get($url)->assertOk()
                 ->assertDontSee('TikTok Shop: Sign-in expired.', false);
         }

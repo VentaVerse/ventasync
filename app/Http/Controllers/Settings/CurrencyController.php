@@ -157,8 +157,8 @@ class CurrencyController extends Controller
                 continue;
             }
 
-            $erpRate = round(1 / $rates[$code], 8);
-            Currency::where('code', $code)->update(['exchange_rate' => $erpRate]);
+            $storedRate = round(1 / $rates[$code], 8);
+            Currency::where('code', $code)->update(['exchange_rate' => $storedRate]);
             $updated++;
         }
 

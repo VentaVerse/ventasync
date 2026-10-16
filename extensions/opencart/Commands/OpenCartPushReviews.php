@@ -2,7 +2,7 @@
 
 namespace Extensions\OpenCart\Commands;
 
-use Extensions\OpenCart\Models\MarketplaceReview;
+use App\Models\MarketplaceReview;
 use Extensions\OpenCart\Models\OpenCartListingLink;
 use Extensions\OpenCart\Models\OpenCartStore;
 use Extensions\OpenCart\Services\OpenCart\OpenCartClient;
@@ -32,7 +32,7 @@ class OpenCartPushReviews extends Command
         }
 
         $pendingReviews = MarketplaceReview::query()
-            ->whereIn('oc_sync_status', ['pending', 'error'])
+            ->whereIn('opencart_sync_status', ['pending', 'error'])
             ->whereNotNull('product_id')
             ->get();
 
@@ -65,25 +65,25 @@ class OpenCartPushReviews extends Command
 
             $linkMap = OpenCartListingLink::query()
                 ->where('store_id', $store->id)
-                ->pluck('oc_product_id', 'product_id')
+                ->pluck('opencart_product_id', 'product_id')
                 ->all();
 
             foreach ($pendingReviews as $review) {
-                $ocProductId = $linkMap[$review->product_id] ?? null;
+                $openCartProductId = $linkMap[$review->product_id] ?? null;
 
-                if (!in_array($review->oc_sync_status, ['pending', 'error'])) {
+                if (!in_array($review->opencart_sync_status, ['pending', 'error'])) {
                     continue;
                 }
 
-                if (!$ocProductId) {
+                if (!$openCartProductId) {
                     $skipped++;
                     continue;
                 }
 
                 try {
                     $res = $client->createReview([
-                        'product_id'         => $ocProductId,
-                        'author'             => $review->author ?: 'Marketplace Buyer',
+                        'product_id'         => $openCartProductId,
+                        'author'             => $review->author ?: 'Marketplace customer',
                         'text'               => $review->comment ?? '',
                         'rating'             => $review->rating,
                         'status'             => $autoApprove ? 1 : 0,
@@ -93,29 +93,29 @@ class OpenCartPushReviews extends Command
                     ]);
 
                     if ($res['ok'] ?? false) {
-                        $ocReviewId = $res['body']['data']['review_id'] ?? null;
+                        $openCartReviewId = $res['body']['data']['review_id'] ?? null;
                         $review->update([
-                            'oc_sync_status'      => 'pushed',
+                            'opencart_sync_status'      => 'pushed',
                             'opencart_store_id' => $store->id,
-                            'oc_review_id'        => $ocReviewId,
-                            'oc_pushed_at'        => now(),
-                            'oc_push_error'       => null,
+                            'opencart_review_id'        => $openCartReviewId,
+                            'opencart_pushed_at'        => now(),
+                            'opencart_push_error'       => null,
                         ]);
                         $pushed++;
                     } else {
                         $errorMsg = $res['body']['error'] ?? 'Unknown error';
                         $review->update([
-                            'oc_sync_status'      => 'error',
+                            'opencart_sync_status'      => 'error',
                             'opencart_store_id' => $store->id,
-                            'oc_push_error'       => substr($errorMsg, 0, 500),
+                            'opencart_push_error'       => substr($errorMsg, 0, 500),
                         ]);
                         $errors++;
                     }
                 } catch (\Throwable $e) {
                     $review->update([
-                        'oc_sync_status'      => 'error',
+                        'opencart_sync_status'      => 'error',
                         'opencart_store_id' => $store->id,
-                        'oc_push_error'       => substr($e->getMessage(), 0, 500),
+                        'opencart_push_error'       => substr($e->getMessage(), 0, 500),
                     ]);
                     $errors++;
                     Log::warning('OpenCart push review failed', [

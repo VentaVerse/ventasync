@@ -88,10 +88,10 @@ class TikTokStockPushHealTest extends TestCase
     private function comboProduct(array $skuQty): int
     {
         $pid = DB::table('products')->insertGetId([
-            'model' => 'TT', 'sku' => 'TT', 'quantity' => 99, 'price' => 100,
+            'sku' => 'TT', 'quantity' => 99, 'price' => 100,
             'status' => 1, 'image' => 'catalog/x.png', 'weight' => 1, 'length' => 1, 'width' => 1, 'height' => 1,
             'brand_id' => 0,
-            'date_added' => now(), 'date_modified' => now(), 'date_available' => now(),
+            'date_added' => now(), 'date_modified' => now(),
         ]);
         DB::table('product_descriptions')->insert([
             'product_id' => $pid, 'language_id' => (int) config('catalog.default_language_id'),
@@ -134,7 +134,7 @@ class TikTokStockPushHealTest extends TestCase
         $this->assertSame([], $missing());
     }
 
-    private function inventoryCalls(): array
+    private function stockCalls(): array
     {
         return array_values(array_filter($this->calls, fn ($c) => $c['method'] === 'inventory'));
     }
@@ -152,7 +152,7 @@ class TikTokStockPushHealTest extends TestCase
             ->assertRedirect();
 
         $this->assertNull(session('error'));
-        $this->assertCount(1, $this->inventoryCalls(), 'the SKU TikTok has goes up');
+        $this->assertCount(1, $this->stockCalls(), 'the SKU TikTok has goes up');
     }
 
     public function test_an_orphan_map_key_is_left_alone(): void
@@ -166,7 +166,7 @@ class TikTokStockPushHealTest extends TestCase
             ->assertRedirect();
 
         $this->assertNull(session('error'));
-        $calls = $this->inventoryCalls();
+        $calls = $this->stockCalls();
         $this->assertCount(1, $calls, 'only the twin the catalog has');
         $this->assertStringNotContainsString('s9', json_encode($calls), 'the orphan is not asked of TikTok Shop');
     }
@@ -189,7 +189,7 @@ class TikTokStockPushHealTest extends TestCase
         $flash = (string) session('status');
         $this->assertStringContainsString('repaired mid-push', $flash);
 
-        $calls = $this->inventoryCalls();
+        $calls = $this->stockCalls();
         $this->assertCount(1, $calls);
         $this->assertEqualsCanonicalizing(['s1', 's2'], array_column($calls[0]['skus'], 'id'),
             'each variation gets its own SKU, not the aggregate on one');
@@ -220,7 +220,7 @@ class TikTokStockPushHealTest extends TestCase
             ->assertRedirect();
 
         $this->assertStringContainsString('repaired mid-push', (string) session('status'));
-        $calls = $this->inventoryCalls();
+        $calls = $this->stockCalls();
         $this->assertCount(2, $calls, 'one refusal, one retry');
         $this->assertSame(['s-new'], array_column($calls[1]['skus'], 'id'), 'the retry carries the fresh id');
     }

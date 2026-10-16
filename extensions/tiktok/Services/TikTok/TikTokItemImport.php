@@ -2,7 +2,7 @@
 
 namespace Extensions\TikTok\Services\TikTok;
 
-use App\Support\MarketplaceAnswer;
+use App\Support\ChannelAnswer;
 use Extensions\TikTok\Models\TikTokListing;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -28,7 +28,7 @@ class TikTokItemImport
         }
         $d = data_get($r, 'body.data');
         if (! is_array($d) || (int) data_get($r, 'body.code', -1) !== 0) {
-            return ['ok' => false, 'message' => 'TikTok Shop did not hand the product over: ' . MarketplaceAnswer::errorText('TikTok Shop', is_array($r) ? $r : ['ok' => false, 'body' => []])];
+            return ['ok' => false, 'message' => 'TikTok Shop did not hand the product over: ' . ChannelAnswer::errorText('TikTok Shop', is_array($r) ? $r : ['ok' => false, 'body' => []])];
         }
 
         $skus = array_values((array) ($d['skus'] ?? []));
@@ -53,7 +53,6 @@ class TikTokItemImport
 
             $productId = DB::transaction(function () use ( $langId, $d, $skus, $name, $price, $qty, $sellerSku, $hasVariations, $tiktokProductId, $categoryId) {
                 $productId = DB::table('products')->insertGetId([
-                    'model' => ($hasVariations ? '' : $sellerSku) ?: ('TTS-' . $tiktokProductId),
                     'sku' => $hasVariations ? '' : $sellerSku,
                     'quantity' => $qty,
                     'price' => $price,
@@ -64,7 +63,7 @@ class TikTokItemImport
                     'width' => (float) (data_get($d, 'package_dimensions.width') ?? 0),
                     'height' => (float) (data_get($d, 'package_dimensions.height') ?? 0),
                     'brand_id' => 0,
-                    'date_added' => now(), 'date_modified' => now(), 'date_available' => now(),
+                    'date_added' => now(), 'date_modified' => now(),
                 ]);
 
                 DB::table('product_descriptions')->insert([

@@ -53,10 +53,10 @@ class OpenCartItemImportTest extends TestCase
     {
         $langId = (int) config('catalog.default_language_id');
         $pid = DB::table('products')->insertGetId([
-            'model' => $sku, 'sku' => $sku, 'quantity' => 5, 'price' => 100,
+            'sku' => $sku, 'quantity' => 5, 'price' => 100,
             'status' => 1, 'image' => '', 'weight' => 0.5, 'length' => 10, 'width' => 10, 'height' => 5,
             'brand_id' => 0,
-            'date_added' => now(), 'date_modified' => now(), 'date_available' => now(),
+            'date_added' => now(), 'date_modified' => now(),
         ]);
         DB::table('product_descriptions')->insert([
             'product_id' => $pid, 'language_id' => $langId,
@@ -135,7 +135,7 @@ class OpenCartItemImportTest extends TestCase
 
         $link = OpenCartListingLink::query()->where('product_id', $product->product_id)->first();
         $this->assertNotNull($link);
-        $this->assertSame(12, (int) $link->oc_product_id);
+        $this->assertSame(12, (int) $link->opencart_product_id);
     }
 
     public function test_multiple_independent_option_sets_import_flat_and_say_so(): void

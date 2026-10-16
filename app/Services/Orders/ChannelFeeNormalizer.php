@@ -1,0 +1,66 @@
+<?php
+
+namespace App\Services\Orders;
+
+use App\Channels\Contracts\ChannelFeeSource;
+use App\Channels\ChannelRegistry;
+use Illuminate\Support\Facades\DB;
+
+// Replace the order's fee rows, never add to them (syncs re-run); amounts are stored negative.
+class ChannelFeeNormalizer
+{
+    public const CODES = [
+        'commission' => ['channel_commission', 'Commission', 91],
+        'payment' => ['channel_payment_fee', 'Payment fee', 92],
+        'shipping' => ['channel_shipping_fee', 'Delivery fee', 93],
+        'other' => ['channel_other_fee', 'Other fees', 94],
+        'voucher' => ['channel_voucher', 'Vouchers', 95],
+    ];
+
+    public function __construct(private readonly ChannelRegistry $registry) {}
+
+    public function forOrder(int $coreOrderId): bool
+    {
+        foreach ($this->registry->channelFeeSources() as $source) {
+            $buckets = $source->feeBucketsForOrder($coreOrderId);
+            if ($buckets !== null) {
+                $this->write($coreOrderId, $buckets);
+
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    public function write(int $coreOrderId, array $buckets): void
+    {
+        $codes = array_map(fn ($c) => $c[0], self::CODES);
+
+        DB::transaction(function () use ( $codes, $coreOrderId, $buckets) {
+            DB::table('order_totals')
+                ->where('order_id', $coreOrderId)
+                ->whereIn('code', $codes)
+                ->delete();
+
+            $rows = [];
+            foreach (self::CODES as $bucket => [$code, $title, $sort]) {
+                $amount = round(abs((float) ($buckets[$bucket] ?? 0)), 2);
+                if ($amount <= 0) {
+                    continue;
+                }
+                $rows[] = [
+                    'order_id' => $coreOrderId,
+                    'code' => $code,
+                    'title' => $title,
+                    'value' => -$amount,
+                    'sort_order' => $sort,
+                ];
+            }
+
+            if ($rows !== []) {
+                DB::table('order_totals')->insert($rows);
+            }
+        });
+    }
+}

@@ -71,7 +71,7 @@ class OrderPrintListsTest extends TestCase
         $ids = $this->seedOrders();
 
         $response = $this->actingAs($this->userWith(['view_shopee/order']))
-            ->post(route('fulfilment.print.pick', ['channel' => 'shopee']), ['ids' => $ids]);
+            ->post(route('fulfillment.print.pick', ['channel' => 'shopee']), ['ids' => $ids]);
 
         $response->assertOk();
 
@@ -93,7 +93,7 @@ class OrderPrintListsTest extends TestCase
         $ids = $this->seedOrders();
 
         $response = $this->actingAs($this->userWith(['view_shopee/order']))
-            ->post(route('fulfilment.print.packing', ['channel' => 'shopee']), ['ids' => $ids]);
+            ->post(route('fulfillment.print.packing', ['channel' => 'shopee']), ['ids' => $ids]);
 
         $response->assertOk();
 
@@ -115,11 +115,11 @@ class OrderPrintListsTest extends TestCase
         $ids = $this->seedOrders();
 
         $this->actingAs($this->userWith(['view_shopee/order']))
-            ->post(route('fulfilment.print.pick', ['channel' => 'shopee']), ['ids' => $ids])
+            ->post(route('fulfillment.print.pick', ['channel' => 'shopee']), ['ids' => $ids])
             ->assertOk();
 
         $this->actingAs($this->userWith(['view_lazada/order']))
-            ->post(route('fulfilment.print.pick', ['channel' => 'shopee']), ['ids' => $ids])
+            ->post(route('fulfillment.print.pick', ['channel' => 'shopee']), ['ids' => $ids])
             ->assertForbidden();
 
     }
@@ -128,21 +128,21 @@ class OrderPrintListsTest extends TestCase
     {
         $ids = $this->seedOrders();
 
-        $this->post(route('fulfilment.print.pick', ['channel' => 'shopee']), ['ids' => $ids])
+        $this->post(route('fulfillment.print.pick', ['channel' => 'shopee']), ['ids' => $ids])
             ->assertRedirect(route('login'));
     }
 
     public function test_an_unknown_channel_is_not_a_channel(): void
     {
         $this->actingAs($this->userWith(['view_shopee/order']))
-            ->post(route('fulfilment.print.pick', ['channel' => 'nosuchchannel']), ['ids' => [1]])
+            ->post(route('fulfillment.print.pick', ['channel' => 'nosuchchannel']), ['ids' => [1]])
             ->assertNotFound();
     }
 
     public function test_a_selection_that_no_longer_exists_says_so_rather_than_printing_nothing(): void
     {
         $response = $this->actingAs($this->userWith(['view_shopee/order']))
-            ->post(route('fulfilment.print.pick', ['channel' => 'shopee']), ['ids' => [999111, 999112]]);
+            ->post(route('fulfillment.print.pick', ['channel' => 'shopee']), ['ids' => [999111, 999112]]);
 
         $response->assertSessionHasErrors('ids');
     }
@@ -151,7 +151,7 @@ class OrderPrintListsTest extends TestCase
     {
         $ids = range(1, 500);
 
-        $orders = \App\Support\Fulfilment\OrderPrintLists::orders('shopee', $ids);
+        $orders = \App\Support\Fulfillment\OrderPrintLists::orders('shopee', $ids);
 
         $this->assertLessThanOrEqual(200, $orders->count());
     }

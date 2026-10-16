@@ -161,23 +161,26 @@ public function index(Request $request = null, ShopeeClient $client = null)
 
         $orderStatusMap = ShopeeOrderStatusMap::where('context', 'order')->pluck('order_status_id', 'shopee_status')->all();
 
-        $erpOrderStatuses = DB::table('order_statuses')
+        $salesOrderStatuses = DB::table('order_statuses')
             ->where('language_id', $langId)
             ->orderBy('order_status_id')
             ->get(['order_status_id', 'name']);
 
-        $shopeeStatuses = [
-            'UNPAID'             => 'Unpaid',
-            'READY_TO_SHIP'      => 'Ready to Ship',
-            'PROCESSED'          => 'Processed',
-            'RETRY_SHIP'         => 'Retry Ship',
-            'SHIPPED'            => 'Shipped',
-            'TO_CONFIRM_RECEIVE' => 'Delivered',
-            'COMPLETED'          => 'Completed',
-            'IN_CANCEL'          => 'In Cancel',
-            'CANCELLED'          => 'Canceled',
-            'TO_RETURN'          => 'To Return',
-        ];
+        $shopeeStatuses = collect([
+            'UNPAID',
+            'READY_TO_SHIP',
+            'PROCESSED',
+            'RETRY_SHIP',
+            'SHIPPED',
+            'TO_CONFIRM_RECEIVE',
+            'COMPLETED',
+            'IN_CANCEL',
+            'CANCELLED',
+            'TO_RETURN',
+        ])->merge(
+            DB::table('ch_shopee_orders')->whereNotNull('status')->where('status', '!=', '')->distinct()->pluck('status')
+                ->map(fn ($s) => strtoupper(trim((string) $s)))
+        )->unique()->values()->all();
 
         $shopeeReturnStatuses = [
             'REQUESTED'           => 'Requested',
@@ -206,7 +209,7 @@ public function index(Request $request = null, ShopeeClient $client = null)
             'webhookUrl' => preg_replace('/^http:/i', 'https:', route('channels.webhooks.receive', ['channel' => 'shopee'])),
             'result' => session('shopee_result'),
             'orderStatusMap' => $orderStatusMap,
-            'erpOrderStatuses' => $erpOrderStatuses,
+            'salesOrderStatuses' => $salesOrderStatuses,
             'shopeeStatuses' => $shopeeStatuses,
             'shopeeReturnStatuses' => $shopeeReturnStatuses,
             'returnStatusMap' => $returnStatusMap,

@@ -268,7 +268,7 @@ class LazadaListingStates
                 'inactive' => [ListingState::INACTIVE, null, null],
                 'pending' => [ListingState::REVIEWING, null, 'Lazada is reviewing it; nothing to do until it answers.'],
                 'rejected' => [ListingState::ATTENTION, 'Rejected', 'Lazada rejected it. Open the item in Seller Center to see why.'],
-                'sold-out' => [ListingState::ATTENTION, 'Sold out', 'Every offer is out of stock, so buyers cannot see it. Push stock when replenished.'],
+                'sold-out' => [ListingState::ATTENTION, 'Sold out', 'Every offer is out of stock, so customers cannot see it. Push stock when replenished.'],
                 'deleted' => [ListingState::ATTENTION, 'Deleted', 'It was deleted on Lazada. Push again to relist it.'],
                 'missing' => [ListingState::ATTENTION, 'Not found on Lazada', 'Lazada no longer returns this listing. Refresh the status, or push it again.'],
                 default => [ListingState::UNKNOWN, null, null],
@@ -336,16 +336,16 @@ class LazadaListingStates
             return;
         }
         $variations = [];
-        foreach (PushLedger::erpVariationSkus([$productId])[$productId] ?? [] as $sku) {
+        foreach (PushLedger::catalogVariationSkus([$productId])[$productId] ?? [] as $sku) {
             $variations[strtolower(trim((string) $sku))] = true;
         }
         if ($variations === []) {
             return;
         }
 
-        $parent = DB::table('products')->where('product_id', $productId)->first(['sku', 'model']);
+        $parent = DB::table('products')->where('product_id', $productId)->first(['sku']);
         $own = [];
-        foreach ([$parent->sku ?? '', $parent->model ?? ''] as $s) {
+        foreach ([$parent->sku ?? ''] as $s) {
             $k = strtolower(trim((string) $s));
             if ($k !== '' && !isset($variations[$k])) {
                 $own[$k] = true;

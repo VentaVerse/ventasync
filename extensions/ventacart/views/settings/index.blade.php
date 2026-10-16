@@ -22,7 +22,7 @@
 
 
     $jsonFlags = JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE;
-    $erpStatusOptions = $erpOrderStatuses->map(fn ($s) => ['id' => (int) $s->order_status_id, 'name' => (string) $s->name])->values();
+    $salesOrderStatusOptions = $salesOrderStatuses->map(fn ($s) => ['id' => (int) $s->order_status_id, 'name' => (string) $s->name])->values();
 @endphp
 
 @php
@@ -125,7 +125,7 @@
 
                 <div class="fm-fields">
                     <x-ui.field label="Store name" for="vt-store-name" name="store_name" wide
-                                hint="What this store is called in the ERP. It is never sent to the store itself.">
+                                hint="What this store is called in VentaSync. It is never sent to the store itself.">
                         <x-ui.input id="vt-store-name" name="store_name" value="{{ $store->store_name }}"
                                     placeholder="e.g. Main store" :disabled="!$canManageVenta" />
                     </x-ui.field>
@@ -225,7 +225,7 @@
             @if($canManageVenta)
             <div class="cs-danger">
                 <div>
-                    <span class="cs-danger__title">Remove this store <x-ui.hint label="What removal does">Everything this store holds in the ERP goes with it: listings, links, groups, categories, brands, VentaCart orders and its logs. Sales already imported stay under its name. Nothing on the VentaCart store is touched. There is no undo.</x-ui.hint></span>
+                    <span class="cs-danger__title">Remove this store <x-ui.hint label="What removal does">Everything this store holds in VentaSync goes with it: listings, links, groups, categories, brands, VentaCart orders and its logs. Sales already imported stay under its name. Nothing on the VentaCart store is touched. There is no undo.</x-ui.hint></span>
                 </div>
                 <x-ui.button type="button" variant="danger" size="sm" data-delete-open>Delete this store</x-ui.button>
             </div>
@@ -286,8 +286,8 @@
                                                 aria-label="Sales order status for {{ $map->ventacart_status_name }}"
                                                 @disabled(!$canManageVenta)>
                                             <option value="0">Leave the raw VentaCart status</option>
-                                            @foreach($erpOrderStatuses as $erp)
-                                                <option value="{{ $erp->order_status_id }}" @selected((int) $map->order_status_id === (int) $erp->order_status_id)>{{ $erp->name }}</option>
+                                            @foreach($salesOrderStatuses as $salesStatus)
+                                                <option value="{{ $salesStatus->order_status_id }}" @selected((int) $map->order_status_id === (int) $salesStatus->order_status_id)>{{ $salesStatus->name }}</option>
                                             @endforeach
                                         </select>
                                         <x-ui.icon name="chevron-down" size="14" class="x-select-wrap__chevron" />
@@ -305,7 +305,7 @@
             </div>
             @endif
 
-            <script type="application/json" data-erp-statuses>{!! json_encode($erpStatusOptions, $jsonFlags) !!}</script>
+            <script type="application/json" data-sales-order-statuses>{!! json_encode($salesOrderStatusOptions, $jsonFlags) !!}</script>
         @endunless
     </section>
 </div>

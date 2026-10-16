@@ -17,7 +17,7 @@ class EnforceApiClientLimits
             return $next($request);
         }
 
-        if (! $client->active) {
+        if (! $client->enabled) {
             return $this->refuse(401, 'This application is switched off.');
         }
         if (! $client->allowsIp($request->ip())) {

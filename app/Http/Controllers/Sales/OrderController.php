@@ -47,11 +47,10 @@ class OrderController extends Controller
                     $sub->where('firstname', 'like', '%' . $q . '%')
                         ->orWhere('lastname', 'like', '%' . $q . '%')
                         ->orWhere('email', 'like', '%' . $q . '%')
-                        ->orWhere('marketplace_order_id', 'like', '%' . $q . '%')
+                        ->orWhere('channel_order_id', 'like', '%' . $q . '%')
                         ->orWhere('tracking_number', 'like', '%' . $q . '%')
-                        ->orWhere('tracking', 'like', '%' . $q . '%')
                         ->orWhereHas('products', function ($p) use ($q) {
-                            $p->where('name', 'like', '%' . $q . '%')->orWhere('model', 'like', '%' . $q . '%');
+                            $p->where('name', 'like', '%' . $q . '%')->orWhere('sku', 'like', '%' . $q . '%');
                         })
                         ->orWhere('order_id', '=', (int) $q > 0 ? (int) $q : 0);
                 });
@@ -104,7 +103,7 @@ class OrderController extends Controller
             'shipping_method'  => 'nullable|string',
             'total'            => 'nullable|numeric|min:0',
             'order_status_id'  => 'required|integer|min:0',
-            'comment'          => 'nullable|string',
+            'customer_note'    => 'nullable|string',
             'currency_code'    => ['nullable', 'string', 'max:3', Rule::exists('currencies', 'code')],
             'currency_rate'    => 'nullable|numeric|gt:0',
         ]);
@@ -123,19 +122,12 @@ class OrderController extends Controller
 
         DB::transaction(function () use ($request, $now, $rawTotal, $rate, $isDefault, $currency) {
             $order = Order::create([
-                'invoice_no'           => 0,
-                'invoice_prefix'       => '',
                 'store_id'             => 0,
                 'store_name'           => '',
-                'store_url'            => '',
-                'customer_id'          => 0,
-                'customer_group_id'    => 0,
                 'firstname'            => $request->firstname,
                 'lastname'             => $request->lastname ?? '',
                 'email'                => $request->email ?? '',
                 'telephone'            => $request->telephone ?? '',
-                'fax'                  => '',
-                'custom_field'         => '',
                 'payment_firstname'    => $request->payment_firstname ?? $request->firstname,
                 'payment_lastname'     => $request->payment_lastname ?? ($request->lastname ?? ''),
                 'payment_company'      => $request->payment_company ?? '',
@@ -144,14 +136,9 @@ class OrderController extends Controller
                 'payment_city'         => $request->payment_city ?? '',
                 'payment_postcode'     => $request->payment_postcode ?? '',
                 'payment_country'      => $request->payment_country ?? '',
-                'payment_country_id'   => 0,
                 'payment_zone'         => $request->payment_zone ?? '',
-                'payment_zone_id'      => 0,
-                'payment_address_format' => '',
-                'payment_custom_field' => '',
                 'payment_method'       => $request->payment_method ?? '',
                 'payment_cost'         => 0,
-                'payment_code'         => '',
                 'shipping_firstname'   => $request->shipping_firstname ?? $request->firstname,
                 'shipping_lastname'    => $request->shipping_lastname ?? ($request->lastname ?? ''),
                 'shipping_company'     => $request->shipping_company ?? '',
@@ -160,43 +147,29 @@ class OrderController extends Controller
                 'shipping_city'        => $request->shipping_city ?? '',
                 'shipping_postcode'    => $request->shipping_postcode ?? '',
                 'shipping_country'     => $request->shipping_country ?? '',
-                'shipping_country_id'  => 0,
                 'shipping_zone'        => $request->shipping_zone ?? '',
-                'shipping_zone_id'     => 0,
-                'shipping_address_format' => '',
-                'shipping_custom_field' => '',
                 'shipping_method'      => $request->shipping_method ?? '',
                 'shipping_cost'        => 0,
-                'shipping_code'        => '',
-                'comment'              => $request->comment ?? '',
+                'customer_note'        => $request->customer_note ?? '',
                 'total'                => OrderCurrencyService::toBase($rawTotal, $rate),
                 'foreign_total'        => $isDefault ? null : round($rawTotal, 4),
                 'extra_cost'           => 0,
                 'order_status_id'      => $request->order_status_id,
-                'affiliate_id'         => 0,
-                'commission'           => 0,
-                'marketing_id'         => 0,
-                'tracking'             => '',
-                'language_id'          => 1,
                 'currency_id'          => $currency['id'],
                 'currency_code'        => $currency['code'],
                 'currency_value'       => $currency['rate'],
                 'ip'                   => $request->ip() ?? '',
-                'forwarded_ip'         => '',
-                'user_agent'           => '',
-                'accept_language'      => '',
                 'courier_id'           => 0,
                 'tracking_number'      => '',
                 'date_added'           => $now,
                 'date_modified'        => $now,
-                'oe_import'            => 0,
             ]);
 
             OrderHistory::create(array_merge($this->currentUser(), [
                 'order_id'        => $order->order_id,
                 'order_status_id' => $request->order_status_id,
                 'notify'          => 0,
-                'comment'         => $request->comment ?? '',
+                'note'            => $request->customer_note ?? '',
                 'date_added'      => $now,
             ]));
 
@@ -224,14 +197,12 @@ class OrderController extends Controller
                         'order_id'      => $order->order_id,
                         'product_id'    => (int) ($p['product_id'] ?? 0),
                         'name'          => $p['name'] ?? '',
-                        'model'         => $p['model'] ?? '',
+                        'sku'           => $p['sku'] ?? '',
                         'quantity'      => $qty,
                         'price'         => $price,
                         'foreign_price' => $isDefault ? null : round($foreignPrice, 4),
                         'total'         => $lineTotal,
                         'foreign_total' => $isDefault ? null : round($foreignTotal, 4),
-                        'tax'           => 0,
-                        'reward'        => 0,
                         'cost'          => $cost,
                     ]);
 
@@ -297,10 +268,9 @@ class OrderController extends Controller
             })
             ->where(function ($w) use ($q) {
                 $w->where('pd.name', 'like', "%{$q}%")
-                    ->orWhere('p.sku', 'like', "%{$q}%")
-                    ->orWhere('p.model', 'like', "%{$q}%");
+                    ->orWhere('p.sku', 'like', "%{$q}%");
             })
-            ->select('p.product_id', 'pd.name', 'p.sku', 'p.model', 'p.price', 'p.cost', 'p.quantity', 'p.image')
+            ->select('p.product_id', 'pd.name', 'p.sku', 'p.price', 'p.cost', 'p.quantity', 'p.image')
             ->orderBy('p.product_id', 'desc')
             ->limit(30)
             ->get();
@@ -423,7 +393,7 @@ class OrderController extends Controller
     {
         $request->validate([
             'order_status_id' => 'required|integer|min:1',
-            'comment'         => 'nullable|string',
+            'note'            => 'nullable|string',
         ]);
 
         $order = Order::where('order_id', (int) $id)->firstOrFail();
@@ -439,7 +409,7 @@ class OrderController extends Controller
             'order_id'        => $order->order_id,
             'order_status_id' => $newStatusId,
             'notify'          => 0,
-            'comment'         => $request->comment ?? '',
+            'note'            => $request->note ?? '',
             'date_added'      => now(),
         ]));
 
@@ -478,8 +448,8 @@ class OrderController extends Controller
         return redirect()->route('orders.show', $id)->with(
             'status',
             $new === 1
-                ? 'Sync Override ON - this order is now manually controlled; marketplace syncs won\'t change its status or stock.'
-                : 'Sync Override OFF - the marketplace sync will manage this order again.'
+                ? 'Sync Override ON - this order is now manually controlled; channel syncs won\'t change its status or stock.'
+                : 'Sync Override OFF - the channel sync will manage this order again.'
         );
     }
 
@@ -510,7 +480,7 @@ class OrderController extends Controller
             'shipping_method'  => 'nullable|string',
             'total'            => 'nullable|numeric|min:0',
             'order_status_id'  => 'required|integer|min:0',
-            'comment'          => 'nullable|string',
+            'customer_note'    => 'nullable|string',
             'currency_code'    => ['nullable', 'string', 'max:3', Rule::exists('currencies', 'code')],
             'currency_rate'    => 'nullable|numeric|gt:0',
         ]);
@@ -554,7 +524,7 @@ class OrderController extends Controller
             'shipping_country'   => $request->shipping_country ?? '',
             'shipping_zone'      => $request->shipping_zone ?? '',
             'shipping_method'    => $request->shipping_method ?? '',
-            'comment'            => $request->comment ?? '',
+            'customer_note'      => $request->customer_note ?? '',
             'total'              => OrderCurrencyService::toBase($rawTotal, $rate),
             'foreign_total'      => $isDefault ? null : round($rawTotal, 4),
             'order_status_id'    => $request->order_status_id,
@@ -604,14 +574,12 @@ class OrderController extends Controller
                         'order_id'      => $order->order_id,
                         'product_id'    => (int) ($p['product_id'] ?? 0),
                         'name'          => $p['name'] ?? '',
-                        'model'         => $p['model'] ?? '',
+                        'sku'           => $p['sku'] ?? '',
                         'quantity'      => $qty,
                         'price'         => $price,
                         'foreign_price' => $isDefault ? null : round($foreignPrice, 4),
                         'total'         => $lineTotal,
                         'foreign_total' => $isDefault ? null : round($foreignTotal, 4),
-                        'tax'           => 0,
-                        'reward'        => 0,
                         'cost'          => $cost,
                     ]);
 
@@ -655,7 +623,7 @@ class OrderController extends Controller
             'order_id'        => $order->order_id,
             'order_status_id' => (int) $request->order_status_id,
             'notify'          => 0,
-            'comment'         => $request->comment ?? '',
+            'note'            => $request->customer_note ?? '',
             'date_added'      => now(),
         ]));
 
@@ -851,7 +819,7 @@ class OrderController extends Controller
             if ($op->product_id > 0) {
                 $map[$op->order_product_id] = $op->product_id;
             } else {
-                $sku = trim((string) $op->model);
+                $sku = trim((string) $op->sku);
                 if ($sku !== '') {
                     $skusToResolve[$op->order_product_id] = $sku;
                 }
@@ -884,11 +852,11 @@ class OrderController extends Controller
             ? Product::whereIn('product_id', $productIds)->pluck('image', 'product_id')->toArray()
             : [];
 
-        $bySku = \App\Support\CatalogImages::forSkus($allProducts->pluck('model')->map(fn ($m) => trim((string) $m))->filter()->all());
+        $bySku = \App\Support\CatalogImages::forSkus($allProducts->pluck('sku')->map(fn ($m) => trim((string) $m))->filter()->all());
 
         $result = [];
         foreach ($allProducts as $op) {
-            $sku = trim((string) $op->model);
+            $sku = trim((string) $op->sku);
             if ($sku !== '' && isset($bySku[$sku])) {
                 $result[$op->order_product_id] = $bySku[$sku];
             }
@@ -923,17 +891,17 @@ class OrderController extends Controller
 
     public static function resolveLazadaImages($orders): array
     {
-        $catalogOrderIds = [];
+        $salesOrderIds = [];
         foreach ($orders as $o) {
-            $catalogOrderIds[] = (int) $o->order_id;
+            $salesOrderIds[] = (int) $o->order_id;
         }
-        if (empty($catalogOrderIds)) {
+        if (empty($salesOrderIds)) {
             return [];
         }
 
         $merged = [];
         foreach (app(ChannelRegistry::class)->orderImagesContributors() as $contributor) {
-            $merged += $contributor->imagesForCatalogOrders($catalogOrderIds);
+            $merged += $contributor->imagesForSalesOrders($salesOrderIds);
         }
         return $merged;
     }
@@ -947,7 +915,7 @@ class OrderController extends Controller
             'payment_method' => 'required|string|max:64',
             'paid_at'        => 'required|date',
             'reference_no'   => 'nullable|string|max:128',
-            'notes'          => 'nullable|string',
+            'note'          => 'nullable|string',
         ]);
 
         OrderPayment::create([
@@ -956,7 +924,7 @@ class OrderController extends Controller
             'payment_method' => $request->payment_method,
             'paid_at'        => $request->paid_at,
             'reference_no'   => $request->reference_no,
-            'notes'          => $request->notes,
+            'note'          => $request->note,
             'created_by'     => auth()->id(),
             'created_at'     => now(),
         ]);

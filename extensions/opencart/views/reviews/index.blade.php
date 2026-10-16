@@ -186,7 +186,7 @@
                 @php
                     $images = $review->images ?? [];
                     $videos = $review->videos ?? [];
-                    $canPush = in_array($review->oc_sync_status, $pushable, true);
+                    $canPush = in_array($review->opencart_sync_status, $pushable, true);
                 @endphp
                 <tr>
                     @if($canManage)
@@ -235,7 +235,7 @@
                         @endif
                     </td>
                     <td class="rv-col-stat" data-label="OpenCart">
-                        <x-ui.badge :tone="ChannelStatusTone::toneFor('opencart.reviews', $review->oc_sync_status)">{{ ChannelStatusTone::labelFor('opencart.reviews', $review->oc_sync_status) }}</x-ui.badge>
+                        <x-ui.badge :tone="ChannelStatusTone::toneFor('opencart.reviews', $review->opencart_sync_status)">{{ ChannelStatusTone::labelFor('opencart.reviews', $review->opencart_sync_status) }}</x-ui.badge>
                     </td>
                     <td class="x-td-actions">
                         @if($canManage && $canPush)
@@ -243,7 +243,7 @@
                                 <a class="x-menu__item" href="{{ route('ext.opencart.reviews.show', $review->id) }}">Open</a>
                                 <div class="x-menu__sep"></div>
                                 <button type="submit" class="x-menu__item" form="rv-push-{{ $review->id }}">
-                                    {{ $review->oc_sync_status === 'error' ? 'Try the push again' : 'Push to OpenCart' }}
+                                    {{ $review->opencart_sync_status === 'error' ? 'Try the push again' : 'Push to OpenCart' }}
                                 </button>
                                 <button type="submit" class="x-menu__item" form="rv-skip-{{ $review->id }}">Skip this one</button>
                             </x-ui.menu>
@@ -257,7 +257,7 @@
 
         @if($canManage)
             @foreach($reviews as $review)
-                @if(in_array($review->oc_sync_status, $pushable, true))
+                @if(in_array($review->opencart_sync_status, $pushable, true))
                     <form id="rv-push-{{ $review->id }}" method="POST" action="{{ route('ext.opencart.reviews.push', $review->id) }}" class="x-sr">@csrf</form>
                     <form id="rv-skip-{{ $review->id }}" method="POST" action="{{ route('ext.opencart.reviews.skip', $review->id) }}" class="x-sr">@csrf</form>
                 @endif

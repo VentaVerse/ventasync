@@ -1,5 +1,5 @@
 @php
-    $headline = \App\Support\MarketplaceWords::headline($channel, (string) $raw);
+    $headline = \App\Support\ChannelWords::headline($channel, (string) $raw);
     $lapsed = $headline !== null && str_contains($headline, 'sign-in has lapsed');
 @endphp
 @if($headline)

@@ -6,10 +6,10 @@ use App\Http\Controllers\Controller;
 use App\Models\Catalog\Order;
 use App\Models\Catalog\OrderHistory;
 use App\Models\Catalog\OrderStatus;
-use App\Models\Catalog\Product;
 use App\Services\ActivityLogger;
-use App\Support\Fulfilment\AppFulfilment;
+use App\Support\Fulfillment\AppFulfillment;
 use App\Services\OrderStockService;
+use App\Support\LineImage;
 use App\Support\Money;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -36,7 +36,7 @@ class OrderController extends Controller
                     $sub->where('firstname', 'like', '%' . $q . '%')
                         ->orWhere('lastname', 'like', '%' . $q . '%')
                         ->orWhere('email', 'like', '%' . $q . '%')
-                        ->orWhere('marketplace_order_id', 'like', '%' . $q . '%')
+                        ->orWhere('channel_order_id', 'like', '%' . $q . '%')
                         ->orWhere('order_id', '=', (int) $q > 0 ? (int) $q : 0);
                 });
             })
@@ -55,21 +55,17 @@ class OrderController extends Controller
             ->orderBy($sort, $dir)
             ->paginate(25);
 
-        $ocStoreNames = class_exists(\Extensions\OpenCart\Models\OpenCartStore::class)
+        $openCartStoreNames = class_exists(\Extensions\OpenCart\Models\OpenCartStore::class)
             ? \Extensions\OpenCart\Models\OpenCartStore::pluck('store_name', 'id')->toArray()
             : [];
 
         $defaultCode = Money::defaultCode();
 
-        $orders->getCollection()->transform(function ($order) use ($ocStoreNames, $defaultCode) {
+        $orders->getCollection()->transform(function ($order) use ($openCartStoreNames, $defaultCode) {
             $firstProduct = $order->products()->first();
-            $productImage = null;
-            if ($firstProduct && $firstProduct->product_id > 0) {
-                $img = Product::where('product_id', $firstProduct->product_id)->value('image');
-                if ($img && trim($img) !== '') {
-                    $productImage = url('/storage/' . ltrim($img, '/'));
-                }
-            }
+            $productImage = $firstProduct
+                ? LineImage::url($firstProduct->sku, null, (int) $firstProduct->product_id ?: null)
+                : null;
 
             return [
                 'order_id'             => $order->order_id,
@@ -78,18 +74,20 @@ class OrderController extends Controller
                 'email'                => $order->email,
                 'telephone'            => $order->telephone,
                 'total'                => (float) $order->total,
-                'currency_code'        => $defaultCode,
+                'currency_code'        => $order->foreign_total === null && (string) $order->currency_code !== '' ? (string) $order->currency_code : $defaultCode,
                 'transaction_currency' => $order->foreign_total !== null ? $order->currency_code : null,
                 'transaction_total'    => $order->foreign_total !== null ? (float) $order->foreign_total : null,
                 'order_status_id'      => (int) $order->order_status_id,
                 'status_name'          => $order->status->name ?? '',
                 'date_added'           => $order->date_added,
-                'channel'              => self::resolveSourceLabel($order->channel ?? '', $ocStoreNames),
-                'marketplace_order_id' => $order->marketplace_order_id ?? '',
+                'channel'              => self::resolveSourceLabel($order->channel ?? '', $openCartStoreNames),
+                'channel_order_id' => $order->channel_order_id ?? '',
+                'marketplace_order_id' => $order->channel_order_id ?? '',
                 'store_id'             => self::storeIdOf($order->channel ?? '', $order->store_id),
                 'store_name'           => (string) ($order->store_name ?? ''),
                 'product_image'        => $productImage,
-                'fulfilment'           => self::fulfilment($order),
+                'fulfillment'           => self::fulfillment($order),
+                'fulfilment'            => self::fulfillment($order),
             ];
         });
 
@@ -112,7 +110,7 @@ class OrderController extends Controller
 
         $productImages = $this->resolveProductImages($products);
 
-        $ocStoreNames = class_exists(\Extensions\OpenCart\Models\OpenCartStore::class)
+        $openCartStoreNames = class_exists(\Extensions\OpenCart\Models\OpenCartStore::class)
             ? \Extensions\OpenCart\Models\OpenCartStore::pluck('store_name', 'id')->toArray()
             : [];
 
@@ -123,9 +121,10 @@ class OrderController extends Controller
                 'lastname'           => $order->lastname,
                 'email'              => $order->email,
                 'telephone'          => $order->telephone,
-                'comment'            => $order->comment ?? '',
+                'customer_note'      => $order->customer_note ?? '',
+                'comment'            => $order->customer_note ?? '',
                 'total'              => (float) $order->total,
-                'currency_code'      => Money::defaultCode(),
+                'currency_code'      => $order->foreign_total === null && (string) $order->currency_code !== '' ? (string) $order->currency_code : Money::defaultCode(),
                 'transaction_currency' => $order->foreign_total !== null ? $order->currency_code : null,
                 'transaction_total'    => $order->foreign_total !== null ? (float) $order->foreign_total : null,
                 'order_status_id'    => (int) $order->order_status_id,
@@ -137,17 +136,20 @@ class OrderController extends Controller
                 'tracking_number'    => $order->tracking_number ?? '',
                 'date_added'         => $order->date_added,
                 'date_modified'      => $order->date_modified,
-                'channel'              => self::resolveSourceLabel($order->channel ?? '', $ocStoreNames),
-                'marketplace_order_id' => $order->marketplace_order_id ?? '',
+                'channel'              => self::resolveSourceLabel($order->channel ?? '', $openCartStoreNames),
+                'channel_order_id' => $order->channel_order_id ?? '',
+                'marketplace_order_id' => $order->channel_order_id ?? '',
                 'store_id'             => self::storeIdOf($order->channel ?? '', $order->store_id),
                 'store_name'           => (string) ($order->store_name ?? ''),
-                'fulfilment'           => self::fulfilment($order),
+                'fulfillment'           => self::fulfillment($order),
+                'fulfilment'            => self::fulfillment($order),
             ],
             'products' => $products->map(function ($p) use ($productImages) {
                 return [
                     'order_product_id' => $p->order_product_id,
                     'name'     => $p->name,
-                    'model'    => $p->model,
+                    'model'    => $p->sku,
+                    'sku'      => $p->sku,
                     'quantity' => (int) $p->quantity,
                     'price'    => (float) $p->price,
                     'total'    => (float) $p->total,
@@ -166,7 +168,8 @@ class OrderController extends Controller
             'history' => $history->map(fn ($h) => [
                 'order_status_id' => (int) $h->order_status_id,
                 'status_name'     => $h->status->name ?? '',
-                'comment'         => $h->comment ?? '',
+                'note'            => $h->note ?? '',
+                'comment'         => $h->note ?? '',
                 'date_added'      => $h->date_added,
             ]),
         ];
@@ -176,11 +179,12 @@ class OrderController extends Controller
     {
         $request->validate([
             'order_status_id' => 'required|integer|min:1',
+            'note'            => 'nullable|string',
             'comment'         => 'nullable|string',
         ]);
 
         $order = Order::where('order_id', (int) $id)->firstOrFail();
-        $this->changeStatus($order, (int) $request->order_status_id, (string) ($request->comment ?? ''));
+        $this->changeStatus($order, (int) $request->order_status_id, (string) ($request->note ?? $request->comment ?? ''));
 
         return response()->json(['message' => 'Order status updated.']);
     }
@@ -191,34 +195,35 @@ class OrderController extends Controller
             'order_status_id' => ['required', 'integer', Rule::exists('order_statuses', 'order_status_id')],
             'tracking_number' => ['required', 'string', 'max:32'],
             'courier_name'    => ['nullable', 'string', 'max:64'],
+            'note'            => ['nullable', 'string', 'max:1000'],
             'comment'         => ['nullable', 'string', 'max:1000'],
         ]);
 
         $order = Order::where('order_id', (int) $id)->firstOrFail();
         if ((string) ($order->channel ?? '') !== '') {
-            return AppFulfilment::refused('This order ships through its store.');
+            return AppFulfillment::refused('This order ships through its store.');
         }
         if (trim((string) $order->tracking_number) !== '') {
-            return AppFulfilment::alreadyDone('This order is already shipped.', $this->showPayload($order));
+            return AppFulfillment::alreadyDone('This order is already shipped.', $this->showPayload($order));
         }
 
         $tracking = trim($data['tracking_number']);
         $courier = trim((string) ($data['courier_name'] ?? ''));
-        $comment = implode("\n", array_filter([
+        $note = implode("\n", array_filter([
             'Shipped' . ($courier !== '' ? ' with ' . $courier : '') . ', tracking ' . $tracking . '.',
-            trim((string) ($data['comment'] ?? '')),
+            trim((string) ($data['note'] ?? $data['comment'] ?? '')),
         ]));
 
-        DB::transaction(function () use ($order, $tracking, $data, $comment) {
+        DB::transaction(function () use ($order, $tracking, $data, $note) {
             $order->tracking_number = $tracking;
             $order->save();
-            $this->changeStatus($order, (int) $data['order_status_id'], $comment);
+            $this->changeStatus($order, (int) $data['order_status_id'], $note);
         });
 
-        return AppFulfilment::ok('Shipped.', $this->showPayload($order->fresh()));
+        return AppFulfillment::ok('Shipped.', $this->showPayload($order->fresh()));
     }
 
-    private function changeStatus(Order $order, int $newStatusId, string $comment): void
+    private function changeStatus(Order $order, int $newStatusId, string $note): void
     {
         $oldStatusId = (int) $order->order_status_id;
 
@@ -232,7 +237,7 @@ class OrderController extends Controller
             'order_id'        => $order->order_id,
             'order_status_id' => $newStatusId,
             'notify'          => 0,
-            'comment'         => $comment,
+            'note'            => $note,
             'date_added'      => now(),
             'user_id'         => $user?->id,
             'user_name'       => $user ? ($user->name ?? $user->username ?? 'User #' . $user->id) : 'API',
@@ -253,20 +258,20 @@ class OrderController extends Controller
         );
     }
 
-    private static function fulfilment(Order $order): array
+    private static function fulfillment(Order $order): array
     {
         if ((string) ($order->channel ?? '') !== '') {
-            return AppFulfilment::block('sales', (int) $order->order_id, 'other', []);
+            return AppFulfillment::block('sales', (int) $order->order_id, 'other', []);
         }
 
         $shipped = trim((string) $order->tracking_number) !== '';
 
-        return AppFulfilment::block('sales', (int) $order->order_id, $shipped ? 'shipped' : 'to_pack', $shipped ? [] : ['mark_shipped']);
+        return AppFulfillment::block('sales', (int) $order->order_id, $shipped ? 'shipped' : 'to_pack', $shipped ? [] : ['mark_shipped']);
     }
 
     public function pendingCount(Request $request)
     {
-        $toPack = \App\Support\FulfilmentBadge::byStore($request->user());
+        $toPack = \App\Support\FulfillmentBadge::byStore($request->user());
 
         $pendingStatuses = OrderStatus::where(function ($q) {
             $q->where('name', 'like', '%pending%')
@@ -334,15 +339,31 @@ class OrderController extends Controller
             }
         }
 
+        $lazadaByStore = $this->waitingByStore('ch_lazada_orders', 'ch_lazada_stores', 'store_id', ['pending', 'repacked']);
+        $shopeeByStore = $this->waitingByStore('ch_shopee_orders', 'ch_shopee_stores', 'store_id', ['READY_TO_SHIP']);
+        $tiktokByStore = $this->waitingByStore('ch_tiktok_orders', 'ch_tiktok_stores', 'store_id', ['AWAITING_SHIPMENT']);
+
         return response()->json([
             'count'          => $count,
             'lazada_pending' => $lazadaPending,
             'shopee_pending' => $shopeePending,
             'tiktok_pending' => $tiktokPending,
             'ventacart_pending'  => (object) $ventaCartPending,
-            'lazada_pending_by_store' => $this->waitingByStore('ch_lazada_orders', 'ch_lazada_stores', 'store_id', ['pending', 'repacked']),
-            'shopee_pending_by_store' => $this->waitingByStore('ch_shopee_orders', 'ch_shopee_stores', 'store_id', ['READY_TO_SHIP']),
-            'tiktok_pending_by_store' => $this->waitingByStore('ch_tiktok_orders', 'ch_tiktok_stores', 'store_id', ['AWAITING_SHIPMENT']),
+            'lazada_pending_by_store' => $lazadaByStore,
+            'shopee_pending_by_store' => $shopeeByStore,
+            'tiktok_pending_by_store' => $tiktokByStore,
+            'pending_by_channel' => [
+                'lazada' => $lazadaPending,
+                'shopee' => $shopeePending,
+                'tiktok' => $tiktokPending,
+                'ventacart' => array_sum($ventaCartPending),
+            ],
+            'pending_by_store' => [
+                'lazada' => $lazadaByStore,
+                'shopee' => $shopeeByStore,
+                'tiktok' => $tiktokByStore,
+                'ventacart' => (object) $ventaCartPending,
+            ],
             'to_pack_by_channel' => (object) $toPack,
             'to_pack_total' => array_sum($toPack),
         ]);
@@ -384,10 +405,10 @@ class OrderController extends Controller
         return $storeId !== null ? (int) $storeId : null;
     }
 
-    private static function resolveSourceLabel(string $source, array $ocStoreNames): string
+    private static function resolveSourceLabel(string $source, array $openCartStoreNames): string
     {
         if (preg_match('/^opencart:(\d+)$/', $source, $m)) {
-            return $ocStoreNames[(int) $m[1]] ?? 'OpenCart';
+            return $openCartStoreNames[(int) $m[1]] ?? 'OpenCart';
         }
 
         return $source;
@@ -395,26 +416,11 @@ class OrderController extends Controller
 
     private function resolveProductImages($orderProducts): array
     {
-        $productIds = $orderProducts
-            ->filter(fn ($p) => $p->product_id > 0)
-            ->pluck('product_id')
-            ->unique()
-            ->values()
-            ->toArray();
-
-        if (empty($productIds)) {
-            return [];
-        }
-
-        $images = Product::whereIn('product_id', $productIds)
-            ->pluck('image', 'product_id')
-            ->toArray();
-
         $result = [];
         foreach ($orderProducts as $op) {
-            $pid = $op->product_id;
-            if ($pid > 0 && isset($images[$pid]) && trim($images[$pid]) !== '') {
-                $result[$op->order_product_id] = url('/storage/' . ltrim($images[$pid], '/'));
+            $url = LineImage::url($op->sku, null, (int) $op->product_id ?: null);
+            if ($url !== null) {
+                $result[$op->order_product_id] = $url;
             }
         }
 

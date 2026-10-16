@@ -15,6 +15,7 @@ final class OrderReads
             'date_from' => ['nullable', 'date'],
             'date_to'   => ['nullable', 'date'],
             'status'    => ['nullable', 'integer'],
+            'channel'   => ['nullable', 'string', 'max:32'],
             'source'    => ['nullable', 'string', 'max:32'],
             'search'    => ['nullable', 'string', 'max:255'],
             'per_page'  => ['nullable', 'integer', 'min:1', 'max:200'],
@@ -32,7 +33,8 @@ final class OrderReads
             ->select(
                 'o.order_id',
                 'o.channel',
-                'o.marketplace_order_id',
+                'o.channel_order_id',
+                'o.channel_order_id as marketplace_order_id',
                 'o.store_name',
                 DB::raw("TRIM(CONCAT(o.firstname, ' ', o.lastname)) as customer"),
                 'o.order_status_id',
@@ -54,13 +56,13 @@ final class OrderReads
         if ($request->filled('status')) {
             $query->where('o.order_status_id', (int) $request->integer('status'));
         }
-        if ($source = $request->query('source')) {
-            $query->where('o.channel', $source);
+        if ($channel = $request->query('channel') ?: $request->query('source')) {
+            $query->where('o.channel', $channel);
         }
         if ($search = trim((string) $request->query('search', ''))) {
             $query->where(function ($q) use ($search) {
                 $q->where('o.order_id', '=', ctype_digit($search) ? (int) $search : 0)
-                    ->orWhere('o.marketplace_order_id', 'like', "%{$search}%")
+                    ->orWhere('o.channel_order_id', 'like', "%{$search}%")
                     ->orWhere('o.firstname', 'like', "%{$search}%")
                     ->orWhere('o.lastname', 'like', "%{$search}%");
             });
@@ -84,7 +86,7 @@ final class OrderReads
             })
             ->where('o.order_id', $id)
             ->select(
-                'o.order_id', 'o.channel', 'o.marketplace_order_id', 'o.store_name',
+                'o.order_id', 'o.channel', 'o.channel_order_id', 'o.channel_order_id as marketplace_order_id', 'o.store_name',
                 DB::raw("TRIM(CONCAT(o.firstname, ' ', o.lastname)) as customer"),
                 'o.email', 'o.telephone', 'o.payment_method',
                 'o.order_status_id', 'os.name as status',
@@ -100,7 +102,7 @@ final class OrderReads
 
         $items = DB::table('order_products')
             ->where('order_id', $id)
-            ->select('product_id', 'name', 'model', 'quantity', 'price', 'total', 'cost')
+            ->select('product_id', 'name', 'sku as model', 'sku', 'quantity', 'price', 'total', 'cost')
             ->get();
 
         return $this->json([

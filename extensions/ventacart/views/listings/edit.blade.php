@@ -86,7 +86,7 @@
             <x-slot:verbs>
                 @if($found && $live['status'] === \Extensions\VentaCart\Models\VentaCartListing::STATUS_ACTIVE)
                     <form method="POST" action="{{ route('ext.ventacart.listings.toggle', [$setting->id, $product->product_id]) }}"
-                          data-guard-stale data-confirm="Unlist this product on {{ $storeName }}? Buyers stop seeing it. It can be relisted at any time."
+                          data-guard-stale data-confirm="Unlist this product on {{ $storeName }}? Customers stop seeing it. It can be relisted at any time."
                           data-confirm-verb="Unlist" data-busy="Unlisting on {{ $storeName }}">
                         @csrf
                         <input type="hidden" name="action" value="unlist">
@@ -94,7 +94,7 @@
                     </form>
                 @elseif($found && $live['status'] === \Extensions\VentaCart\Models\VentaCartListing::STATUS_INACTIVE)
                     <form method="POST" action="{{ route('ext.ventacart.listings.toggle', [$setting->id, $product->product_id]) }}"
-                          data-guard-stale data-confirm="Relist this product on {{ $storeName }}? Buyers see it again at once."
+                          data-guard-stale data-confirm="Relist this product on {{ $storeName }}? Customers see it again at once."
                           data-confirm-tone="primary" data-confirm-verb="Relist" data-busy="Relisting on {{ $storeName }}">
                         @csrf
                         <input type="hidden" name="action" value="relist">

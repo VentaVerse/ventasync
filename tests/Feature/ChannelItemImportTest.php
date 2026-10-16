@@ -126,7 +126,7 @@ class ChannelItemImportTest extends TestCase
         $r->assertSessionHas('status');
         $this->assertStringContainsString('Imported "Imported Cable Pack"', session('status'));
         $this->assertStringContainsString('2 variations', session('status'));
-        $product = DB::table('products')->where('model', 'like', 'LZD-%')->orWhere('quantity', 10)->orderByDesc('product_id')->first();
+        $product = DB::table('products')->where('quantity', 10)->orderByDesc('product_id')->first();
         $this->assertNotNull($product);
         $this->assertSame(10, (int) $product->quantity, 'quantity is the sum of the variations');
         $this->assertSame(0.2, (float) $product->weight, 'the parcel arrives from the first sku');

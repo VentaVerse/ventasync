@@ -11,7 +11,7 @@
     <div class="fm-section__head">
         <h2 class="fm-section__title" id="sec-images">Images</h2>
         <x-ui.hint label="How image order works">Drag a tile to reorder. The first image is the one the
-            catalog and the marketplaces show, and it is marked Main.</x-ui.hint>
+            catalog and the stores show, and it is marked Main.</x-ui.hint>
         <div class="fm-section__aside">
             <x-ui.button type="button" size="sm" id="pimOpenManagerBtn">
                 <x-ui.icon name="image" size="14" /> Browse library

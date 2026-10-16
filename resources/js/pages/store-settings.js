@@ -155,7 +155,7 @@ function initTest(root, config) {
     });
 }
 
-function buildMapSelect(row, config, erpStatuses) {
+function buildMapSelect(row, config, salesOrderStatuses) {
     const wrap = document.createElement('div');
     wrap.className = 'x-select-wrap cs-map-select';
 
@@ -174,19 +174,19 @@ function buildMapSelect(row, config, erpStatuses) {
     let chosen = row.mapped > 0 ? String(row.mapped) : '0';
     if (chosen === '0' && config.nameMatch) {
         const needle = row.name.toLowerCase().trim();
-        for (let i = 0; i < erpStatuses.length; i += 1) {
-            if (String(erpStatuses[i].name).toLowerCase().trim() === needle) {
-                chosen = String(erpStatuses[i].id);
+        for (let i = 0; i < salesOrderStatuses.length; i += 1) {
+            if (String(salesOrderStatuses[i].name).toLowerCase().trim() === needle) {
+                chosen = String(salesOrderStatuses[i].id);
                 break;
             }
         }
     }
 
-    erpStatuses.forEach(function (erp) {
+    salesOrderStatuses.forEach(function (status) {
         const option = document.createElement('option');
-        option.value = String(erp.id);
-        option.textContent = erp.name;
-        if (String(erp.id) === chosen) option.selected = true;
+        option.value = String(status.id);
+        option.textContent = status.name;
+        if (String(status.id) === chosen) option.selected = true;
         select.appendChild(option);
     });
 
@@ -194,7 +194,7 @@ function buildMapSelect(row, config, erpStatuses) {
     return wrap;
 }
 
-function buildMapTable(rows, config, erpStatuses) {
+function buildMapTable(rows, config, salesOrderStatuses) {
     const wrap = document.createElement('div');
     wrap.className = 'x-table-wrap';
 
@@ -231,7 +231,7 @@ function buildMapTable(rows, config, erpStatuses) {
 
         const target = document.createElement('td');
         target.setAttribute('data-label', 'Sales order status');
-        target.appendChild(buildMapSelect(row, config, erpStatuses));
+        target.appendChild(buildMapSelect(row, config, salesOrderStatuses));
         tr.appendChild(target);
 
         tbody.appendChild(tr);
@@ -245,7 +245,7 @@ function initStatusMap(root, config) {
     const container = root.querySelector('[data-status-map]');
     if (!container) return;
 
-    const erpStatuses = readJsonIsland(root, '[data-erp-statuses]');
+    const salesOrderStatuses = readJsonIsland(root, '[data-sales-order-statuses]');
     const saveBar = root.querySelector('[data-save-map-bar]');
     const fetchButton = root.querySelector('[data-fetch-statuses]');
     const saveButton = root.querySelector('[data-save-map]');
@@ -285,7 +285,7 @@ function initStatusMap(root, config) {
                     }
 
                     container.textContent = '';
-                    container.appendChild(buildMapTable(rows, config, erpStatuses));
+                    container.appendChild(buildMapTable(rows, config, salesOrderStatuses));
                     if (saveBar) saveBar.hidden = false;
 
                     flashOk('Fetched ' + rows.length + (rows.length === 1 ? ' status' : ' statuses') + '. Choose what each one becomes, then save.');

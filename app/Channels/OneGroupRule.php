@@ -96,7 +96,8 @@ class OneGroupRule
             . '. Use Move here to transfer one.';
     }
 
-    public static function place(string $pivotTable, string $groupFk, string $groupTable, string $storeFk, int $storeId, int $groupId, int $productId): bool
+    /** $columns are the channel's own required pivot values, e.g. Lazada's lazada_listing_id. */
+    public static function place(string $pivotTable, string $groupFk, string $groupTable, string $storeFk, int $storeId, int $groupId, int $productId, array $columns = []): bool
     {
         $belongs = DB::table($groupTable)->where('id', $groupId)
             ->when($storeId > 0, fn ($q) => $q->where($storeFk, $storeId))
@@ -108,7 +109,7 @@ class OneGroupRule
         self::claim($pivotTable, $groupFk, $groupTable, $storeFk, $groupId, [$productId], [$productId]);
 
         if (! DB::table($pivotTable)->where($groupFk, $groupId)->where('product_id', $productId)->exists()) {
-            $row = [$groupFk => $groupId, 'product_id' => $productId];
+            $row = [$groupFk => $groupId, 'product_id' => $productId] + $columns;
             foreach (['created_at', 'updated_at'] as $stamp) {
                 if (\Illuminate\Support\Facades\Schema::hasColumn($pivotTable, $stamp)) {
                     $row[$stamp] = now();

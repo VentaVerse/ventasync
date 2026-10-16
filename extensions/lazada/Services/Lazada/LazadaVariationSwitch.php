@@ -70,7 +70,8 @@ final class LazadaVariationSwitch
                 'sign_method' => 'sha256',
                 'timestamp' => (string) round(microtime(true) * 1000),
                 'access_token' => (string) $creds['access_token'],
-                'payload' => json_encode(['Request' => ['Product' => [
+                // Lazada's deactivate call reads its body from apiRequestBody, not payload.
+                'apiRequestBody' => json_encode(['Request' => ['Product' => [
                     'ItemId' => (int) $itemId,
                     'Skus' => ['SkuId' => (int) $sku['sku_id'], 'SellerSku' => (string) $sku['seller_sku']],
                 ]]], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),

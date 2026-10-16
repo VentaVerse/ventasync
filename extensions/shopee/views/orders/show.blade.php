@@ -13,12 +13,12 @@
     $created = $order->order_created_at ? $order->order_created_at->format('Y-m-d H:i') : null;
     $updated = $order->order_updated_at ? $order->order_updated_at->format('Y-m-d H:i') : null;
 
-    $buyer = (string)($raw['buyer_username'] ?? ($raw['buyer_user_name'] ?? ''));
+    $customer = (string)($raw['buyer_username'] ?? ($raw['buyer_user_name'] ?? ''));
 
     $addr = $raw['recipient_address'] ?? $raw['shipping_address'] ?? [];
     if (!is_array($addr)) $addr = [];
 
-    $receiverName = (string)($addr['name'] ?? $buyer);
+    $receiverName = (string)($addr['name'] ?? $customer);
     $phone = (string)($addr['phone'] ?? '');
     $address1 = (string)($addr['full_address'] ?? ($addr['address1'] ?? ''));
     $city = (string)($addr['city'] ?? ($addr['town'] ?? ''));
@@ -33,7 +33,7 @@
     $items = $order->products ?? collect();
 
     $isToPack = ($statusNorm === 'READY_TO_SHIP');
-    $hasParcel = in_array($statusNorm, ['PROCESSED', 'SHIPPED', 'TO_CONFIRM_RECEIVE', 'COMPLETED'], true);
+    $hasParcel = in_array($statusNorm, ['PROCESSED', 'RETRY_SHIP', 'SHIPPED', 'TO_CONFIRM_RECEIVE', 'COMPLETED'], true);
 
     $canManageShopeeOrders = auth()->user()?->hasPermission('manage_shopee/order') ?? false;
 
@@ -88,10 +88,10 @@
             <span class="od-stamp__v">{{ $updated }}</span>
         </span>
         @endif
-        @if($order->catalog_order_id)
+        @if($order->sales_order_id)
         <span class="od-stamp">
             <span class="od-stamp__k">Sales order</span>
-            <a class="od-stamp__v" href="{{ url('/sales/orders/' . $order->catalog_order_id) }}">{{ $order->catalog_order_id }}</a>
+            <a class="od-stamp__v" href="{{ url('/sales/orders/' . $order->sales_order_id) }}">{{ $order->sales_order_id }}</a>
         </span>
         @endif
     </div>
@@ -153,7 +153,7 @@
                                     @if(trim($sku) !== '')
                                         <span class="co-item__sku">{{ $sku }}</span>
                                     @endif
-                                    <x-fulfilment.variation :sku="$sku" :fallback="$variation" />
+                                    <x-fulfillment.variation :sku="$sku" :fallback="$variation" :order="$order->sales_order_id" />
                                 </div>
                             </div>
 
@@ -189,7 +189,7 @@
             </section>
 
             @php
-                $inv = is_array($order->buyer_invoice ?? null) ? $order->buyer_invoice : null;
+                $inv = is_array($order->customer_invoice ?? null) ? $order->customer_invoice : null;
                 $invState = 'unavailable';
                 if (is_array($inv)) {
                     if (($inv['is_requested'] ?? null) === true)       $invState = 'requested';
@@ -208,14 +208,14 @@
                 <div class="od-section__head">
                     <h2 class="od-section__title">Invoice request</h2>
                     @if($invState === 'requested')
-                        <x-ui.badge tone="warning">Requested by buyer</x-ui.badge>
+                        <x-ui.badge tone="warning">Requested by customer</x-ui.badge>
                     @endif
                 </div>
 
                 @if($invState === 'requested')
                     <div class="spd-invoice">
                         <div class="od-fact">
-                            <span class="od-fact__k">Buyer</span>
+                            <span class="od-fact__k">Customer</span>
                             <span class="od-fact__v">{{ $invName !== '' ? $invName : 'Not recorded' }}</span>
                         </div>
                         @if($invType !== '')
@@ -239,7 +239,7 @@
                             @endif
                         </div>
                         <div class="od-fact">
-                            <span class="od-fact__k">Phone</span>
+                            <span class="od-fact__k">Telephone</span>
                             <span class="od-fact__v">{{ $invPhone !== '' ? $invPhone : 'Not recorded' }}</span>
                         </div>
                         <div class="od-fact spd-copyable spd-invoice__wide">
@@ -376,8 +376,8 @@
                 </div>
                 <div class="od-card__body">
                     <div class="od-fact">
-                        <span class="od-fact__k">Buyer</span>
-                        <span class="od-fact__v">{{ $buyer !== '' ? $buyer : 'Not recorded' }}</span>
+                        <span class="od-fact__k">Customer</span>
+                        <span class="od-fact__v">{{ $customer !== '' ? $customer : 'Not recorded' }}</span>
                     </div>
                     @if($invState !== 'requested')
                     <div class="od-fact">
@@ -431,7 +431,7 @@
                         <span class="od-fact__v">{{ $courier !== '' ? $courier : 'Not recorded' }}</span>
                     </div>
                     <div class="od-fact">
-                        <span class="od-fact__k">Tracking number</span>
+                        <span class="od-fact__k">Tracking</span>
                         <span class="od-fact__v {{ $tracking !== '' ? 'od-fact__v--mono' : '' }}">{{ $tracking !== '' ? $tracking : 'Not recorded' }}</span>
                     </div>
                 </div>

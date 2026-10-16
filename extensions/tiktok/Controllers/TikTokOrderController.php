@@ -9,7 +9,7 @@ use Extensions\TikTok\Models\TikTokOrderProduct;
 use Extensions\TikTok\Models\TikTokStore;
 use Extensions\TikTok\Services\TikTok\TikTokClient;
 use Extensions\TikTok\Services\TikTok\TikTokReturnSync;
-use Extensions\TikTok\Services\TikTokCatalogOrderSync;
+use Extensions\TikTok\Services\TikTokSalesOrderSync;
 use Extensions\TikTok\Services\TikTokOrdersPanel;
 use Extensions\TikTok\Models\TikTokReturn;
 use Extensions\TikTok\Models\TikTokOrderStatusMap;
@@ -104,7 +104,7 @@ class TikTokOrderController extends Controller
                 if (($detailResult['ok'] ?? false) && (int) ($body['code'] ?? -1) === 0 && is_array($detail)) {
                     $order->status = $detail['status'] ?? $order->status;
                     $order->raw = $detail;
-                    $order->buyer_name = $detail['recipient_address']['name'] ?? ($detail['buyer_name'] ?? $order->buyer_name);
+                    $order->customer_name = $detail['recipient_address']['name'] ?? ($detail['buyer_name'] ?? $order->customer_name);
                     $order->save();
                     $order->load('products');
                 } else {
@@ -180,7 +180,7 @@ class TikTokOrderController extends Controller
         $created = 0;
         $updated = 0;
         $read = 0;
-        $catalogSync = new TikTokCatalogOrderSync();
+        $catalogSync = new TikTokSalesOrderSync();
         foreach ($orders as $o) {
             $orderId = (string) ($o['id'] ?? '');
             if ($orderId === '') continue;
@@ -193,7 +193,7 @@ class TikTokOrderController extends Controller
                 'order_created_at' => isset($o['create_time']) ? \Carbon\Carbon::createFromTimestamp((int) $o['create_time']) : null,
                 'order_updated_at' => isset($o['update_time']) ? \Carbon\Carbon::createFromTimestamp((int) $o['update_time']) : null,
                 'raw' => $o,
-                'buyer_name' => $o['recipient_address']['name'] ?? '',
+                'customer_name' => $o['recipient_address']['name'] ?? '',
             ];
             $existing = TikTokOrder::where('order_id', $orderId)->first();
             if ($existing) {
@@ -284,7 +284,7 @@ class TikTokOrderController extends Controller
         }
 
         $updated = 0;
-        $catalogSync = new TikTokCatalogOrderSync();
+        $catalogSync = new TikTokSalesOrderSync();
 
         foreach ($allOrders as $o) {
             $orderId = (string) ($o['id'] ?? '');
@@ -295,13 +295,13 @@ class TikTokOrderController extends Controller
 
             $newStatus = $o['status'] ?? $dbOrder->status;
             $updatedAt = isset($o['update_time']) ? \Carbon\Carbon::createFromTimestamp((int) $o['update_time']) : null;
-            $buyer = $o['recipient_address']['name'] ?? $dbOrder->buyer_name;
+            $customer = $o['recipient_address']['name'] ?? $dbOrder->customer_name;
 
             $dbOrder->update([
                 'status'           => $newStatus,
                 'order_updated_at' => $updatedAt,
                 'raw'              => $o,
-                'buyer_name'       => $buyer,
+                'customer_name'       => $customer,
             ]);
 
             foreach ($o['line_items'] ?? [] as $li) {
@@ -393,7 +393,7 @@ class TikTokOrderController extends Controller
             if (($detail['ok'] ?? false) && (int) ($detail['body']['code'] ?? -1) === 0 && is_array($read) && !empty($read['status'])) {
                 $order->update(['status' => $read['status'], 'raw' => $read]);
             }
-            (new TikTokCatalogOrderSync())->sync($order->fresh());
+            (new TikTokSalesOrderSync())->sync($order->fresh());
         } catch (\Throwable $e) {
         }
 
@@ -412,7 +412,7 @@ class TikTokOrderController extends Controller
     {
         $order = TikTokOrder::findOrFail($id);
         $safeOrderId = preg_replace('/[^A-Za-z0-9_-]/', '', (string) $order->order_id);
-        $awbPath = \App\Support\Fulfilment\Waybills::path('tiktok', (int) $order->store_id, (string) $order->order_id);
+        $awbPath = \App\Support\Fulfillment\Waybills::path('tiktok', (int) $order->store_id, (string) $order->order_id);
 
         if (file_exists($awbPath) && !$request->boolean('refresh')) {
             return response(file_get_contents($awbPath), 200)
@@ -464,7 +464,7 @@ class TikTokOrderController extends Controller
             $pdfContent = \Illuminate\Support\Facades\Http::timeout(15)->get($docUrl)->body();
 
             if ($pdfContent && str_starts_with($pdfContent, '%PDF')) {
-                \App\Support\Fulfilment\Waybills::save($awbPath, $pdfContent);
+                \App\Support\Fulfillment\Waybills::save($awbPath, $pdfContent);
 
                 return response($pdfContent, 200)
                     ->header('Content-Type', 'application/pdf')

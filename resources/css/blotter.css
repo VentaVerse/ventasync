@@ -31,7 +31,7 @@
 @import './pages/opencart-orders.css' layer(vocabulary);
 @import './pages/woocommerce-orders.css' layer(vocabulary);
 @import './pages/pedallion-orders.css' layer(vocabulary);
-@import './pages/marketplace-common.css' layer(vocabulary);
+@import './pages/channel-common.css' layer(vocabulary);
 @import './pages/licenses.css' layer(vocabulary);
 @import './pages/ai-tools.css' layer(vocabulary);
 @import './pages/order-form.css' layer(vocabulary);
@@ -1209,7 +1209,7 @@
     .bl-charts,
     .bl-panel,
     .x-fh-strip,
-    /* .x-fh-panel is NOT a sheet. The fulfilment hub's list is the page
+    /* .x-fh-panel is NOT a sheet. The fulfillment hub's list is the page
        continuing, not a card sitting on it - see the note in
        blotter-components. Leaving it here gave it a border and a background
        whose gutter then had to be paid for twice by the children that ask

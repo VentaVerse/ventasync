@@ -96,8 +96,8 @@ final class ProductDeleter
                 DB::table('product_descriptions')->where('product_id', $id)->delete();
                 DB::table('products')->where('product_id', $id)->delete();
 
-                if (class_exists(\Extensions\Warehousing\Models\WarehouseInventory::class)) {
-                    \Extensions\Warehousing\Models\WarehouseInventory::where('product_id', $id)->delete();
+                if (class_exists(\Extensions\Warehousing\Models\WarehouseStock::class)) {
+                    \Extensions\Warehousing\Models\WarehouseStock::where('product_id', $id)->delete();
                 }
 
                 return $stays;

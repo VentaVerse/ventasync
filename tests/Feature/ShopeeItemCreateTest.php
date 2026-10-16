@@ -39,7 +39,7 @@ class ShopeeItemCreateTest extends TestCase
             'The refusal must name the file so the operator knows which image to fix.');
         $this->assertStringContainsString("Shopee's sign-in has lapsed.", $r['error'],
             'The refusal must speak the idiot-proof translation of the reason Shopee gave '
-            . '(MarketplaceWords turns "Invalid access_token." into the sign-in headline).');
+            . '(ChannelWords turns "Invalid access_token." into the sign-in headline).');
 
         unlink(storage_path('app/public/itemcreate-pin.png'));
     }

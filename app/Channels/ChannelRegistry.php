@@ -122,9 +122,9 @@ class ChannelRegistry
         return $this->providersImplementing(\App\Channels\Contracts\OrderFeesContributor::class);
     }
 
-    public function marketplaceFeeSources(): array
+    public function channelFeeSources(): array
     {
-        return $this->providersImplementing(\App\Channels\Contracts\MarketplaceFeeSource::class);
+        return $this->providersImplementing(\App\Channels\Contracts\ChannelFeeSource::class);
     }
 
     public function saleLinesSources(): array
@@ -132,10 +132,10 @@ class ChannelRegistry
         return $this->providersImplementing(\App\Channels\Contracts\SaleLinesSource::class);
     }
 
-    public function mobileProviderFor(string $platform): ?\App\Channels\Contracts\MobileMarketplaceProvider
+    public function mobileProviderFor(string $channel): ?\App\Channels\Contracts\MobileMarketplaceProvider
     {
         foreach ($this->providersImplementing(\App\Channels\Contracts\MobileMarketplaceProvider::class) as $provider) {
-            if ($provider->mobilePlatformSlug() === $platform) {
+            if ($provider->mobileChannelSlug() === $channel) {
                 return $provider;
             }
         }
@@ -161,9 +161,9 @@ class ChannelRegistry
         return $out;
     }
 
-    public function productInventoryDetailContributors(): array
+    public function productStockDetailContributors(): array
     {
-        return $this->providersImplementing(\App\Channels\Contracts\ProductInventoryDetailContributor::class);
+        return $this->providersImplementing(\App\Channels\Contracts\ProductStockDetailContributor::class);
     }
 
     public function resolveRootRouteResponse(\Illuminate\Http\Request $request): mixed
@@ -214,13 +214,13 @@ class ChannelRegistry
         return null;
     }
 
-    public function resolveOrderRef(string $orderChannel, string $marketplaceOrderId): ?array
+    public function resolveOrderRef(string $orderChannel, string $channelOrderId): ?array
     {
-        if ($orderChannel === '' || $marketplaceOrderId === '') {
+        if ($orderChannel === '' || $channelOrderId === '') {
             return null;
         }
-        foreach ($this->providersImplementing(\App\Channels\Contracts\MarketplaceOrderRefRenderer::class) as $renderer) {
-            $ref = $renderer->renderOrderRef($orderChannel, $marketplaceOrderId);
+        foreach ($this->providersImplementing(\App\Channels\Contracts\ChannelOrderRefRenderer::class) as $renderer) {
+            $ref = $renderer->renderOrderRef($orderChannel, $channelOrderId);
             if ($ref !== null) {
                 return $ref;
             }

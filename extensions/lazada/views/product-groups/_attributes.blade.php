@@ -69,7 +69,7 @@
                                 <div class="x-select-wrap" data-attr-field-box @unless($isMapped) hidden @endunless>
                                     <select class="x-input" data-attr-field aria-label="Which product field {{ $attribute['name'] }} is read from" @disabled(!$canManage)>
                                         <option value="">Pick a product field</option>
-                                        @foreach($erpSourceFields as $fieldKey => $fieldLabel)
+                                        @foreach($catalogSourceFields as $fieldKey => $fieldLabel)
                                             <option value="{{ $fieldKey }}" @selected($isMapped && $mappedField === $fieldKey)>{{ $fieldLabel }}</option>
                                         @endforeach
                                     </select>

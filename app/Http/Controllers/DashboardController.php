@@ -119,7 +119,7 @@ class DashboardController extends Controller
         $chartRevenue = $chart['revenue'];
         $chartOrders = $chart['orders'];
 
-        $platformSlices = $this->buildPlatformData($range, $storeKey);
+        $channelSlices = $this->buildChannelData($range, $storeKey);
 
         $recentOrders = $this->orders($storeKey, 'o')
             ->leftJoin('order_statuses as os', function ($j) use ($langId) {
@@ -149,10 +149,10 @@ class DashboardController extends Controller
             ->where('status', 1)
             ->selectRaw('COUNT(*) as products, SUM(quantity * cost) as at_cost, SUM(quantity * price) as at_sale')
             ->first();
-        $inventoryProducts = (int) ($invRow->products ?? 0);
-        $inventoryAtCost = (float) ($invRow->at_cost ?? 0);
-        $inventoryAtSale = (float) ($invRow->at_sale ?? 0);
-        $inventoryMargin = $inventoryAtSale > 0 ? round(($inventoryAtSale - $inventoryAtCost) / $inventoryAtSale * 100, 1) : 0;
+        $stockProducts = (int) ($invRow->products ?? 0);
+        $stockAtCost = (float) ($invRow->at_cost ?? 0);
+        $stockAtSale = (float) ($invRow->at_sale ?? 0);
+        $stockMargin = $stockAtSale > 0 ? round(($stockAtSale - $stockAtCost) / $stockAtSale * 100, 1) : 0;
 
         $registry = app(ChannelRegistry::class);
 
@@ -213,7 +213,7 @@ class DashboardController extends Controller
             'chartLabels' => $chartLabels,
             'chartRevenue' => $chartRevenue,
             'chartOrders' => $chartOrders,
-            'platformSlices' => $platformSlices,
+            'channelSlices' => $channelSlices,
             'range' => $range,
             'ranges' => self::RANGES,
             'storeKey' => $storeKey,
@@ -221,10 +221,10 @@ class DashboardController extends Controller
             'recentOrders' => $recentOrders,
             'greeting' => $greeting,
             'sourceLabelsMap' => $sourceLabelsMap,
-            'inventoryProducts' => $inventoryProducts,
-            'inventoryAtCost' => $inventoryAtCost,
-            'inventoryAtSale' => $inventoryAtSale,
-            'inventoryMargin' => $inventoryMargin,
+            'stockProducts' => $stockProducts,
+            'stockAtCost' => $stockAtCost,
+            'stockAtSale' => $stockAtSale,
+            'stockMargin' => $stockMargin,
         ], $extensionDashboardData));
     }
 
@@ -239,7 +239,7 @@ class DashboardController extends Controller
         return $q;
     }
 
-    private function buildPlatformData(string $range, string $storeKey = ''): array
+    private function buildChannelData(string $range, string $storeKey = ''): array
     {
         $revIds = OrderStatus::where('add_revenue', 1)->pluck('order_status_id');
 

@@ -42,7 +42,7 @@ class OrderControllerCurrencyTest extends TestCase
                 [
                     'product_id' => 1,
                     'name' => 'Test Widget',
-                    'model' => 'TW-1',
+                    'sku' => 'TW-1',
                     'quantity' => 2,
                     'price' => 100,
                     'cost' => 40,
@@ -300,7 +300,7 @@ class OrderControllerCurrencyTest extends TestCase
             'lastname'        => 'Dela Cruz',
             'order_status_id' => 2,
             'currency_code'   => 'PHP',
-            'comment'         => 'status bump only, line items untouched',
+            'customer_note'   => 'status bump only, line items untouched',
         ];
 
         $response = $this->put(route('orders.update', $order->order_id), $updatePayload);
@@ -502,7 +502,7 @@ class OrderControllerCurrencyTest extends TestCase
                 [
                     'product_id' => 1,
                     'name'       => 'Test Widget',
-                    'model'      => 'TW-1',
+                    'sku'        => 'TW-1',
                     'quantity'   => 1,
                     'price'      => 100,
                     'cost'       => 56.80,

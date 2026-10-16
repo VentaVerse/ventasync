@@ -11,9 +11,9 @@
     $returnTo = request()->getRequestUri();
 
     $q = (string) ($q ?? '');
-    $erpStatus = (string) ($erpStatus ?? 'all');
+    $catalogStatus = (string) ($catalogStatus ?? 'all');
     $syncStatus = (string) ($syncStatus ?? 'all');
-    $hasFilters = $q !== '' || $erpStatus !== 'all' || $syncStatus !== 'all';
+    $hasFilters = $q !== '' || $catalogStatus !== 'all' || $syncStatus !== 'all';
 
     $listUrl = route('ext.shopee.product-groups.products', $group->id);
 @endphp
@@ -35,7 +35,7 @@
         <div class="cc-head-actions">
             @if($canManageShopee)
                 <form method="POST" action="{{ route('ext.shopee.product-groups.check', $group->id) }}"
-                      data-confirm="Check every product in this product group against Shopee? Nothing is sent or changed on Shopee; the ERP updates its own records to match what it finds." data-confirm-tone="primary" data-confirm-verb="Check against Shopee">
+                      data-confirm="Check every product in this product group against Shopee? Nothing is sent or changed on Shopee; VentaSync updates its own records to match what it finds." data-confirm-tone="primary" data-confirm-verb="Check against Shopee">
                     @csrf
                     <input type="hidden" name="_return" value="{{ $returnTo }}">
                     <x-ui.button type="submit" variant="secondary">Check against Shopee</x-ui.button>
@@ -58,13 +58,13 @@
 <form method="GET" action="{{ $listUrl }}" class="x-filters">
     <input type="hidden" name="shopee_tab" value="{{ $shopeeTab ?? 'all' }}">
     <x-ui.input type="search" name="q" class="x-filters__search"
-                value="{{ $q }}" placeholder="Name, model or SKU" aria-label="Search products in this product group" />
+                value="{{ $q }}" placeholder="Name or SKU" aria-label="Search products in this product group" />
 
     <div class="x-select-wrap x-filters__select x-filters__select--narrow">
-        <select name="erp_status" class="x-input" data-autosubmit aria-label="Filter by Master Catalog status">
-            <option value="all" @selected($erpStatus === 'all')>Any Master Catalog status</option>
-            <option value="enabled" @selected($erpStatus === 'enabled')>Enabled</option>
-            <option value="disabled" @selected($erpStatus === 'disabled')>Disabled</option>
+        <select name="catalog_status" class="x-input" data-autosubmit aria-label="Filter by Master Catalog status">
+            <option value="all" @selected($catalogStatus === 'all')>Any Master Catalog status</option>
+            <option value="enabled" @selected($catalogStatus === 'enabled')>Enabled</option>
+            <option value="disabled" @selected($catalogStatus === 'disabled')>Disabled</option>
         </select>
         <x-ui.icon name="chevron-down" size="14" class="x-select-wrap__chevron" />
     </div>
@@ -108,8 +108,8 @@
         'push' => ['action' => route('ext.shopee.product-groups.send', $group->id), 'label' => 'Send to Shopee', 'fields' => $gf, 'confirm' => 'Send the selected products to Shopee? Each one is checked against Shopee first, then created or updated to match the Master Catalog, with this product group\'s settings.'],
         'link' => ['action' => route('ext.shopee.product-groups.check', $group->id), 'label' => 'Link IDs', 'fields' => $gf],
         'switch' => [
-            ['action' => route('ext.shopee.products.bulk_toggle'), 'field' => 'product_ids[]', 'verb' => 'unlist', 'codes' => 'NORMAL', 'label' => 'Delist :n from Shopee', 'button' => 'Delist from Shopee', 'fields' => ['action' => 'unlist'], 'confirm' => 'Delist the selected items from Shopee? Buyers stop seeing them immediately. They can be published again at any time.'],
-            ['action' => route('ext.shopee.products.bulk_toggle'), 'field' => 'product_ids[]', 'verb' => 'list', 'codes' => 'UNLIST', 'label' => 'Publish :n on Shopee', 'button' => 'Publish on Shopee', 'fields' => ['action' => 'list'], 'confirm' => 'Publish the selected items on Shopee? Buyers see them again immediately.'],
+            ['action' => route('ext.shopee.products.bulk_toggle'), 'field' => 'product_ids[]', 'verb' => 'unlist', 'codes' => 'NORMAL', 'label' => 'Delist :n from Shopee', 'button' => 'Delist from Shopee', 'fields' => ['action' => 'unlist'], 'confirm' => 'Delist the selected items from Shopee? Customers stop seeing them immediately. They can be published again at any time.'],
+            ['action' => route('ext.shopee.products.bulk_toggle'), 'field' => 'product_ids[]', 'verb' => 'list', 'codes' => 'UNLIST', 'label' => 'Publish :n on Shopee', 'button' => 'Publish on Shopee', 'fields' => ['action' => 'list'], 'confirm' => 'Publish the selected items on Shopee? Customers see them again immediately.'],
         ],
         'delete' => ['action' => route('ext.shopee.product-groups.deleteFromShopee', $group->id), 'label' => 'Delete from Shopee', 'fields' => $gf, 'confirm' => 'Delete the selected products from Shopee? They are removed at the marketplace and this cannot be undone.'],
         'remove' => ['action' => route('ext.shopee.product-groups.massRemove', $group->id), 'label' => 'Remove from product group', 'fields' => $gf, 'confirm' => 'Take the selected products out of this product group? Nothing is deleted from the Master Catalog, and nothing already live on Shopee is touched.'],
@@ -189,7 +189,7 @@
             $variationCount = $optRows ? count($optRows) : 0;
 
             $pName = (string) ($rowTitles[(int) $p->product_id] ?? html_entity_decode((string) ($p->name ?? ''), ENT_QUOTES | ENT_HTML5, 'UTF-8'));
-            $pSku = (string) ($p->sku ?: ($p->model ?: ''));
+            $pSku = (string) ($p->sku ?: '');
             $isManual = in_array((int) $p->product_id, $manualIds, true);
 
             $metaParts = [$pSku !== '' ? $pSku : 'No SKU'];
@@ -288,12 +288,12 @@
                     } else {
                         $menu['update'] = ['action' => route('ext.shopee.product-groups.send', $group->id), 'label' => 'Send to Shopee', 'fields' => $gf];
                         if ($canToggleListing && $rowState?->state === \App\Channels\Listings\ListingState::LIVE) {
-                            $menu['switch'] = ['action' => route('ext.shopee.listings.toggle', $p->product_id), 'label' => 'Delist from Shopee', 'fields' => ['action' => 'unlist'], 'confirm' => "Delist {$pName} from Shopee? Buyers stop seeing it immediately. It can be published again at any time.", 'verb' => 'Delist'];
+                            $menu['switch'] = ['action' => route('ext.shopee.listings.toggle', $p->product_id), 'label' => 'Delist from Shopee', 'fields' => ['action' => 'unlist'], 'confirm' => "Delist {$pName} from Shopee? Customers stop seeing it immediately. It can be published again at any time.", 'verb' => 'Delist'];
                         } elseif ($canToggleListing && $rowState?->state === \App\Channels\Listings\ListingState::INACTIVE) {
-                            $menu['switch'] = ['action' => route('ext.shopee.listings.toggle', $p->product_id), 'label' => 'Publish on Shopee', 'fields' => ['action' => 'list'], 'confirm' => "Publish {$pName} on Shopee? Buyers see it again immediately.", 'verb' => 'Publish', 'tone' => 'primary'];
+                            $menu['switch'] = ['action' => route('ext.shopee.listings.toggle', $p->product_id), 'label' => 'Publish on Shopee', 'fields' => ['action' => 'list'], 'confirm' => "Publish {$pName} on Shopee? Customers see it again immediately.", 'verb' => 'Publish', 'tone' => 'primary'];
                         }
                         $menu['check'] = ['action' => route('ext.shopee.product-groups.check', $group->id), 'label' => 'Check against Shopee', 'fields' => $gf];
-                        $menu['unlink'] = ['action' => route('ext.shopee.product-groups.unlinkProduct', [$group->id, $p->product_id]), 'fields' => ['_return' => $returnTo], 'confirm' => "Unlink {$pName} from Shopee? The listing stays on Shopee; the ERP just stops tracking it. Send will re-find it."];
+                        $menu['unlink'] = ['action' => route('ext.shopee.product-groups.unlinkProduct', [$group->id, $p->product_id]), 'fields' => ['_return' => $returnTo], 'confirm' => "Unlink {$pName} from Shopee? The listing stays on Shopee; VentaSync just stops tracking it. Send will re-find it."];
                         $menu['delete'] = ['action' => route('ext.shopee.product-groups.deleteFromShopee', $group->id), 'fields' => $gf, 'confirm' => "Delete {$pName} from Shopee? It is removed at the marketplace and this cannot be undone."];
                     }
                     if ($isManual) {

@@ -26,20 +26,20 @@ class SearchController extends Controller
                 $sub->where('firstname', 'like', '%' . $q . '%')
                     ->orWhere('lastname', 'like', '%' . $q . '%')
                     ->orWhere('email', 'like', '%' . $q . '%')
-                    ->orWhere('marketplace_order_id', 'like', '%' . $q . '%');
+                    ->orWhere('channel_order_id', 'like', '%' . $q . '%');
                 if ((int) $q > 0) {
                     $sub->orWhere('order_id', '=', (int) $q);
                 }
             })
             ->orderByDesc('order_id')
             ->limit(5)
-            ->get(['order_id', 'firstname', 'lastname', 'email', 'marketplace_order_id', 'total']);
+            ->get(['order_id', 'firstname', 'lastname', 'email', 'channel_order_id', 'total']);
 
         foreach ($orders as $o) {
             $results[] = [
                 'category' => 'Orders',
                 'label' => '#' . $o->order_id . ' · ' . $o->firstname . ' ' . $o->lastname,
-                'sub' => $o->marketplace_order_id ?: $o->email,
+                'sub' => $o->channel_order_id ?: $o->email,
                 'url' => route('orders.show', $o->order_id),
             ];
         }
@@ -52,8 +52,7 @@ class SearchController extends Controller
             })
             ->where(function ($sub) use ($q) {
                 $sub->where('pd.name', 'like', '%' . $q . '%')
-                    ->orWhere('p.sku', 'like', '%' . $q . '%')
-                    ->orWhere('p.model', 'like', '%' . $q . '%');
+                    ->orWhere('p.sku', 'like', '%' . $q . '%');
             })
             ->orderByDesc('p.product_id')
             ->limit(5)

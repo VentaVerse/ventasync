@@ -113,7 +113,7 @@ class VentaCartListingController extends Controller
             $answer = $client->get('products', ['per_page' => 100, 'page' => $page]);
             if (! ($answer['ok'] ?? false)) {
                 return [null, 'VentaCart did not answer the fetch: '
-                    . \App\Support\MarketplaceAnswer::plain('VentaCart', $answer)
+                    . \App\Support\ChannelAnswer::plain('VentaCart', $answer)
                     . ($found > 0 ? " ({$found} items were read before it stopped.)" : '')];
             }
             $items = array_values((array) (($answer['body']['data'] ?? $answer['body']) ?: []));
@@ -212,7 +212,6 @@ class VentaCartListingController extends Controller
 
         return collect()
             ->merge(DB::table('products')->whereNotNull('sku')->where('sku', '!=', '')->pluck('sku'))
-            ->merge(DB::table('products')->whereNotNull('model')->where('model', '!=', '')->pluck('model'))
             ->merge(DB::table('product_variation_values')->whereNotNull('sku')->where('sku', '!=', '')->pluck('sku'))
             ->merge(DB::table('product_variations')->whereNotNull('sku')->where('sku', '!=', '')->pluck('sku'))
             ->map(fn ($v) => strtolower(trim((string) $v)))
@@ -237,7 +236,7 @@ class VentaCartListingController extends Controller
 
         $q = trim((string) $request->get('q', ''));
         $groupFilter = \App\Channels\Listings\StatusMenu::group($request->get('group'));
-        $erpStatus = (string) $request->get('erp_status', 'all');
+        $catalogStatus = (string) $request->get('catalog_status', 'all');
         $syncStatus = (string) $request->get('sync_status', 'all');
         $syncStatus = ['listed' => 'uploaded', 'not_listed' => 'not_uploaded'][$syncStatus] ?? $syncStatus;
         if ($syncStatus !== 'error') {
@@ -283,7 +282,7 @@ class VentaCartListingController extends Controller
             })
             ->leftJoin('brands as m', 'p.brand_id', '=', 'm.brand_id')
             ->whereIn('p.product_id', $scopeIds ?: [0])
-            ->select('p.product_id', 'pd.name', 'p.image', 'p.model', 'p.sku', 'p.price', 'p.quantity', 'p.status', 'm.name as brand_name');
+            ->select('p.product_id', 'pd.name', 'p.image', 'p.sku', 'p.price', 'p.quantity', 'p.status', 'm.name as brand_name');
 
         $groupedIds = VentaCartProductGroupProduct::query()
             ->whereIn('ventacart_product_group_id', VentaCartProductGroup::query()->where('store_id', $store)->select('id'))
@@ -300,15 +299,14 @@ class VentaCartListingController extends Controller
 
             return $query->whereIn('p.product_id', $ids ?: [0]);
         };
-        if ($erpStatus === 'enabled') {
+        if ($catalogStatus === 'enabled') {
             $query->where('p.status', 1);
-        } elseif ($erpStatus === 'disabled') {
+        } elseif ($catalogStatus === 'disabled') {
             $query->where('p.status', 0);
         }
         if ($q !== '') {
             $query->where(function ($w) use ($q, $store) {
                 $w->where('pd.name', 'like', '%' . $q . '%')
-                    ->orWhere('p.model', 'like', '%' . $q . '%')
                     ->orWhere('p.sku', 'like', '%' . $q . '%')
                     ->orWhereIn('p.product_id', VentaCartListing::query()
                         ->where('store_id', $store)
@@ -474,7 +472,7 @@ class VentaCartListingController extends Controller
             'rowTitles' => $rowTitles,
             'q' => $q, 'sort' => $sort, 'dir' => $dir,
             'order' => $order, 'orderVariations' => \App\Channels\Listings\ListingSort::options(array_keys($sortMenu)),
-            'groupFilter' => $groupFilter, 'erpStatus' => $erpStatus, 'syncStatus' => $syncStatus,
+            'groupFilter' => $groupFilter, 'catalogStatus' => $catalogStatus, 'syncStatus' => $syncStatus,
             'allGroups' => VentaCartProductGroup::where('store_id', $store)->orderBy('name')->pluck('name', 'id'),
             'groupsByProductId' => $groupsByProductId,
             'variationRowsByProductId' => \App\Support\VariationRows::forListing($pageIds, 'ventacart', $store),
@@ -576,10 +574,10 @@ class VentaCartListingController extends Controller
         $query = DB::table('products as p')
             ->leftJoin('product_descriptions as pd', fn ($j) => $j->on('p.product_id', '=', 'pd.product_id')->where('pd.language_id', '=', $langId))
             ->leftJoinSub(\Extensions\VentaCart\Services\VentaCart\VentaCartStoreProducts::query($store), 'os', 'os.product_id', '=', 'p.product_id')
-            ->select('p.product_id', 'pd.name', 'p.image', 'p.sku', 'p.model', 'p.quantity', 'p.price', 'os.product_id as on_store_pid')
+            ->select('p.product_id', 'pd.name', 'p.image', 'p.sku', 'p.quantity', 'p.price', 'os.product_id as on_store_pid')
             ->where('p.status', 1);
         if ($q !== '') {
-            $query->where(fn ($sub) => $sub->where('pd.name', 'like', '%' . $q . '%')->orWhere('p.model', 'like', '%' . $q . '%')->orWhere('p.sku', 'like', '%' . $q . '%'));
+            $query->where(fn ($sub) => $sub->where('pd.name', 'like', '%' . $q . '%')->orWhere('p.sku', 'like', '%' . $q . '%'));
         }
         if (! $showAll) {
             $query->whereNull('os.product_id');

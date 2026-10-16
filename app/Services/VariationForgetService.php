@@ -9,7 +9,7 @@ class VariationForgetService
 {
     public static function snapshot(int $productId): array
     {
-        return PushLedger::erpVariationSkus([$productId])[$productId] ?? [];
+        return PushLedger::catalogVariationSkus([$productId])[$productId] ?? [];
     }
 
     public function reconcile(int $productId, array $before): array

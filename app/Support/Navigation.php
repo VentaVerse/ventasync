@@ -19,8 +19,8 @@ class Navigation
                  'keywords' => ['payments', 'receivable', 'balance', 'owed', 'paid', 'settlement', 'remittance']],
             ]],
 
-            ['label' => 'Fulfilment', 'icon' => 'globe', 'route' => 'channels.fulfilment',
-             'keywords' => ['fulfilment', 'fulfillment', 'ship', 'pack', 'marketplace orders']],
+            ['label' => 'Fulfillment', 'icon' => 'globe', 'route' => 'channels.fulfillment',
+             'keywords' => ['fulfillment', 'fulfillment', 'ship', 'pack', 'marketplace orders']],
 
             ['label' => 'Channels', 'icon' => 'plug', 'items' => self::channelEntries()],
 
@@ -45,7 +45,7 @@ class Navigation
             ['label' => 'Warehousing', 'icon' => 'archive', 'items' => [
                 ['label' => 'Transfers', 'route' => 'ext.warehousing.transfers.index',
                  'keywords' => ['move', 'stock transfer', 'warehouse']],
-                ['label' => 'Inventory', 'route' => 'ext.warehousing.inventory.index',
+                ['label' => 'Inventory', 'route' => 'ext.warehousing.stock.index',
                  'keywords' => ['stock', 'quantity', 'count', 'adjust']],
                 ['label' => 'Warehouses', 'route' => 'ext.warehousing.warehouses.index',
                  'keywords' => ['warehouse', 'branch', 'store']],
@@ -62,7 +62,7 @@ class Navigation
                  'keywords' => ['commission', 'charge', 'marketplace fee']],
                 ['label' => 'Payouts', 'route' => 'ext.reports.payouts',
                  'keywords' => ['settlement', 'remittance', 'disbursement']],
-                ['label' => 'Inventory', 'route' => 'ext.reports.inventory',
+                ['label' => 'Inventory', 'route' => 'ext.reports.stock',
                  'keywords' => ['stock value', 'on hand']],
             ]],
 
@@ -203,7 +203,7 @@ class Navigation
                     if ($menuItem->label === 'Orders') {
                         $items[] = ['label' => $card->name, 'route' => $menuItem->routeName,
                                     'params' => $menuItem->routeParams,
-                                    'keywords' => [$card->id, 'orders', 'fulfilment']];
+                                    'keywords' => [$card->id, 'orders', 'fulfillment']];
                         break;
                     }
                 }

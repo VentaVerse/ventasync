@@ -14,7 +14,7 @@ class ShopeePushStock extends Command implements \App\Channels\Contracts\Steppab
 {
     protected $signature = 'shopee:push-stock';
 
-    protected $description = 'Push ERP product quantities to Shopee for all linked products';
+    protected $description = 'Push catalog quantities to Shopee for all linked products';
 
     public function handle(ShopeeClient $client): int
     {

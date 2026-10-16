@@ -39,18 +39,18 @@ class OpenCartController extends Controller
 
         $orderStatusMaps = OpenCartOrderStatusMap::query()
             ->where('store_id', $active->id)
-            ->orderBy('oc_status_id')
+            ->orderBy('opencart_status_id')
             ->get()
             ->groupBy('store_id');
         $langId = (int) config('catalog.default_language_id');
-        $erpOrderStatuses = DB::table('order_statuses')
+        $salesOrderStatuses = DB::table('order_statuses')
             ->where('language_id', $langId)
             ->orderBy('order_status_id')
             ->get(['order_status_id', 'name']);
 
         $singleStore = true;
 
-        return view('ext-opencart::index', compact('stores', 'recentLogs', 'orderStatusMaps', 'erpOrderStatuses', 'singleStore'));
+        return view('ext-opencart::index', compact('stores', 'recentLogs', 'orderStatusMaps', 'salesOrderStatuses', 'singleStore'));
     }
 
     public function createStore(Request $request)
@@ -517,35 +517,35 @@ class OpenCartController extends Controller
 
         $apiIds = [];
         foreach ($statuses as $s) {
-            $ocId = (int) ($s['order_status_id'] ?? $s['id'] ?? 0);
-            if ($ocId <= 0) continue;
+            $openCartId = (int) ($s['order_status_id'] ?? $s['id'] ?? 0);
+            if ($openCartId <= 0) continue;
             $name = (string) ($s['name'] ?? $s['label'] ?? '');
 
             $row = OpenCartOrderStatusMap::firstOrNew([
                 'store_id' => $store->id,
-                'oc_status_id'        => $ocId,
+                'opencart_status_id'        => $openCartId,
             ]);
 
             if (!$row->exists) {
                 $row->order_status_id = 0;
             }
-            $row->oc_status_name = $name;
+            $row->opencart_status_name = $name;
             $row->save();
 
-            $apiIds[] = $ocId;
+            $apiIds[] = $openCartId;
         }
 
         OpenCartOrderStatusMap::where('store_id', $store->id)
-            ->whereNotIn('oc_status_id', $apiIds ?: [0])
+            ->whereNotIn('opencart_status_id', $apiIds ?: [0])
             ->delete();
 
         $persisted = OpenCartOrderStatusMap::where('store_id', $store->id)
-            ->orderBy('oc_status_id')
-            ->get(['oc_status_id', 'oc_status_name', 'order_status_id'])
+            ->orderBy('opencart_status_id')
+            ->get(['opencart_status_id', 'opencart_status_name', 'order_status_id'])
             ->map(fn ($r) => [
-                'order_status_id'    => (int) $r->oc_status_id,
-                'name'               => $r->oc_status_name,
-                'erp_order_status_id' => (int) $r->order_status_id,
+                'order_status_id'    => (int) $r->opencart_status_id,
+                'name'               => $r->opencart_status_name,
+                'sales_order_status_id' => (int) $r->order_status_id,
             ])
             ->all();
 
@@ -567,16 +567,16 @@ class OpenCartController extends Controller
         $mappings = $request->input('mappings', []);
 
         foreach ($mappings as $m) {
-            $ocStatusId = (int) ($m['oc_status_id'] ?? 0);
-            if ($ocStatusId <= 0) continue;
+            $openCartStatusId = (int) ($m['opencart_status_id'] ?? 0);
+            if ($openCartStatusId <= 0) continue;
 
             OpenCartOrderStatusMap::updateOrCreate(
                 [
                     'store_id' => $store->id,
-                    'oc_status_id'        => $ocStatusId,
+                    'opencart_status_id'        => $openCartStatusId,
                 ],
                 [
-                    'oc_status_name'  => $m['oc_status_name'] ?? '',
+                    'opencart_status_name'  => $m['opencart_status_name'] ?? '',
                     'order_status_id' => (int) ($m['order_status_id'] ?? 0),
                 ]
             );

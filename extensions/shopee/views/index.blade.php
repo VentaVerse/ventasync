@@ -131,7 +131,7 @@
 
                 <div class="fm-fields">
                     <x-ui.field label="Store name" for="sp-store-name" name="store_name" :required="true" wide
-                                hint="How this store is named across the ERP - the sidebar, the fulfilment tabs, the channels board.">
+                                hint="How this store is named across VentaSync - the sidebar, the fulfillment tabs, the channels board.">
                         <x-ui.input id="sp-store-name" name="store_name" type="text" autocomplete="off" :disabled="!$canManageShopee"
                                     value="{{ old('store_name', $setting->store_name ?? '') }}" />
                     </x-ui.field>
@@ -208,7 +208,7 @@
                         :disabled="!$canManageShopee" />
 
                     <x-ui.field label="Apply order pushes" for="sp-apply-pushes" name="apply_order_pushes" wide
-                                hint="One switch for this store in either mode. On: a new order, a status change, a tracking number or a return reaches the ERP the moment Shopee sends its push, by the same path as the order sync, stock included. Off: pushes are only recorded and the order sync brings every change in.">
+                                hint="One switch for this store in either mode. On: a new order, a status change, a tracking number or a return reaches VentaSync the moment Shopee sends its push, by the same path as the order sync, stock included. Off: pushes are only recorded and the order sync brings every change in.">
                         <input type="hidden" name="apply_order_pushes" value="0">
                         <label class="fm-switch cs-store-switch">
                             <input type="checkbox" class="fm-switch__input" id="sp-apply-pushes" name="apply_order_pushes" value="1" @checked((bool) ($setting->apply_order_pushes ?? false)) @disabled(!$canManageShopee)>
@@ -276,7 +276,7 @@
 
             <div class="cs-danger">
                 <div>
-                    <span class="cs-danger__title">Remove this store <x-ui.hint label="What removal does">Everything this store holds in the ERP goes with it: listings, links, groups, couriers, Shopee orders and returns, and its API log. Sales already imported stay under its name. There is no undo.</x-ui.hint></span>
+                    <span class="cs-danger__title">Remove this store <x-ui.hint label="What removal does">Everything this store holds in VentaSync goes with it: listings, links, groups, couriers, Shopee orders and returns, and its API log. Sales already imported stay under its name. There is no undo.</x-ui.hint></span>
                 </div>
                 <x-ui.button type="button" variant="danger" size="sm" data-delete-open>Delete this store</x-ui.button>
             </div>
@@ -317,7 +317,7 @@
 
                 <div class="fm-fields">
                     <x-ui.field label="Store name" for="sp-sb-store-name" name="store_name" :required="true" wide
-                                hint="How this store is named across the ERP - the sidebar, the fulfilment tabs, the channels board.">
+                                hint="How this store is named across VentaSync - the sidebar, the fulfillment tabs, the channels board.">
                         <x-ui.input id="sp-sb-store-name" name="store_name" type="text" autocomplete="off" :disabled="!$canManageShopee"
                                     value="{{ old('store_name', $setting->store_name ?? '') }}" />
                     </x-ui.field>
@@ -394,7 +394,7 @@
                         :disabled="!$canManageShopee" />
 
                     <x-ui.field label="Apply order pushes" for="sp-sb-apply-pushes" name="apply_order_pushes" wide
-                                hint="One switch for this store in either mode. On: a new order, a status change, a tracking number or a return reaches the ERP the moment Shopee sends its push, by the same path as the order sync, stock included. Off: pushes are only recorded and the order sync brings every change in.">
+                                hint="One switch for this store in either mode. On: a new order, a status change, a tracking number or a return reaches VentaSync the moment Shopee sends its push, by the same path as the order sync, stock included. Off: pushes are only recorded and the order sync brings every change in.">
                         <input type="hidden" name="apply_order_pushes" value="0">
                         <label class="fm-switch cs-store-switch">
                             <input type="checkbox" class="fm-switch__input" id="sp-sb-apply-pushes" name="apply_order_pushes" value="1" @checked((bool) ($setting->apply_order_pushes ?? false)) @disabled(!$canManageShopee)>
@@ -461,7 +461,7 @@
 
             <div class="cs-danger">
                 <div>
-                    <span class="cs-danger__title">Remove this store <x-ui.hint label="What removal does">Everything this store holds in the ERP goes with it: listings, links, groups, couriers, Shopee orders and returns, and its API log. Sales already imported stay under its name. There is no undo.</x-ui.hint></span>
+                    <span class="cs-danger__title">Remove this store <x-ui.hint label="What removal does">Everything this store holds in VentaSync goes with it: listings, links, groups, couriers, Shopee orders and returns, and its API log. Sales already imported stay under its name. There is no undo.</x-ui.hint></span>
                 </div>
                 <x-ui.button type="button" variant="danger" size="sm" data-delete-open>Delete this store</x-ui.button>
             </div>
@@ -492,7 +492,7 @@
                         <th scope="col">Sales order status</th>
                     </tr>
                 </x-slot:head>
-                @foreach($shopeeStatuses as $key => $label)
+                @foreach($shopeeStatuses as $key)
                     <tr>
                         <td class="cs-col-src" data-label="Shopee status">
                             <span class="cs-code">{{ $key }}</span>
@@ -500,7 +500,8 @@
                         <td data-label="Sales order status">
                             <div class="x-select-wrap cs-map-select">
                                 <select name="map[{{ $key }}]" class="x-input" aria-label="Sales order status for {{ $key }}" @disabled(!$canManageShopee)>
-                                    @foreach($erpOrderStatuses as $os)
+                                    <option value="" @selected(! isset($orderStatusMap[$key]))>Not mapped</option>
+                                    @foreach($salesOrderStatuses as $os)
                                         <option value="{{ $os->order_status_id }}" @selected((int) ($orderStatusMap[$key] ?? 0) === (int) $os->order_status_id)>{{ $os->name }}</option>
                                     @endforeach
                                 </select>
@@ -543,7 +544,7 @@
                             <div class="x-select-wrap cs-map-select">
                                 <select name="map[{{ $key }}]" class="x-input" aria-label="Sales order status for {{ $key }}" @disabled(!$canManageShopee)>
                                     <option value="">Not mapped</option>
-                                    @foreach($erpOrderStatuses as $os)
+                                    @foreach($salesOrderStatuses as $os)
                                         <option value="{{ $os->order_status_id }}" @selected((int) ($returnStatusMap[$key] ?? 0) === (int) $os->order_status_id)>{{ $os->name }}</option>
                                     @endforeach
                                 </select>

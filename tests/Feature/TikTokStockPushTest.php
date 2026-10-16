@@ -112,10 +112,10 @@ class TikTokStockPushTest extends TestCase
         $langId = (int) config('catalog.default_language_id');
 
         $productId = DB::table('products')->insertGetId([
-            'model' => 'TTV-1', 'sku' => 'TTV', 'quantity' => 10, 'price' => 1000,
+            'sku' => 'TTV', 'quantity' => 10, 'price' => 1000,
             'status' => 1, 'image' => 'catalog/__tt-stock-test.png', 'weight' => 1, 'length' => 10, 'width' => 10, 'height' => 10,
             'brand_id' => 0,
-            'date_added' => now(), 'date_modified' => now(), 'date_available' => now(),
+            'date_added' => now(), 'date_modified' => now(),
         ]);
         DB::table('product_descriptions')->insert([
             'product_id' => $productId, 'language_id' => $langId,
@@ -139,7 +139,7 @@ class TikTokStockPushTest extends TestCase
                 $povIds[$name] = (int) DB::table('product_variation_values')->insertGetId([
                     'product_variation_type_id' => $productVariationTypeId, 'product_id' => $productId,
                     'variation_type_id' => $variationTypeId, 'variation_value_id' => $valueId,
-                    'sku' => 'TTV-' . strtoupper($name), 'quantity' => 99, 'subtract' => 1,
+                    'sku' => 'TTV-' . strtoupper($name), 'quantity' => 99, 'subtract_stock' => 1,
                     'price' => 0, 'price_prefix' => '+', 'points' => 0, 'points_prefix' => '+',
                     'weight' => 0, 'weight_prefix' => '+',
                     'cost' => 0, 'cost_amount' => 0, 'cost_percentage' => 0, 'cost_additional' => 0,
@@ -256,12 +256,14 @@ class TikTokStockPushTest extends TestCase
         $this->assertSame('TTV-Red-S', $skus[0]['seller_sku']);
         $this->assertSame(
             [['name' => 'Color', 'value_name' => 'Red'], ['name' => 'Size', 'value_name' => 'S']],
-            $skus[0]['sales_attributes']
+            array_map(fn ($a) => array_diff_key($a, ['sku_img' => true]), $skus[0]['sales_attributes'])
         );
         $this->assertSame('1', $skus[0]['inventory'][0]['quantity'] === 1 ? '1' : (string) $skus[0]['inventory'][0]['quantity']);
         $this->assertSame('1100', $skus[0]['price']['amount']);
-        $this->assertArrayHasKey('sku_img', $skus[0], 'Red carries its own picture.');
-        $this->assertArrayNotHasKey('sku_img', $skus[2], 'Black has none.');
+        $this->assertArrayHasKey('sku_img', $skus[0]['sales_attributes'][0], 'Red carries its own picture, on its first sales attribute where TikTok Shop reads it.');
+        $this->assertArrayNotHasKey('sku_img', $skus[0], 'never on the SKU itself, where TikTok Shop ignores it');
+        $this->assertArrayNotHasKey('sku_img', $skus[0]['sales_attributes'][1]);
+        $this->assertArrayNotHasKey('sku_img', $skus[2]['sales_attributes'][0], 'Black has none.');
 
         $pivot = TikTokProductGroupProduct::where('product_id', $productId)->first();
         $this->assertSame('tt-new', $pivot->tiktok_product_id);
@@ -300,9 +302,9 @@ class TikTokStockPushTest extends TestCase
     public function test_the_price_cron_starts_a_simple_product_from_the_listings_own_price(): void
     {
         $simple = DB::table('products')->insertGetId([
-            'model' => 'TTS-1', 'sku' => 'TTS', 'quantity' => 4, 'price' => 300,
+            'sku' => 'TTS', 'quantity' => 4, 'price' => 300,
             'status' => 1, 'image' => 'catalog/__tt-stock-test.png', 'weight' => 1, 'length' => 10, 'width' => 10, 'height' => 10,
-            'brand_id' => 0, 'date_added' => now(), 'date_modified' => now(), 'date_available' => now(),
+            'brand_id' => 0, 'date_added' => now(), 'date_modified' => now(),
         ]);
         ['product_id' => $varied] = $this->seedTwoAxisProduct();
         $group = TikTokProductGroup::create(['name' => 'Own price group', 'tiktok_category_id' => '900001']);
@@ -400,6 +402,11 @@ class TikTokStockPushTest extends TestCase
             ->post(route('ext.tiktok.product-groups.updateProduct', $pivot->tiktok_product_group_id), ['ids' => [$pivot->product_id]]);
     }
 
+    private static function withoutPicture(array $attributes): array
+    {
+        return array_map(fn ($a) => array_diff_key($a, ['sku_img' => true]), $attributes);
+    }
+
     private function editedSkus(string $ttId): array
     {
         $puts = $this->callsFor('PUT', '/product/202309/products/' . $ttId);
@@ -421,7 +428,7 @@ class TikTokStockPushTest extends TestCase
 
         $skus = $this->editedSkus('tt-r1');
         $this->assertSame(self::SKU_IDS, array_map(fn ($s) => $s['id'] ?? null, $skus), 'no variation is deleted and re-created');
-        $this->assertSame([['name' => 'Color', 'value_name' => 'Red'], ['name' => 'Size', 'value_name' => 'S']], $skus['TTV-Red-S']['sales_attributes']);
+        $this->assertSame([['name' => 'Color', 'value_name' => 'Red'], ['name' => 'Size', 'value_name' => 'S']], self::withoutPicture($skus['TTV-Red-S']['sales_attributes']));
         $this->assertSame([['name' => 'Color', 'value_name' => 'Black'], ['name' => 'Size', 'value_name' => 'M']], $skus['TTV-Black-M']['sales_attributes']);
         $this->assertSame('pushed', $pivot->fresh()->sync_status);
     }
@@ -438,7 +445,7 @@ class TikTokStockPushTest extends TestCase
         $this->updateThroughGroup($pivot);
 
         $skus = $this->editedSkus('tt-r2');
-        $this->assertSame(['name' => 'Color', 'value_name' => 'Red'], $skus['TTV-Red-S']['sales_attributes'][0], 'the seller\'s own type is renamed');
+        $this->assertSame(['name' => 'Color', 'value_name' => 'Red'], self::withoutPicture($skus['TTV-Red-S']['sales_attributes'])[0], 'the seller\'s own type is renamed');
         $this->assertSame(['id' => '100089', 'value_id' => '9001', 'value_name' => 'S'], $skus['TTV-Red-S']['sales_attributes'][1]);
         $this->assertSame(['id' => '100089', 'value_name' => 'M'], $skus['TTV-Red-M']['sales_attributes'][1], 'the value takes the catalog\'s name, the type keeps its own');
         foreach ($skus as $sku) {
@@ -458,7 +465,7 @@ class TikTokStockPushTest extends TestCase
         $this->updateThroughGroup($pivot);
 
         $skus = $this->editedSkus('tt-r3');
-        $this->assertSame([['id' => '7301', 'value_id' => '8301', 'value_name' => 'Red'], ['id' => '7302', 'value_id' => '9001', 'value_name' => 'S']], $skus['TTV-Red-S']['sales_attributes']);
+        $this->assertSame([['id' => '7301', 'value_id' => '8301', 'value_name' => 'Red'], ['id' => '7302', 'value_id' => '9001', 'value_name' => 'S']], self::withoutPicture($skus['TTV-Red-S']['sales_attributes']));
         foreach ($skus as $sku) {
             foreach ($sku['sales_attributes'] as $attribute) {
                 $this->assertArrayNotHasKey('name', $attribute);
@@ -539,7 +546,7 @@ class TikTokStockPushTest extends TestCase
 
         $skus = $this->editedSkus('tt-l2');
         $this->assertSame(['TTV-Red-S' => 's1', 'TTV-Black-S' => 's3'], array_map(fn ($s) => $s['id'] ?? null, $skus));
-        $this->assertSame([['id' => '7301', 'value_id' => '8301', 'value_name' => 'Crimson']], $skus['TTV-Red-S']['sales_attributes'], 'kept as TikTok holds it');
+        $this->assertSame([['id' => '7301', 'value_id' => '8301', 'value_name' => 'Crimson']], self::withoutPicture($skus['TTV-Red-S']['sales_attributes']), 'kept as TikTok holds it');
         $this->assertSame([['id' => '7301', 'value_id' => '8302', 'value_name' => 'Onyx']], $skus['TTV-Black-S']['sales_attributes']);
         $this->assertNull(\Extensions\TikTok\Models\TikTokListing::where('product_id', $productId)->value('last_push_error'), 'the update succeeded, so the row carries no error');
     }
@@ -564,7 +571,7 @@ class TikTokStockPushTest extends TestCase
         $this->assertCount(2, $puts);
         $second = collect($puts[1]['body']['skus'])->keyBy('seller_sku')->all();
         $this->assertSame(self::SKU_IDS, array_map(fn ($s) => $s['id'] ?? null, $second));
-        $this->assertSame([['id' => '7301', 'value_id' => '8301', 'value_name' => 'Crimson'], ['id' => '7302', 'value_id' => '9001', 'value_name' => 'S']], $second['TTV-Red-S']['sales_attributes']);
+        $this->assertSame([['id' => '7301', 'value_id' => '8301', 'value_name' => 'Crimson'], ['id' => '7302', 'value_id' => '9001', 'value_name' => 'S']], self::withoutPicture($second['TTV-Red-S']['sales_attributes']));
         $this->assertSame('pushed', $pivot->fresh()->sync_status);
         $response->assertSessionHas('warning');
         $summary = (string) session('warning');

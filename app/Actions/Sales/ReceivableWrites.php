@@ -15,6 +15,7 @@ final class ReceivableWrites
 
     public function recordPayment(array $input): array
     {
+        $input = self::oldFieldNames($input);
         $data = Validator::make($input, [
             'order_ids' => ['nullable', 'array', 'max:100'],
             'order_ids.*' => ['integer', 'min:1', 'distinct'],
@@ -24,7 +25,7 @@ final class ReceivableWrites
             'method' => ['required', 'string', 'max:64'],
             'date' => ['nullable', 'date_format:Y-m-d'],
             'reference' => ['nullable', 'string', 'max:128'],
-            'notes' => ['nullable', 'string', 'max:1000'],
+            'note' => ['nullable', 'string', 'max:1000'],
             'reason' => ['required', 'string', 'min:3', 'max:500'],
             'preview' => ['nullable', 'boolean'],
         ])->validate();
@@ -82,7 +83,7 @@ final class ReceivableWrites
 
         try {
             $split = $this->receivables->record($unpaid->pluck('order_id')->all(), $amount, $method, $date,
-                $data['reference'] ?? null, $data['notes'] ?? null, trim($data['reason']));
+                $data['reference'] ?? null, $data['note'] ?? null, trim($data['reason']));
         } catch (\DomainException $e) {
             throw new Refused($e->getMessage());
         }
@@ -106,5 +107,16 @@ final class ReceivableWrites
             'owed' => round((float) $rows->reject(fn ($r) => $r['is_paid'])->sum('balance'), 2),
             'unpaid_orders' => $rows->reject(fn ($r) => $r['is_paid'])->count(),
         ];
+    }
+
+    private static function oldFieldNames(array $input): array
+    {
+        foreach (['notes' => 'note', 'internal_notes' => 'internal_note'] as $old => $new) {
+            if (array_key_exists($old, $input) && ! array_key_exists($new, $input)) {
+                $input[$new] = $input[$old];
+            }
+        }
+
+        return $input;
     }
 }

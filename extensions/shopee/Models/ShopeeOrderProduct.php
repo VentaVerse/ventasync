@@ -10,8 +10,8 @@ class ShopeeOrderProduct extends Model
 
     protected $fillable = [
         'shopee_order_id',
-        'item_id',
-        'model_id',
+        'shopee_item_id',
+        'shopee_model_id',
         'sku',
         'name',
         'variation',

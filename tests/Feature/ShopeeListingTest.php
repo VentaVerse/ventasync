@@ -95,10 +95,10 @@ class ShopeeListingTest extends TestCase
         $langId = (int) config('catalog.default_language_id');
 
         $productId = DB::table('products')->insertGetId([
-            'model' => 'LST-1', 'sku' => 'LST-SKU-1', 'quantity' => 5, 'price' => $price,
+            'sku' => 'LST-SKU-1', 'quantity' => 5, 'price' => $price,
             'status' => 1, 'image' => 'catalog/__listing-test.png', 'weight' => 0.5, 'length' => 10, 'width' => 10, 'height' => 5,
             'brand_id' => 0,
-            'date_added' => now(), 'date_modified' => now(), 'date_available' => now(),
+            'date_added' => now(), 'date_modified' => now(),
         ]);
 
         DB::table('product_descriptions')->insert([

@@ -113,7 +113,7 @@ final class ShopeeVariationSwitches
         }
 
         $catalog = [];
-        foreach (PushLedger::erpVariationSkus([$productId])[$productId] ?? [] as $sku) {
+        foreach (PushLedger::catalogVariationSkus([$productId])[$productId] ?? [] as $sku) {
             $catalog[$this->key($sku)] = true;
         }
         $held = [];
@@ -206,7 +206,7 @@ final class ShopeeVariationSwitches
         ]);
 
         return $refused
-            ? \App\Support\MarketplaceAnswer::plain('Shopee', ['ok' => false, 'status' => $res['status'] ?? 200, 'body' => $body])
+            ? \App\Support\ChannelAnswer::plain('Shopee', ['ok' => false, 'status' => $res['status'] ?? 200, 'body' => $body])
             : null;
     }
 

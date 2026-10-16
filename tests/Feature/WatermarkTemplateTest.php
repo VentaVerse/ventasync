@@ -189,7 +189,7 @@ class WatermarkTemplateTest extends TestCase
         imagejpeg($im);
         Storage::disk('public')->put('catalog/sample.jpg', ob_get_clean());
         \DB::table('products')->insert([
-            'model' => 'S', 'sku' => 'S', 'price' => 1, 'quantity' => 1, 'status' => 1, 'image' => 'catalog/sample.jpg',
+            'sku' => 'S', 'price' => 1, 'quantity' => 1, 'status' => 1, 'image' => 'catalog/sample.jpg',
             'date_added' => now(), 'date_modified' => now(),
         ]);
 
@@ -212,11 +212,11 @@ class WatermarkTemplateTest extends TestCase
         Storage::disk('public')->put('catalog/real.jpg', ob_get_clean());
 
         \DB::table('products')->insert([
-            'model' => 'REAL', 'sku' => 'REAL', 'price' => 1, 'quantity' => 1, 'status' => 1,
+            'sku' => 'REAL', 'price' => 1, 'quantity' => 1, 'status' => 1,
             'image' => 'catalog/real.jpg', 'date_added' => now(), 'date_modified' => now(),
         ]);
         \DB::table('products')->insert([
-            'model' => 'STALE', 'sku' => 'STALE', 'price' => 1, 'quantity' => 1, 'status' => 1,
+            'sku' => 'STALE', 'price' => 1, 'quantity' => 1, 'status' => 1,
             'image' => 'catalog/deleted-last-year.jpg', 'date_added' => now(), 'date_modified' => now(),
         ]);
 

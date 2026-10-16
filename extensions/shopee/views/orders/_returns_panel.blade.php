@@ -110,8 +110,8 @@
 
     <x-ui.input type="search" name="q" class="x-filters__find"
                 value="{{ $findFilter }}"
-                placeholder="Return no, order no, buyer or product"
-                aria-label="Find a return by return number, order number, buyer or product" />
+                placeholder="Return no, order no, customer or product"
+                aria-label="Find a return by return number, order number, customer or product" />
 
     <x-ui.foldout label="Filters" :count="$sprActiveFilters ?: null">
         <span class="x-filters__group">
@@ -177,7 +177,7 @@
         <tr>
             <th scope="col" class="sp-col-order">Return</th>
             <th scope="col">Items</th>
-            <th scope="col" class="sp-col-buyer">Buyer</th>
+            <th scope="col" class="sp-col-customer">Customer</th>
             <th scope="col" class="sp-col-total x-td-num">Refund</th>
             <th scope="col" class="sp-col-status">Status</th>
             <th scope="col" class="sp-col-act"><span class="x-sr">Actions</span></th>
@@ -191,7 +191,7 @@
             $orderedMap = [];
             if ($ret->order && $ret->order->relationLoaded('products')) {
                 foreach ($ret->order->products as $p) {
-                    $k = ((string) $p->item_id) . '_' . ((string) $p->model_id);
+                    $k = ((string) $p->shopee_item_id) . '_' . ((string) $p->shopee_model_id);
                     $orderedMap[$k] = ($orderedMap[$k] ?? 0) + (int) $p->quantity;
                 }
             }
@@ -202,7 +202,7 @@
 
             $detailUrl = route('ext.shopee.orders.return_detail', ['returnSn' => $ret->return_sn]);
             $rawRet = is_array($ret->raw) ? $ret->raw : [];
-            $buyer = (string) ($rawRet['user']['username'] ?? '');
+            $customer = (string) ($rawRet['user']['username'] ?? '');
             $created = $ret->return_created_at ? $ret->return_created_at->format('Y-m-d H:i') : null;
         @endphp
         <tr>
@@ -212,8 +212,8 @@
                 @if($ret->order_sn)
                     <a class="co-ref" href="{{ route('ext.shopee.orders.show', ['orderSn' => $ret->order_sn]) }}">Order {{ $ret->order_sn }}</a>
                 @endif
-                @if($ret->order?->catalog_order_id)
-                    <a class="co-ref" href="{{ url('/sales/orders/'.$ret->order->catalog_order_id) }}">Sales order {{ $ret->order->catalog_order_id }}</a>
+                @if($ret->order?->sales_order_id)
+                    <a class="co-ref" href="{{ url('/sales/orders/'.$ret->order->sales_order_id) }}">Sales order {{ $ret->order->sales_order_id }}</a>
                 @endif
             </td>
 
@@ -241,7 +241,7 @@
                                 <span class="co-item__name">{{ $name !== '' ? $name : 'Unnamed product' }}</span>
                                 <div class="co-item__meta">
                                     @if($sku !== '')<span class="co-item__sku">{{ $sku }}</span>@endif
-                                    <x-fulfilment.variation :sku="$sku" :fallback="$variation" />
+                                    <x-fulfillment.variation :sku="$sku" :fallback="$variation" :order="$ret->order?->sales_order_id" />
                                     @if($ordered !== null)<span>{{ $retQty }} of {{ $ordered }} ordered</span>@endif
                                 </div>
                             </div>
@@ -253,11 +253,11 @@
                 </div>
             </td>
 
-            <td class="sp-col-buyer" data-label="Buyer">
-                @if($buyer !== '')
-                    <span class="sp-buyer">{{ $buyer }}</span>
+            <td class="sp-col-customer" data-label="Customer">
+                @if($customer !== '')
+                    <span class="sp-customer">{{ $customer }}</span>
                 @else
-                    <span class="sp-buyer co-empty-mark">Not recorded</span>
+                    <span class="sp-customer co-empty-mark">Not recorded</span>
                 @endif
             </td>
 

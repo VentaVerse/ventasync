@@ -132,7 +132,7 @@
 
                 <div class="fm-fields">
                     <x-ui.field label="Store name" for="tt-store-name" name="store_name" :required="true" wide
-                                hint="How this store is named across the ERP - the sidebar, the fulfilment tabs, the channels board.">
+                                hint="How this store is named across VentaSync - the sidebar, the fulfillment tabs, the channels board.">
                         <x-ui.input id="tt-store-name" name="store_name" type="text" autocomplete="off" :disabled="!$canManageTiktok"
                                     value="{{ old('store_name', $setting->store_name ?? '') }}" />
                     </x-ui.field>
@@ -243,7 +243,7 @@
 
             <div class="cs-danger">
                 <div>
-                    <span class="cs-danger__title">Remove this store <x-ui.hint label="What removal does">Everything this store holds in the ERP goes with it: listings, groups, TikTok orders and returns. Sales already imported stay under its name. There is no undo.</x-ui.hint></span>
+                    <span class="cs-danger__title">Remove this store <x-ui.hint label="What removal does">Everything this store holds in VentaSync goes with it: listings, groups, TikTok orders and returns. Sales already imported stay under its name. There is no undo.</x-ui.hint></span>
                 </div>
                 <x-ui.button type="button" variant="danger" size="sm" data-delete-open>Delete this store</x-ui.button>
             </div>
@@ -284,7 +284,7 @@
 
                 <div class="fm-fields">
                     <x-ui.field label="Store name" for="tt-sb-store-name" name="store_name" :required="true" wide
-                                hint="How this store is named across the ERP - the sidebar, the fulfilment tabs, the channels board.">
+                                hint="How this store is named across VentaSync - the sidebar, the fulfillment tabs, the channels board.">
                         <x-ui.input id="tt-sb-store-name" name="store_name" type="text" autocomplete="off" :disabled="!$canManageTiktok"
                                     value="{{ old('store_name', $setting->store_name ?? '') }}" />
                     </x-ui.field>
@@ -378,7 +378,7 @@
 
             <div class="cs-danger">
                 <div>
-                    <span class="cs-danger__title">Remove this store <x-ui.hint label="What removal does">Everything this store holds in the ERP goes with it: listings, groups, TikTok orders and returns. Sales already imported stay under its name. There is no undo.</x-ui.hint></span>
+                    <span class="cs-danger__title">Remove this store <x-ui.hint label="What removal does">Everything this store holds in VentaSync goes with it: listings, groups, TikTok orders and returns. Sales already imported stay under its name. There is no undo.</x-ui.hint></span>
                 </div>
                 <x-ui.button type="button" variant="danger" size="sm" data-delete-open>Delete this store</x-ui.button>
             </div>
@@ -421,7 +421,7 @@
                         <th scope="col">Sales order status</th>
                     </tr>
                 </x-slot:head>
-                @foreach($tikTokStatuses as $key => $label)
+                @foreach($tikTokStatuses as $key)
                     <tr>
                         <td class="cs-col-src" data-label="TikTok status">
                             <span class="cs-code">{{ $key }}</span>
@@ -429,7 +429,8 @@
                         <td data-label="Sales order status">
                             <div class="x-select-wrap cs-map-select">
                                 <select name="map[{{ $key }}]" class="x-input" aria-label="Sales order status for {{ $key }}" @disabled(!$canManageTiktok)>
-                                    @foreach($erpOrderStatuses as $os)
+                                    <option value="" @selected(! isset($orderStatusMap[$key]))>Not mapped</option>
+                                    @foreach($salesOrderStatuses as $os)
                                         <option value="{{ $os->order_status_id }}" @selected((int) ($orderStatusMap[$key] ?? 0) === (int) $os->order_status_id)>{{ $os->name }}</option>
                                     @endforeach
                                 </select>
@@ -472,7 +473,7 @@
                             <div class="x-select-wrap cs-map-select">
                                 <select name="map[{{ $key }}]" class="x-input" aria-label="Sales order status for {{ $key }}" @disabled(!$canManageTiktok)>
                                     <option value="">Not mapped</option>
-                                    @foreach($erpOrderStatuses as $os)
+                                    @foreach($salesOrderStatuses as $os)
                                         <option value="{{ $os->order_status_id }}" @selected((int) (($returnStatusMap ?? [])[$key] ?? 0) === (int) $os->order_status_id)>{{ $os->name }}</option>
                                     @endforeach
                                 </select>
@@ -530,7 +531,7 @@
                     <button type="button" class="api-endpoint" data-ep='{"name":"Search Settlements","method":"POST","auth":true,"path":"/finance/202309/settlements/search","desc":"Search financial settlement records.","params":[{"k":"page_size","ph":"10"}]}'><span class="api-badge post">POST</span><span class="api-code">/finance/202309/settlements/search</span><div class="api-hint">page_size</div></button>
                     <button type="button" class="api-endpoint" data-ep='{"name":"Get Payments","method":"POST","auth":true,"path":"/finance/202309/payments/search","desc":"Search payment records.","params":[{"k":"page_size","ph":"10"}]}'><span class="api-badge post">POST</span><span class="api-code">/finance/202309/payments/search</span><div class="api-hint">page_size</div></button>
 
-                    <div class="api-cat">Fulfilment</div>
+                    <div class="api-cat">Fulfillment</div>
                     <button type="button" class="api-endpoint" data-ep='{"name":"Search Packages","method":"POST","auth":true,"path":"/fulfillment/202309/packages/search","desc":"Search fulfillment packages.","params":[{"k":"page_size","ph":"10"}]}'><span class="api-badge post">POST</span><span class="api-code">/fulfillment/202309/packages/search</span><div class="api-hint">page_size</div></button>
                     <button type="button" class="api-endpoint" data-ep='{"name":"Get Package Detail","method":"GET","auth":true,"path":"/fulfillment/202309/packages","desc":"Get package details.","params":[{"k":"package_id","ph":""}]}'><span class="api-badge get">GET</span><span class="api-code">/fulfillment/202309/packages</span><div class="api-hint">package_id</div></button>
                 </div>
@@ -573,7 +574,7 @@
                         <div class="fm-field">
                             <div class="fm-label-row">
                                 <span class="fm-label">Send with the request</span>
-                                <x-ui.hint class="fm-label__hint" label="About the access token">Needed for every shop-level endpoint: products, orders, logistics, finance and fulfilment.</x-ui.hint>
+                                <x-ui.hint class="fm-label__hint" label="About the access token">Needed for every shop-level endpoint: products, orders, logistics, finance and fulfillment.</x-ui.hint>
                             </div>
                             <label class="cs-check">
                                 <input type="checkbox" name="auth_required" value="1" @checked(old('auth_required')) data-cs-ex-auth>

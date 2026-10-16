@@ -3,7 +3,7 @@
 namespace Extensions\VentaCart\Services;
 
 use Illuminate\Support\Facades\DB;
-use App\Support\FulfilmentSteps;
+use App\Support\FulfillmentSteps;
 use Extensions\VentaCart\Models\VentaCartOrder;
 use Extensions\VentaCart\Models\VentaCartStore;
 use Extensions\VentaCart\Services\VentaCart\VentaCartStatusPlacements;
@@ -12,7 +12,7 @@ use Illuminate\Http\Request;
 class VentaCartOrdersPanel
 {
     private array $sortable = [
-        'catalog_order_id',
+        'sales_order_id',
         'ventacart_order_id',
         'ventacart_order_number',
         'customer_name',
@@ -35,7 +35,7 @@ class VentaCartOrdersPanel
             ->groupBy('status')
             ->pluck('cnt', 'status');
 
-        $buckets = FulfilmentSteps::bucket('ventacart.orders', $statusCounts, VentaCartStatusPlacements::resolver($storeId));
+        $buckets = FulfillmentSteps::bucket('ventacart.orders', $statusCounts, VentaCartStatusPlacements::resolver($storeId));
 
         $tabToStep = [
             'ALL'             => 'all',
@@ -47,7 +47,7 @@ class VentaCartOrdersPanel
             'FAILED_DELIVERY' => 'failed',
         ];
 
-        $tabs = FulfilmentSteps::tabs($tabToStep);
+        $tabs = FulfillmentSteps::tabs($tabToStep);
 
         $tab = strtoupper((string) $request->query('tab', ''));
 
@@ -114,7 +114,7 @@ class VentaCartOrdersPanel
         }
 
         if ($buckets['other']['count'] > 0 || $tab === 'OTHER') {
-            $tabs['OTHER'] = FulfilmentSteps::label('other');
+            $tabs['OTHER'] = FulfillmentSteps::label('other');
             $tab_counts['OTHER'] = $buckets['other']['count'];
         }
 

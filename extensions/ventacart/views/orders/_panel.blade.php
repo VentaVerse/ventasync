@@ -120,8 +120,8 @@
 
     <x-ui.input type="search" name="q" class="x-filters__find"
                 value="{{ $vtQ }}"
-                placeholder="Order no, buyer, product or tracking"
-                aria-label="Find an order by order number, buyer, product or tracking" />
+                placeholder="Order no, customer, product or tracking"
+                aria-label="Find an order by order number, customer, product or tracking" />
 
     <x-ui.foldout label="Filters" :count="$vtActiveFilters ?: null">
         <span class="x-filters__group">
@@ -209,12 +209,12 @@
 @if($canManageVentaOrders)
 <div data-order-selection>
     <x-ui.selectbar :step="$vtScopeStep">
-        <form method="POST" action="{{ route('fulfilment.print.pick', ['channel' => 'ventacart']) }}"
+        <form method="POST" action="{{ route('fulfillment.print.pick', ['channel' => 'ventacart']) }}"
               id="ventacart-bulk-form" class="x-selectbar__actions" data-selection-actions hidden>
             @csrf
             <x-ui.button type="submit" variant="secondary" size="sm" formtarget="_blank">Print pick list</x-ui.button>
             <x-ui.button type="submit" variant="secondary" size="sm" formtarget="_blank"
-                         formaction="{{ route('fulfilment.print.packing', ['channel' => 'ventacart']) }}">Print packing lists</x-ui.button>
+                         formaction="{{ route('fulfillment.print.packing', ['channel' => 'ventacart']) }}">Print packing lists</x-ui.button>
             <x-ui.hint label="About these two lists">One pick list for the whole selection, with lines consolidated by SKU so three of the same item is one trip to the shelf. Packing lists are one per order, nothing consolidated, to go in the parcel.</x-ui.hint>
             <span class="x-selectbar__split"></span>
             <x-ui.button type="submit" variant="danger" size="sm"
@@ -232,7 +232,7 @@
             <th scope="col" class="vt-col-price x-td-num">Price</th>
             <th scope="col" class="vt-col-total x-td-num">
                 <a class="x-th-sort x-th-sort--num" href="{{ $vtSortUrl('total') }}">
-                    Amount
+                    Total
                     @if($sort === 'total')<x-ui.icon name="{{ $dir === 'asc' ? 'chevron-up' : 'chevron-down' }}" size="12" />@endif
                 </a>
             </th>
@@ -252,12 +252,6 @@
                 <a class="x-th-sort" href="{{ $vtSortUrl('status') }}">
                     Status
                     @if($sort === 'status')<x-ui.icon name="{{ $dir === 'asc' ? 'chevron-up' : 'chevron-down' }}" size="12" />@endif
-                </a>
-            </th>
-            <th scope="col" class="vt-col-date">
-                <a class="x-th-sort" href="{{ $vtSortUrl('order_created_at') }}">
-                    Date
-                    @if($sort === 'order_created_at')<x-ui.icon name="{{ $dir === 'asc' ? 'chevron-up' : 'chevron-down' }}" size="12" />@endif
                 </a>
             </th>
             <th scope="col" class="vt-col-act"><span class="x-sr">Actions</span></th>
@@ -291,19 +285,19 @@
                 : \Extensions\VentaCart\Services\VentaCart\VentaCartCouriers::name((string) ($o->courier_provider ?? ''));
 
             $vtAddr = is_array($o->shipping_address) ? $o->shipping_address : [];
-            $vtParcel = \App\Support\Fulfilment\PackedParcel::fromItems(array_map(function ($it) use ($vtImages) {
+            $vtParcel = \App\Support\Fulfillment\PackedParcel::fromItems(array_map(function ($it) use ($vtImages) {
                 $img = trim((string) ($vtImages[trim((string) ($it->sku ?? ''))] ?? ''));
                 return [
                     'name' => (string) ($it->name ?? ''),
                     'sku' => (string) ($it->sku ?? ''),
-                    'variation' => (string) ($it->variant_label ?? ''),
+                    'variation' => (string) ($it->variation_label ?? ''),
                     'quantity' => max(1, (int) ($it->quantity ?? 1)),
                     'image' => $img !== '' ? \App\Services\Media\ImageCache::url($img) : '',
                 ];
             }, $vtItems), $vtBooked ? $vtCourierName : null, trim((string) ($vtAddr['city'] ?? '')) ?: null);
         @endphp
         <tr class="co-band">
-            <td colspan="9">
+            <td colspan="8">
                 <div class="co-band__row">
                     <div class="co-band__left">
                         @if($canManageVentaOrders)
@@ -326,12 +320,16 @@
                         @if($vtItemCount > 0)
                             <span class="co-band__muted">({{ $vtItemCount }} {{ $vtItemCount === 1 ? 'item' : 'items' }})</span>
                         @endif
+                        @if($o->sales_order_id && $canOpenSalesOrders)
+                            <a class="co-ref" href="{{ route('orders.show', $o->sales_order_id) }}">Sales order {{ $o->sales_order_id }}</a>
+                        @elseif($o->sales_order_id)
+                            <span class="co-band__muted">Sales order {{ $o->sales_order_id }}</span>
+                        @endif
                     </div>
                     <div class="co-band__right">
-                        @if($o->catalog_order_id && $canOpenSalesOrders)
-                            <a class="co-ref" href="{{ route('orders.show', $o->catalog_order_id) }}">Sales order {{ $o->catalog_order_id }}</a>
-                        @elseif($o->catalog_order_id)
-                            <span class="co-band__muted">Sales order {{ $o->catalog_order_id }}</span>
+                        @if($vtCreated)
+                            <span class="co-band__label">Created</span>
+                            <span class="co-band__value co-band__value--mono">{{ $vtCreated }}</span>
                         @endif
                     </div>
                 </div>
@@ -357,7 +355,7 @@
                             @if(trim((string) ($vtItem?->sku ?? '')) !== '')
                                 <span class="co-item__sku">{{ $vtItem->sku }}</span>
                             @endif
-                            <x-fulfilment.variation :sku="$vtItem?->sku" :fallback="$vtItem?->variant_label" />
+                            <x-fulfillment.variation :sku="$vtItem?->sku" :fallback="$vtItem?->variation_label" :order="$o->sales_order_id" :name="$vtItem?->name" />
                         </div>
                     </div>
                 </div>
@@ -376,7 +374,7 @@
             </td>
 
             @if($vtIdx === 0)
-            <td class="vt-col-total x-td-num" rowspan="{{ $vtLineCount }}" data-label="Amount">
+            <td class="vt-col-total x-td-num" rowspan="{{ $vtLineCount }}" data-label="Total">
                 <span class="co-total">{{ \App\Support\Money::base((float) $o->total) }}</span>
             </td>
 
@@ -405,13 +403,6 @@
                 </div>
             </td>
 
-            <td class="vt-col-date" rowspan="{{ $vtLineCount }}" data-label="Date">
-                @if($vtCreated)
-                    <span class="co-date">{{ $vtCreated }}</span>
-                @else
-                    <span class="co-empty-mark">-</span>
-                @endif
-            </td>
 
             <td class="vt-col-act" rowspan="{{ $vtLineCount }}">
                 @if(!$canManageVentaOrders)
@@ -435,7 +426,7 @@
                                      data-couriers-url="{{ route('ext.ventacart.orders.shipping_couriers', $storeId) }}"
                                      data-addresses-url="{{ route('ext.ventacart.orders.pickup_addresses', $storeId) }}"
                                      data-book-manual-url="{{ route('ext.ventacart.orders.book_manual', [$storeId, $o->id]) }}">Book courier</x-ui.button>
-                        <template data-parcel-for="{{ $o->id }}"><x-fulfilment.parcel :parcel="$vtParcel" /></template>
+                        <template data-parcel-for="{{ $o->id }}"><x-fulfillment.parcel :parcel="$vtParcel + ['sales_order_id' => $o->sales_order_id]" /></template>
                     @endif
 
                     @if(($vtIsToHandover || $vtBooked) && !$vtIsManual)
@@ -462,7 +453,7 @@
                     @endif
 
                     <form method="POST" class="x-docs"
-                          action="{{ route('fulfilment.print.packing', ['channel' => 'ventacart']) }}"
+                          action="{{ route('fulfillment.print.packing', ['channel' => 'ventacart']) }}"
                           target="_blank">
                         @csrf
                         <input type="hidden" name="ids[]" value="{{ $o->id }}">

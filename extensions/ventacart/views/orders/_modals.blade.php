@@ -32,7 +32,7 @@
                 </div>
                 <div class="vt-book__grid vt-book__grid--2">
                     <div class="vt-book__field">
-                        <label for="vtManualTracking" class="vt-book__label">Tracking number</label>
+                        <label for="vtManualTracking" class="vt-book__label">Tracking</label>
                         <input type="text" id="vtManualTracking" class="x-input" maxlength="190" placeholder="Optional">
                     </div>
                     <div class="vt-book__field">

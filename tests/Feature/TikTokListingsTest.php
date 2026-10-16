@@ -116,9 +116,9 @@ class TikTokListingsTest extends TestCase
     {
         $langId = (int) config('catalog.default_language_id');
         $productId = DB::table('products')->insertGetId([
-            'model' => 'TTL-' . $suffix, 'sku' => 'TTL-SKU-' . $suffix, 'quantity' => 5, 'price' => $price,
+            'sku' => 'TTL-SKU-' . $suffix, 'quantity' => 5, 'price' => $price,
             'status' => 1, 'image' => 'catalog/__tt-listing-test.png', 'weight' => 1, 'length' => 10, 'width' => 10, 'height' => 10,
-            'brand_id' => 0, 'date_added' => now(), 'date_modified' => now(), 'date_available' => now(),
+            'brand_id' => 0, 'date_added' => now(), 'date_modified' => now(),
         ]);
         DB::table('product_descriptions')->insert([
             'product_id' => $productId, 'language_id' => $langId,
@@ -319,6 +319,31 @@ class TikTokListingsTest extends TestCase
         $this->assertSame('tt-new', $listing->tiktok_product_id);
         $this->assertSame('listing', $listing->last_push_source);
         $this->assertSame('tt-new', TikTokProductGroupProduct::where('product_id', $productId)->value('tiktok_product_id'), 'The group pivot learns the truth too.');
+    }
+
+    public function test_a_push_never_lists_again_a_product_tiktok_shop_already_holds(): void
+    {
+        $productId = $this->seedProduct('H', 200);
+        TikTokListing::create(['product_id' => $productId, 'tiktok_category_id' => '900009', 'title' => 'A title long enough for TikTok Shop']);
+        $this->callResponses['POST /product/202309/products/search'] = ['ok' => true, 'status' => 200, 'body' => ['code' => 0, 'message' => 'Success',
+            'data' => ['products' => [['id' => 'tt-held', 'status' => 'ACTIVATE', 'skus' => [['id' => 'sku-h', 'seller_sku' => 'TTL-SKU-H']]]]]]];
+
+        $this->actingAs($this->manager())->post(route('ext.tiktok.products.push_direct', $productId));
+
+        $this->assertSame([], $this->callsFor('POST', '/product/202309/products'), 'a lost link never makes a duplicate');
+        $this->assertSame('tt-held', TikTokListing::where('product_id', $productId)->value('tiktok_product_id'));
+    }
+
+    public function test_a_push_creates_nothing_while_tiktok_shop_does_not_say_whether_it_holds_the_product(): void
+    {
+        $productId = $this->seedProduct('Q', 200);
+        TikTokListing::create(['product_id' => $productId, 'tiktok_category_id' => '900009', 'title' => 'A title long enough for TikTok Shop']);
+        $this->callResponses['POST /product/202309/products/search'] = ['ok' => false, 'status' => 500, 'body' => ['code' => 1, 'message' => 'boom']];
+
+        $this->actingAs($this->manager())->post(route('ext.tiktok.products.push_direct', $productId))->assertSessionHas('error');
+
+        $this->assertStringContainsString('so nothing was sent', (string) session('error'));
+        $this->assertSame([], $this->callsFor('POST', '/product/202309/products'));
     }
 
     public function test_an_unready_push_is_refused_before_any_call(): void

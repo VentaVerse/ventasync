@@ -97,9 +97,9 @@ class ChannelGroupToolsTest extends TestCase
     {
         $langId = (int) config('catalog.default_language_id');
         $productId = DB::table('products')->insertGetId([
-            'model' => $sku, 'sku' => $sku, 'quantity' => 5, 'price' => 300,
+            'sku' => $sku, 'quantity' => 5, 'price' => 300,
             'status' => 1, 'image' => 'catalog/x.png', 'weight' => 1, 'length' => 10, 'width' => 10, 'height' => 10,
-            'brand_id' => 0, 'date_added' => now(), 'date_modified' => now(), 'date_available' => now(),
+            'brand_id' => 0, 'date_added' => now(), 'date_modified' => now(),
         ]);
         DB::table('product_descriptions')->insert([
             'product_id' => $productId, 'language_id' => $langId,
@@ -123,6 +123,7 @@ class ChannelGroupToolsTest extends TestCase
         $this->lazadaAnswers['GET /products/get'] = ['ok' => true, 'status' => 200, 'body' => ['code' => '0', 'data' => ['products' => [
             ['item_id' => 5550001, 'status' => 'active', 'skus' => [['SellerSku' => 'GT-NEW']]],
         ]]]];
+        $this->lazadaAnswers['GET /product/item/get'] = ['ok' => true, 'status' => 200, 'body' => ['code' => '207', 'message' => 'E207: SKU not exist']];
 
         $r = $this->actingAs($this->manager(['manage_lazada/product_group', 'view_lazada/product_group']))
             ->post(route('ext.lazada.product-groups.check', ['store' => $this->lazadaStore->id, 'id' => $group->id]));
@@ -221,6 +222,7 @@ class ChannelGroupToolsTest extends TestCase
         $this->lazadaAnswers['GET /products/get'] = ['ok' => true, 'status' => 200, 'body' => ['code' => '0', 'data' => ['products' => [
             ['item_id' => 5550009, 'status' => 'active', 'skus' => [['SellerSku' => 'WB-NEW']]],
         ]]]];
+        $this->lazadaAnswers['GET /product/item/get'] = ['ok' => true, 'status' => 200, 'body' => ['code' => '207', 'message' => 'E207: SKU not exist']];
 
         $r = $this->actingAs($this->manager(['manage_lazada/product', 'view_lazada/product']))
             ->post(route('ext.lazada.products.check', ['store' => $this->lazadaStore->id]), ['product_ids' => [$newListing->product_id, $lostListing->product_id]]);
@@ -230,6 +232,21 @@ class ChannelGroupToolsTest extends TestCase
         $this->assertStringContainsString('1 no longer on Lazada', session('error'));
         $this->assertSame('5550009', (string) LazadaListing::where('product_id', $unlisted)->value('lazada_item_id'));
         $this->assertNotNull(LazadaListing::where('product_id', $lost)->value('lazada_deleted_at'));
+    }
+
+    public function test_a_lazada_sku_search_that_misses_keeps_the_link_while_the_listing_number_is_on_lazada(): void
+    {
+        $kept = $this->seedProduct('WB-KEPT');
+        $listing = LazadaListing::create(['product_id' => $kept, 'primary_category_id' => 10001, 'lazada_item_id' => '9990002']);
+        $this->lazadaAnswers['GET /product/item/get'] = ['ok' => true, 'status' => 200, 'body' => ['code' => '0', 'data' => ['item_id' => 9990002, 'status' => 'active', 'skus' => []]]];
+
+        $r = $this->actingAs($this->manager(['manage_lazada/product', 'view_lazada/product']))
+            ->post(route('ext.lazada.products.check', ['store' => $this->lazadaStore->id]), ['product_ids' => [$listing->product_id]]);
+
+        $r->assertSessionHas('status');
+        $this->assertStringContainsString('1 confirmed on Lazada', session('status'));
+        $this->assertNull($listing->fresh()->lazada_deleted_at, 'an empty SKU search alone never marks a listing gone');
+        $this->assertSame('9990002', (string) $listing->fresh()->lazada_item_id);
     }
 
     public function test_the_lazada_workbench_offers_the_check_in_head_and_bulk_bar(): void

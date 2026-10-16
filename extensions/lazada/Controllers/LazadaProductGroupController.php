@@ -175,7 +175,7 @@ class LazadaProductGroupController extends Controller
             'attributes' => $attributes,
             'saved' => $saved,
             'selectedBrandName' => $selectedBrandName,
-            'erpSourceFields' => LazadaAttributes::ERP_SOURCE_FIELDS,
+            'catalogSourceFields' => LazadaAttributes::CATALOG_SOURCE_FIELDS,
         ]);
     }
 
@@ -288,7 +288,7 @@ class LazadaProductGroupController extends Controller
 
         $q = trim((string) $request->input('q'));
         $syncStatus = (string) $request->input('sync_status', 'all');
-        $erpStatus = (string) $request->input('erp_status', 'all');
+        $catalogStatus = (string) $request->input('catalog_status', 'all');
 
         $query = DB::table('products as p')
             ->join('product_descriptions as pd', function ($j) use ($langId) {
@@ -301,7 +301,7 @@ class LazadaProductGroupController extends Controller
             ->leftJoin('ch_lazada_listings as lp', 'gp.lazada_listing_id', '=', 'lp.id')
             ->leftJoin('brands as m', 'p.brand_id', '=', 'm.brand_id')
             ->select(
-                'p.product_id', 'pd.name', 'p.sku', 'p.model', 'p.price',
+                'p.product_id', 'pd.name', 'p.sku', 'p.price',
                 'p.quantity', 'p.image', 'p.status',
                 'm.name as brand_name',
                 'lp.lazada_item_id', 'lp.lazada_deleted_at',
@@ -314,7 +314,6 @@ class LazadaProductGroupController extends Controller
             $query->where(function ($w) use ($q) {
                 $w->where('pd.name', 'like', "%{$q}%")
                     ->orWhere('p.sku', 'like', "%{$q}%")
-                    ->orWhere('p.model', 'like', "%{$q}%")
                     ->orWhereIn('p.product_id', LazadaListing::query()
                         ->forStore(LazadaStore::defaultStore())
                         ->where('item_name', 'like', "%{$q}%")
@@ -322,9 +321,9 @@ class LazadaProductGroupController extends Controller
             });
         }
 
-        if ($erpStatus === 'enabled') {
+        if ($catalogStatus === 'enabled') {
             $query->where('p.status', 1);
-        } elseif ($erpStatus === 'disabled') {
+        } elseif ($catalogStatus === 'disabled') {
             $query->where('p.status', 0);
         }
 
@@ -384,7 +383,7 @@ class LazadaProductGroupController extends Controller
             'manualIds' => $manualIds,
             'q' => $q,
             'syncStatus' => $syncStatus,
-            'erpStatus' => $erpStatus,
+            'catalogStatus' => $catalogStatus,
         ]);
     }
 
@@ -422,13 +421,12 @@ class LazadaProductGroupController extends Controller
                 $j->on('p.product_id', '=', 'pd.product_id')->where('pd.language_id', '=', $langId);
             })
             ->leftJoinSub($lpPick, 'lps', 'lps.product_id', '=', 'p.product_id')
-            ->select('p.product_id', 'pd.name', 'p.image', 'p.sku', 'p.model', 'p.quantity', 'p.price', 'lps.product_id as on_store_pid')
+            ->select('p.product_id', 'pd.name', 'p.image', 'p.sku', 'p.quantity', 'p.price', 'lps.product_id as on_store_pid')
             ->where('p.status', 1);
 
         if ($q !== '') {
             $query->where(function ($sub) use ($q) {
                 $sub->where('pd.name', 'like', '%' . $q . '%')
-                    ->orWhere('p.model', 'like', '%' . $q . '%')
                     ->orWhere('p.sku', 'like', '%' . $q . '%');
             });
         }
@@ -541,10 +539,9 @@ class LazadaProductGroupController extends Controller
         }
         $client = app(\Extensions\Lazada\Services\Lazada\LazadaClient::class);
 
-        $product = DB::table('products')->where('product_id', $productId)->first(['sku', 'model']);
+        $product = DB::table('products')->where('product_id', $productId)->first(['sku']);
         $skus = [];
         if ($product->sku && trim($product->sku) !== '') $skus[] = trim($product->sku);
-        if ($product->model && trim($product->model) !== '' && !in_array(trim($product->model), $skus)) $skus[] = trim($product->model);
 
         $optSkus = DB::table('product_variation_values')
             ->where('product_id', $productId)
@@ -771,6 +768,40 @@ class LazadaProductGroupController extends Controller
                 continue;
             }
 
+            $guard = app(\Extensions\Lazada\Services\Lazada\LazadaCreateGuard::class)->check($store, $creds, (int) $productId, $listing);
+            if ($guard['verdict'] === 'refuse') {
+                $errors[] = "#{$productId}: " . $guard['message'];
+                $this->recordGroupFailure($group, $pivot, (int) $productId, $guard['message']);
+                $errCount++;
+                continue;
+            }
+            if ($guard['verdict'] === 'existing') {
+                if (!$listing) {
+                    $listing = LazadaListing::create(['product_id' => $productId]);
+                }
+                $moved = (string) $listing->lazada_item_id !== $guard['item_id'];
+                $relinkNote = \Extensions\Lazada\Services\Lazada\LazadaCreateGuard::adopt($listing, $guard['item_id']);
+                if ($pivot) {
+                    $pivot->update(['lazada_listing_id' => $listing->id]);
+                } elseif (\App\Channels\OneGroupRule::claim('ch_lazada_product_group_products', 'lazada_product_group_id', 'ch_lazada_product_groups', 'store_id', $group->id, [(int) $productId])['free'] !== []) {
+                    $pivot = LazadaProductGroupProduct::create(['lazada_product_group_id' => $group->id, 'product_id' => $productId, 'lazada_listing_id' => $listing->id, 'sync_status' => 'pending']);
+                }
+                if ($moved) {
+                    app(\Extensions\Lazada\Services\Lazada\LazadaItemCache::class)->refreshListing($listing, $store, $client);
+                }
+                $outcome = $this->updateLinked($group, $pivot, $listing, (int) $productId, $store, $creds, $client);
+                if ($outcome['ok']) {
+                    $updatedCount++;
+                    $notes[] = "#{$productId}: " . $relinkNote . (!empty($outcome['warning']) ? ' ' . $outcome['warning'] : '');
+                    if (!empty($outcome['pictures_left_out'])) $picturesWarned = true;
+                } else {
+                    $errors[] = "#{$productId}: " . $outcome['message'];
+                    $errCount++;
+                }
+                usleep(300000);
+                continue;
+            }
+
             $gateOverrides = [
                 'settings' => ['primary_category_id' => $group->lazada_category_id, 'markup_fixed' => $group->markup_fixed, 'markup_percent' => $group->markup_percent],
                 'attributes' => LazadaProductGroupAttribute::where('lazada_product_group_id', $group->id)->pluck('value', 'attribute_key')->toArray(),
@@ -886,7 +917,7 @@ class LazadaProductGroupController extends Controller
                 $this->states($group)->recordOutcome((int) $productId, null);
 
                 ActivityLogger::log('created', 'Lazada Product', $listing->id,
-                    'Pushed ERP #' . $productId . ' to Lazada via product group');
+                    'Pushed product #' . $productId . ' to Lazada via product group');
 
                 $pictureNote = \Extensions\Lazada\Services\Lazada\LazadaImages::descriptionNote($picturesLeftOut);
                 if ($pictureNote !== null) {
@@ -1013,10 +1044,18 @@ class LazadaProductGroupController extends Controller
 
             $productPayload['Request']['Product']['ItemId'] = (int) $listing->lazada_item_id;
 
-            $variantMap = LazadaListingVariation::where('lazada_listing_id', $listing->id)
-                ->whereNotNull('sku_id')
+            $skuIds = fn () => LazadaListingVariation::where('lazada_listing_id', $listing->id)
+                ->whereNotNull('sku_id')->whereNotNull('seller_sku')
                 ->pluck('sku_id', 'seller_sku')
                 ->toArray();
+            $variantMap = $skuIds();
+            // Lazada refuses an update whose SKUs carry no SkuId, so a missing one is read from Lazada first.
+            $unknown = array_filter(array_map(fn ($sku) => (string) ($sku['SellerSku'] ?? ''), $productPayload['Request']['Product']['Skus']['Sku']),
+                fn ($sellerSku) => $sellerSku !== '' && ! isset($variantMap[$sellerSku]));
+            if ($unknown !== []) {
+                app(LazadaItemCache::class)->refreshListing($listing, $store, $client, 'lazada.product.item.get.cache.group');
+                $variantMap = $skuIds();
+            }
 
             foreach ($productPayload['Request']['Product']['Skus']['Sku'] as $idx => $sku) {
                 $sellerSku = $sku['SellerSku'] ?? '';
@@ -1071,7 +1110,7 @@ class LazadaProductGroupController extends Controller
                 $this->states($group)->recordOutcome($productId, $kept);
 
                 ActivityLogger::log('updated', 'Lazada Product', $listing->id,
-                    'Updated ERP #' . $productId . ' on Lazada via product group');
+                    'Updated product #' . $productId . ' on Lazada via product group');
 
                 $pictureNote = \Extensions\Lazada\Services\Lazada\LazadaImages::descriptionNote($picturesLeftOut);
 
@@ -1250,7 +1289,7 @@ class LazadaProductGroupController extends Controller
 
             $mainSku = trim((string) ($product->sku ?? ''));
 
-            $variantSkus = $this->payload()->getErpVariantStockByProductId((int) $listing->product_id);
+            $variantSkus = $this->payload()->getCatalogVariantStockByProductId((int) $listing->product_id);
             $sellerSkuList = [];
             foreach ($variantSkus as $v) {
                 $s = trim((string) ($v['seller_sku'] ?? ''));
@@ -1327,7 +1366,7 @@ class LazadaProductGroupController extends Controller
                 $this->states($group)->clearErrors([(int) $pivotRow->product_id]);
 
                 ActivityLogger::log('deleted', 'Lazada Product', $listing->id,
-                    'Deleted from Lazada via product group, ERP #' . (int) $listing->product_id);
+                    'Deleted from Lazada via product group, product #' . (int) $listing->product_id);
 
                 $okCount++;
             } else {
@@ -1412,9 +1451,9 @@ class LazadaProductGroupController extends Controller
             ->whereIn('product_id', $productIds)
             ->pluck('id', 'product_id');
         $newProductIds = array_values(array_diff($productIds, $existingLpMap->keys()->toArray()));
-        $erpPrices = [];
+        $catalogPrices = [];
         if (!empty($newProductIds)) {
-            $erpPrices = DB::table('products')
+            $catalogPrices = DB::table('products')
                 ->whereIn('product_id', $newProductIds)
                 ->pluck('price', 'product_id')
                 ->toArray();
@@ -1490,7 +1529,7 @@ class LazadaProductGroupController extends Controller
         }
 
         if (!$result['ok'] || empty($nodes)) {
-            $msg = \App\Support\MarketplaceAnswer::plain('Lazada', ['ok' => false, 'body' => is_array($body) ? $body : []]);
+            $msg = \App\Support\ChannelAnswer::plain('Lazada', ['ok' => false, 'body' => is_array($body) ? $body : []]);
             return response()->json(['ok' => false, 'message' => 'Fetch failed: ' . $msg]);
         }
 
@@ -1568,12 +1607,12 @@ class LazadaProductGroupController extends Controller
         );
 
         $attributes = $this->attrs()->extractAttributes($template->template_body);
-        $erpSourceFields = \Extensions\Lazada\Controllers\LazadaAttributes::ERP_SOURCE_FIELDS;
+        $catalogSourceFields = \Extensions\Lazada\Controllers\LazadaAttributes::CATALOG_SOURCE_FIELDS;
 
         $html = view('ext-lazada::product-groups._attributes', [
             'attributes' => $attributes,
             'saved' => [],
-            'erpSourceFields' => $erpSourceFields,
+            'catalogSourceFields' => $catalogSourceFields,
             'template' => $template,
         ])->render();
 

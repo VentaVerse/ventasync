@@ -110,10 +110,10 @@ class ProductDeleteReachesChannelsTest extends TestCase
     {
         $langId = (int) config('catalog.default_language_id');
         $productId = DB::table('products')->insertGetId([
-            'model' => $sku, 'sku' => $sku, 'quantity' => 5, 'price' => 100,
+            'sku' => $sku, 'quantity' => 5, 'price' => 100,
             'status' => 1, 'image' => 'catalog/x.png', 'weight' => 1, 'length' => 1, 'width' => 1, 'height' => 1,
             'brand_id' => 0,
-            'date_added' => now()->subDays(30), 'date_modified' => now()->subDays(30), 'date_available' => now()->subDays(30),
+            'date_added' => now()->subDays(30), 'date_modified' => now()->subDays(30),
         ]);
         DB::table('product_descriptions')->insert([
             'product_id' => $productId, 'language_id' => $langId,
@@ -248,7 +248,7 @@ class ProductDeleteReachesChannelsTest extends TestCase
 
         $this->artisan('catalog:purge-stranded-listings')
             ->expectsOutputToContain('Deleted product #424242: still held on Shopee (Main store) item 999001, live; TikTok Shop (TT store) item tt-gone')
-            ->expectsOutputToContain('the marketplace items stay where they are')
+            ->expectsOutputToContain('the items on the stores stay where they are')
             ->assertExitCode(0);
         $this->assertSame(1, ShopeeListingLink::query()->where('product_id', 424242)->count());
 
@@ -261,9 +261,9 @@ class ProductDeleteReachesChannelsTest extends TestCase
     private function furnishedProduct(string $sku): int
     {
         $pid = (int) DB::table('products')->insertGetId([
-            'model' => $sku, 'sku' => $sku, 'quantity' => 5, 'price' => 100, 'status' => 1, 'image' => 'catalog/x.png',
+            'sku' => $sku, 'quantity' => 5, 'price' => 100, 'status' => 1, 'image' => 'catalog/x.png',
             'weight' => 1, 'length' => 1, 'width' => 1, 'height' => 1, 'brand_id' => 0,
-            'date_added' => now(), 'date_modified' => now(), 'date_available' => now(),
+            'date_added' => now(), 'date_modified' => now(),
         ]);
         DB::table('product_descriptions')->insert([
             'product_id' => $pid, 'language_id' => (int) config('catalog.default_language_id'),
@@ -273,7 +273,7 @@ class ProductDeleteReachesChannelsTest extends TestCase
         foreach ([$sku . '-red', $sku . '-blue'] as $i => $vsku) {
             DB::table('product_variation_values')->insert([
                 'product_id' => $pid, 'product_variation_type_id' => $po, 'variation_type_id' => 1, 'variation_value_id' => $i + 1,
-                'sku' => $vsku, 'quantity' => 2, 'subtract' => 1, 'price' => 0, 'price_prefix' => '+',
+                'sku' => $vsku, 'quantity' => 2, 'subtract_stock' => 1, 'price' => 0, 'price_prefix' => '+',
                 'points' => 0, 'points_prefix' => '+', 'weight' => 0, 'weight_prefix' => '+',
             ]);
         }
@@ -304,7 +304,7 @@ class ProductDeleteReachesChannelsTest extends TestCase
 
         DB::table('product_variation_values')->insert([
             'product_id' => 999999, 'product_variation_type_id' => 1, 'variation_type_id' => 1, 'variation_value_id' => 1,
-            'sku' => 'GHOST-1', 'quantity' => 2, 'subtract' => 1, 'price' => 0, 'price_prefix' => '+',
+            'sku' => 'GHOST-1', 'quantity' => 2, 'subtract_stock' => 1, 'price' => 0, 'price_prefix' => '+',
             'points' => 0, 'points_prefix' => '+', 'weight' => 0, 'weight_prefix' => '+',
         ]);
         DB::table('product_variations')->insert([

@@ -115,10 +115,10 @@ class ShopeeVariationPushTest extends TestCase
         $langId = (int) config('catalog.default_language_id');
 
         $productId = DB::table('products')->insertGetId([
-            'model' => 'VP-1', 'sku' => 'VP-SKU', 'quantity' => 32, 'price' => 21990,
+            'sku' => 'VP-SKU', 'quantity' => 32, 'price' => 21990,
             'status' => 1, 'image' => 'catalog/__vp-parent.png', 'weight' => 3, 'length' => 20, 'width' => 20, 'height' => 20,
             'brand_id' => 0,
-            'date_added' => now(), 'date_modified' => now(), 'date_available' => now(),
+            'date_added' => now(), 'date_modified' => now(),
         ]);
         DB::table('product_descriptions')->insert([
             'product_id' => $productId, 'language_id' => $langId,
@@ -145,7 +145,7 @@ class ShopeeVariationPushTest extends TestCase
             $povId = (int) DB::table('product_variation_values')->insertGetId([
                 'product_variation_type_id' => $productVariationTypeId, 'product_id' => $productId,
                 'variation_type_id' => $variationTypeId, 'variation_value_id' => $valueId,
-                'sku' => $sku, 'quantity' => $qty, 'subtract' => 1,
+                'sku' => $sku, 'quantity' => $qty, 'subtract_stock' => 1,
                 'price' => 0, 'price_prefix' => '+', 'points' => 0, 'points_prefix' => '+',
                 'weight' => 0, 'weight_prefix' => '+',
                 'cost' => 0, 'cost_amount' => 0, 'cost_percentage' => 0, 'cost_additional' => 0,
@@ -229,10 +229,10 @@ class ShopeeVariationPushTest extends TestCase
     public function test_a_plain_product_triggers_no_tier_call(): void
     {
         $productId = DB::table('products')->insertGetId([
-            'model' => 'VP-2', 'sku' => 'VP2-SKU', 'quantity' => 5, 'price' => 100,
+            'sku' => 'VP2-SKU', 'quantity' => 5, 'price' => 100,
             'status' => 1, 'image' => 'catalog/__vp-parent.png', 'weight' => 1, 'length' => 1, 'width' => 1, 'height' => 1,
             'brand_id' => 0,
-            'date_added' => now(), 'date_modified' => now(), 'date_available' => now(),
+            'date_added' => now(), 'date_modified' => now(),
         ]);
         DB::table('product_descriptions')->insert([
             'product_id' => $productId, 'language_id' => (int) config('catalog.default_language_id'),

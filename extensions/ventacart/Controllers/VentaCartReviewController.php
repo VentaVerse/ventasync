@@ -3,7 +3,7 @@
 namespace Extensions\VentaCart\Controllers;
 
 use App\Http\Controllers\Controller;
-use Extensions\OpenCart\Models\MarketplaceReview;
+use App\Models\MarketplaceReview;
 use Extensions\VentaCart\Models\VentaCartListingLink;
 use Extensions\VentaCart\Models\VentaCartStore;
 use Extensions\VentaCart\Services\VentaCart\VentaCartClient;
@@ -46,7 +46,7 @@ class VentaCartReviewController extends Controller
 
         $res = $client->createReview([
             'product_sku'        => $link->sku,
-            'author'             => $review->author ?: 'Marketplace Buyer',
+            'author'             => $review->author ?: 'Marketplace customer',
             'rating'             => $review->rating,
             'title'              => '',
             'body'               => $review->comment ?? '',

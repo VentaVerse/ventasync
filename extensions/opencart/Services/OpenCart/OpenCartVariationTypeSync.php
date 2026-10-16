@@ -48,8 +48,8 @@ class OpenCartVariationTypeSync
 
             foreach ($options as $raw) {
                 try {
-                    $ocOptionId = (int) ($raw['option_id'] ?? 0);
-                    if ($ocOptionId <= 0) continue;
+                    $openCartOptionId = (int) ($raw['option_id'] ?? 0);
+                    if ($openCartOptionId <= 0) continue;
 
                     $name = trim($raw['name'] ?? '');
                     if ($name === '') continue;
@@ -86,12 +86,12 @@ class OpenCartVariationTypeSync
                         $created++;
                     }
 
-                    $this->variationTypeMap[$ocOptionId] = $coreVariationTypeId;
+                    $this->variationTypeMap[$openCartOptionId] = $coreVariationTypeId;
 
                     $values = $raw['values'] ?? [];
                     foreach ($values as $val) {
-                        $ocValueId = (int) ($val['option_value_id'] ?? 0);
-                        if ($ocValueId <= 0) continue;
+                        $openCartValueId = (int) ($val['option_value_id'] ?? 0);
+                        if ($openCartValueId <= 0) continue;
 
                         $valName = trim($val['name'] ?? '');
                         if ($valName === '') continue;
@@ -129,7 +129,7 @@ class OpenCartVariationTypeSync
                             ]);
                         }
 
-                        $this->variationValueMap[$ocValueId] = $coreValueId;
+                        $this->variationValueMap[$openCartValueId] = $coreValueId;
                     }
                 } catch (\Throwable $e) {
                     $failed++;

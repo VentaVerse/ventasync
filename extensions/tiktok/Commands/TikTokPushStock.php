@@ -15,7 +15,7 @@ class TikTokPushStock extends Command implements \App\Channels\Contracts\Steppab
 {
     protected $signature = 'tiktok:push-stock';
 
-    protected $description = 'Push ERP product quantities to TikTok Shop for all linked products';
+    protected $description = 'Push catalog quantities to TikTok Shop for all linked products';
 
     public function handle(): int
     {

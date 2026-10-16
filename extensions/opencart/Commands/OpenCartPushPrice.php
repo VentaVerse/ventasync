@@ -12,7 +12,7 @@ class OpenCartPushPrice extends Command implements \App\Channels\Contracts\Stepp
     protected $signature = 'opencart:push-price
         {--store= : Store ID (ch_opencart_stores.id). Omit to push to all enabled stores}';
 
-    protected $description = 'Push product prices from the ERP to OpenCart stores';
+    protected $description = 'Push product prices from VentaSync to OpenCart stores';
 
     public function handle(): int
     {

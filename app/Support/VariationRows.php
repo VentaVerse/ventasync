@@ -53,6 +53,7 @@ class VariationRows
             $c->variation_value_name = implode(' + ', array_map(fn ($e) => $e['value_name'], $entries));
             $c->variation_type_name = implode(' / ', array_unique(array_map(fn ($e) => $e['variation_type_name'], $entries)));
             $c->variation_value_ids = array_map(fn ($e) => $e['variation_value_id'], $entries);
+            $c->variation_pairs = array_map(fn ($e) => ['name' => $e['variation_type_name'], 'value' => $e['value_name']], $entries);
             $c->option_image = trim((string) ($c->image ?? '')) ?: null;
         }
 
@@ -82,6 +83,7 @@ class VariationRows
                 $r->variation_value_name = html_entity_decode((string) $r->raw_value_name, ENT_QUOTES | ENT_HTML5, 'UTF-8');
                 $r->variation_type_name = html_entity_decode((string) $r->raw_variation_type_name, ENT_QUOTES | ENT_HTML5, 'UTF-8');
                 $r->variation_value_ids = [(int) $r->product_variation_value_id];
+                $r->variation_pairs = [['name' => $r->variation_type_name, 'value' => $r->variation_value_name]];
                 $r->option_image = null;
                 $r->status = 1;
             }

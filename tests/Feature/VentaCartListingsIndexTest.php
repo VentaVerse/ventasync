@@ -61,7 +61,7 @@ class VentaCartListingsIndexTest extends TestCase
     private function product(string $sku, string $name): int
     {
         $pid = (int) DB::table('products')->insertGetId([
-            'model' => $sku, 'sku' => $sku, 'price' => 500, 'quantity' => 3, 'status' => 1, 'image' => '',
+            'sku' => $sku, 'price' => 500, 'quantity' => 3, 'status' => 1, 'image' => '',
             'weight' => 0, 'length' => 0, 'width' => 0, 'height' => 0, 'date_added' => now(), 'date_modified' => now(),
         ]);
         DB::table('product_descriptions')->insert([

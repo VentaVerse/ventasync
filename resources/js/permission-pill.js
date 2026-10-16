@@ -258,8 +258,8 @@
     });
 
     const SELF_GATED = [
-        { words: ['fulfilment', 'fulfillment', 'pack', 'pick', 'ship', 'awb', 'waybill'],
-          says: 'The fulfilment hub is not one permission. It shows each channel\u2019s queue '
+        { words: ['fulfillment', 'fulfillment', 'pack', 'pick', 'ship', 'awb', 'waybill'],
+          says: 'The fulfillment hub is not one permission. It shows each channel\u2019s queue '
               + 'to whoever holds that channel, so grant Shopee, Lazada or TikTok Shop instead.' },
         { words: ['channel', 'channels', 'hub', 'integration', 'integrations', 'marketplace'],
           says: 'The channels hub is not one permission. It shows only the cards a person\u2019s '

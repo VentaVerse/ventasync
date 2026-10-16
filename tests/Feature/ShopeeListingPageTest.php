@@ -137,10 +137,10 @@ class ShopeeListingPageTest extends TestCase
         $langId = (int) config('catalog.default_language_id');
 
         $productId = DB::table('products')->insertGetId([
-            'model' => 'LSTP-1', 'sku' => 'LSTP-SKU-1', 'quantity' => 5, 'price' => $price,
+            'sku' => 'LSTP-SKU-1', 'quantity' => 5, 'price' => $price,
             'status' => 1, 'image' => 'catalog/none.png', 'weight' => 0.5, 'length' => 10, 'width' => 10, 'height' => 5,
             'brand_id' => 0,
-            'date_added' => now(), 'date_modified' => now(), 'date_available' => now(),
+            'date_added' => now(), 'date_modified' => now(),
         ]);
 
         DB::table('product_descriptions')->insert([
@@ -186,7 +186,7 @@ class ShopeeListingPageTest extends TestCase
     public function test_the_listing_page_reports_nothing_about_health(): void
     {
         $productId = $this->seedProduct();
-        DB::table('products')->where('product_id', $productId)->update(['sku' => '', 'model' => '']);
+        DB::table('products')->where('product_id', $productId)->update(['sku' => '']);
 
         $html = $this->actingAs($this->manager())
             ->get(route('ext.shopee.listings.edit', $productId))->assertOk()->getContent();
@@ -682,10 +682,10 @@ class ShopeeListingPageTest extends TestCase
         $inTab = $this->seedProduct();
         ShopeeListingLink::query()->create(['product_id' => $inTab, 'shopee_item_id' => 111, 'sku' => 'TAB-IN', 'live_status' => 'NORMAL']);
         $outOfTab = DB::table('products')->insertGetId([
-            'model' => 'LSTP-2', 'sku' => 'TAB-OUT', 'quantity' => 5, 'price' => 100,
+            'sku' => 'TAB-OUT', 'quantity' => 5, 'price' => 100,
             'status' => 1, 'image' => '', 'weight' => 0.5, 'length' => 10, 'width' => 10, 'height' => 5,
             'brand_id' => 0,
-            'date_added' => now(), 'date_modified' => now(), 'date_available' => now(),
+            'date_added' => now(), 'date_modified' => now(),
         ]);
         DB::table('product_descriptions')->insert([
             'product_id' => $outOfTab, 'language_id' => (int) config('catalog.default_language_id'),
@@ -718,10 +718,10 @@ class ShopeeListingPageTest extends TestCase
     {
         $a = $this->seedProduct();
         $b = DB::table('products')->insertGetId([
-            'model' => 'LSTP-2', 'sku' => 'LSTP-SKU-2', 'quantity' => 5, 'price' => 100,
+            'sku' => 'LSTP-SKU-2', 'quantity' => 5, 'price' => 100,
             'status' => 1, 'image' => '', 'weight' => 0.5, 'length' => 10, 'width' => 10, 'height' => 5,
             'brand_id' => 0,
-            'date_added' => now(), 'date_modified' => now(), 'date_available' => now(),
+            'date_added' => now(), 'date_modified' => now(),
         ]);
         ShopeeListingLink::query()->create(['product_id' => $a, 'shopee_item_id' => 111, 'sku' => 'LSTP-SKU-1']);
         ShopeeListingLink::query()->create(['product_id' => $b, 'shopee_item_id' => 222, 'sku' => 'LSTP-SKU-2']);

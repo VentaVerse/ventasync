@@ -27,7 +27,6 @@ final class CatalogPickerSearch
             })
             ->where(function ($sub) use ($q, $valueMatchIds, $comboMatchIds) {
                 $sub->where('pd.name', 'like', '%' . $q . '%')
-                    ->orWhere('p.model', 'like', '%' . $q . '%')
                     ->orWhere('p.sku', 'like', '%' . $q . '%');
                 $ids = array_values(array_unique(array_merge($valueMatchIds, $comboMatchIds)));
                 if ($ids !== []) {
@@ -36,7 +35,7 @@ final class CatalogPickerSearch
             })
             ->orderByDesc('p.product_id')
             ->limit($limit)
-            ->get(['p.product_id', 'pd.name', 'p.model', 'p.sku', 'p.image']);
+            ->get(['p.product_id', 'pd.name', 'p.sku', 'p.image']);
         if ($rows->isEmpty()) {
             return [];
         }
@@ -63,7 +62,7 @@ final class CatalogPickerSearch
                 'qty' => (int) $ov->quantity,
             ])->values()->all();
             $skus = array_values(array_unique(array_filter(array_merge(
-                [trim((string) ($r->sku ?? '')), trim((string) ($r->model ?? ''))],
+                [trim((string) ($r->sku ?? ''))],
                 array_column($variationList, 'sku'),
                 ($combos->get($pid) ?? collect())->pluck('sku')->map(fn ($v) => trim((string) $v))->all()
             ))));
@@ -71,7 +70,6 @@ final class CatalogPickerSearch
             return [
                 'product_id' => $pid,
                 'name' => html_entity_decode((string) ($r->name ?? ''), ENT_QUOTES | ENT_HTML5, 'UTF-8'),
-                'model' => (string) ($r->model ?? ''),
                 'sku' => (string) ($r->sku ?? ''),
                 'image' => trim((string) ($r->image ?? '')) !== '' ? \App\Services\Media\ImageCache::url((string) $r->image) : null,
                 'variations' => $variationList,

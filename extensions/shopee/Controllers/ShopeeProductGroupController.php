@@ -243,7 +243,7 @@ class ShopeeProductGroupController extends Controller
 
         $q = trim((string) $request->input('q'));
         $syncStatus = (string) $request->input('sync_status', 'all');
-        $erpStatus = (string) $request->input('erp_status', 'all');
+        $catalogStatus = (string) $request->input('catalog_status', 'all');
 
         $tabMap = ['live' => 'NORMAL', 'unlisted' => 'UNLIST', 'violation' => 'BANNED', 'reviewing' => 'REVIEWING'];
         $shopeeTab = (string) $request->get('shopee_tab', 'all');
@@ -275,7 +275,7 @@ class ShopeeProductGroupController extends Controller
             })
             ->leftJoin('brands as m', 'p.brand_id', '=', 'm.brand_id')
             ->select(
-                'p.product_id', 'pd.name', 'p.sku', 'p.model', 'p.price',
+                'p.product_id', 'pd.name', 'p.sku', 'p.price',
                 'p.quantity', 'p.image', 'p.status', 'p.date_modified',
                 'm.name as brand_name',
                 'gp.shopee_item_id', 'gp.sync_status', 'gp.last_pushed_at', 'gp.last_confirmed_at', 'gp.push_error'
@@ -285,7 +285,6 @@ class ShopeeProductGroupController extends Controller
             $query->where(function ($w) use ($q) {
                 $w->where('pd.name', 'like', "%{$q}%")
                     ->orWhere('p.sku', 'like', "%{$q}%")
-                    ->orWhere('p.model', 'like', "%{$q}%")
                     ->orWhereIn('p.product_id', ShopeeListing::query()
                         ->forStore(ShopeeStore::defaultStore())
                         ->where('item_name', 'like', "%{$q}%")
@@ -293,9 +292,9 @@ class ShopeeProductGroupController extends Controller
             });
         }
 
-        if ($erpStatus === 'enabled') {
+        if ($catalogStatus === 'enabled') {
             $query->where('p.status', 1);
-        } elseif ($erpStatus === 'disabled') {
+        } elseif ($catalogStatus === 'disabled') {
             $query->where('p.status', 0);
         }
 
@@ -381,7 +380,7 @@ class ShopeeProductGroupController extends Controller
             'manualIds' => $manualIds,
             'q' => $q,
             'syncStatus' => $syncStatus,
-            'erpStatus' => $erpStatus,
+            'catalogStatus' => $catalogStatus,
             'shopeeTab' => $shopeeTab,
             'liveCounts' => $liveCounts,
             'liveCheckedAt' => $liveCheckedAt,
@@ -891,13 +890,12 @@ class ShopeeProductGroupController extends Controller
                 $j->on('p.product_id', '=', 'pd.product_id')->where('pd.language_id', '=', $langId);
             })
             ->leftJoinSub(ShopeeStoreProducts::query(), 'os', 'os.product_id', '=', 'p.product_id')
-            ->select('p.product_id', 'pd.name', 'p.image', 'p.sku', 'p.model', 'p.quantity', 'p.price', 'os.product_id as on_store_pid')
+            ->select('p.product_id', 'pd.name', 'p.image', 'p.sku', 'p.quantity', 'p.price', 'os.product_id as on_store_pid')
             ->where('p.status', 1);
 
         if ($q !== '') {
             $query->where(function ($sub) use ($q) {
                 $sub->where('pd.name', 'like', '%' . $q . '%')
-                    ->orWhere('p.model', 'like', '%' . $q . '%')
                     ->orWhere('p.sku', 'like', '%' . $q . '%');
             });
         }
@@ -1027,10 +1025,9 @@ class ShopeeProductGroupController extends Controller
         $token = (string) $auth['access_token'];
         $shopId = (int) $auth['shop_id'];
 
-        $product = DB::table('products')->where('product_id', $productId)->first(['sku', 'model']);
+        $product = DB::table('products')->where('product_id', $productId)->first(['sku']);
         $skus = [];
         if ($product->sku && trim($product->sku) !== '') $skus[] = strtolower(trim($product->sku));
-        if ($product->model && trim($product->model) !== '') $skus[] = strtolower(trim($product->model));
 
         $optSkus = DB::table('product_variation_values')
             ->where('product_id', $productId)
@@ -1042,7 +1039,7 @@ class ShopeeProductGroupController extends Controller
             return redirect()->back()->with('error', 'Product has no SKU to match against Shopee.');
         }
 
-        $erpHasVariations = !empty($optSkus);
+        $catalogHasVariations = !empty($optSkus);
 
         $existingLink = ShopeeListingLink::query()
             ->where('product_id', $productId)
@@ -1661,7 +1658,7 @@ class ShopeeProductGroupController extends Controller
                         'last_pushed_at' => now(),
                     ]);
 
-                $erpSkus = DB::table('product_variation_values')
+                $catalogSkus = DB::table('product_variation_values')
                     ->where('product_id', $productId)
                     ->whereNotNull('sku')
                     ->where('sku', '!=', '')
@@ -1675,10 +1672,10 @@ class ShopeeProductGroupController extends Controller
                     ->pluck('sku')
                     ->map(fn ($s) => strtolower(trim((string) $s)))
                     ->all();
-                $allSkus = array_values(array_unique(array_merge($erpSkus, $comboSkus)));
-                $erpHasVariations = !empty($allSkus);
+                $allSkus = array_values(array_unique(array_merge($catalogSkus, $comboSkus)));
+                $catalogHasVariations = !empty($allSkus);
 
-                if ($erpHasVariations) {
+                if ($catalogHasVariations) {
                     try {
                         $pivot = ShopeeProductGroupProduct::where('shopee_product_group_id', $group->id)
                             ->where('product_id', $productId)
@@ -1702,7 +1699,7 @@ class ShopeeProductGroupController extends Controller
 
                 $okCount++;
             } else {
-                $msg = \App\Support\MarketplaceAnswer::plain('Shopee', ['ok' => false, 'body' => is_array($body) ? $body : []]);
+                $msg = \App\Support\ChannelAnswer::plain('Shopee', ['ok' => false, 'body' => is_array($body) ? $body : []]);
                 $errors[] = "#{$productId}: {$msg}";
 
                 $this->writeProductStatus($productId, [
@@ -1893,7 +1890,7 @@ class ShopeeProductGroupController extends Controller
                 ActivityLogger::log('updated', 'Shopee Product', $productId, 'Updated item ' . $itemId . ' on Shopee via product group');
                 $okCount++;
             } else {
-                $msg = \App\Support\MarketplaceAnswer::plain('Shopee', ['ok' => false, 'body' => is_array($body) ? $body : []]);
+                $msg = \App\Support\ChannelAnswer::plain('Shopee', ['ok' => false, 'body' => is_array($body) ? $body : []]);
                 $errors[] = "#{$productId}: {$msg}";
 
                 $this->writeProductStatus($productId, [
@@ -2371,7 +2368,7 @@ class ShopeeProductGroupController extends Controller
         }
 
         if (!($result['ok'] ?? false) || empty($nodes)) {
-            $msg = \App\Support\MarketplaceAnswer::plain('Shopee', ['ok' => false, 'body' => is_array($body) ? $body : []]);
+            $msg = \App\Support\ChannelAnswer::plain('Shopee', ['ok' => false, 'body' => is_array($body) ? $body : []]);
             return response()->json(['ok' => false, 'message' => 'Fetch failed: ' . $msg]);
         }
 

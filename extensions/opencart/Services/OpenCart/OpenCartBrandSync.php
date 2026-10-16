@@ -45,8 +45,8 @@ class OpenCartBrandSync
 
             foreach ($brands as $raw) {
                 try {
-                    $ocMfgId = (int) ($raw['manufacturer_id'] ?? 0);
-                    if ($ocMfgId <= 0) continue;
+                    $openCartMfgId = (int) ($raw['manufacturer_id'] ?? 0);
+                    if ($openCartMfgId <= 0) continue;
 
                     $name = trim($raw['name'] ?? '');
                     if ($name === '') continue;
@@ -73,7 +73,7 @@ class OpenCartBrandSync
                         $created++;
                     }
 
-                    $this->brandMap[$ocMfgId] = $coreMfgId;
+                    $this->brandMap[$openCartMfgId] = $coreMfgId;
                 } catch (\Throwable $e) {
                     $failed++;
                     $errors[] = [

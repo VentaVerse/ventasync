@@ -2,7 +2,7 @@
 
 namespace Extensions\OpenCart\Controllers;
 
-use Extensions\OpenCart\Models\MarketplaceReview;
+use App\Models\MarketplaceReview;
 use Extensions\OpenCart\Models\OpenCartListingLink;
 use Extensions\OpenCart\Models\OpenCartStore;
 use Extensions\OpenCart\Services\OpenCart\OpenCartClient;
@@ -46,7 +46,7 @@ class ReviewController extends Controller
         }
 
         if ($syncStatus !== '') {
-            $query->where('ch_marketplace_reviews.oc_sync_status', $syncStatus);
+            $query->where('ch_marketplace_reviews.opencart_sync_status', $syncStatus);
         }
 
         if ($q !== '') {
@@ -84,7 +84,7 @@ class ReviewController extends Controller
         $channelCounts['lazada'] = MarketplaceReview::where('channel', 'lazada')->count();
 
         $avgRating = MarketplaceReview::avg('rating');
-        $pendingCount = MarketplaceReview::where('oc_sync_status', 'pending')->count();
+        $pendingCount = MarketplaceReview::where('opencart_sync_status', 'pending')->count();
 
         $channels = self::CHANNELS;
 
@@ -113,7 +113,7 @@ class ReviewController extends Controller
     {
         $review = MarketplaceReview::findOrFail($id);
 
-        if (!in_array($review->oc_sync_status, ['pending', 'error'])) {
+        if (!in_array($review->opencart_sync_status, ['pending', 'error'])) {
             return redirect()->back()->with('error', 'Review is not in pending or error status.');
         }
 
@@ -138,8 +138,8 @@ class ReviewController extends Controller
         $autoApprove = (bool) ($store->review_auto_approve ?? true);
 
         $res = $client->createReview([
-            'product_id'         => $link->oc_product_id,
-            'author'             => $review->author ?: 'Marketplace Buyer',
+            'product_id'         => $link->opencart_product_id,
+            'author'             => $review->author ?: 'Marketplace customer',
             'text'               => $review->comment ?? '',
             'rating'             => $review->rating,
             'status'             => $autoApprove ? 1 : 0,
@@ -150,20 +150,20 @@ class ReviewController extends Controller
 
         if ($res['ok'] ?? false) {
             $review->update([
-                'oc_sync_status'      => 'pushed',
+                'opencart_sync_status'      => 'pushed',
                 'opencart_store_id' => $store->id,
-                'oc_review_id'        => $res['body']['data']['review_id'] ?? null,
-                'oc_pushed_at'        => now(),
-                'oc_push_error'       => null,
+                'opencart_review_id'        => $res['body']['data']['review_id'] ?? null,
+                'opencart_pushed_at'        => now(),
+                'opencart_push_error'       => null,
             ]);
             return redirect()->back()->with('status', 'Review pushed to OpenCart.');
         }
 
         $error = $res['body']['error'] ?? 'Unknown error';
         $review->update([
-            'oc_sync_status'      => 'error',
+            'opencart_sync_status'      => 'error',
             'opencart_store_id' => $store->id,
-            'oc_push_error'       => substr($error, 0, 500),
+            'opencart_push_error'       => substr($error, 0, 500),
         ]);
 
         return redirect()->back()->with('error', 'Push failed: ' . $error);
@@ -173,11 +173,11 @@ class ReviewController extends Controller
     {
         $review = MarketplaceReview::findOrFail($id);
 
-        if (!in_array($review->oc_sync_status, ['pending', 'error'])) {
+        if (!in_array($review->opencart_sync_status, ['pending', 'error'])) {
             return redirect()->back()->with('error', 'Review is not in pending or error status.');
         }
 
-        $review->update(['oc_sync_status' => 'skipped']);
+        $review->update(['opencart_sync_status' => 'skipped']);
 
         return redirect()->back()->with('status', 'Review marked as skipped.');
     }
@@ -191,7 +191,7 @@ class ReviewController extends Controller
         }
 
         $reviews = MarketplaceReview::whereIn('id', $ids)
-            ->whereIn('oc_sync_status', ['pending', 'error'])
+            ->whereIn('opencart_sync_status', ['pending', 'error'])
             ->whereNotNull('product_id')
             ->get();
 
@@ -200,22 +200,22 @@ class ReviewController extends Controller
 
         $stores = OpenCartStore::where('enabled', true)->get()->keyBy('id');
         $linkMap = OpenCartListingLink::query()
-            ->pluck('oc_product_id', DB::raw("CONCAT(store_id, '-', product_id)"))
+            ->pluck('opencart_product_id', DB::raw("CONCAT(store_id, '-', product_id)"))
             ->all();
 
         foreach ($reviews as $review) {
             $pushed_this = false;
             foreach ($stores as $store) {
                 $key = $store->id . '-' . $review->product_id;
-                $ocProductId = $linkMap[$key] ?? null;
-                if (!$ocProductId) continue;
+                $openCartProductId = $linkMap[$key] ?? null;
+                if (!$openCartProductId) continue;
 
                 $client = new OpenCartClient($store);
                 $autoApprove = (bool) ($store->review_auto_approve ?? true);
 
                 $res = $client->createReview([
-                    'product_id'         => $ocProductId,
-                    'author'             => $review->author ?: 'Marketplace Buyer',
+                    'product_id'         => $openCartProductId,
+                    'author'             => $review->author ?: 'Marketplace customer',
                     'text'               => $review->comment ?? '',
                     'rating'             => $review->rating,
                     'status'             => $autoApprove ? 1 : 0,
@@ -226,11 +226,11 @@ class ReviewController extends Controller
 
                 if ($res['ok'] ?? false) {
                     $review->update([
-                        'oc_sync_status'      => 'pushed',
+                        'opencart_sync_status'      => 'pushed',
                         'opencart_store_id' => $store->id,
-                        'oc_review_id'        => $res['body']['data']['review_id'] ?? null,
-                        'oc_pushed_at'        => now(),
-                        'oc_push_error'       => null,
+                        'opencart_review_id'        => $res['body']['data']['review_id'] ?? null,
+                        'opencart_pushed_at'        => now(),
+                        'opencart_push_error'       => null,
                     ]);
                     $pushed++;
                     $pushed_this = true;
@@ -240,8 +240,8 @@ class ReviewController extends Controller
 
             if (!$pushed_this) {
                 $review->update([
-                    'oc_sync_status' => 'error',
-                    'oc_push_error'  => 'No matching OpenCart product link found, or API call failed.',
+                    'opencart_sync_status' => 'error',
+                    'opencart_push_error'  => 'No matching OpenCart product link found, or API call failed.',
                 ]);
                 $errors++;
             }
@@ -288,7 +288,7 @@ class ReviewController extends Controller
 
     public function pushAll(Request $request)
     {
-        $count = MarketplaceReview::whereIn('oc_sync_status', ['pending', 'error'])
+        $count = MarketplaceReview::whereIn('opencart_sync_status', ['pending', 'error'])
             ->whereNotNull('product_id')
             ->count();
 

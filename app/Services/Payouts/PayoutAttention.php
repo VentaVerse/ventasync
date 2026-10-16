@@ -28,7 +28,7 @@ class PayoutAttention
             ->where(fn ($q) => $q->whereNull('payout_status')->orWhere('payout_status', '!=', PayoutStatus::PAID))
             ->orderBy('order_updated_at')
             ->get(array_merge(
-                ['id', $d['id_column'] . ' as ref', 'status', 'payout_status', 'order_created_at', 'order_updated_at', 'fees', 'raw', 'catalog_order_id'],
+                ['id', $d['id_column'] . ' as ref', 'status', 'payout_status', 'order_created_at', 'order_updated_at', 'fees', 'raw', 'sales_order_id'],
                 ! empty($d['received_column']) ? [$d['received_column'] . ' as received'] : [],
             ));
 
@@ -123,7 +123,7 @@ class PayoutAttention
             'nopayout' => ['label' => 'No payout found', 'tone' => 'danger',
                 'blurb' => "Sync Payouts looked back as far as it reads and found no payment. Worth raising with {$who}."],
             'refunded' => ['label' => 'Refunded · shipping charged', 'tone' => 'info',
-                'blurb' => "Returned and refunded to the buyer in full; {$who} kept the shipping from your balance. Nothing is owed: it has already been taken."],
+                'blurb' => "Returned and refunded to the customer in full; {$who} kept the shipping from your balance. Nothing is owed: it has already been taken."],
         ];
     }
 
@@ -155,7 +155,7 @@ class PayoutAttention
             ->orderByDesc('paid_at')
             ->limit(200)
             ->get([
-                'id', $d['id_column'] . ' as ref', 'status', 'payout_status', 'order_created_at', 'order_updated_at', 'catalog_order_id',
+                'id', $d['id_column'] . ' as ref', 'status', 'payout_status', 'order_created_at', 'order_updated_at', 'sales_order_id',
                 DB::raw("CAST({$expectedSql} AS DECIMAL(12,2)) as expected"),
                 DB::raw("{$received} as received"),
             ]);
@@ -174,7 +174,7 @@ class PayoutAttention
             'flag' => $flag,
             'id' => (int) $o->id,
             'ref' => (string) $o->ref,
-            'catalog_order_id' => $o->catalog_order_id ? (int) $o->catalog_order_id : null,
+            'sales_order_id' => $o->sales_order_id ? (int) $o->sales_order_id : null,
             'placed' => $placed,
             'done' => $done,
             'waiting_days' => $days,

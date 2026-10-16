@@ -243,7 +243,7 @@ function buildPanel(data, orderUrlTemplate) {
 
     wrap.appendChild(heading(
         'By customer',
-        'Grouped by customer name and channel. Marketplaces mask buyer names (L***o), so two different buyers can merge and one buyer can split across channels.'
+        'Grouped by customer name and channel. Marketplaces mask customer names (L***o), so two different customers can merge and one customer can split across channels.'
     ));
 
     const byCustomer = subTable(['Customer', 'Channel', 'Orders', 'Units', 'Revenue', 'Net profit'], 2);

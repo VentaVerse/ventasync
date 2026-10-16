@@ -42,8 +42,8 @@
     }
 
     $ttSortLabels = $ttSortLabels ?? [
-        'created_desc' => 'Order date, newest first',
-        'created_asc'  => 'Order date, oldest first',
+        'created_desc' => 'Created, newest first',
+        'created_asc'  => 'Created, oldest first',
         'ship_by_asc'  => 'Ship-by time, soonest first',
         'ship_by_desc' => 'Ship-by time, latest first',
     ];
@@ -76,8 +76,9 @@
                 $count = $tab_counts[$key] ?? null;
             @endphp
             <a href="{{ $panelSelfUrl(['tab' => $key], ['page', 'pending_sub', 'courier']) }}"
-               class="x-segment__item {{ $isActive ? 'is-active' : '' }}"
+               class="x-segment__item {{ $key === \App\Support\OrderAttention::TAB ? 'x-segment__item--alarm' : '' }} {{ $isActive ? 'is-active' : '' }}"
                @if($isActive) aria-current="true" @endif>
+                @if($key === \App\Support\OrderAttention::TAB)<x-ui.icon name="alert-triangle" size="14" />@endif
                 <span>{{ $label }}</span>
                 @if($count !== null)
                     <span class="x-segment__count">{{ number_format($count) }}</span>
@@ -90,6 +91,8 @@
         <x-ui.icon name="chevron-right" size="12" />
     </a>
 </div>
+
+@include('partials.order-attention-note', ['activeTab' => $active_tab, 'attention' => $attention ?? [], 'mappingUrl' => $attention_mapping_url ?? null])
 
 @if($active_tab === 'TO_SHIP')
     <div class="x-segment x-segment--sub" aria-label="To Ship step">
@@ -110,7 +113,7 @@
     </div>
 
     @if($pendingSub !== '')
-        <x-fulfilment.courier-strip :tally="$courier_tally ?? []" :self-url="$panelSelfUrl" />
+        <x-fulfillment.courier-strip :tally="$courier_tally ?? []" :self-url="$panelSelfUrl" />
     @endif
 @endif
 
@@ -135,8 +138,8 @@
 
     <x-ui.input type="search" name="q" class="x-filters__find"
                 value="{{ $findFilter }}"
-                placeholder="Order no, buyer, product or tracking"
-                aria-label="Find an order by order number, buyer, product or tracking" />
+                placeholder="Order no, customer, product or tracking"
+                aria-label="Find an order by order number, customer, product or tracking" />
 
     <x-ui.foldout label="Filters" :count="$ttActiveFilters ?: null">
     <span class="x-filters__group">
@@ -236,12 +239,12 @@
 
 <div data-order-selection>
     <x-ui.selectbar :step="$active_tab !== 'ALL' ? ($tabs[$active_tab] ?? null) : null">
-        <form method="POST" action="{{ route('fulfilment.print.pick', ['channel' => 'tiktok']) }}"
+        <form method="POST" action="{{ route('fulfillment.print.pick', ['channel' => 'tiktok']) }}"
               id="tiktok-print-pick" class="x-selectbar__actions" target="_blank" data-selection-actions hidden>
             @csrf
             <x-ui.button type="submit" variant="secondary" size="sm">Print pick list</x-ui.button>
             <x-ui.button type="submit" variant="secondary" size="sm"
-                         formaction="{{ route('fulfilment.print.packing', ['channel' => 'tiktok']) }}">Print packing lists</x-ui.button>
+                         formaction="{{ route('fulfillment.print.packing', ['channel' => 'tiktok']) }}">Print packing lists</x-ui.button>
             <x-ui.hint label="About these two lists">One pick list for the whole selection, with lines consolidated by SKU so three of the same item is one trip to the shelf. Packing lists are one per order, nothing consolidated, to go in the parcel.</x-ui.hint>
         </form>
     </x-ui.selectbar>
@@ -252,7 +255,7 @@
             <th scope="col" class="tt-col-products">Products</th>
             <th scope="col" class="tt-col-qty">Qty</th>
             <th scope="col" class="tt-col-price x-td-num">Price</th>
-            <th scope="col" class="tt-col-total x-td-num">Amount</th>
+            <th scope="col" class="tt-col-total x-td-num">Total</th>
             <th scope="col" class="tt-col-ship">Shipping</th>
             <th scope="col" class="tt-col-status">Status</th>
             <th scope="col" class="tt-col-act"><span class="x-sr">Actions</span></th>
@@ -266,7 +269,7 @@
             $status = (string) ($o->status ?? '');
 
             $created = $o->order_created_at ? $o->order_created_at->format('Y-m-d H:i') : null;
-            $buyer = (string) ($o->buyer_name ?? '');
+            $customer = (string) ($o->customer_name ?? '');
 
             $rawItems = $o->products ? $o->products->toArray() : [];
             $grouped = [];
@@ -327,7 +330,7 @@
                     if (is_string($ttAddr[$k] ?? null) && trim($ttAddr[$k]) !== '') { $ttCity = trim($ttAddr[$k]); break; }
                 }
             }
-            $ttParcel = \App\Support\Fulfilment\PackedParcel::fromItems(array_map(function ($it) {
+            $ttParcel = \App\Support\Fulfillment\PackedParcel::fromItems(array_map(function ($it) {
                 $it['image'] = !empty($it['image']) ? $it['image'] : \App\Support\CatalogImages::urlFor($it['sku'] ?? '');
                 return $it;
             }, $groupedItems), $courier, $ttCity);
@@ -352,9 +355,9 @@
                         <input type="checkbox" class="x-pick" data-selection-item
                                name="ids[]" value="{{ $o->id }}" form="tiktok-print-pick"
                                aria-label="Select order {{ $orderId }}">
-                        <span class="co-band__label">Buyer</span>
-                        @if($buyer !== '')
-                            <span class="co-band__value">{{ $buyer }}</span>
+                        <span class="co-band__label">Customer</span>
+                        @if($customer !== '')
+                            <span class="co-band__value">{{ $customer }}</span>
                         @else
                             <span class="co-empty-mark">Not recorded</span>
                         @endif
@@ -367,8 +370,8 @@
                         @if($itemCount > 0)
                             <span class="co-band__muted">({{ $itemCount }} {{ $itemCount === 1 ? 'item' : 'items' }})</span>
                         @endif
-                        @if($o->catalog_order_id)
-                            <a class="co-ref" href="{{ url('/sales/orders/'.$o->catalog_order_id) }}">Sales order {{ $o->catalog_order_id }}</a>
+                        @if($o->sales_order_id)
+                            <a class="co-ref" href="{{ url('/sales/orders/'.$o->sales_order_id) }}">Sales order {{ $o->sales_order_id }}</a>
                         @endif
                     </div>
                     <div class="co-band__right">
@@ -398,7 +401,7 @@
                             @if(trim((string) ($it['sku'] ?? '')) !== '')
                                 <span class="co-item__sku">{{ $it['sku'] }}</span>
                             @endif
-                            <x-fulfilment.variation :sku="$it['sku'] ?? null" :fallback="$it['variation'] ?? null" />
+                            <x-fulfillment.variation :sku="$it['sku'] ?? null" :fallback="$it['variation'] ?? null" :order="$o->sales_order_id" :name="$it['name'] ?? null" />
                         </div>
                     </div>
                 </div>
@@ -425,7 +428,7 @@
             </td>
 
             @if($idx === 0)
-            <td class="tt-col-total x-td-num" rowspan="{{ $lineCount }}" data-label="Amount">
+            <td class="tt-col-total x-td-num" rowspan="{{ $lineCount }}" data-label="Total">
                 <span class="co-total">
                     @if(is_numeric($totalAmount))
                         {{ $currencyCode !== ''
@@ -473,7 +476,7 @@
                                          data-order-id="{{ $o->id }}"
                                          data-order-no="{{ $o->order_id ?? $o->id }}">Ship order</x-ui.button>
                         </form>
-                        <template data-parcel-for="{{ $o->id }}"><x-fulfilment.parcel :parcel="$ttParcel" /></template>
+                        <template data-parcel-for="{{ $o->id }}"><x-fulfillment.parcel :parcel="$ttParcel + ['sales_order_id' => $o->sales_order_id]" /></template>
                     @endif
 
                     @if($showsWaybill)

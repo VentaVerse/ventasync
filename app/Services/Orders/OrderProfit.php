@@ -14,6 +14,8 @@ final class OrderProfit
         public readonly float $reportedShippingCost,
         public readonly array $fees,
         public readonly bool $hasLines,
+        public readonly float $customerShippingCharged = 0.0,
+        public readonly bool $shippingPaidToSeller = false,
     ) {}
 
     public static function of(Order $order): self
@@ -25,15 +27,19 @@ final class OrderProfit
             ->selectRaw('COUNT(*) AS n, COALESCE(SUM(total), 0) AS revenue, COALESCE(SUM(cost * quantity), 0) AS cogs')
             ->first();
 
-        $shippingCode = MarketplaceFeeNormalizer::CODES['shipping'][0];
-        $voucherCode = MarketplaceFeeNormalizer::CODES['voucher'][0];
+        $shippingCode = ChannelFeeNormalizer::CODES['shipping'][0];
+        $voucherCode = ChannelFeeNormalizer::CODES['voucher'][0];
         $reported = DB::table('order_totals')
             ->where('order_id', $orderId)
-            ->whereIn('code', array_column(MarketplaceFeeNormalizer::CODES, 0))
+            ->whereIn('code', array_column(ChannelFeeNormalizer::CODES, 0))
             ->orderBy('sort_order')
             ->get(['code', 'title', 'value']);
 
         $reportedShipping = 0.0;
+        $customerShipping = (float) DB::table('order_totals')
+            ->where('order_id', $orderId)
+            ->where('code', CustomerShipping::TOTAL_CODE)
+            ->sum('value');
         $fees = [];
         $vouchers = [];
         foreach ($reported as $row) {
@@ -74,12 +80,20 @@ final class OrderProfit
             reportedShippingCost: $reportedShipping,
             fees: $fees,
             hasLines: (int) $lines->n > 0,
+            customerShippingCharged: max(0.0, $customerShipping),
+            shippingPaidToSeller: app(CustomerShipping::class)->paidToSeller($order->channel),
         );
     }
 
     public function shippingCost(): float
     {
         return $this->hasLines ? $this->ownShippingCost + $this->reportedShippingCost : 0.0;
+    }
+
+    /** The customer's shipping counted as income: on the seller's own channels; a marketplace keeps it. */
+    public function shippingIncome(): float
+    {
+        return $this->hasLines && $this->shippingPaidToSeller ? $this->customerShippingCharged : 0.0;
     }
 
     public function feesTotal(): float
@@ -89,7 +103,7 @@ final class OrderProfit
 
     public function netProfit(): float
     {
-        return $this->revenue - $this->cogs - $this->shippingCost() - $this->feesTotal();
+        return $this->revenue + $this->shippingIncome() - $this->cogs - $this->shippingCost() - $this->feesTotal();
     }
 
     public function margin(): float

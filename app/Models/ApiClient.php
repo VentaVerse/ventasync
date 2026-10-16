@@ -20,13 +20,13 @@ class ApiClient extends Model implements HasApiTokensContract
         });
     }
 
-    protected $fillable = ['name', 'description', 'active', 'created_by', 'mcp_enabled', 'mcp_client', 'allowed_ips', 'calls_per_minute'];
+    protected $fillable = ['name', 'description', 'enabled', 'created_by', 'mcp_enabled', 'mcp_client', 'allowed_ips', 'calls_per_minute'];
 
     protected $hidden = ['token_secret'];
 
     protected $casts = [
         'token_secret'     => 'encrypted',
-        'active'           => 'boolean',
+        'enabled'          => 'boolean',
         'mcp_enabled'      => 'boolean',
         'allowed_ips'      => 'array',
         'calls_per_minute' => 'integer',

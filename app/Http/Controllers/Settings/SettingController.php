@@ -39,7 +39,7 @@ class SettingController extends Controller
         $data = $request->validate([
             'company_name'                => ['required', 'string', 'max:255'],
             'company_email'               => ['nullable', 'email', 'max:255'],
-            'phone'                       => ['nullable', 'string', 'max:32'],
+            'telephone'                   => ['nullable', 'string', 'max:32'],
             'address_line1'               => ['nullable', 'string', 'max:255'],
             'address_line2'               => ['nullable', 'string', 'max:255'],
             'city'                        => ['nullable', 'string', 'max:128'],
@@ -114,7 +114,7 @@ class SettingController extends Controller
         \App\Services\Media\LogoImage::forget();
 
         $changes = ActivityLogger::diff($original, $setting->getAttributes(), [
-            'company_name', 'company_email', 'phone', 'address_line1', 'address_line2', 'city', 'state', 'postal_code', 'country',
+            'company_name', 'company_email', 'telephone', 'address_line1', 'address_line2', 'city', 'state', 'postal_code', 'country',
             'from_email', 'timezone', 'activity_log_retention_days', 'image_thumb_size', 'image_preview_size', 'image_push_size',
             'mail_mailer', 'mail_host', 'mail_port', 'mail_username', 'mail_encryption', 'mail_from_address', 'mail_from_name',
         ]);
@@ -135,9 +135,9 @@ class SettingController extends Controller
 
         try {
             Mail::raw(
-                "This is a test message from your ERP.\n\nIf you received this, your mail settings are working correctly.",
+                "This is a test message from VentaSync.\n\nIf you received this, your mail settings are working correctly.",
                 function ($message) use ($data) {
-                    $message->to($data['to'])->subject('ERP test email');
+                    $message->to($data['to'])->subject('VentaSync test email');
                 }
             );
 

@@ -21,8 +21,7 @@
     $lines = collect(old('products', []))->values()->map(fn ($p) => [
         'product_id'      => (int) ($p['product_id'] ?? 0),
         'name'            => (string) ($p['name'] ?? ''),
-        'model'           => (string) ($p['model'] ?? ''),
-        'sku'             => (string) ($p['model'] ?? ''),
+        'sku'             => (string) ($p['sku'] ?? ''),
         'basePrice'       => (float) ($p['price'] ?? 0) * $oldRate,
         'baseCost'        => (float) ($p['cost'] ?? 0) * $oldRate,
         'qty'             => (int) ($p['quantity'] ?? 1),
@@ -75,9 +74,9 @@
                         <p class="fm-hint" data-status-note hidden></p>
                     </x-ui.field>
 
-                    <x-ui.field label="Comment" for="of-comment" name="comment"
+                    <x-ui.field label="Customer note" for="of-customer-note" name="customer_note"
                                 hint="Kept with the order and shown on its first history entry.">
-                        <x-ui.textarea id="of-comment" name="comment" rows="3">{{ old('comment') }}</x-ui.textarea>
+                        <x-ui.textarea id="of-customer-note" name="customer_note" rows="3">{{ old('customer_note') }}</x-ui.textarea>
                     </x-ui.field>
                 </div>
             </div>

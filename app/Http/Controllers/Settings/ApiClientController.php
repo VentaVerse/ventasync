@@ -66,7 +66,7 @@ class ApiClientController extends Controller
         [$client, $plain] = DB::transaction(function () use ($data, $request, $abilities, $expiresAt) {
             $client = ApiClient::create([
                 'name'       => $data['name'],
-                'active'     => true,
+                'enabled'    => true,
                 'created_by' => $request->user()->id,
             ] + ['mcp_enabled' => false] + \App\Support\Api\ClientLimits::fields($request));
 

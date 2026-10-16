@@ -183,7 +183,7 @@
             [
                 ['product_id', item.product_id],
                 ['name', label],
-                ['model', item.model],
+                ['sku', item.sku],
                 ['cost', cost.toFixed(2)],
                 ['price', price.toFixed(2)],
                 ['quantity', item.qty],
@@ -200,7 +200,7 @@
             if (item.variation_value) {
                 meta.appendChild(el('span', 'of-line__var', item.variation_type_name + ': ' + item.variation_value));
             }
-            meta.appendChild(el('span', 'of-line__sku x-num', item.sku || item.model || 'No SKU'));
+            meta.appendChild(el('span', 'of-line__sku x-num', item.sku || 'No SKU'));
             tdName.appendChild(meta);
             tr.appendChild(tdName);
 
@@ -387,7 +387,7 @@
         picked = product;
 
         detailName.textContent = product.name;
-        detailSku.textContent = product.sku || product.model || '';
+        detailSku.textContent = product.sku || '';
         detailPrice.textContent = 'Catalog price ' + money(cur.symbol, toOrder(parseFloat(product.price)));
 
         variationsList.textContent = '';
@@ -458,7 +458,7 @@
 
                     const main = el('span', 'of-res__main');
                     main.appendChild(el('span', 'of-res__name', product.name));
-                    main.appendChild(el('span', 'of-res__sku', product.sku || product.model || 'No SKU'));
+                    main.appendChild(el('span', 'of-res__sku', product.sku || 'No SKU'));
                     row.appendChild(main);
 
                     row.appendChild(el('span', 'of-res__price x-num',
@@ -508,7 +508,6 @@
             product_id: parseInt(product.product_id, 10),
             name: product.name || '',
             sku: product.sku || '',
-            model: product.model || '',
             basePrice: parseFloat(product.price) || 0,
             baseCost: parseFloat(product.cost) || 0,
             qty: qty,

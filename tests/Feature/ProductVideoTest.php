@@ -28,9 +28,9 @@ class ProductVideoTest extends TestCase
     private function product(string $sku = 'VID-1'): int
     {
         $id = (int) DB::table('products')->insertGetId([
-            'model' => $sku, 'sku' => $sku, 'quantity' => 1, 'price' => 100, 'status' => 1, 'image' => '',
+            'sku' => $sku, 'quantity' => 1, 'price' => 100, 'status' => 1, 'image' => '',
             'weight' => 1, 'length' => 1, 'width' => 1, 'height' => 1, 'brand_id' => 0,
-            'date_added' => now(), 'date_modified' => now(), 'date_available' => now(),
+            'date_added' => now(), 'date_modified' => now(),
         ]);
         DB::table('product_descriptions')->insert([
             'product_id' => $id, 'language_id' => (int) config('catalog.default_language_id'),

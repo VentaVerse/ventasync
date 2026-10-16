@@ -83,7 +83,7 @@ class ShopeeCategoryAttributeController extends Controller
         ]);
 
         if (!$result['ok']) {
-            $msg = \App\Support\MarketplaceAnswer::plain('Shopee', ['ok' => false, 'body' => is_array($body) ? $body : []]);
+            $msg = \App\Support\ChannelAnswer::plain('Shopee', ['ok' => false, 'body' => is_array($body) ? $body : []]);
             return redirect()->route('ext.shopee.categories.attributes.show', $categoryId)
                 ->with('error', 'Fetch failed: ' . $msg);
         }

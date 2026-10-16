@@ -9,7 +9,7 @@
 @include('partials.flash')
 @if($ordersFull)
     <div class="fm-flash" role="status">
-        <div class="fm-note fm-note--fail"><div class="fm-note__body">{{ $ordersFull }} This month's are used up, so new orders, marketplace orders included, are not taken in until the 1st.</div></div>
+        <div class="fm-note fm-note--fail"><div class="fm-note__body">{{ $ordersFull }} This month's are used up, so new orders, channel orders included, are not taken in until the 1st.</div></div>
     </div>
 @endif
 <div class="x-list-head">
@@ -27,7 +27,7 @@
 </div>
 
 <form method="GET" action="{{ route('orders.index') }}" class="x-filters" id="orders-filter">
-    <x-ui.input type="search" name="q" value="{{ $q }}" placeholder="Order no, buyer, product or tracking" class="x-filters__search" />
+    <x-ui.input type="search" name="q" value="{{ $q }}" placeholder="Order no, customer, product or tracking" class="x-filters__search" />
     <div class="x-select-wrap x-filters__select">
         <select name="status" class="x-input" data-autosubmit>
             <option value="0">All statuses</option>
@@ -86,7 +86,7 @@
             </th>
             <th scope="col" class="x-col-date">
                 <a class="x-th-sort" href="{{ $sortUrl('date_added') }}">
-                    Date
+                    Created
                     @if($sort === 'date_added')<x-ui.icon name="{{ $dir === 'asc' ? 'chevron-up' : 'chevron-down' }}" size="12" />@endif
                 </a>
             </th>
@@ -116,7 +116,7 @@
             <td class="x-td-num x-col-total" data-label="Total">
                 <x-money :php="(float) $o->total" :foreign="$o->foreign_total" :foreign-code="$o->currency_code" />
             </td>
-            <td class="x-num x-cell-muted" data-label="Date">{{ \Illuminate\Support\Carbon::parse($o->date_added)->format('Y-m-d H:i') }}</td>
+            <td class="x-num x-cell-muted" data-label="Created">{{ \Illuminate\Support\Carbon::parse($o->date_added)->format('Y-m-d H:i') }}</td>
             <td class="x-td-actions">
                 <x-ui.menu label="Order {{ $o->order_id }} actions">
                     <a class="x-menu__item" href="{{ route('orders.show', $o->order_id) }}">View</a>

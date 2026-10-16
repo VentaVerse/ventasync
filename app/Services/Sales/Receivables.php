@@ -42,7 +42,7 @@ final class Receivables
             $like = '%' . str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $search) . '%';
             $query->where(function ($q) use ($search, $like) {
                 $q->where('o.order_id', ctype_digit($search) ? (int) $search : 0)
-                    ->orWhere('o.marketplace_order_id', 'like', $like)
+                    ->orWhere('o.channel_order_id', 'like', $like)
                     ->orWhere('o.firstname', 'like', $like)
                     ->orWhere('o.lastname', 'like', $like)
                     ->orWhereRaw("CONCAT(COALESCE(o.firstname,''), ' ', COALESCE(o.lastname,'')) LIKE ?", [$like]);
@@ -51,7 +51,7 @@ final class Receivables
 
         $orders = $query->orderBy('o.date_added')->orderBy('o.order_id')->get([
             'o.order_id', 'o.date_added', 'o.firstname', 'o.lastname', 'o.email', 'o.telephone',
-            'o.store_name', 'o.channel', 'o.marketplace_order_id', 'os.name as status', 'o.total',
+            'o.store_name', 'o.channel', 'o.channel_order_id', 'os.name as status', 'o.total',
             'pay.paid', 'pay.payments', 'pay.last_paid_at',
         ]);
 
@@ -69,7 +69,7 @@ final class Receivables
                     'customer' => trim(($o->firstname ?? '') . ' ' . ($o->lastname ?? '')),
                     'customer_key' => $this->ledger->identity($o),
                     'store' => $o->store_name ?: ($o->channel ?: 'Manual'),
-                    'marketplace_order_id' => $o->marketplace_order_id ?: null,
+                    'channel_order_id' => $o->channel_order_id ?: null,
                     'status' => $o->status,
                     'total' => $total,
                     'paid' => $paid,
@@ -131,7 +131,8 @@ final class Receivables
                     'amount' => round((float) $p->amount, 2),
                     'method' => $p->payment_method,
                     'reference' => $p->reference_no,
-                    'notes' => $p->notes,
+                    'note' => $p->note,
+                    'notes' => $p->note,
                 ])->all(),
         ];
     }
@@ -159,9 +160,9 @@ final class Receivables
         return $plan;
     }
 
-    public function record(array $orderIds, float $amount, string $method, string $date, ?string $reference, ?string $notes, string $reason): array
+    public function record(array $orderIds, float $amount, string $method, string $date, ?string $reference, ?string $note, string $reason): array
     {
-        return DB::transaction(function () use ($orderIds, $amount, $method, $date, $reference, $notes, $reason) {
+        return DB::transaction(function () use ($orderIds, $amount, $method, $date, $reference, $note, $reason) {
             Order::whereIn('order_id', $orderIds)->lockForUpdate()->get(['order_id']);
 
             $rows = $this->rows([], $orderIds);
@@ -184,7 +185,7 @@ final class Receivables
                     'payment_method' => $method,
                     'paid_at' => $date,
                     'reference_no' => $reference,
-                    'notes' => trim(implode(' ', array_filter([$notes, $shared]))) ?: null,
+                    'note' => trim(implode(' ', array_filter([$note, $shared]))) ?: null,
                     'created_by' => $actor->userId,
                     'created_at' => now(),
                 ]);

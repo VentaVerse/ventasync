@@ -33,7 +33,7 @@ final class AdjustStock
         }
 
         return $result + [
-            'note' => 'Saved on the catalog product. Marketplace stock changes on the next stock push or sync, not now. '
+            'note' => 'Saved on the catalog product. Store stock changes on the next stock push or sync, not now. '
                 . 'Stock that arrived on a purchase order should be received in Purchasing instead, so its unit cost is recorded.',
         ];
     }

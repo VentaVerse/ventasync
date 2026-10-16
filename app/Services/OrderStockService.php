@@ -120,7 +120,7 @@ class OrderStockService
         $variationValue = $variationValue?->fresh();
         $product = $product?->fresh();
 
-        if ($variationValue && (int) $variationValue->subtract) {
+        if ($variationValue && (int) $variationValue->subtract_stock) {
             $ovQtyBefore = (int) $variationValue->quantity;
             $variationValue->quantity = $variationValue->quantity + $delta;
             $variationValue->save();
@@ -142,7 +142,7 @@ class OrderStockService
                 note: "$orderLabel: {$type}ed {$amount} (variation)",
             );
 
-            self::syncWarehouseInventory(
+            self::syncWarehouseStock(
                 $defaultWarehouse,
                 (int) $variationValue->product_id,
                 (int) $variationValue->product_variation_value_id,
@@ -150,7 +150,7 @@ class OrderStockService
             );
         }
 
-        if ($product && (int) $product->subtract) {
+        if ($product && (int) $product->subtract_stock) {
             $pQtyBefore = (int) $product->quantity;
             $product->quantity = $product->quantity + $delta;
             $product->save();
@@ -167,7 +167,7 @@ class OrderStockService
             );
 
             if (! $variationValue) {
-                self::syncWarehouseInventory(
+                self::syncWarehouseStock(
                     $defaultWarehouse,
                     (int) $product->product_id,
                     0,
@@ -186,13 +186,13 @@ class OrderStockService
         return \Extensions\Warehousing\Services\WarehouseStockService::getDefaultWarehouse();
     }
 
-    private static function syncWarehouseInventory(?object $warehouse, int $productId, int $povId, int $delta): void
+    private static function syncWarehouseStock(?object $warehouse, int $productId, int $povId, int $delta): void
     {
         if (!$warehouse || $delta === 0) {
             return;
         }
 
-        $inv = \Extensions\Warehousing\Services\WarehouseStockService::getOrCreateInventory(
+        $inv = \Extensions\Warehousing\Services\WarehouseStockService::getOrCreateStock(
             $warehouse->id,
             $productId,
             $povId,
@@ -209,7 +209,7 @@ class OrderStockService
     {
         $product = null;
         $variationValue = null;
-        $sku = trim((string) $orderProduct->model);
+        $sku = trim((string) $orderProduct->sku);
 
         $orderVariation = $orderProduct->variations->first();
         if ($orderVariation && $orderVariation->product_variation_value_id > 0) {
@@ -239,8 +239,7 @@ class OrderStockService
             }
 
             if (!$product) {
-                $product = Product::where('sku', $sku)->first()
-                    ?? Product::where('model', $sku)->first();
+                $product = Product::where('sku', $sku)->first();
             }
         }
 

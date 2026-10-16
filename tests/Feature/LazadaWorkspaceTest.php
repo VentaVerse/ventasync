@@ -448,14 +448,14 @@ class LazadaWorkspaceTest extends TestCase
 
         $expected = [
             'Unpaid' => 'warning',
-            'To pack' => 'warning',
-            'To pack again' => 'warning',
-            'To arrange shipment' => 'warning',
-            'To hand over' => 'info',
+            'Pending' => 'warning',
+            'Repacked' => 'warning',
+            'Packed' => 'warning',
+            'Ready to ship' => 'info',
             'Shipped' => 'info',
             'Delivered' => 'success',
             'Canceled' => 'danger',
-            'Delivery failed' => 'danger',
+            'Failed delivery' => 'danger',
         ];
         ksort($expected);
 
@@ -480,7 +480,7 @@ class LazadaWorkspaceTest extends TestCase
         $this->seedLazadaOrders();
 
         $html = $this->actingAs($this->lazadaOrdersManager())
-            ->get('/channels/lazada/'.$this->lazadaStore->id.'/orders?tab=TO_SHIP&pending_sub=to_arrange&sort=created_asc&per_page=20&buyer_name=Fixture')
+            ->get('/channels/lazada/'.$this->lazadaStore->id.'/orders?tab=TO_SHIP&pending_sub=to_arrange&sort=created_asc&per_page=20&customer_name=Fixture')
             ->getContent();
 
         $this->assertSame(
@@ -489,7 +489,7 @@ class LazadaWorkspaceTest extends TestCase
             'The To Handover step link is missing from the sub-segment.'
         );
         $handoverLink = html_entity_decode($m[1]);
-        foreach (['tab=TO_SHIP', 'pending_sub=to_handover', 'buyer_name=Fixture', 'sort=created_asc', 'per_page=20'] as $param) {
+        foreach (['tab=TO_SHIP', 'pending_sub=to_handover', 'customer_name=Fixture', 'sort=created_asc', 'per_page=20'] as $param) {
             $this->assertStringContainsString($param, $handoverLink, 'Switching step dropped ' . $param);
         }
         $this->assertStringNotContainsString('page=', str_replace('per_page=', '', $handoverLink));

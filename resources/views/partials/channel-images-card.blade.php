@@ -9,7 +9,7 @@
             ? 'No pictures yet.'
             : 'The Master Catalog product has no images, so none go up.')
         : ''
-            . ($fetchesOverWeb ? ' ' . $storeName . ' fetches them from this ERP\'s address.' : '');
+            . ($fetchesOverWeb ? ' ' . $storeName . ' fetches them from VentaSync\'s address.' : '');
 
     $ownPaths = array_column($tiles, 'path');
     $catalogPaths = array_column($catalogTiles ?? [], 'path');

@@ -159,7 +159,7 @@ class ChannelController extends Controller
                 'store' => str_contains($tab->label, ': ') ? \Illuminate\Support\Str::after($tab->label, ': ') : null,
                 'accent' => $tab->accent,
                 'url' => in_array($tab->id, $inPlace, true)
-                    ? route('channels.fulfilment', array_filter([
+                    ? route('channels.fulfillment', array_filter([
                         'channel' => $tab->id,
                         'tab' => $tab->routeParams['tab'] ?? null,
                     ]))
@@ -478,8 +478,8 @@ class ChannelController extends Controller
         $tabs = $registry->visibleOrderTabs($user);
 
         if (empty($tabs)) {
-            return view('channels.fulfilment', [
-                'hasMarketplaces' => false,
+            return view('channels.fulfillment', [
+                'hasOrderTabs' => false,
                 'orderTabs' => [],
                 'selectedChannel' => null,
                 'selectedChannelLabel' => null,
@@ -502,7 +502,7 @@ class ChannelController extends Controller
         $summary = $this->buildSummary($tabs, $user, $registry, ! $renderingPanel);
 
         $data = [
-            'hasMarketplaces' => true,
+            'hasOrderTabs' => true,
             'orderTabs' => $tabs,
             'selectedChannel' => null,
             'selectedChannelBase' => null,
@@ -545,12 +545,12 @@ class ChannelController extends Controller
                     'selectedChannel' => $selectedTab->id,
                     'selectedChannelBase' => explode(':', $selectedTab->id, 2)[0],
                     'selectedChannelLabel' => $selectedTab->label,
-                    'panelBaseUrl' => route('channels.fulfilment'),
+                    'panelBaseUrl' => route('channels.fulfillment'),
                     'panelHiddenParams' => ['channel' => $selectedTab->id],
                 ]
             );
         }
 
-        return view('channels.fulfilment', $data);
+        return view('channels.fulfillment', $data);
     }
 }

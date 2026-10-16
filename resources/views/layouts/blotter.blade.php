@@ -4,8 +4,8 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}">
-    @if(\App\Support\Fulfilment\PackingCheck::enabled())
-        <meta name="packing-check" content="{{ url('/channels/fulfilment/packing-check') }}">
+    @if(\App\Support\Fulfillment\PackingCheck::enabled())
+        <meta name="packing-check" content="{{ url('/channels/fulfillment/packing-check') }}">
     @endif
     <title>@yield('title', config('app.name', 'VentaSync'))</title>
     @include('partials.theme-boot')

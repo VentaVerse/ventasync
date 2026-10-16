@@ -37,7 +37,7 @@ trait RunsSharedRules
         } catch (Throwable $e) {
             report($e);
 
-            return $this->audited($client, 500, Response::error('The ERP could not do that: ' . $e->getMessage()));
+            return $this->audited($client, 500, Response::error('VentaSync could not do that: ' . $e->getMessage()));
         }
 
         $data = (array) json_decode((string) json_encode($data), true);

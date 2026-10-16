@@ -2,7 +2,7 @@
 
 namespace App\Http\Middleware;
 
-use App\Support\Fulfilment\PackingCheck;
+use App\Support\Fulfillment\PackingCheck;
 use Closure;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -11,8 +11,8 @@ class RequirePackingCheck
 {
     public function handle(Request $request, Closure $next, string $channel): Response
     {
-        if ($channel === 'platform') {
-            $channel = (string) $request->route('platform');
+        if ($channel === 'channel') {
+            $channel = (string) $request->route('channel');
         }
 
         if (! PackingCheck::enabled() || $request->user() === null) {

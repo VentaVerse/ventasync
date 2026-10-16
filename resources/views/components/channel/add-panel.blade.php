@@ -4,7 +4,7 @@
     'addUrl',
     'title' => 'Add products',
     'sub',
-    'placeholder' => 'Name, model or SKU',
+    'placeholder' => 'Name or SKU',
     'searchLabel' => 'Search your Master Catalog',
     'toggleLabel',
     'inLabel',

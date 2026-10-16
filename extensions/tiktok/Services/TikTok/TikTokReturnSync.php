@@ -101,18 +101,18 @@ class TikTokReturnSync
             }
 
             $statusId = (int) ($returnMap[(string) ($ro['return_status'] ?? '')] ?? 0);
-            $catalogOrderId = $payload['order_id']
+            $salesOrderId = $payload['order_id']
                 ? (int) (DB::table('ch_tiktok_orders')->where('order_id', $payload['order_id'])
                     ->when(app()->bound('tiktok.route-store'), fn ($q) => $q->where('store_id', app('tiktok.route-store')->id))
-                    ->value('catalog_order_id') ?? 0)
+                    ->value('sales_order_id') ?? 0)
                 : 0;
-            if ($statusId > 0 && $catalogOrderId > 0) {
-                $catalogOrder = Order::find($catalogOrderId);
-                if ($catalogOrder && (int) $catalogOrder->order_status_id !== $statusId) {
-                    $catalogOrder->update(['order_status_id' => $statusId]);
+            if ($statusId > 0 && $salesOrderId > 0) {
+                $salesOrder = Order::find($salesOrderId);
+                if ($salesOrder && (int) $salesOrder->order_status_id !== $statusId) {
+                    $salesOrder->update(['order_status_id' => $statusId]);
                     OrderHistory::create([
-                        'order_id' => $catalogOrderId, 'order_status_id' => $statusId, 'notify' => 0,
-                        'comment' => 'TikTok return ' . $ro['return_id'] . ' (' . (string) ($ro['return_status'] ?? '') . ')',
+                        'order_id' => $salesOrderId, 'order_status_id' => $statusId, 'notify' => 0,
+                        'note' => 'TikTok return ' . $ro['return_id'] . ' (' . (string) ($ro['return_status'] ?? '') . ')',
                         'date_added' => now(), 'user_id' => null, 'user_name' => 'TikTok Sync',
                     ]);
                     $statused++;

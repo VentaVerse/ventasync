@@ -78,10 +78,10 @@ class ShopeeAddModelTest extends TestCase
         $langId = (int) config('catalog.default_language_id');
 
         $productId = DB::table('products')->insertGetId([
-            'model' => 'PK', 'sku' => 'PK', 'quantity' => 30, 'price' => 100,
+            'sku' => 'PK', 'quantity' => 30, 'price' => 100,
             'status' => 1, 'image' => 'catalog/x.png', 'weight' => 1, 'length' => 1, 'width' => 1, 'height' => 1,
             'brand_id' => 0,
-            'date_added' => now(), 'date_modified' => now(), 'date_available' => now(),
+            'date_added' => now(), 'date_modified' => now(),
         ]);
         DB::table('product_descriptions')->insert([
             'product_id' => $productId, 'language_id' => $langId,
@@ -108,7 +108,7 @@ class ShopeeAddModelTest extends TestCase
             $povId = (int) DB::table('product_variation_values')->insertGetId([
                 'product_variation_type_id' => $productVariationTypeId, 'product_id' => $productId,
                 'variation_type_id' => $variationTypeId, 'variation_value_id' => $valueId,
-                'sku' => $sku, 'quantity' => $qty, 'subtract' => 1,
+                'sku' => $sku, 'quantity' => $qty, 'subtract_stock' => 1,
                 'price' => 0, 'price_prefix' => '+', 'points' => 0, 'points_prefix' => '+',
                 'weight' => 0, 'weight_prefix' => '+',
                 'cost' => 0, 'cost_amount' => 0, 'cost_percentage' => 0, 'cost_additional' => 0,
@@ -219,10 +219,10 @@ class ShopeeAddModelTest extends TestCase
         $langId = (int) config('catalog.default_language_id');
 
         $productId = DB::table('products')->insertGetId([
-            'model' => 'VR', 'sku' => 'VR', 'quantity' => 30, 'price' => 100,
+            'sku' => 'VR', 'quantity' => 30, 'price' => 100,
             'status' => 1, 'image' => 'catalog/x.png', 'weight' => 1, 'length' => 1, 'width' => 1, 'height' => 1,
             'brand_id' => 0,
-            'date_added' => now(), 'date_modified' => now(), 'date_available' => now(),
+            'date_added' => now(), 'date_modified' => now(),
         ]);
         DB::table('product_descriptions')->insert([
             'product_id' => $productId, 'language_id' => $langId,
@@ -250,7 +250,7 @@ class ShopeeAddModelTest extends TestCase
                 $povIds[$variationTypeName][$valueName] = (int) DB::table('product_variation_values')->insertGetId([
                     'product_variation_type_id' => $productVariationTypeId, 'product_id' => $productId,
                     'variation_type_id' => $variationTypeId, 'variation_value_id' => $valueId,
-                    'sku' => '', 'quantity' => 5, 'subtract' => 1,
+                    'sku' => '', 'quantity' => 5, 'subtract_stock' => 1,
                     'price' => 0, 'price_prefix' => '+', 'points' => 0, 'points_prefix' => '+',
                     'weight' => 0, 'weight_prefix' => '+',
                     'cost' => 0, 'cost_amount' => 0, 'cost_percentage' => 0, 'cost_additional' => 0,

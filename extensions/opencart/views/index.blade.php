@@ -25,7 +25,7 @@
     ];
 
     $jsonFlags = JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE;
-    $erpStatusOptions = $erpOrderStatuses->map(fn ($s) => ['id' => (int) $s->order_status_id, 'name' => (string) $s->name])->values();
+    $salesOrderStatusOptions = $salesOrderStatuses->map(fn ($s) => ['id' => (int) $s->order_status_id, 'name' => (string) $s->name])->values();
 @endphp
 
 @php
@@ -42,10 +42,10 @@
      data-test-url="{{ $canManageOpencart ? route('ext.opencart.test') : '' }}"
      data-fetch-statuses-url="{{ $canManageOpencart ? route('ext.opencart.fetch_oc_statuses') : '' }}"
      data-save-map-url="{{ $canManageOpencart ? route('ext.opencart.save_status_map') : '' }}"
-     data-map-id-field="oc_status_id"
-     data-map-name-field="oc_status_name"
+     data-map-id-field="opencart_status_id"
+     data-map-name-field="opencart_status_name"
      data-map-server-id="order_status_id"
-     data-map-server-key="erp_order_status_id"
+     data-map-server-key="sales_order_status_id"
      data-map-name-match
      data-sync-url="{{ $canManageOpencart ? route('ext.opencart.sync') : '' }}"
      data-push-url="{{ $canManageOpencart ? route('ext.opencart.push') : '' }}"
@@ -91,7 +91,7 @@
 
                 <div class="fm-fields">
                     <x-ui.field label="Store name" for="oc-store-name" name="store_name" wide
-                                hint="What this store is called in the ERP. It is never sent to the store itself.">
+                                hint="What this store is called in VentaSync. It is never sent to the store itself.">
                         <x-ui.input id="oc-store-name" name="store_name" value="{{ $store->store_name }}"
                                     placeholder="e.g. Main store" :disabled="!$canManageOpencart" />
                     </x-ui.field>
@@ -163,7 +163,7 @@
             @if($canManageOpencart)
             <div class="cs-danger">
                 <div>
-                    <span class="cs-danger__title">Remove this store <x-ui.hint label="What removal does">Everything this store holds in the ERP goes with it: product links, product groups, the status map and the sync log. Sales already imported stay under its name. Nothing on the OpenCart store is touched. There is no undo.</x-ui.hint></span>
+                    <span class="cs-danger__title">Remove this store <x-ui.hint label="What removal does">Everything this store holds in VentaSync goes with it: product links, product groups, the status map and the sync log. Sales already imported stay under its name. Nothing on the OpenCart store is touched. There is no undo.</x-ui.hint></span>
                 </div>
                 <x-ui.button type="button" variant="danger" size="sm" data-delete-open>Delete this store</x-ui.button>
             </div>
@@ -292,7 +292,7 @@
             </div>
             @endif
         </div>
-        <p class="fm-section__note">When an order is pulled from {{ $storeName }}, its OpenCart status becomes the sales order status chosen here. Fetching asks the store what statuses it has; anything already mapped keeps its mapping, and a status whose name matches an ERP status exactly is proposed for you.</p>
+        <p class="fm-section__note">When an order is pulled from {{ $storeName }}, its OpenCart status becomes the sales order status chosen here. Fetching asks the store what statuses it has; anything already mapped keeps its mapping, and a status whose name matches a VentaSync status exactly is proposed for you.</p>
 
         <div data-status-map>
             @if($statusMap->isEmpty())
@@ -311,18 +311,18 @@
                     @foreach($statusMap as $map)
                         <tr>
                             <td class="cs-col-src" data-label="OpenCart status">
-                                <span class="cs-map-name">{{ $map->oc_status_name }}</span>
+                                <span class="cs-map-name">{{ $map->opencart_status_name }}</span>
                             </td>
                             <td data-label="Sales order status">
                                 <div class="x-select-wrap cs-map-select">
                                     <select class="x-input" data-map-select
-                                            data-map-id="{{ $map->oc_status_id }}"
-                                            data-map-name="{{ $map->oc_status_name }}"
-                                            aria-label="Sales order status for {{ $map->oc_status_name }}"
+                                            data-map-id="{{ $map->opencart_status_id }}"
+                                            data-map-name="{{ $map->opencart_status_name }}"
+                                            aria-label="Sales order status for {{ $map->opencart_status_name }}"
                                             @disabled(!$canManageOpencart)>
                                         <option value="0">Leave the raw OpenCart status</option>
-                                        @foreach($erpOrderStatuses as $erp)
-                                            <option value="{{ $erp->order_status_id }}" @selected((int) $map->order_status_id === (int) $erp->order_status_id)>{{ $erp->name }}</option>
+                                        @foreach($salesOrderStatuses as $salesStatus)
+                                            <option value="{{ $salesStatus->order_status_id }}" @selected((int) $map->order_status_id === (int) $salesStatus->order_status_id)>{{ $salesStatus->name }}</option>
                                         @endforeach
                                     </select>
                                     <x-ui.icon name="chevron-down" size="14" class="x-select-wrap__chevron" />
@@ -340,7 +340,7 @@
         </div>
         @endif
 
-        <script type="application/json" data-erp-statuses>{!! json_encode($erpStatusOptions, $jsonFlags) !!}</script>
+        <script type="application/json" data-sales-order-statuses>{!! json_encode($salesOrderStatusOptions, $jsonFlags) !!}</script>
     </section>
 </div>
 
@@ -361,7 +361,7 @@
         <div class="fm-section__head">
             <h2 class="fm-section__title">Import everything, once</h2>
         </div>
-        <p class="fm-section__note">A full import ignores the date window and pulls the store's whole history. It is for a new connection only. On an ERP that already holds this store's data it will overwrite what is here, so it stays locked until you confirm it is you.</p>
+        <p class="fm-section__note">A full import ignores the date window and pulls the store's whole history. It is for a new connection only. If VentaSync already holds this store's data, it will overwrite what is here, so it stays locked until you confirm it is you.</p>
 
         <div class="cs-lock" data-import-lock>
             <div class="cs-lock__row">

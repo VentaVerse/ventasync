@@ -10,8 +10,8 @@ class OpenCartOrderStatusMap extends Model
 
     protected $fillable = [
         'store_id',
-        'oc_status_id',
-        'oc_status_name',
+        'opencart_status_id',
+        'opencart_status_name',
         'order_status_id',
     ];
 

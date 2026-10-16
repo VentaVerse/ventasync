@@ -27,7 +27,7 @@ class LazadaLinkCheck
         $limit = 200;
         $skippedForSize = max(0, count($productIds) - $limit);
         $productIds = array_slice($productIds, 0, $limit);
-        $skusByProduct = $this->erpSkusByProduct( $productIds);
+        $skusByProduct = $this->catalogSkusByProduct($productIds);
         $allSkus = array_values(array_unique(array_merge(...array_values($skusByProduct ?: [[]]))));
         try {
             $found = $this->live->itemsBySkus($store, $creds, $allSkus);
@@ -44,7 +44,7 @@ class LazadaLinkCheck
         }
         $pivotsByProduct = $pivotQuery->get()->groupBy('product_id');
 
-        $verdicts = ['confirmed' => 0, 'linked' => 0, 'lost' => 0, 'taken' => 0, 'not_on_lazada' => 0];
+        $verdicts = ['confirmed' => 0, 'linked' => 0, 'lost' => 0, 'taken' => 0, 'not_on_lazada' => 0, 'unsure' => 0];
         $problems = [];
         $states = LazadaListingStates::on($store);
 
@@ -88,6 +88,26 @@ class LazadaLinkCheck
                     $this->markPushed($pivots);
                     $verdicts['linked']++;
                 } else {
+                    // The SKU search once answered "none" for live listings, so a miss alone never drops a link:
+                    // Lazada must also say the listing number itself does not exist.
+                    $byNumber = $this->live->itemOnLazada($store, $creds, (string) $listing->lazada_item_id);
+                    \Illuminate\Support\Facades\Log::warning('Lazada link check: the SKU search did not find a linked listing', [
+                        'product_id' => (int) $productId,
+                        'item_id' => (string) $listing->lazada_item_id,
+                        'searched_skus' => $skusByProduct[$productId] ?? [],
+                        'skus_found_in_this_run' => count($found),
+                        'asked_by_number' => $byNumber,
+                        'searched_again' => $this->searchAgain($store, $creds, $skusByProduct[$productId] ?? []),
+                    ]);
+                    if ($byNumber['answer'] !== 'no') {
+                        if ($byNumber['answer'] === 'yes') {
+                            $listing->forceFill(($byNumber['status'] ? ['live_status' => $byNumber['status'], 'live_checked_at' => now()] : []) + $this->checkedStamp($listing))->save();
+                            $verdicts['confirmed']++;
+                        } else {
+                            $verdicts['unsure']++;
+                        }
+                        continue;
+                    }
                     \App\Channels\Listings\DroppedLink::write(
                         'Lazada', 'Lazada Product', (int) $productId, (string) $listing->lazada_item_id,
                         (int) $store->id, $skusByProduct[$productId] ?? [], count($found)
@@ -131,11 +151,22 @@ class LazadaLinkCheck
         if ($verdicts['lost']) $parts[] = "{$verdicts['lost']} no longer on Lazada";
         if ($verdicts['taken']) $parts[] = "{$verdicts['taken']} on an item another product holds";
         if ($verdicts['not_on_lazada']) $parts[] = "{$verdicts['not_on_lazada']} not on Lazada";
+        if ($verdicts['unsure']) $parts[] = "{$verdicts['unsure']} left alone because Lazada did not answer for the listing";
         $summary = 'Checked ' . count($productIds) . ' against Lazada: ' . (implode(', ', $parts) ?: 'nothing to report') . '.';
         if ($skippedForSize > 0) $summary .= " {$skippedForSize} more were not checked (200 at a time).";
         if ($problems) $summary .= ' ' . implode('; ', array_slice($problems, 0, 5)) . '.';
 
         return ['tone' => ($verdicts['lost'] + $verdicts['taken']) > 0 ? 'error' : 'status', 'summary' => $summary];
+    }
+
+    /** The same SKU search for this product alone, kept with a miss as evidence of what Lazada answered. */
+    private function searchAgain(object $store, array $creds, array $skus): array
+    {
+        try {
+            return array_values(array_unique(array_column($this->live->itemsBySkus($store, $creds, $skus), 'item_id')));
+        } catch (\RuntimeException $e) {
+            return ['error' => $e->getMessage()];
+        }
     }
 
     private function checkedStamp(LazadaListing $listing): array
@@ -165,11 +196,11 @@ class LazadaLinkCheck
         return $holder !== null ? (int) $holder : null;
     }
 
-    private function erpSkusByProduct( array $productIds): array
+    public function catalogSkusByProduct(array $productIds): array
     {
         $out = [];
-        foreach (DB::table('products')->whereIn('product_id', $productIds)->get(['product_id', 'sku', 'model']) as $p) {
-            foreach ([$p->sku, $p->model] as $v) {
+        foreach (DB::table('products')->whereIn('product_id', $productIds)->get(['product_id', 'sku']) as $p) {
+            foreach ([$p->sku] as $v) {
                 if (trim((string) $v) !== '') {
                     $out[(int) $p->product_id][] = trim((string) $v);
                 }

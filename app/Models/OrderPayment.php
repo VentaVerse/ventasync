@@ -15,7 +15,7 @@ class OrderPayment extends Model
         'payment_method',
         'paid_at',
         'reference_no',
-        'notes',
+        'note',
         'created_by',
         'created_at',
     ];

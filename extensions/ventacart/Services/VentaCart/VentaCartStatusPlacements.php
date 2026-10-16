@@ -2,7 +2,7 @@
 
 namespace Extensions\VentaCart\Services\VentaCart;
 
-use App\Support\FulfilmentSteps;
+use App\Support\FulfillmentSteps;
 use Extensions\VentaCart\Models\VentaCartStore;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -69,7 +69,7 @@ class VentaCartStatusPlacements
         $key = self::key($statusName);
         $placed = self::map($storeId)[$key] ?? null;
 
-        return $placed ?? FulfilmentSteps::stepFor('ventacart.orders', $statusName);
+        return $placed ?? FulfillmentSteps::stepFor('ventacart.orders', $statusName);
     }
 
     public static function resolver(int $storeId): \Closure

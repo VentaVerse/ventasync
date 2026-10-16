@@ -8,7 +8,7 @@ use Extensions\VentaCart\Models\VentaCartOrder;
 use Extensions\VentaCart\Models\VentaCartOrderProduct;
 use Extensions\VentaCart\Models\VentaCartStore;
 use Extensions\VentaCart\Services\VentaCart\VentaCartClient;
-use Extensions\VentaCart\Services\VentaCart\VentaCartFulfilment;
+use Extensions\VentaCart\Services\VentaCart\VentaCartFulfillment;
 use Extensions\VentaCart\Services\VentaCart\VentaCartOrderSync;
 use Extensions\VentaCart\Services\VentaCartOrdersPanel;
 use Illuminate\Http\Request;
@@ -21,7 +21,7 @@ class VentaCartOrderController extends Controller
     {
         [$setting, $ventaCartOrder] = $this->storeAndOrder($store, $order);
 
-        return response()->json(VentaCartFulfilment::for($setting)->serviceability($ventaCartOrder));
+        return response()->json(VentaCartFulfillment::for($setting)->serviceability($ventaCartOrder));
     }
 
     public function pickupSlots(Request $request, int $store, int $order)
@@ -29,21 +29,21 @@ class VentaCartOrderController extends Controller
         [$setting, $ventaCartOrder] = $this->storeAndOrder($store, $order);
         $courier = trim((string) $request->query('courier', ''));
 
-        return response()->json(VentaCartFulfilment::for($setting)->pickupSlots($ventaCartOrder, $courier !== '' ? $courier : null));
+        return response()->json(VentaCartFulfillment::for($setting)->pickupSlots($ventaCartOrder, $courier !== '' ? $courier : null));
     }
 
     public function estimate(Request $request, int $store, int $order)
     {
         [$setting, $ventaCartOrder] = $this->storeAndOrder($store, $order);
 
-        return response()->json(VentaCartFulfilment::for($setting)->estimate($ventaCartOrder, $this->bookingOptions($request)));
+        return response()->json(VentaCartFulfillment::for($setting)->estimate($ventaCartOrder, $this->bookingOptions($request)));
     }
 
     public function book(Request $request, int $store, int $order)
     {
         [$setting, $ventaCartOrder] = $this->storeAndOrder($store, $order);
 
-        $result = VentaCartFulfilment::for($setting)->book($ventaCartOrder, $this->bookingOptions($request));
+        $result = VentaCartFulfillment::for($setting)->book($ventaCartOrder, $this->bookingOptions($request));
 
         if (! $result['ok']) {
             return response()->json(['ok' => false, 'message' => $result['message']], 422);
@@ -65,14 +65,14 @@ class VentaCartOrderController extends Controller
     {
         $setting = VentaCartStore::where('id', $store)->where('enabled', true)->firstOrFail();
 
-        return response()->json(VentaCartFulfilment::for($setting)->pickupAddresses());
+        return response()->json(VentaCartFulfillment::for($setting)->pickupAddresses());
     }
 
     public function shippingCouriers(int $store)
     {
         $setting = VentaCartStore::where('id', $store)->where('enabled', true)->firstOrFail();
 
-        return response()->json(VentaCartFulfilment::for($setting)->shippingCouriers());
+        return response()->json(VentaCartFulfillment::for($setting)->shippingCouriers());
     }
 
     public function bookManual(Request $request, int $store, int $order)
@@ -86,7 +86,7 @@ class VentaCartOrderController extends Controller
             'comment'             => ['nullable', 'string', 'max:500'],
         ]);
 
-        $result = VentaCartFulfilment::for($setting)->bookManual($ventaCartOrder, $data);
+        $result = VentaCartFulfillment::for($setting)->bookManual($ventaCartOrder, $data);
 
         if (! $result['ok']) {
             return response()->json(['ok' => false, 'message' => $result['message']], 422);
@@ -106,7 +106,7 @@ class VentaCartOrderController extends Controller
     {
         [$setting, $ventaCartOrder] = $this->storeAndOrder($store, $order);
 
-        $result = VentaCartFulfilment::for($setting)->clearManual($ventaCartOrder);
+        $result = VentaCartFulfillment::for($setting)->clearManual($ventaCartOrder);
 
         return back()->with($result['ok'] ? 'status' : 'error', $result['message']);
     }
@@ -115,7 +115,7 @@ class VentaCartOrderController extends Controller
     {
         [$setting, $ventaCartOrder] = $this->storeAndOrder($store, $order);
 
-        $result = VentaCartFulfilment::for($setting)->cancel($ventaCartOrder);
+        $result = VentaCartFulfillment::for($setting)->cancel($ventaCartOrder);
 
         return back()->with($result['ok'] ? 'status' : 'error', $result['message']);
     }
@@ -124,15 +124,15 @@ class VentaCartOrderController extends Controller
     {
         [$setting, $ventaCartOrder] = $this->storeAndOrder($store, $order);
 
-        return response()->json(VentaCartFulfilment::for($setting)->tracking($ventaCartOrder));
+        return response()->json(VentaCartFulfillment::for($setting)->tracking($ventaCartOrder));
     }
 
     public function awb(Request $request, int $store, int $order)
     {
         [$setting, $ventaCartOrder] = $this->storeAndOrder($store, $order);
-        $fulfilment = VentaCartFulfilment::for($setting);
+        $fulfillment = VentaCartFulfillment::for($setting);
 
-        $result = $fulfilment->label($ventaCartOrder, $request->boolean('refresh'));
+        $result = $fulfillment->label($ventaCartOrder, $request->boolean('refresh'));
 
         if ($request->expectsJson()) {
             return response()->json(['ok' => $result['ok'], 'ready' => $result['ok'], 'message' => $result['message']], $result['ok'] ? 200 : 422);
@@ -150,7 +150,7 @@ class VentaCartOrderController extends Controller
 
     private function bookingOptions(Request $request): array
     {
-        $data = $request->validate(VentaCartFulfilment::BOOKING_RULES);
+        $data = $request->validate(VentaCartFulfillment::BOOKING_RULES);
 
         return array_filter($data, fn ($v) => $v !== null && $v !== '');
     }

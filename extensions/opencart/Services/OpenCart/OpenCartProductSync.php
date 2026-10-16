@@ -54,11 +54,11 @@ class OpenCartProductSync
         if (empty($this->categoryMap)) {
             $result = $this->client->getCategories();
             if ($result['ok']) {
-                $ocCategories = $result['body']['data'] ?? [];
-                foreach ($ocCategories as $cat) {
-                    $ocId = (int) ($cat['category_id'] ?? 0);
+                $openCartCategories = $result['body']['data'] ?? [];
+                foreach ($openCartCategories as $cat) {
+                    $openCartId = (int) ($cat['category_id'] ?? 0);
                     $name = trim($cat['name'] ?? '');
-                    if ($ocId <= 0 || $name === '') continue;
+                    if ($openCartId <= 0 || $name === '') continue;
 
                     $local = DB::table('category_descriptions')
                         ->where('language_id', $langId)
@@ -66,7 +66,7 @@ class OpenCartProductSync
                         ->value('category_id');
 
                     if ($local) {
-                        $this->categoryMap[$ocId] = (int) $local;
+                        $this->categoryMap[$openCartId] = (int) $local;
                     }
                 }
             }
@@ -75,18 +75,18 @@ class OpenCartProductSync
         if (empty($this->brandMap)) {
             $result = $this->client->getBrands();
             if ($result['ok']) {
-                $ocMfgs = $result['body']['data'] ?? [];
-                foreach ($ocMfgs as $mfg) {
-                    $ocId = (int) ($mfg['manufacturer_id'] ?? 0);
+                $openCartMfgs = $result['body']['data'] ?? [];
+                foreach ($openCartMfgs as $mfg) {
+                    $openCartId = (int) ($mfg['manufacturer_id'] ?? 0);
                     $name = trim($mfg['name'] ?? '');
-                    if ($ocId <= 0 || $name === '') continue;
+                    if ($openCartId <= 0 || $name === '') continue;
 
                     $local = DB::table('brands')
                         ->where('name', $name)
                         ->value('brand_id');
 
                     if ($local) {
-                        $this->brandMap[$ocId] = (int) $local;
+                        $this->brandMap[$openCartId] = (int) $local;
                     }
                 }
             }
@@ -95,11 +95,11 @@ class OpenCartProductSync
         if (empty($this->variationTypeMap)) {
             $result = $this->client->getOptions();
             if ($result['ok']) {
-                $ocOptions = $result['body']['data'] ?? [];
-                foreach ($ocOptions as $opt) {
-                    $ocOptionId = (int) ($opt['option_id'] ?? 0);
+                $openCartOptions = $result['body']['data'] ?? [];
+                foreach ($openCartOptions as $opt) {
+                    $openCartOptionId = (int) ($opt['option_id'] ?? 0);
                     $name = trim($opt['name'] ?? '');
-                    if ($ocOptionId <= 0 || $name === '') continue;
+                    if ($openCartOptionId <= 0 || $name === '') continue;
 
                     $local = DB::table('variation_types AS o')
                         ->join('variation_type_descriptions AS od', function ($join) use ($langId) {
@@ -110,13 +110,13 @@ class OpenCartProductSync
                         ->value('o.variation_type_id');
 
                     if ($local) {
-                        $this->variationTypeMap[$ocOptionId] = (int) $local;
+                        $this->variationTypeMap[$openCartOptionId] = (int) $local;
 
                         $values = $opt['values'] ?? [];
                         foreach ($values as $val) {
-                            $ocValueId = (int) ($val['option_value_id'] ?? 0);
+                            $openCartValueId = (int) ($val['option_value_id'] ?? 0);
                             $valName = trim($val['name'] ?? '');
-                            if ($ocValueId <= 0 || $valName === '') continue;
+                            if ($openCartValueId <= 0 || $valName === '') continue;
 
                             $localVal = DB::table('variation_values AS ov')
                                 ->join('variation_value_descriptions AS ovd', function ($join) use ($langId) {
@@ -128,7 +128,7 @@ class OpenCartProductSync
                                 ->value('ov.variation_value_id');
 
                             if ($localVal) {
-                                $this->variationValueMap[$ocValueId] = (int) $localVal;
+                                $this->variationValueMap[$openCartValueId] = (int) $localVal;
                             }
                         }
                     }
@@ -270,7 +270,7 @@ class OpenCartProductSync
                     ->first();
 
                 $link = $links->get($pid);
-                $ocPid = (int) $link->oc_product_id;
+                $openCartPid = (int) $link->opencart_product_id;
 
                 $mfgName = '';
                 if ((int) $product->brand_id > 0) {
@@ -281,7 +281,7 @@ class OpenCartProductSync
                 }
 
                 $productData = [
-                    'product_id'        => $ocPid,
+                    'product_id'        => $openCartPid,
                     'quantity'          => (int) $product->quantity,
                     'price'             => (string) $product->price,
                     'cost'              => (string) ($product->cost ?? 0),
@@ -292,7 +292,7 @@ class OpenCartProductSync
                     'name'              => $desc->name ?? '',
                     'description'       => $desc->description ?? '',
                     'sku'               => $product->sku ?? '',
-                    'model'             => $product->model ?? '',
+                    'model'             => $product->sku ?? '',
                     'weight'            => (string) $product->weight,
                     'image'             => $product->image ?? '',
                     'manufacturer_name' => $mfgName,
@@ -334,7 +334,7 @@ class OpenCartProductSync
                 }
 
                 $products[] = $productData;
-                $chunkMap[$ocPid] = $pid;
+                $chunkMap[$openCartPid] = $pid;
             }
 
             if (!empty($products)) {
@@ -353,9 +353,9 @@ class OpenCartProductSync
                             if (!empty($r['success'])) {
                                 $updated++;
                             } else {
-                                $ocPid = (int) ($r['product_id'] ?? 0);
-                                if ($ocPid > 0 && isset($chunkMap[$ocPid])) {
-                                    $staleLinks[] = $chunkMap[$ocPid];
+                                $openCartPid = (int) ($r['product_id'] ?? 0);
+                                if ($openCartPid > 0 && isset($chunkMap[$openCartPid])) {
+                                    $staleLinks[] = $chunkMap[$openCartPid];
                                 } else {
                                     $failed++;
                                 }
@@ -394,13 +394,13 @@ class OpenCartProductSync
                 $resp = $this->client->createProduct($payload);
 
                 if (!empty($resp['ok']) && !empty($resp['body']['success'])) {
-                    $ocProductId = (int) ($resp['body']['data']['product_id'] ?? 0);
+                    $openCartProductId = (int) ($resp['body']['data']['product_id'] ?? 0);
 
-                    if ($ocProductId > 0) {
+                    if ($openCartProductId > 0) {
                         OpenCartListingLink::updateOrCreate(
                             [
                                 'store_id' => $this->store->id,
-                                'oc_product_id'       => $ocProductId,
+                                'opencart_product_id'       => $openCartProductId,
                             ],
                             [
                                 'product_id' => $pid,
@@ -440,7 +440,7 @@ class OpenCartProductSync
 
         $payload = [
             'sku'              => $product->sku ?? '',
-            'model'            => $product->model ?? '',
+            'model'            => $product->sku ?? '',
             'price'            => (float) $product->price,
             'cost'             => (float) ($product->cost ?? 0),
             'cost_amount'      => (float) ($product->cost_amount ?? 0),
@@ -449,19 +449,11 @@ class OpenCartProductSync
             'quantity'         => (int) $product->quantity,
             'status'           => (int) $product->status,
             'weight'           => (float) $product->weight,
-            'weight_class_id'  => (int) $product->weight_class_id,
             'length'           => (float) $product->length,
             'width'            => (float) $product->width,
             'height'           => (float) $product->height,
-            'length_class_id'  => (int) $product->length_class_id,
             'image'            => $product->image ?? '',
-            'shipping'         => (int) $product->shipping,
-            'subtract'         => (int) $product->subtract,
-            'minimum'          => (int) $product->minimum,
-            'sort_order'       => (int) $product->sort_order,
-            'stock_status_id'  => (int) $product->stock_status_id,
-            'tax_class_id'     => (int) $product->tax_class_id,
-            'date_available'   => $product->date_available ?? date('Y-m-d'),
+            'subtract'         => (int) $product->subtract_stock,
             'name'             => $desc->name ?? '',
             'description'      => $desc->description ?? '',
             'meta_title'       => $desc->meta_title ?? '',
@@ -572,7 +564,7 @@ class OpenCartProductSync
                 })
                 ->where('pov.product_variation_type_id', (int) $po->product_variation_type_id)
                 ->select(
-                    'ovd.name', 'pov.sku', 'pov.quantity', 'pov.subtract',
+                    'ovd.name', 'pov.sku', 'pov.quantity', 'pov.subtract_stock',
                     'pov.absolute_price', 'pov.absolute_cost',
                     'pov.weight', 'pov.weight_prefix',
                     'pov.points', 'pov.points_prefix'
@@ -593,7 +585,7 @@ class OpenCartProductSync
                         'name'            => $v->name,
                         'sku'             => $v->sku ?? '',
                         'quantity'        => (int) $v->quantity,
-                        'subtract'        => (int) $v->subtract,
+                        'subtract'        => (int) $v->subtract_stock,
                         'price'           => abs($priceDelta),
                         'price_prefix'    => $priceDelta >= 0 ? '+' : '-',
                         'weight'          => (float) $v->weight,
@@ -643,47 +635,35 @@ class OpenCartProductSync
     private function upsertProduct(array $raw): bool
     {
         $langId = (int) config('catalog.default_language_id');
-        $ocProductId = (int) ($raw['product_id'] ?? 0);
+        $openCartProductId = (int) ($raw['product_id'] ?? 0);
         $sku = trim($raw['sku'] ?? '');
         $created = false;
         $coreProductId = null;
         $linkedToOtherStore = false;
 
-        $ocMfgId = (int) ($raw['manufacturer_id'] ?? 0);
-        $coreMfgId = ($ocMfgId > 0 && isset($this->brandMap[$ocMfgId]))
-            ? $this->brandMap[$ocMfgId]
+        $openCartMfgId = (int) ($raw['manufacturer_id'] ?? 0);
+        $coreMfgId = ($openCartMfgId > 0 && isset($this->brandMap[$openCartMfgId]))
+            ? $this->brandMap[$openCartMfgId]
             : 0;
 
-        DB::transaction(function () use ($raw, $langId, $sku, $ocProductId, $coreMfgId, &$created, &$coreProductId, &$linkedToOtherStore) {
+        DB::transaction(function () use ($raw, $langId, $sku, $openCartProductId, $coreMfgId, &$created, &$coreProductId, &$linkedToOtherStore) {
             $data = [
-                'model'           => $raw['model'] ?? '',
                 'sku'             => $sku,
                 'upc'             => $raw['upc'] ?? '',
                 'ean'             => $raw['ean'] ?? '',
                 'jan'             => $raw['jan'] ?? '',
                 'isbn'            => $raw['isbn'] ?? '',
                 'mpn'             => $raw['mpn'] ?? '',
-                'location'        => $raw['location'] ?? '',
                 'quantity'        => (int) ($raw['quantity'] ?? 0),
-                'stock_status_id' => (int) ($raw['stock_status_id'] ?? 0),
                 'image'           => $raw['image'] ?? '',
                 'brand_id' => $coreMfgId,
-                'shipping'        => (int) ($raw['shipping'] ?? 1),
                 'price'           => $raw['price'] ?? 0,
-                'points'          => (int) ($raw['points'] ?? 0),
-                'tax_class_id'    => (int) ($raw['tax_class_id'] ?? 0),
-                'date_available'  => (isset($raw['date_available']) && $raw['date_available'] !== '0000-00-00') ? $raw['date_available'] : '1970-01-01',
                 'weight'          => $raw['weight'] ?? 0,
-                'weight_class_id' => (int) ($raw['weight_class_id'] ?? 0),
                 'length'          => $raw['length'] ?? 0,
                 'width'           => $raw['width'] ?? 0,
                 'height'          => $raw['height'] ?? 0,
-                'length_class_id' => (int) ($raw['length_class_id'] ?? 0),
                 'status'          => (int) ($raw['status'] ?? 0),
-                'subtract'        => (int) ($raw['subtract'] ?? 1),
-                'minimum'         => (int) ($raw['minimum'] ?? 1),
-                'sort_order'      => (int) ($raw['sort_order'] ?? 0),
-                'viewed'          => (int) ($raw['viewed'] ?? 0),
+                'subtract_stock'  => (int) ($raw['subtract'] ?? 1),
                 'date_modified'   => (isset($raw['date_modified']) && $raw['date_modified'] !== '0000-00-00 00:00:00') ? $raw['date_modified'] : now()->toDateTimeString(),
             ];
 
@@ -696,7 +676,7 @@ class OpenCartProductSync
             }
             if (!$existing) {
                 $link = OpenCartListingLink::where('store_id', $this->store->id)
-                    ->where('oc_product_id', $ocProductId)
+                    ->where('opencart_product_id', $openCartProductId)
                     ->first();
                 if ($link) {
                     $existing = DB::table('products')
@@ -733,7 +713,7 @@ class OpenCartProductSync
         OpenCartListingLink::updateOrCreate(
             [
                 'store_id' => $this->store->id,
-                'oc_product_id'       => $ocProductId,
+                'opencart_product_id'       => $openCartProductId,
             ],
             [
                 'product_id' => $coreProductId,
@@ -766,8 +746,8 @@ class OpenCartProductSync
                 ->where('product_id', $coreProductId)
                 ->delete();
 
-            foreach ($raw['categories'] as $ocCatId) {
-                $coreCatId = $this->categoryMap[(int) $ocCatId] ?? null;
+            foreach ($raw['categories'] as $openCartCatId) {
+                $coreCatId = $this->categoryMap[(int) $openCartCatId] ?? null;
                 if ($coreCatId === null) continue;
 
                 DB::table('product_categories')->insert([
@@ -785,8 +765,8 @@ class OpenCartProductSync
                 ->delete();
 
             foreach ($raw['options'] as $po) {
-                $ocOptionId = (int) ($po['option_id'] ?? 0);
-                $coreVariationTypeId = $this->variationTypeMap[$ocOptionId] ?? null;
+                $openCartOptionId = (int) ($po['option_id'] ?? 0);
+                $coreVariationTypeId = $this->variationTypeMap[$openCartOptionId] ?? null;
                 if ($coreVariationTypeId === null) continue;
 
                 DB::table('product_variation_types')->insert([
@@ -815,11 +795,11 @@ class OpenCartProductSync
             }
 
             foreach ($raw['option_values'] as $ov) {
-                $ocOptionId = (int) ($ov['option_id'] ?? 0);
-                $ocValueId = (int) ($ov['option_value_id'] ?? 0);
+                $openCartOptionId = (int) ($ov['option_id'] ?? 0);
+                $openCartValueId = (int) ($ov['option_value_id'] ?? 0);
 
-                $coreVariationTypeId = $this->variationTypeMap[$ocOptionId] ?? null;
-                $coreValueId = $this->variationValueMap[$ocValueId] ?? null;
+                $coreVariationTypeId = $this->variationTypeMap[$openCartOptionId] ?? null;
+                $coreValueId = $this->variationValueMap[$openCartValueId] ?? null;
 
                 if ($coreVariationTypeId === null || $coreValueId === null) continue;
 
@@ -837,7 +817,7 @@ class OpenCartProductSync
                     'variation_value_id'   => $coreValueId,
                     'sku'               => $ov['sku'] ?? '',
                     'quantity'          => (int) ($ov['quantity'] ?? 0),
-                    'subtract'          => (int) ($ov['subtract'] ?? 1),
+                    'subtract_stock'    => (int) ($ov['subtract'] ?? 1),
                     'price'             => $ov['price'] ?? 0,
                     'price_prefix'      => $ov['price_prefix'] ?? '+',
                     'absolute_price'    => $absolutePrice,
@@ -946,7 +926,7 @@ class OpenCartProductSync
                     }
 
                     $payload = [
-                        'product_id' => (int) $link->oc_product_id,
+                        'product_id' => (int) $link->opencart_product_id,
                         'quantity'   => (int) $localQty[$pid],
                     ];
 
@@ -1071,7 +1051,7 @@ class OpenCartProductSync
                     }
                     $basePrice = (float) $localPrice[$pid];
                     $payload = [
-                        'product_id' => (int) $link->oc_product_id,
+                        'product_id' => (int) $link->opencart_product_id,
                         'price'      => number_format($basePrice, 4, '.', ''),
                     ];
 
@@ -1158,7 +1138,7 @@ class OpenCartProductSync
             $errors = [];
 
             $linkMap = OpenCartListingLink::where('store_id', $this->store->id)
-                ->pluck('product_id', 'oc_product_id')
+                ->pluck('product_id', 'opencart_product_id')
                 ->toArray();
 
             do {
@@ -1173,8 +1153,8 @@ class OpenCartProductSync
 
                 foreach ($products as $raw) {
                     try {
-                        $ocProductId = (int) ($raw['product_id'] ?? 0);
-                        $coreProductId = $linkMap[$ocProductId] ?? null;
+                        $openCartProductId = (int) ($raw['product_id'] ?? 0);
+                        $coreProductId = $linkMap[$openCartProductId] ?? null;
 
                         if (!$coreProductId) {
                             $sku = trim($raw['sku'] ?? '');
@@ -1283,7 +1263,7 @@ class OpenCartProductSync
                         'quantity' => (int) $pov->quantity,
                         'absolute_price' => (float) ($pov->absolute_price ?? 0),
                         'absolute_cost' => (float) ($pov->absolute_cost ?? 0),
-                        'subtract' => (int) ($pov->subtract ?? 1),
+                        'subtract_stock' => (int) ($pov->subtract_stock ?? 1),
                         'sort_order' => $sortOrder++,
                         'created_at' => $now,
                         'updated_at' => $now,
@@ -1314,7 +1294,7 @@ class OpenCartProductSync
                             'quantity' => (int) $pov1->quantity,
                             'absolute_price' => $comboPrice,
                             'absolute_cost' => 0,
-                            'subtract' => 1,
+                            'subtract_stock' => 1,
                             'sort_order' => $sortOrder++,
                             'created_at' => $now,
                             'updated_at' => $now,

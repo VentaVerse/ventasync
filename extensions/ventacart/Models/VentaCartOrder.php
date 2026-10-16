@@ -30,7 +30,7 @@ class VentaCartOrder extends Model
         'courier_booked_at',
         'shipping_address',
         'raw',
-        'catalog_order_id',
+        'sales_order_id',
         'order_created_at',
         'order_updated_at',
     ];

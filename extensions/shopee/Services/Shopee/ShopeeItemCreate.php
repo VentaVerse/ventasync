@@ -2,7 +2,7 @@
 
 namespace Extensions\Shopee\Services\Shopee;
 
-use App\Support\MarketplaceAnswer;
+use App\Support\ChannelAnswer;
 use Extensions\Shopee\Controllers\ShopeeProductGroupController;
 use Extensions\Shopee\Models\ShopeeApiLog;
 use Extensions\Shopee\Models\ShopeeListing;
@@ -66,7 +66,7 @@ class ShopeeItemCreate
             ]);
 
             if (!($uploadResult['ok'] ?? false)) {
-                $msg = MarketplaceAnswer::plain('Shopee', $uploadResult);
+                $msg = ChannelAnswer::plain('Shopee', $uploadResult);
 
                 return ['ids' => $ids, 'error' => 'Image upload failed for "' . basename((string) $imgPath) . '": ' . $msg];
             }
@@ -194,7 +194,7 @@ class ShopeeItemCreate
         ]);
 
         if ($refused) {
-            return ['ok' => false, 'item_id' => null, 'error' => MarketplaceAnswer::plain('Shopee', ['ok' => false, 'status' => $result['status'] ?? 200, 'body' => $body])];
+            return ['ok' => false, 'item_id' => null, 'error' => ChannelAnswer::plain('Shopee', ['ok' => false, 'status' => $result['status'] ?? 200, 'body' => $body])];
         }
 
         $itemId = $body['response']['item_id'] ?? null;

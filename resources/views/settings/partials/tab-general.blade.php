@@ -22,9 +22,9 @@
                                 value="{{ old('company_email', $setting->company_email) }}" />
                 </x-ui.field>
 
-                <x-ui.field label="Phone" for="st-phone" name="phone">
-                    <x-ui.input id="st-phone" name="phone" maxlength="32" :readonly="$ro"
-                                value="{{ old('phone', $setting->phone) }}" />
+                <x-ui.field label="Telephone" for="st-telephone" name="telephone">
+                    <x-ui.input id="st-telephone" name="telephone" maxlength="32" :readonly="$ro"
+                                value="{{ old('telephone', $setting->telephone) }}" />
                 </x-ui.field>
             </div>
         </section>

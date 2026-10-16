@@ -156,13 +156,12 @@ class OpenCartProductGroupController extends Controller
                     ->where('pd.language_id', '=', $langId);
             })
             ->whereIn('p.product_id', $productIds)
-            ->select('p.product_id', 'pd.name', 'p.model', 'p.sku', 'p.price', 'p.quantity', 'p.status', 'p.image');
+            ->select('p.product_id', 'pd.name', 'p.sku', 'p.price', 'p.quantity', 'p.status', 'p.image');
 
         if ($q !== '') {
             $query->where(function ($w) use ($q) {
                 $w->where('pd.name', 'like', "%{$q}%")
-                    ->orWhere('p.sku', 'like', "%{$q}%")
-                    ->orWhere('p.model', 'like', "%{$q}%");
+                    ->orWhere('p.sku', 'like', "%{$q}%");
             });
         }
 
@@ -276,8 +275,7 @@ class OpenCartProductGroupController extends Controller
             })
             ->where(function ($w) use ($q) {
                 $w->where('pd.name', 'like', "%{$q}%")
-                    ->orWhere('p.sku', 'like', "%{$q}%")
-                    ->orWhere('p.model', 'like', "%{$q}%");
+                    ->orWhere('p.sku', 'like', "%{$q}%");
             })
             ->select('p.product_id', 'pd.name', 'p.sku', 'p.price')
             ->orderBy('p.product_id', 'desc')

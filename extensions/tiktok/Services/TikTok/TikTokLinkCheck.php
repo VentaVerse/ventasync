@@ -39,20 +39,9 @@ class TikTokLinkCheck
             }
         }
 
-        $skusByProduct = [];
-        foreach (DB::table('products')->whereIn('product_id', $productIds)->get(['product_id', 'sku', 'model']) as $p) {
-            foreach ([$p->sku, $p->model] as $v) {
-                if (trim((string) $v) !== '') $skusByProduct[(int) $p->product_id][] = strtolower(trim((string) $v));
-            }
-        }
-        foreach (DB::table('product_variation_values')->whereIn('product_id', $productIds)->whereNotNull('sku')->where('sku', '!=', '')->get(['product_id', 'sku']) as $r) {
-            $skusByProduct[(int) $r->product_id][] = strtolower(trim((string) $r->sku));
-        }
-        foreach (DB::table('product_variations')->whereIn('product_id', $productIds)->whereNotNull('sku')->where('sku', '!=', '')->get(['product_id', 'sku']) as $r) {
-            $skusByProduct[(int) $r->product_id][] = strtolower(trim((string) $r->sku));
-        }
+        $skusByProduct = $this->skusByProduct($productIds);
 
-        $verdicts = ['confirmed' => 0, 'linked' => 0, 'lost' => 0, 'taken' => 0, 'not_on_tiktok' => 0];
+        $verdicts = ['confirmed' => 0, 'linked' => 0, 'lost' => 0, 'taken' => 0, 'not_on_tiktok' => 0, 'unsure' => 0];
         $problems = [];
         foreach ($productIds as $productId) {
             $listing = TikTokListing::query()->where('product_id', $productId)->first();
@@ -78,6 +67,9 @@ class TikTokLinkCheck
                     TikTokListing::query()->updateOrCreate(['product_id' => $productId], ['tiktok_product_id' => $hit, 'tiktok_sku_id' => null, 'live_status' => null, 'live_checked_at' => null, 'last_checked_at' => now()]);
                     $this->writeProductStatus($groupIds, (int) $productId, ['tiktok_product_id' => $hit, 'tiktok_sku_id' => null, 'sync_status' => 'pushed']);
                     $verdicts['linked']++;
+                } elseif (! empty($shop['truncated'])) {
+                    // The shop read stopped before its end, so a product missing from it may simply be on a later page.
+                    $verdicts['unsure']++;
                 } else {
                     \App\Channels\Listings\DroppedLink::write(
                         'TikTok Shop', 'TikTok Listing', (int) $productId, (string) $known,
@@ -115,6 +107,7 @@ class TikTokLinkCheck
         if ($verdicts['lost']) $parts[] = "{$verdicts['lost']} no longer on TikTok Shop";
         if ($verdicts['taken']) $parts[] = "{$verdicts['taken']} blocked by another product holding the same TikTok Shop product";
         if ($verdicts['not_on_tiktok']) $parts[] = "{$verdicts['not_on_tiktok']} not on TikTok Shop";
+        if ($verdicts['unsure']) $parts[] = "{$verdicts['unsure']} left alone because TikTok Shop's product list was not read to the end";
         $summary = 'Checked ' . count($productIds) . ' against TikTok Shop: ' . (implode(', ', $parts) ?: 'nothing to report') . '.';
         if ($problems) $summary .= ' ' . implode('; ', array_slice($problems, 0, 5)) . '.';
 
@@ -123,7 +116,26 @@ class TikTokLinkCheck
 
     private const DROPPED = 'Not found on TikTok Shop; the link was dropped.';
 
-    private function holder(string $tiktokProductId, int $productId, int $storeId): ?int
+    /** Each product's codes as TikTok Shop may carry them: its SKU and every variation SKU, lower-cased. */
+    public function skusByProduct(array $productIds): array
+    {
+        $out = [];
+        foreach (DB::table('products')->whereIn('product_id', $productIds ?: [0])->get(['product_id', 'sku']) as $p) {
+            foreach ([$p->sku] as $v) {
+                if (trim((string) $v) !== '') $out[(int) $p->product_id][] = strtolower(trim((string) $v));
+            }
+        }
+        foreach (DB::table('product_variation_values')->whereIn('product_id', $productIds ?: [0])->whereNotNull('sku')->where('sku', '!=', '')->get(['product_id', 'sku']) as $r) {
+            $out[(int) $r->product_id][] = strtolower(trim((string) $r->sku));
+        }
+        foreach (DB::table('product_variations')->whereIn('product_id', $productIds ?: [0])->whereNotNull('sku')->where('sku', '!=', '')->get(['product_id', 'sku']) as $r) {
+            $out[(int) $r->product_id][] = strtolower(trim((string) $r->sku));
+        }
+
+        return $out;
+    }
+
+    public function holder(string $tiktokProductId, int $productId, int $storeId): ?int
     {
         $held = TikTokListing::query()->withoutGlobalScope('tiktokStore')->where('store_id', $storeId)
             ->where('tiktok_product_id', $tiktokProductId)->where('product_id', '!=', $productId)->value('product_id')

@@ -41,7 +41,7 @@ class OpenCartImportController extends Controller
         $known = $this->knownSkus();
         $linked = OpenCartListingLink::query()
             ->where('store_id', $store->id)
-            ->pluck('oc_product_id')
+            ->pluck('opencart_product_id')
             ->flip();
         $base = rtrim((string) $store->base_url, '/');
 
@@ -52,7 +52,7 @@ class OpenCartImportController extends Controller
             $answer = $client->getProducts($page, 100);
             if (! ($answer['ok'] ?? false)) {
                 return [null, 'OpenCart did not answer the fetch: '
-                    . \App\Support\MarketplaceAnswer::plain('OpenCart', $answer)
+                    . \App\Support\ChannelAnswer::plain('OpenCart', $answer)
                     . ($found > 0 ? " ({$found} products were read before it stopped.)" : '')];
             }
             $items = array_values((array) ($answer['body']['data'] ?? []));
@@ -127,7 +127,7 @@ class OpenCartImportController extends Controller
         }
 
         OpenCartListingLink::updateOrCreate(
-            ['store_id' => $store, 'oc_product_id' => (int) $data['ref']],
+            ['store_id' => $store, 'opencart_product_id' => (int) $data['ref']],
             ['product_id' => (int) $data['product_id'], 'sku' => trim((string) ($data['sku'] ?? '')) ?: null]
         );
 
@@ -148,12 +148,11 @@ class OpenCartImportController extends Controller
             })
             ->where(function ($w) use ($q) {
                 $w->where('pd.name', 'like', "%{$q}%")
-                    ->orWhere('p.sku', 'like', "%{$q}%")
-                    ->orWhere('p.model', 'like', "%{$q}%");
+                    ->orWhere('p.sku', 'like', "%{$q}%");
             })
             ->orderBy('p.product_id', 'desc')
             ->limit(20)
-            ->get(['p.product_id', 'pd.name', 'p.sku', 'p.model']);
+            ->get(['p.product_id', 'pd.name', 'p.sku']);
 
         return response()->json(['items' => $rows]);
     }
@@ -163,7 +162,6 @@ class OpenCartImportController extends Controller
 
         return collect()
             ->merge(DB::table('products')->whereNotNull('sku')->where('sku', '!=', '')->pluck('sku'))
-            ->merge(DB::table('products')->whereNotNull('model')->where('model', '!=', '')->pluck('model'))
             ->merge(DB::table('product_variation_values')->whereNotNull('sku')->where('sku', '!=', '')->pluck('sku'))
             ->merge(DB::table('product_variations')->whereNotNull('sku')->where('sku', '!=', '')->pluck('sku'))
             ->map(fn ($v) => strtolower(trim((string) $v)))

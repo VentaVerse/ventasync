@@ -11,7 +11,7 @@ use Extensions\Lazada\Models\LazadaOrderProduct;
 use Extensions\Lazada\Models\LazadaReverseOrder;
 use App\Services\ActivityLogger;
 use Extensions\Lazada\Services\Lazada\LazadaClient;
-use Extensions\Lazada\Services\LazadaCatalogOrderSync;
+use Extensions\Lazada\Services\LazadaSalesOrderSync;
 use Extensions\Lazada\Services\LazadaOrdersPanel;
 use Extensions\Lazada\Services\LazadaReturnsPanel;
 use Illuminate\Http\Request;
@@ -702,7 +702,7 @@ class LazadaOrderController extends Controller
                     ->where('order_id', $orderId)
                     ->first();
                 if ($fresh) {
-                    (new LazadaCatalogOrderSync)->sync($fresh);
+                    (new LazadaSalesOrderSync)->sync($fresh);
                 }
             } catch (\Throwable $e) {
             }
@@ -1033,7 +1033,7 @@ class LazadaOrderController extends Controller
             }
             $lo = LazadaOrder::query()->where('region', $store->region)->where('order_id', $orderId)->first();
             if ($lo) {
-                (new LazadaCatalogOrderSync)->sync($lo);
+                (new LazadaSalesOrderSync)->sync($lo);
             }
         } catch (\Throwable $e) {
         }
@@ -1185,7 +1185,7 @@ class LazadaOrderController extends Controller
         }
         try {
             $lo = LazadaOrder::query()->where('region', $store->region)->where('order_id', (string)$orderId)->first();
-            if ($lo) { (new LazadaCatalogOrderSync)->sync($lo); }
+            if ($lo) { (new LazadaSalesOrderSync)->sync($lo); }
         } catch (\Throwable $e) {}
 
         ActivityLogger::log('updated', 'Lazada Order', null, 'Cancel #' . $orderId);
@@ -1284,7 +1284,7 @@ class LazadaOrderController extends Controller
             ]);
         }
 
-        Storage::disk('local')->delete(\App\Support\Fulfilment\Waybills::relative('lazada', (int) $store->id, (string) $orderId));
+        Storage::disk('local')->delete(\App\Support\Fulfillment\Waybills::relative('lazada', (int) $store->id, (string) $orderId));
 
         try {
             $st = $this->fetchOrderStatusFromApi($client, $store, (string)$orderId);
@@ -1292,7 +1292,7 @@ class LazadaOrderController extends Controller
                 LazadaOrder::query()->where('region', $store->region)->where('order_id', (string)$orderId)->update(['status' => $st]);
             }
             $lo = LazadaOrder::query()->where('region', $store->region)->where('order_id', (string)$orderId)->first();
-            if ($lo) { (new LazadaCatalogOrderSync)->sync($lo); }
+            if ($lo) { (new LazadaSalesOrderSync)->sync($lo); }
         } catch (\Throwable $e) {
         }
 
@@ -1427,13 +1427,13 @@ class LazadaOrderController extends Controller
                 if ($needsProductSync) {
                     try { $this->syncOrderProductsFromApi($client, $store, $existing); } catch (\Throwable $e) {}
                 }
-                try { (new LazadaCatalogOrderSync)->setSkipStockAdjust($skipStock)->sync($existing); } catch (\Throwable $e) {}
+                try { (new LazadaSalesOrderSync)->setSkipStockAdjust($skipStock)->sync($existing); } catch (\Throwable $e) {}
                 continue;
             }
             $newOrder = LazadaOrder::query()->create($payload);
             $created++;
             try { $this->syncOrderProductsFromApi($client, $store, $newOrder); } catch (\Throwable $e) {}
-            try { (new LazadaCatalogOrderSync)->setSkipStockAdjust($skipStock)->sync($newOrder); } catch (\Throwable $e) {}
+            try { (new LazadaSalesOrderSync)->setSkipStockAdjust($skipStock)->sync($newOrder); } catch (\Throwable $e) {}
         }
 
         $done = count($pageOrders) < $pageLimit;
@@ -1567,7 +1567,7 @@ class LazadaOrderController extends Controller
                 if ($needsProductSync) {
                     try { $this->syncOrderProductsFromApi($client, $store, $existing); } catch (\Throwable $e) {}
                 }
-                try { (new LazadaCatalogOrderSync)->sync($existing); } catch (\Throwable $e) {}
+                try { (new LazadaSalesOrderSync)->sync($existing); } catch (\Throwable $e) {}
             } else {
                 $skipped++;
             }
@@ -1858,7 +1858,7 @@ public function reset(Request $request)
     public function awbPdf(Request $request, LazadaClient $client, $orderId)
     {
         $safeOrderId = preg_replace('/[^0-9A-Za-z_-]/', '', (string) $orderId);
-        $localPath = \App\Support\Fulfilment\Waybills::path('lazada', (int) LazadaStore::defaultStore()?->id, (string) $orderId);
+        $localPath = \App\Support\Fulfillment\Waybills::path('lazada', (int) LazadaStore::defaultStore()?->id, (string) $orderId);
 
         if (file_exists($localPath)) {
             return response(file_get_contents($localPath), 200, [
@@ -1940,7 +1940,7 @@ public function reset(Request $request)
             return $this->awbError('AWB PDF response did not contain a document.');
         }
 
-        $storePath = \App\Support\Fulfilment\Waybills::relative('lazada', (int) $store->id, (string) $orderId);
+        $storePath = \App\Support\Fulfillment\Waybills::relative('lazada', (int) $store->id, (string) $orderId);
 
         if (($doc['type'] ?? '') === 'url') {
             $bin = $this->downloadPdf((string) ($doc['value'] ?? ''));
@@ -2495,7 +2495,7 @@ public function reset(Request $request)
         }
 
         $qs = [];
-        foreach (['tab','pending_sub','order_number','buyer_name','per_page','page','date_from','date_to','status'] as $k) {
+        foreach (['tab','pending_sub','order_number','per_page','page','date_from','date_to','status'] as $k) {
             if ($request->filled($k)) {
                 $qs[$k] = $request->input($k);
             }

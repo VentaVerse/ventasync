@@ -131,16 +131,16 @@ class TikTokReturnsTest extends TestCase
 
     public function test_a_mapped_return_status_moves_the_linked_sales_order(): void
     {
-        $catalogOrderId = DB::table('orders')->insertGetId($this->orderColumnDefaults() + ['order_status_id' => 5, 'total' => 450]);
-        DB::table('ch_tiktok_orders')->insert(['store_id' => $this->tiktokStore->id, 'region' => 'PH', 'order_id' => 'ord-1', 'status' => 'COMPLETED', 'catalog_order_id' => $catalogOrderId, 'raw' => '{}', 'created_at' => now(), 'updated_at' => now()]);
+        $salesOrderId = DB::table('orders')->insertGetId($this->orderColumnDefaults() + ['order_status_id' => 5, 'total' => 450]);
+        DB::table('ch_tiktok_orders')->insert(['store_id' => $this->tiktokStore->id, 'region' => 'PH', 'order_id' => 'ord-1', 'status' => 'COMPLETED', 'sales_order_id' => $salesOrderId, 'raw' => '{}', 'created_at' => now(), 'updated_at' => now()]);
         TikTokOrderStatusMap::create(['tiktok_status' => 'RETURN_OR_REFUND_REQUEST_COMPLETE', 'context' => 'return', 'order_status_id' => 11]);
         $this->callResponses['POST /return_refund/202309/returns/search'] = ['ok' => true, 'status' => 200, 'body' => ['code' => 0, 'message' => 'Success',
             'data' => ['return_orders' => [$this->sampleReturn(['return_status' => 'RETURN_OR_REFUND_REQUEST_COMPLETE'])]]]];
 
         $this->actingAs($this->manager())->post(route('ext.tiktok.orders.fetch_returns'));
 
-        $this->assertSame(11, (int) DB::table('orders')->where('order_id', $catalogOrderId)->value('order_status_id'));
-        $this->assertSame(1, DB::table('order_history')->where('order_id', $catalogOrderId)->where('order_status_id', 11)->count());
+        $this->assertSame(11, (int) DB::table('orders')->where('order_id', $salesOrderId)->value('order_status_id'));
+        $this->assertSame(1, DB::table('order_history')->where('order_id', $salesOrderId)->where('order_status_id', 11)->count());
         $this->assertStringContainsString('1 sales order moved by the return status map', session('tiktok_returns_last_result')['message']);
     }
 
@@ -160,26 +160,20 @@ class TikTokReturnsTest extends TestCase
     private function orderColumnDefaults(): array
     {
         return [
-            'invoice_no' => 0, 'invoice_prefix' => '', 'store_id' => 0, 'store_name' => '',
-            'store_url' => '', 'customer_id' => 0, 'customer_group_id' => 0,
+            'store_id' => 0, 'store_name' => '', 'payment_method' => '', 'shipping_method' => '',
             'firstname' => '', 'lastname' => '', 'email' => '', 'telephone' => '',
-            'fax' => '', 'custom_field' => '',
             'payment_firstname' => '', 'payment_lastname' => '', 'payment_company' => '',
             'payment_address_1' => '', 'payment_address_2' => '', 'payment_city' => '',
-            'payment_postcode' => '', 'payment_country' => '', 'payment_country_id' => 0,
-            'payment_zone' => '', 'payment_zone_id' => 0, 'payment_address_format' => '',
-            'payment_custom_field' => '', 'payment_method' => '', 'payment_code' => '',
+            'payment_postcode' => '', 'payment_country' => '',
+            'payment_zone' => '',
             'shipping_firstname' => '', 'shipping_lastname' => '', 'shipping_company' => '',
             'shipping_address_1' => '', 'shipping_address_2' => '', 'shipping_city' => '',
-            'shipping_postcode' => '', 'shipping_country' => '', 'shipping_country_id' => 0,
-            'shipping_zone' => '', 'shipping_zone_id' => 0, 'shipping_address_format' => '',
-            'shipping_custom_field' => '', 'shipping_method' => '', 'shipping_code' => '',
-            'shipping_cost' => 0, 'comment' => '', 'total' => 0,
-            'affiliate_id' => 0, 'commission' => 0, 'marketing_id' => 0, 'tracking' => '',
-            'language_id' => (int) config('catalog.default_language_id', 1),
+            'shipping_postcode' => '', 'shipping_country' => '',
+            'shipping_zone' => '',
+            'shipping_cost' => 0, 'customer_note' => '', 'total' => 0,
             'currency_id' => 0, 'currency_code' => 'PHP', 'currency_value' => 1,
-            'ip' => '', 'forwarded_ip' => '', 'user_agent' => '', 'accept_language' => '',
-            'courier_id' => 0, 'tracking_number' => '', 'oe_import' => 0,
+            'ip' => '',
+            'courier_id' => 0, 'tracking_number' => '',
             'order_status_id' => 1,
             'date_added' => now(), 'date_modified' => now(),
         ];

@@ -2,8 +2,8 @@
 
 namespace Tests\Feature;
 
-use App\Support\Fulfilment\OrderItemGrouper;
-use App\Support\Fulfilment\PackedParcel;
+use App\Support\Fulfillment\OrderItemGrouper;
+use App\Support\Fulfillment\PackedParcel;
 use Tests\TestCase;
 
 class OrderItemGrouperTest extends TestCase

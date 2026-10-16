@@ -34,7 +34,7 @@
 
 <form method="GET" action="{{ $listUrl }}" class="x-filters">
     <x-ui.input type="search" name="q" class="x-filters__search"
-                value="{{ $q }}" placeholder="Name, SKU or model" aria-label="Search products in this product group" />
+                value="{{ $q }}" placeholder="Name or SKU" aria-label="Search products in this product group" />
     <x-ui.button type="submit" variant="secondary">Search</x-ui.button>
     @if($hasSearch)
         <a class="x-filters__reset" href="{{ $listUrl }}">Clear</a>
@@ -97,7 +97,7 @@
             $thumbSrc = $img !== '' ? \App\Services\Media\ImageCache::url($img) : null;
 
             $pName = html_entity_decode((string) ($p->name ?? ''), ENT_QUOTES | ENT_HTML5, 'UTF-8');
-            $pSku = (string) ($p->sku ?: ($p->model ?: ''));
+            $pSku = (string) ($p->sku ?: '');
         @endphp
         <tr>
             @if($canManageOpencart)
@@ -142,7 +142,7 @@
 
             <td class="cc-col-chanid" data-label="This store">
                 @if($link)
-                    <span class="x-num">{{ $link->oc_product_id }}</span>
+                    <span class="x-num">{{ $link->opencart_product_id }}</span>
                 @else
                     <span class="x-cell-muted">Not pushed</span>
                 @endif

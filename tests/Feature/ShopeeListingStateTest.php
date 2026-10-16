@@ -42,11 +42,10 @@ class ShopeeListingStateTest extends TestCase
     {
 
         $id = (int) DB::table('products')->insertGetId([
-            'model' => $sku, 'sku' => $sku, 'quantity' => 5, 'price' => 100,
+            'sku' => $sku, 'quantity' => 5, 'price' => 100,
             'status' => 1, 'image' => $image, 'weight' => 1, 'length' => 1, 'width' => 1, 'height' => 1,
             'brand_id' => 0,
             'date_added' => now()->subDays(30), 'date_modified' => $modified ?? now()->subDays(30),
-            'date_available' => now()->subDays(30),
         ]);
         DB::table('product_descriptions')->insert([
             'product_id' => $id, 'language_id' => (int) config('catalog.default_language_id'),

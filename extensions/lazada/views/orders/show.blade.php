@@ -14,13 +14,13 @@
     $created = $order->order_created_at ? $order->order_created_at->format('Y-m-d H:i') : ($detail['created_at'] ?? $raw['created_at'] ?? $raw['createdAt'] ?? $raw['created_time'] ?? null);
     $updated = $order->order_updated_at ? $order->order_updated_at->format('Y-m-d H:i') : ($detail['updated_at'] ?? $raw['updated_at'] ?? $raw['updatedAt'] ?? $raw['update_time'] ?? null);
 
-    $buyer = (string)($detail['customer_name'] ?? $detail['customer_first_name'] ?? $detail['buyer_name'] ?? $raw['customer_name'] ?? $raw['customer_first_name'] ?? $raw['buyer_name'] ?? '');
+    $customer = (string)($detail['customer_name'] ?? $detail['customer_first_name'] ?? $detail['buyer_name'] ?? $raw['customer_name'] ?? $raw['customer_first_name'] ?? $raw['buyer_name'] ?? '');
 
     $addr = $detail['address_shipping'] ?? $raw['address_shipping'] ?? $detail['shipping_address'] ?? $raw['shipping_address'] ?? [];
     if (!is_array($addr)) $addr = [];
 
     $receiverName = (string)($addr['first_name'] ?? $addr['customer_name'] ?? $detail['receiver_name'] ?? '');
-    if ($receiverName === '') { $receiverName = $buyer; }
+    if ($receiverName === '') { $receiverName = $customer; }
 
     $phone = (string)($addr['phone'] ?? $addr['phone2'] ?? '');
     $address1 = (string)($addr['address1'] ?? $addr['address'] ?? '');
@@ -104,10 +104,10 @@
             <span class="od-stamp__v">{{ $updated }}</span>
         </span>
         @endif
-        @if($order->catalog_order_id)
+        @if($order->sales_order_id)
         <span class="od-stamp">
             <span class="od-stamp__k">Sales order</span>
-            <a class="od-stamp__v" href="{{ url('/sales/orders/' . $order->catalog_order_id) }}">{{ $order->catalog_order_id }}</a>
+            <a class="od-stamp__v" href="{{ url('/sales/orders/' . $order->sales_order_id) }}">{{ $order->sales_order_id }}</a>
         </span>
         @endif
     </div>
@@ -202,7 +202,7 @@
                                     @if(trim($ci['sku']) !== '')
                                         <span class="co-item__sku">{{ $ci['sku'] }}</span>
                                     @endif
-                                    <x-fulfilment.variation :sku="$ci['sku']" :fallback="$ci['variation']" />
+                                    <x-fulfillment.variation :sku="$ci['sku']" :fallback="$ci['variation']" :order="$order->sales_order_id" />
                                 </div>
                                 @if(!empty($ciIds))
                                     <div class="lzd-ids">
@@ -363,8 +363,8 @@
                 </div>
                 <div class="od-card__body">
                     <div class="od-fact">
-                        <span class="od-fact__k">Buyer</span>
-                        <span class="od-fact__v">{{ $buyer !== '' ? $buyer : 'Not recorded' }}</span>
+                        <span class="od-fact__k">Customer</span>
+                        <span class="od-fact__v">{{ $customer !== '' ? $customer : 'Not recorded' }}</span>
                     </div>
                     <div class="od-fact">
                         <span class="od-fact__k">Delivery address</span>
@@ -391,7 +391,7 @@
                         <span class="od-fact__v">{{ $courier !== '' ? $courier : 'Not recorded' }}</span>
                     </div>
                     <div class="od-fact">
-                        <span class="od-fact__k">Tracking number</span>
+                        <span class="od-fact__k">Tracking</span>
                         <span class="od-fact__v {{ $tracking !== '' ? 'od-fact__v--mono' : '' }}">{{ $tracking !== '' ? $tracking : 'Not recorded' }}</span>
                     </div>
                 </div>

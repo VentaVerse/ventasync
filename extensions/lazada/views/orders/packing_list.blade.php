@@ -45,7 +45,7 @@
             <div class="font-bold" style="font-weight:700;">Summary</div>
             <div class="text-muted" style="margin-top:6px;">
                 <div><strong>Created:</strong> {{ optional($order)->order_created_at ?? '-' }}</div>
-                <div><strong>Buyer:</strong> {{ (string) (optional($order)->raw['customer_first_name'] ?? optional($order)->raw['customer_name'] ?? '-') }}</div>
+                <div><strong>Customer:</strong> {{ (string) (optional($order)->raw['customer_first_name'] ?? optional($order)->raw['customer_name'] ?? '-') }}</div>
                 <div><strong>Items:</strong> {{ count($items) }}</div>
             </div>
         </div>

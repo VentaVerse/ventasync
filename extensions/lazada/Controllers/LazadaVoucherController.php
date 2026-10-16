@@ -90,7 +90,7 @@ class LazadaVoucherController extends Controller
         }
 
         return redirect()->route('ext.lazada.vouchers.index')
-            ->with('status', 'Voucher "' . $data['name'] . '" created. Buyers see it once it starts.');
+            ->with('status', 'Voucher "' . $data['name'] . '" created. Customers see it once it starts.');
     }
 
     public function deactivate(Request $request, string $voucherId, LazadaClient $client)
@@ -109,7 +109,7 @@ class LazadaVoucherController extends Controller
         }
 
         return redirect()->route('ext.lazada.vouchers.index')
-            ->with('status', 'Voucher deactivated. Buyers can no longer collect or use it, and it cannot restart.');
+            ->with('status', 'Voucher deactivated. Customers can no longer collect or use it, and it cannot restart.');
     }
 
     private function createParams(array $data): array
@@ -195,6 +195,6 @@ class LazadaVoucherController extends Controller
 
     private function callMessage(array $result): string
     {
-        return \App\Support\MarketplaceAnswer::errorText('Lazada', $result);
+        return \App\Support\ChannelAnswer::errorText('Lazada', $result);
     }
 }

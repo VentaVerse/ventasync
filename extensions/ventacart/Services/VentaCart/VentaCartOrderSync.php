@@ -231,7 +231,7 @@ class VentaCartOrderSync
         }
     }
 
-    // Only follow the payload when it carries the courier object; a storefront that omits it must not blank the ERP's booking.
+    // Only follow the payload when it carries the courier object; a storefront that omits it must not blank VentaSync's booking.
     public static function courierFieldsFrom(array $raw): array
     {
         $courier = $raw['courier'] ?? null;
@@ -294,7 +294,7 @@ class VentaCartOrderSync
                 'ventacart_order_id' => $ventaCartOrder->id,
                 'sku'            => $item['sku'] ?? '',
                 'name'           => $item['name'] ?? '',
-                'variant_label'  => $item['variant_label'] ?? '',
+                'variation_label' => $item['variant_label'] ?? '',
                 'quantity'       => (int) ($item['quantity'] ?? 1),
                 'price'          => (float) ($item['price'] ?? 0),
                 'total'          => (float) ($item['total'] ?? 0),
@@ -303,8 +303,8 @@ class VentaCartOrderSync
         }
 
         if ($this->feesOnly) {
-            if ($ventaCartOrder->catalog_order_id) {
-                app(\App\Services\Orders\MarketplaceFeeNormalizer::class)->forOrder((int) $ventaCartOrder->catalog_order_id);
+            if ($ventaCartOrder->sales_order_id) {
+                app(\App\Services\Orders\ChannelFeeNormalizer::class)->forOrder((int) $ventaCartOrder->sales_order_id);
             }
 
             return $wasCreated;
@@ -342,7 +342,7 @@ class VentaCartOrderSync
         ) {
             $existing = DB::table('orders')
                 ->where('channel', $orderChannel)
-                ->where('marketplace_order_id', $ventaCartOrderId)
+                ->where('channel_order_id', $ventaCartOrderId)
                 ->first();
 
             $currencySvc = app(\App\Services\OrderCurrencyService::class);
@@ -357,20 +357,13 @@ class VentaCartOrderSync
             $moneyScale = \App\Services\OrderCurrencyService::MONEY_SCALE;
 
             $orderData = [
-                'invoice_no'             => 0,
-                'invoice_prefix'         => '',
                 'store_id'               => 0,
                 'store_name'             => $this->store->store_name,
-                'store_url'              => $this->store->base_url,
-                'customer_id'            => 0,
-                'customer_group_id'      => 0,
                 'customer_group'         => self::customerGroupFrom($raw),
                 'firstname'              => $firstname,
                 'lastname'               => $lastname,
                 'email'                  => $email,
                 'telephone'              => $phone,
-                'fax'                    => '',
-                'custom_field'           => '',
                 'payment_firstname'      => trim($billing['first_name'] ?? $firstname),
                 'payment_lastname'       => trim($billing['last_name'] ?? $lastname),
                 'payment_company'        => '',
@@ -379,14 +372,9 @@ class VentaCartOrderSync
                 'payment_city'           => trim($billing['city'] ?? ''),
                 'payment_postcode'       => trim($billing['postcode'] ?? ''),
                 'payment_country'        => trim($billing['country_code'] ?? ''),
-                'payment_country_id'     => 0,
                 'payment_zone'           => trim($billing['state'] ?? ''),
-                'payment_zone_id'        => 0,
-                'payment_address_format' => '',
-                'payment_custom_field'   => '',
                 'payment_method'         => $raw['payment_method'] ?? '',
                 'payment_cost'           => 0,
-                'payment_code'           => '',
                 'shipping_firstname'     => $firstname,
                 'shipping_lastname'      => $lastname,
                 'shipping_company'       => '',
@@ -395,36 +383,22 @@ class VentaCartOrderSync
                 'shipping_city'          => trim($shipping['city'] ?? ''),
                 'shipping_postcode'      => trim($shipping['postcode'] ?? ''),
                 'shipping_country'       => trim($shipping['country_code'] ?? ''),
-                'shipping_country_id'    => 0,
                 'shipping_zone'          => trim($shipping['state'] ?? ''),
-                'shipping_zone_id'       => 0,
-                'shipping_address_format'=> '',
-                'shipping_custom_field'  => '',
                 'shipping_method'        => $raw['shipping_method'] ?? '',
                 'shipping_cost'          => 0,
-                'shipping_code'          => '',
-                'comment'                => $raw['comment'] ?? '',
+                'customer_note'          => $raw['comment'] ?? '',
                 'total'                  => \App\Services\OrderCurrencyService::toBase((float) ($totals['total'] ?? ($totals['subtotal'] ?? 0)), $rate),
                 'foreign_total'          => $isDefault ? null : round((float) ($totals['total'] ?? ($totals['subtotal'] ?? 0)), $moneyScale),
                 'extra_cost'             => 0,
                 'order_status_id'        => $coreStatusId,
-                'affiliate_id'           => 0,
-                'commission'             => 0,
-                'marketing_id'           => 0,
-                'tracking'               => '',
-                'language_id'            => 1,
                 'currency_id'            => $currency['id'],
                 'currency_code'          => $currency['code'],
                 'currency_value'         => $rate,
                 'ip'                     => '',
-                'forwarded_ip'           => '',
-                'user_agent'             => '',
-                'accept_language'        => '',
                 'courier_id'             => 0,
                 'tracking_number'        => $raw['tracking_number'] ?? '',
                 'channel'     => $orderChannel,
-                'marketplace_order_id'   => $ventaCartOrderId,
-                'oe_import'              => 0,
+                'channel_order_id'   => $ventaCartOrderId,
                 'date_modified'          => isset($raw['updated_at']) ? \Carbon\Carbon::parse($raw['updated_at'])->format('Y-m-d H:i:s') : now()->toDateTimeString(),
             ];
 
@@ -443,7 +417,7 @@ class VentaCartOrderSync
                 unset($orderData['shipping_cost']);
                 DB::table('orders')
                     ->where('order_id', $coreOrderId)
-                    ->update($orderData);
+                    ->update(\App\Support\OrderSnapshot::keepOnOrder($existing, $orderData));
             } else {
                 $orderData['date_added'] = isset($raw['created_at']) ? \Carbon\Carbon::parse($raw['created_at'])->format('Y-m-d H:i:s') : now()->toDateTimeString();
                 \App\Plans\Quota::refuseOrder();
@@ -452,6 +426,7 @@ class VentaCartOrderSync
             }
 
             $items = $raw['items'] ?? [];
+            $snapshot = \App\Support\OrderSnapshot::take((int) $coreOrderId);
             DB::table('order_products')->where('order_id', $coreOrderId)->delete();
             DB::table('order_variations')->where('order_id', $coreOrderId)->delete();
 
@@ -513,39 +488,28 @@ class VentaCartOrderSync
                     }
                 }
 
-                $productCost = \App\Support\LineCost::resolve((int) $resolvedProductId, (int) $resolvedVariationValueId);
+                $productCost = $snapshot->cost($sku, $item['name'] ?? '', (int) $resolvedProductId, (int) $resolvedVariationValueId);
 
                 $opId = DB::table('order_products')->insertGetId([
                     'order_id'      => $coreOrderId,
                     'product_id'    => $resolvedProductId,
                     'name'          => $item['name'] ?? '',
-                    'model'         => $sku,
+                    'sku'           => $sku,
                     'quantity'      => $qty,
                     'price'         => $priceBase,
                     'foreign_price' => $isDefault ? null : round($price, $moneyScale),
                     'total'         => $lineTotalBase,
                     'foreign_total' => $isDefault ? null : round($lineTotal, $moneyScale),
-                    'tax'           => 0,
-                    'reward'        => 0,
                     'cost'          => $productCost,
                 ]);
 
-                $variantLabel = trim($item['variant_label'] ?? '');
-                if ($variantLabel !== '') {
-                    DB::table('order_variations')->insert([
-                        'order_id'                 => $coreOrderId,
-                        'order_product_id'         => $opId,
-                        'product_variation_type_id'        => 0,
-                        'product_variation_value_id'  => $resolvedVariationValueId,
-                        'name'                     => 'Variation',
-                        'value'                    => $variantLabel,
-                        'type'                     => 'text',
-                    ]);
+                foreach ($snapshot->variations($sku, $item['name'] ?? '', (string) ($item['variant_label'] ?? ''), (int) $resolvedVariationValueId) as $v) {
+                    DB::table('order_variations')->insert($v + ['order_id' => $coreOrderId, 'order_product_id' => $opId]);
                 }
             }
 
             DB::table('order_totals')->where('order_id', $coreOrderId)
-                ->whereNotIn('code', array_column(\App\Services\Orders\MarketplaceFeeNormalizer::CODES, 0))->delete();
+                ->whereNotIn('code', array_column(\App\Services\Orders\ChannelFeeNormalizer::CODES, 0))->delete();
             $sortOrder = 1;
             foreach (VentaCartSaleLines::lines(is_array($totals) ? $totals : [], $subTotal, (float) ($totals['shipping'] ?? 0)) as $line) {
                 DB::table('order_totals')->insert([
@@ -562,16 +526,16 @@ class VentaCartOrderSync
                     'order_id'        => $coreOrderId,
                     'order_status_id' => $coreStatusId,
                     'notify'          => 0,
-                    'comment'         => 'Synced from VentaCart (status: ' . ($raw['status'] ?? 'unknown') . ')',
+                    'note'            => 'Synced from VentaCart (status: ' . ($raw['status'] ?? 'unknown') . ')',
                     'date_added'      => now()->toDateTimeString(),
                     'user_id'         => null,
                     'user_name'       => 'VentaCart Sync',
                 ]);
             }
 
-            $ventaCartOrder->update(['catalog_order_id' => $coreOrderId]);
+            $ventaCartOrder->update(['sales_order_id' => $coreOrderId]);
 
-            app(\App\Services\Orders\MarketplaceFeeNormalizer::class)->forOrder($coreOrderId);
+            app(\App\Services\Orders\ChannelFeeNormalizer::class)->forOrder($coreOrderId);
         });
 
         if ($coreOrderId && $oldStatusId !== $coreStatusId) {

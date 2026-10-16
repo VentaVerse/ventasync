@@ -101,7 +101,7 @@ class TikTokCouponController extends Controller
         }
 
         return redirect()->route('ext.tiktok.coupons.index')
-            ->with('status', 'Coupon "' . $data['title'] . '" created. Buyers see it once it starts.');
+            ->with('status', 'Coupon "' . $data['title'] . '" created. Customers see it once it starts.');
     }
 
     public function deactivate(Request $request, string $couponId, TikTokClient $client)
@@ -118,7 +118,7 @@ class TikTokCouponController extends Controller
         }
 
         return redirect()->route('ext.tiktok.coupons.index')
-            ->with('status', 'Coupon deactivated. Buyers can no longer claim or use it, and it cannot restart.');
+            ->with('status', 'Coupon deactivated. Customers can no longer claim or use it, and it cannot restart.');
     }
 
     private function creds(): ?array
@@ -165,6 +165,6 @@ class TikTokCouponController extends Controller
 
     private function callMessage(array $result): string
     {
-        return \App\Support\MarketplaceAnswer::errorText('TikTok Shop', $result);
+        return \App\Support\ChannelAnswer::errorText('TikTok Shop', $result);
     }
 }

@@ -48,7 +48,7 @@
     <h2 class="x-hub__group-title">Table</h2>
     <x-ui.table>
         <x-slot:head><tr><th scope="col">Order</th><th scope="col">Customer</th><th scope="col" class="x-td-num">Total</th><th scope="col" class="x-td-actions"></th></tr></x-slot:head>
-        @foreach([[44294,'Salfini','308071.4726'],[8827,'Sample Buyer','6602.0800'],[44293,'R. Sarmiento','718.0000']] as [$id,$name,$total])
+        @foreach([[44294,'Salfini','308071.4726'],[8827,'Sample Customer','6602.0800'],[44293,'R. Sarmiento','718.0000']] as [$id,$name,$total])
         <tr>
             <td><span class="x-row-link x-num">{{ $id }}</span></td>
             <td class="x-cell-strong">{{ $name }}</td>

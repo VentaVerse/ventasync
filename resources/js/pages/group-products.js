@@ -97,7 +97,7 @@ function initManualAdd(section) {
             product.appendChild(name);
             const meta = document.createElement('span');
             meta.className = 'co-item__meta';
-            meta.textContent = item.sku || item.model || 'No SKU';
+            meta.textContent = item.sku || 'No SKU';
             product.appendChild(meta);
             if (ownedElsewhere) {
                 const owner = document.createElement('span');

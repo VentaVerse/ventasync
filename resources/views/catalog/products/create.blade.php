@@ -41,7 +41,7 @@
 
                 <div class="fm-fields">
                     <x-ui.field label="Brand" for="brand_search" name="brand_name"
-                                hint="Type to search, then pick from the list. Used on marketplace listings."
+                                hint="Type to search, then pick from the list. Used on listings."
                                 wide>
                         <div class="fm-ta">
                         <x-ui.input id="brand_search" name="brand_name" autocomplete="off"
@@ -170,7 +170,7 @@
                         <span class="fm-switch__track"></span>
                         <span class="fm-switch__text">
                             <span class="fm-switch__label">Enabled</span>
-                            <span class="fm-switch__note">Off keeps it out of the storefront and marketplace listings.</span>
+                            <span class="fm-switch__note">Off keeps it out of every store's listings.</span>
                         </span>
                     </label>
                     @error('status')<div class="fm-error">{{ $message }}</div>@enderror
@@ -178,7 +178,7 @@
             </div>
 
             <div class="fm-card">
-                <div class="fm-card__head"><h2 class="fm-card__title">Inventory</h2></div>
+                <div class="fm-card__head"><h2 class="fm-card__title">Stock</h2></div>
                 <div class="fm-card__body">
                     <div class="fm-fields fm-fields--2">
                         <x-ui.field label="Quantity" for="product_quantity" name="quantity">

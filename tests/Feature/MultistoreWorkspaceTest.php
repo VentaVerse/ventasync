@@ -273,13 +273,13 @@ class MultistoreWorkspaceTest extends TestCase
         $opencart = $this->card('opencart');
 
         [$ventaCartOne, $ventaCartTwo] = $this->storeIds('ventacart');
-        [$ocOne, $ocTwo] = $this->storeIds('opencart');
+        [$openCartOne, $openCartTwo] = $this->storeIds('opencart');
 
         $this->assertSame('connected', $workspace->state($ventacart, 'ventacart:'.$ventaCartOne));
         $this->assertSame('attention', $workspace->state($ventacart, 'ventacart:'.$ventaCartTwo));
 
-        $this->assertSame('connected', $workspace->state($opencart, 'opencart:'.$ocOne));
-        $this->assertSame('setup', $workspace->state($opencart, 'opencart:'.$ocTwo));
+        $this->assertSame('connected', $workspace->state($opencart, 'opencart:'.$openCartOne));
+        $this->assertSame('setup', $workspace->state($opencart, 'opencart:'.$openCartTwo));
     }
 
     public function test_each_store_reports_its_own_last_sync(): void
@@ -647,35 +647,32 @@ class MultistoreWorkspaceTest extends TestCase
         ]);
     }
 
-    private function opencartOrder(int $storeId, string $firstname, string $marketplaceOrderId): int
+    private function opencartOrder(int $storeId, string $firstname, string $channelOrderId): int
     {
 
         return (int) \Illuminate\Support\Facades\DB::table('orders')->insertGetId([
             'firstname' => $firstname, 'lastname' => 'Buyer',
             'email' => strtolower($firstname).'@example.test',
             'channel' => 'opencart:'.$storeId,
-            'marketplace_order_id' => $marketplaceOrderId,
+            'channel_order_id' => $channelOrderId,
             'order_status_id' => 1, 'total' => 999.00,
             'currency_code' => 'PHP', 'currency_value' => 1,
             'date_added' => '2026-08-01 00:00:00', 'date_modified' => '2026-08-01 00:00:00',
-            'invoice_prefix' => 'INV-', 'store_name' => '', 'store_url' => '',
-            'telephone' => '', 'fax' => '', 'custom_field' => '',
+            'store_name' => '', 'currency_id' => 0,
+            'telephone' => '',
             'payment_firstname' => '', 'payment_lastname' => '', 'payment_company' => '',
             'payment_address_1' => '', 'payment_address_2' => '', 'payment_city' => '',
-            'payment_postcode' => '', 'payment_country' => '', 'payment_country_id' => 0,
-            'payment_zone' => '', 'payment_zone_id' => 0,
-            'payment_address_format' => '', 'payment_custom_field' => '',
-            'payment_method' => '', 'payment_code' => '',
+            'payment_postcode' => '', 'payment_country' => '',
+            'payment_zone' => '',
+            'payment_method' => '',
             'shipping_firstname' => '', 'shipping_lastname' => '', 'shipping_company' => '',
             'shipping_address_1' => '', 'shipping_address_2' => '', 'shipping_city' => '',
-            'shipping_postcode' => '', 'shipping_country' => '', 'shipping_country_id' => 0,
-            'shipping_zone' => '', 'shipping_zone_id' => 0,
-            'shipping_address_format' => '', 'shipping_custom_field' => '',
-            'shipping_method' => '', 'shipping_code' => '',
-            'comment' => '', 'affiliate_id' => 0, 'commission' => 0,
-            'marketing_id' => 0, 'tracking' => '', 'language_id' => 0, 'currency_id' => 0,
-            'ip' => '', 'forwarded_ip' => '', 'user_agent' => '', 'accept_language' => '',
-            'courier_id' => 0, 'tracking_number' => '', 'oe_import' => 0,
+            'shipping_postcode' => '', 'shipping_country' => '',
+            'shipping_zone' => '',
+            'shipping_method' => '',
+            'customer_note' => '',
+            'ip' => '',
+            'courier_id' => 0, 'tracking_number' => '',
         ]);
     }
 
@@ -712,7 +709,7 @@ class MultistoreWorkspaceTest extends TestCase
         $this->assertStringNotContainsString('ord-tab-strip', $chrome);
         $this->assertStringNotContainsString('ord-tab-card', $chrome);
         $this->assertStringNotContainsString(
-            'href="'.e(route('channels.fulfilment')).'"',
+            'href="'.e(route('channels.fulfillment')).'"',
             $chrome
         );
     }

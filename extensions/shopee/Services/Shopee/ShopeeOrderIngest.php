@@ -6,7 +6,7 @@ use Extensions\Shopee\Models\ShopeeApiLog;
 use Extensions\Shopee\Models\ShopeeOrder;
 use Extensions\Shopee\Models\ShopeeOrderProduct;
 use Extensions\Shopee\Models\ShopeeReturn;
-use Extensions\Shopee\Services\ShopeeCatalogOrderSync;
+use Extensions\Shopee\Services\ShopeeSalesOrderSync;
 use Illuminate\Contracts\Cache\LockTimeoutException;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
@@ -56,7 +56,7 @@ class ShopeeOrderIngest
             $detailList = $detailResp['order_list'] ?? [];
             if (!is_array($detailList)) $detailList = [];
 
-            $invoiceMap = $this->buyerInvoices($store, $auth, $chunk);
+            $invoiceMap = $this->customerInvoices($store, $auth, $chunk);
 
             $answered = [];
             foreach ($detailList as $o) {
@@ -95,7 +95,7 @@ class ShopeeOrderIngest
                 'raw'              => $o,
             ];
             if (array_key_exists($orderSn, $invoiceMap)) {
-                $fillExisting['buyer_invoice'] = $invoiceMap[$orderSn];
+                $fillExisting['customer_invoice'] = $invoiceMap[$orderSn];
             }
             $existing->fill($fillExisting)->save();
             $out['updated']++;
@@ -107,7 +107,7 @@ class ShopeeOrderIngest
             }
 
             try {
-                (new ShopeeCatalogOrderSync)->sync($existing);
+                (new ShopeeSalesOrderSync)->sync($existing);
             } catch (\Throwable $e) {
                 Log::warning('Shopee sync: catalog sync failed for order ' . $orderSn, ['error' => $e->getMessage()]);
             }
@@ -126,7 +126,7 @@ class ShopeeOrderIngest
                 'order_created_at' => $this->parseTimestamp($o['create_time'] ?? null),
                 'order_updated_at' => $this->parseTimestamp($o['update_time'] ?? null),
                 'raw'              => $o,
-                'buyer_invoice'    => $invoiceMap[$orderSn] ?? null,
+                'customer_invoice'    => $invoiceMap[$orderSn] ?? null,
             ]);
             $out['created']++;
 
@@ -137,7 +137,7 @@ class ShopeeOrderIngest
             }
 
             try {
-                (new ShopeeCatalogOrderSync)->sync($newOrder);
+                (new ShopeeSalesOrderSync)->sync($newOrder);
             } catch (\Throwable $e) {
                 Log::warning('Shopee sync: failed to sync order ' . $orderSn . ' to catalog', ['error' => $e->getMessage()]);
             }
@@ -325,8 +325,8 @@ class ShopeeOrderIngest
             ShopeeOrderProduct::query()->updateOrCreate(
                 [
                     'shopee_order_id' => $order->id,
-                    'item_id'         => $itemId !== '' ? $itemId : null,
-                    'model_id'        => $modelId !== '' ? $modelId : null,
+                    'shopee_item_id'  => $itemId !== '' ? $itemId : null,
+                    'shopee_model_id' => $modelId !== '' ? $modelId : null,
                 ],
                 [
                     'sku'       => $sku !== '' ? $sku : null,
@@ -341,7 +341,7 @@ class ShopeeOrderIngest
         }
     }
 
-    private function buyerInvoices(object $store, array $auth, array $chunk): array
+    private function customerInvoices(object $store, array $auth, array $chunk): array
     {
         $queries = array_map(fn ($sn) => ['order_sn' => (string) $sn], $chunk);
 

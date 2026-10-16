@@ -22,7 +22,7 @@ class VentaCartItemImport
         $answer = $client->getProduct($importSku);
         if (! ($answer['ok'] ?? false)) {
             return ['ok' => false, 'message' => 'VentaCart did not answer for "' . $importSku . '": '
-                . \App\Support\MarketplaceAnswer::plain('VentaCart', $answer)];
+                . \App\Support\ChannelAnswer::plain('VentaCart', $answer)];
         }
         $item = $answer['body']['data'] ?? $answer['body'] ?? [];
         if (empty($item)) {
@@ -43,7 +43,6 @@ class VentaCartItemImport
         try {
             $productId = DB::transaction(function () use ( $langId, $item, $variants, $name, $sku, $ventaCartId, $store) {
                 $productId = DB::table('products')->insertGetId([
-                    'model' => $sku,
                     'sku' => $sku,
                     'quantity' => (int) ($item['quantity'] ?? 0),
                     'price' => (float) ($item['price'] ?? 0),
@@ -52,7 +51,7 @@ class VentaCartItemImport
                     'weight' => (float) ($item['weight'] ?? 0),
                     'length' => 0, 'width' => 0, 'height' => 0,
                     'brand_id' => 0,
-                    'date_added' => now(), 'date_modified' => now(), 'date_available' => now(),
+                    'date_added' => now(), 'date_modified' => now(),
                 ]);
 
                 DB::table('product_descriptions')->insert([
