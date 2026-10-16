@@ -73,6 +73,28 @@
     color: var(--bl-ink-3);
 }
 
+.x-segment__item--alarm {
+    border-color: var(--bl-bad);
+    color: var(--bl-bad);
+    font-weight: 600;
+}
+
+.x-segment__item--alarm:hover {
+    background: var(--bl-bad-wash);
+    color: var(--bl-bad);
+}
+
+.x-segment__item--alarm .x-segment__count,
+.x-segment__item--alarm.is-active .x-segment__count {
+    min-width: 20px;
+    padding: 2px 6px;
+    border-radius: var(--bl-r-pill);
+    background: var(--bl-bad);
+    color: var(--bl-sheet);
+    font-weight: 600;
+    text-align: center;
+}
+
 .x-segment--courier {
     margin-top: calc(-1 * var(--bl-space-4) + 6px);
 }
