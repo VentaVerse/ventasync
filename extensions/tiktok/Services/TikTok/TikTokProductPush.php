@@ -143,6 +143,7 @@ class TikTokProductPush
         if (isset($b['refused'])) {
             return ['ok' => false, 'message' => $b['refused'], 'result' => []];
         }
+        $b['payload']['skus'] = TikTokVariationPush::withImages((array) ($b['payload']['skus'] ?? []));
         try {
             $result = $client->createProduct($c['app_key'], $c['app_secret'], $c['token'], $b['payload'], $c['shop_cipher'] ?: null);
         } catch (\Throwable $e) {
@@ -221,6 +222,7 @@ class TikTokProductPush
 
     private function sendEdit(TikTokClient $client, array $c, string $tiktokProductId, array $payload): array
     {
+        $payload['skus'] = TikTokVariationPush::withImages((array) ($payload['skus'] ?? []));
         try {
             $result = $client->editProduct($c['app_key'], $c['app_secret'], $c['token'], $tiktokProductId, $payload, $c['shop_cipher'] ?: null);
         } catch (\Throwable $e) {

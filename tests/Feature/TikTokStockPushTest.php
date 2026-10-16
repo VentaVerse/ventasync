@@ -256,12 +256,14 @@ class TikTokStockPushTest extends TestCase
         $this->assertSame('TTV-Red-S', $skus[0]['seller_sku']);
         $this->assertSame(
             [['name' => 'Color', 'value_name' => 'Red'], ['name' => 'Size', 'value_name' => 'S']],
-            $skus[0]['sales_attributes']
+            array_map(fn ($a) => array_diff_key($a, ['sku_img' => true]), $skus[0]['sales_attributes'])
         );
         $this->assertSame('1', $skus[0]['inventory'][0]['quantity'] === 1 ? '1' : (string) $skus[0]['inventory'][0]['quantity']);
         $this->assertSame('1100', $skus[0]['price']['amount']);
-        $this->assertArrayHasKey('sku_img', $skus[0], 'Red carries its own picture.');
-        $this->assertArrayNotHasKey('sku_img', $skus[2], 'Black has none.');
+        $this->assertArrayHasKey('sku_img', $skus[0]['sales_attributes'][0], 'Red carries its own picture, on its first sales attribute where TikTok Shop reads it.');
+        $this->assertArrayNotHasKey('sku_img', $skus[0], 'never on the SKU itself, where TikTok Shop ignores it');
+        $this->assertArrayNotHasKey('sku_img', $skus[0]['sales_attributes'][1]);
+        $this->assertArrayNotHasKey('sku_img', $skus[2]['sales_attributes'][0], 'Black has none.');
 
         $pivot = TikTokProductGroupProduct::where('product_id', $productId)->first();
         $this->assertSame('tt-new', $pivot->tiktok_product_id);

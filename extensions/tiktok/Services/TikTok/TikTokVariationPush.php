@@ -8,6 +8,40 @@ class TikTokVariationPush
 {
     public const MAX_AXES = 3;
 
+    /**
+     * TikTok Shop reads a variation's picture from its first sales attribute and ignores one on the SKU.
+     * The picture rides on the SKU while the payload is built and shaped, and moves to its place here, just before sending.
+     */
+    public static function withImages(array $skus): array
+    {
+        // The picture belongs to the first attribute's value, so every SKU sharing that value shows the same one.
+        $byValue = [];
+        foreach ($skus as $sku) {
+            if (is_array($sku) && isset($sku['sku_img'], $sku['sales_attributes'][0])) {
+                $byValue[self::firstValue($sku)] ??= $sku['sku_img'];
+            }
+        }
+        foreach ($skus as $i => $sku) {
+            if (! is_array($sku)) {
+                continue;
+            }
+            unset($skus[$i]['sku_img']);
+            $image = isset($sku['sales_attributes'][0]) && is_array($sku['sales_attributes'][0]) ? ($byValue[self::firstValue($sku)] ?? null) : null;
+            if ($image !== null) {
+                $skus[$i]['sales_attributes'][0]['sku_img'] = $image;
+            }
+        }
+
+        return $skus;
+    }
+
+    private static function firstValue(array $sku): string
+    {
+        $first = (array) $sku['sales_attributes'][0];
+
+        return mb_strtolower(trim((string) ($first['value_id'] ?? '') !== '' ? 'id:' . $first['value_id'] : 'name:' . ($first['value_name'] ?? '')));
+    }
+
     public function skus(object $erp, \Closure $priceFor, ?string $warehouseId, ?\Closure $uploadUri = null, ?array $existing = null): array
     {
         $langId = (int) config('catalog.default_language_id');
