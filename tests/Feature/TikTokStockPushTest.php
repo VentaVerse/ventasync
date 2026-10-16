@@ -402,6 +402,11 @@ class TikTokStockPushTest extends TestCase
             ->post(route('ext.tiktok.product-groups.updateProduct', $pivot->tiktok_product_group_id), ['ids' => [$pivot->product_id]]);
     }
 
+    private static function withoutPicture(array $attributes): array
+    {
+        return array_map(fn ($a) => array_diff_key($a, ['sku_img' => true]), $attributes);
+    }
+
     private function editedSkus(string $ttId): array
     {
         $puts = $this->callsFor('PUT', '/product/202309/products/' . $ttId);
@@ -423,7 +428,7 @@ class TikTokStockPushTest extends TestCase
 
         $skus = $this->editedSkus('tt-r1');
         $this->assertSame(self::SKU_IDS, array_map(fn ($s) => $s['id'] ?? null, $skus), 'no variation is deleted and re-created');
-        $this->assertSame([['name' => 'Color', 'value_name' => 'Red'], ['name' => 'Size', 'value_name' => 'S']], $skus['TTV-Red-S']['sales_attributes']);
+        $this->assertSame([['name' => 'Color', 'value_name' => 'Red'], ['name' => 'Size', 'value_name' => 'S']], self::withoutPicture($skus['TTV-Red-S']['sales_attributes']));
         $this->assertSame([['name' => 'Color', 'value_name' => 'Black'], ['name' => 'Size', 'value_name' => 'M']], $skus['TTV-Black-M']['sales_attributes']);
         $this->assertSame('pushed', $pivot->fresh()->sync_status);
     }
@@ -440,7 +445,7 @@ class TikTokStockPushTest extends TestCase
         $this->updateThroughGroup($pivot);
 
         $skus = $this->editedSkus('tt-r2');
-        $this->assertSame(['name' => 'Color', 'value_name' => 'Red'], $skus['TTV-Red-S']['sales_attributes'][0], 'the seller\'s own type is renamed');
+        $this->assertSame(['name' => 'Color', 'value_name' => 'Red'], self::withoutPicture($skus['TTV-Red-S']['sales_attributes'])[0], 'the seller\'s own type is renamed');
         $this->assertSame(['id' => '100089', 'value_id' => '9001', 'value_name' => 'S'], $skus['TTV-Red-S']['sales_attributes'][1]);
         $this->assertSame(['id' => '100089', 'value_name' => 'M'], $skus['TTV-Red-M']['sales_attributes'][1], 'the value takes the catalog\'s name, the type keeps its own');
         foreach ($skus as $sku) {
@@ -460,7 +465,7 @@ class TikTokStockPushTest extends TestCase
         $this->updateThroughGroup($pivot);
 
         $skus = $this->editedSkus('tt-r3');
-        $this->assertSame([['id' => '7301', 'value_id' => '8301', 'value_name' => 'Red'], ['id' => '7302', 'value_id' => '9001', 'value_name' => 'S']], $skus['TTV-Red-S']['sales_attributes']);
+        $this->assertSame([['id' => '7301', 'value_id' => '8301', 'value_name' => 'Red'], ['id' => '7302', 'value_id' => '9001', 'value_name' => 'S']], self::withoutPicture($skus['TTV-Red-S']['sales_attributes']));
         foreach ($skus as $sku) {
             foreach ($sku['sales_attributes'] as $attribute) {
                 $this->assertArrayNotHasKey('name', $attribute);
@@ -541,7 +546,7 @@ class TikTokStockPushTest extends TestCase
 
         $skus = $this->editedSkus('tt-l2');
         $this->assertSame(['TTV-Red-S' => 's1', 'TTV-Black-S' => 's3'], array_map(fn ($s) => $s['id'] ?? null, $skus));
-        $this->assertSame([['id' => '7301', 'value_id' => '8301', 'value_name' => 'Crimson']], $skus['TTV-Red-S']['sales_attributes'], 'kept as TikTok holds it');
+        $this->assertSame([['id' => '7301', 'value_id' => '8301', 'value_name' => 'Crimson']], self::withoutPicture($skus['TTV-Red-S']['sales_attributes']), 'kept as TikTok holds it');
         $this->assertSame([['id' => '7301', 'value_id' => '8302', 'value_name' => 'Onyx']], $skus['TTV-Black-S']['sales_attributes']);
         $this->assertNull(\Extensions\TikTok\Models\TikTokListing::where('product_id', $productId)->value('last_push_error'), 'the update succeeded, so the row carries no error');
     }
@@ -566,7 +571,7 @@ class TikTokStockPushTest extends TestCase
         $this->assertCount(2, $puts);
         $second = collect($puts[1]['body']['skus'])->keyBy('seller_sku')->all();
         $this->assertSame(self::SKU_IDS, array_map(fn ($s) => $s['id'] ?? null, $second));
-        $this->assertSame([['id' => '7301', 'value_id' => '8301', 'value_name' => 'Crimson'], ['id' => '7302', 'value_id' => '9001', 'value_name' => 'S']], $second['TTV-Red-S']['sales_attributes']);
+        $this->assertSame([['id' => '7301', 'value_id' => '8301', 'value_name' => 'Crimson'], ['id' => '7302', 'value_id' => '9001', 'value_name' => 'S']], self::withoutPicture($second['TTV-Red-S']['sales_attributes']));
         $this->assertSame('pushed', $pivot->fresh()->sync_status);
         $response->assertSessionHas('warning');
         $summary = (string) session('warning');

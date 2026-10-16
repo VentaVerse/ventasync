@@ -297,6 +297,7 @@ class LazadaAttributeAutoFillTest extends TestCase
         \Illuminate\Support\Facades\Http::fake([
             '*/images/migrate*' => \Illuminate\Support\Facades\Http::response(['code' => '0', 'data' => ['images' => [['url' => 'https://ph-live.slatic.net/x.jpg', 'hash_code' => 'h']]]], 200),
             '*/image/migrate*' => \Illuminate\Support\Facades\Http::response(['code' => '0', 'data' => ['image' => ['url' => 'https://ph-live.slatic.net/x.jpg', 'hash_code' => 'h']]], 200),
+            '*/products/get*' => \Illuminate\Support\Facades\Http::response(['code' => '0', 'data' => ['total_products' => 0, 'products' => []]], 200),
             '*' => \Illuminate\Support\Facades\Http::response(['code' => '4108', 'type' => 'ISP', 'message' => 'E500: Create product failed', 'detail' => [
                 ['field' => 'p-100005514', 'message' => 'C004: cannot be blank.', 'code' => 'CHK_BASIC_REQUIRED'],
                 ['field' => '', 'message' => 'Musical_Instrument_Type is mandatory', 'code' => 'CHK_BASIC_REQUIRED'],
@@ -310,7 +311,7 @@ class LazadaAttributeAutoFillTest extends TestCase
         $r->assertSessionHasErrors(['attributes.Musical_Instrument_Type']);
         $r->assertSessionMissing('status');
         $this->assertStringContainsString('Musical_Instrument_Type', (string) session('error'));
-        \Illuminate\Support\Facades\Http::assertNothingSent();
+        \Illuminate\Support\Facades\Http::assertNotSent(fn ($request) => ! str_contains($request->url(), '/products/get'));
         $html = $this->actingAs($user)->withSession(['errors' => session('errors')])->get(route('ext.lazada.products.edit', $listing->product_id))->assertOk()->getContent();
         $this->assertStringContainsString('Musical_Instrument_Type is mandatory', $html);
 

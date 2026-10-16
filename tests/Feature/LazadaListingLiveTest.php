@@ -476,7 +476,7 @@ class LazadaListingLiveTest extends TestCase
         $this->assertNotNull($update, 'the update reaches Lazada');
         $sent = json_decode($update['params']['payload'], true)['Request']['Product'];
         $this->assertSame('Cable Length', $sent['variation']['Variation1']['name']);
-        $this->assertSame(2, $reads, 'one read before the update, one after');
+        $this->assertSame(3, $reads, 'one read to build the update, one for the SKU ids the listing does not hold yet, one after');
 
         return $pid;
     }
@@ -857,6 +857,7 @@ class LazadaListingLiveTest extends TestCase
     {
         $productId = $this->seedProduct('Still visible product', 'LZT-KEEP');
         LazadaListing::query()->create(['product_id' => $productId, 'lazada_item_id' => '111', 'live_status' => 'active']);
+        unset($this->getResponses['/products/get']);
 
         $r = $this->actingAs($this->manager())->post(route('ext.lazada.products.refresh_status'));
 
