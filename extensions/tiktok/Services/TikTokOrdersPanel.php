@@ -11,8 +11,10 @@ use Illuminate\Http\Request;
 class TikTokOrdersPanel
 {
     private array $tabStatusMap = [
-        'UNPAID'           => ['UNPAID'],
-        'TO_SHIP'          => ['AWAITING_SHIPMENT', 'AWAITING_COLLECTION'],
+        // ON_HOLD: paid, but TikTok holds it while the buyer may still cancel, so it cannot ship yet.
+        'UNPAID'           => ['UNPAID', 'ON_HOLD'],
+        // PARTIALLY_SHIPPING: some packages left, the rest still to pack.
+        'TO_SHIP'          => ['AWAITING_SHIPMENT', 'PARTIALLY_SHIPPING', 'AWAITING_COLLECTION'],
         'IN_TRANSIT'       => ['IN_TRANSIT'],
         'DELIVERED'        => ['DELIVERED'],
         'COMPLETED'        => ['COMPLETED'],
@@ -48,7 +50,7 @@ class TikTokOrdersPanel
         }
 
         $tab = strtoupper((string) $request->query('tab', 'TO_SHIP'));
-        $allowedTabs = ['ALL', 'UNPAID', 'TO_SHIP', 'IN_TRANSIT', 'DELIVERED', 'COMPLETED', 'CANCELLED'];
+        $allowedTabs = ['ALL', 'UNPAID', 'TO_SHIP', 'IN_TRANSIT', 'DELIVERED', 'COMPLETED', 'CANCELLED', \App\Support\OrderAttention::TAB];
         if (!in_array($tab, $allowedTabs, true)) {
             $tab = 'ALL';
         }
@@ -83,15 +85,22 @@ class TikTokOrdersPanel
 
         $query = TikTokOrder::query()->with('products');
         $baseCountQuery = TikTokOrder::query();
+        $attention = \App\Support\OrderAttention::reasons($baseCountQuery, array_merge(...array_values($this->tabStatusMap)),
+            \Illuminate\Support\Facades\DB::table('ch_tiktok_order_status_map')->pluck('tiktok_status')->all());
+        if ($tab === \App\Support\OrderAttention::TAB && $attention === []) {
+            $tab = 'ALL';
+        }
 
         if ($tab !== 'ALL') {
             if ($tab === 'TO_SHIP' && $pendingSubtab !== '') {
                 $subStatuses = match ($pendingSubtab) {
-                    'to_pack'     => ['AWAITING_SHIPMENT'],
+                    'to_pack'     => ['AWAITING_SHIPMENT', 'PARTIALLY_SHIPPING'],
                     'to_handover' => ['AWAITING_COLLECTION'],
-                    default       => ['AWAITING_SHIPMENT', 'AWAITING_COLLECTION'],
+                    default       => ['AWAITING_SHIPMENT', 'PARTIALLY_SHIPPING', 'AWAITING_COLLECTION'],
                 };
                 $query->whereIn('status', $subStatuses);
+            } elseif ($tab === \App\Support\OrderAttention::TAB) {
+                $query->whereIn('status', array_keys($attention) ?: ['']);
             } else {
                 $statuses = $this->tabStatusMap[$tab] ?? [];
                 if (!empty($statuses)) {
@@ -128,8 +137,10 @@ class TikTokOrdersPanel
         foreach ($this->tabStatusMap as $k => $statuses) {
             $tab_counts[$k] = (clone $baseCountQuery)->whereIn('status', $statuses)->count();
         }
-        $tab_counts['to_pack'] = (clone $baseCountQuery)->whereIn('status', ['AWAITING_SHIPMENT'])->count();
+        $tab_counts['to_pack'] = (clone $baseCountQuery)->whereIn('status', ['AWAITING_SHIPMENT', 'PARTIALLY_SHIPPING'])->count();
         $tab_counts['to_handover'] = (clone $baseCountQuery)->whereIn('status', ['AWAITING_COLLECTION'])->count();
+
+        [$tabs, $tab_counts] = \App\Support\OrderAttention::prepend($tabs, $tab_counts, $baseCountQuery, $attention);
 
         $subStepStatuses = ['to_pack' => 'AWAITING_SHIPMENT', 'to_handover' => 'AWAITING_COLLECTION'];
         $courierTally = new CourierTally();
@@ -173,6 +184,8 @@ class TikTokOrdersPanel
             'active_tab'    => $tab,
             'pending_sub'   => $pendingSubtab,
             'tab_counts'    => $tab_counts,
+            'attention'     => $attention,
+            'attention_mapping_url' => route('ext.tiktok.index', ['store' => $store->id ?? 1]) . '?tab=status',
             'sort'          => $sortKey,
             'last_result'   => session('tiktok_orders_last_result'),
             'courier_tally' => $courierTally->forStrip($courierKey),

@@ -76,8 +76,9 @@
                 $count = $tab_counts[$key] ?? null;
             @endphp
             <a href="{{ $panelSelfUrl(['tab' => $key], ['page', 'pending_sub', 'courier']) }}"
-               class="x-segment__item {{ $isActive ? 'is-active' : '' }}"
+               class="x-segment__item {{ $key === \App\Support\OrderAttention::TAB ? 'x-segment__item--alarm' : '' }} {{ $isActive ? 'is-active' : '' }}"
                @if($isActive) aria-current="true" @endif>
+                @if($key === \App\Support\OrderAttention::TAB)<x-ui.icon name="alert-triangle" size="14" />@endif
                 <span>{{ $label }}</span>
                 @if($count !== null)
                     <span class="x-segment__count">{{ number_format($count) }}</span>
@@ -90,6 +91,8 @@
         <x-ui.icon name="chevron-right" size="12" />
     </a>
 </div>
+
+@include('partials.order-attention-note', ['activeTab' => $active_tab, 'attention' => $attention ?? [], 'mappingUrl' => $attention_mapping_url ?? null])
 
 @if($active_tab === 'TO_SHIP')
     <div class="x-segment x-segment--sub" aria-label="To Ship step">

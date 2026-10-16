@@ -55,7 +55,7 @@ class ShopeeOrdersPanel
             'SHIPPING',
             'DELIVERED_COMPLETED',
             'CANCELLED',
-            'OTHER',
+            \App\Support\OrderAttention::TAB,
         ];
         if (!in_array($tab, $allowedTabs, true)) {
             $tab = 'ALL';
@@ -97,9 +97,10 @@ class ShopeeOrdersPanel
         $tabStatusMap = [
             'UNPAID'              => ['UNPAID'],
             // RETRY_SHIP is a failed pickup: the parcel is still here, so it waits in To handover, as Seller Center keeps it under To Ship.
-            'PENDING'             => ['READY_TO_SHIP', 'PROCESSED', 'RETRY_SHIP'],
+            'PENDING'             => ['READY_TO_SHIP', 'INVOICE_PENDING', 'PROCESSED', 'RETRY_SHIP'],
             'SHIPPING'            => ['SHIPPED', 'TO_CONFIRM_RECEIVE'],
-            'DELIVERED_COMPLETED' => ['COMPLETED'],
+            // TO_RETURN: delivered, then the buyer asked to send it back; the return itself is on the Returns page.
+            'DELIVERED_COMPLETED' => ['COMPLETED', 'TO_RETURN'],
             'CANCELLED'           => ['CANCELLED', 'IN_CANCEL'],
         ];
 
@@ -114,7 +115,7 @@ class ShopeeOrdersPanel
             'CANCELLED'           => 'canceled',
         ]);
 
-        $subStepStatuses = ['to_pack' => ['READY_TO_SHIP'], 'to_handover' => ['PROCESSED', 'RETRY_SHIP']];
+        $subStepStatuses = ['to_pack' => ['READY_TO_SHIP', 'INVOICE_PENDING'], 'to_handover' => ['PROCESSED', 'RETRY_SHIP']];
         $courierTally = ($tab === 'PENDING' && isset($subStepStatuses[$pendingSubtab]))
             ? $this->buildToShipCourierTally($settingId, $subStepStatuses[$pendingSubtab])
             : new CourierTally();
@@ -124,17 +125,22 @@ class ShopeeOrdersPanel
             ->with('products');
 
         $baseCountQuery = ShopeeOrder::query()->where('store_id', $settingId);
+        $attention = \App\Support\OrderAttention::reasons($baseCountQuery, $mappedStatuses,
+            \Illuminate\Support\Facades\DB::table('ch_shopee_order_status_map')->pluck('shopee_status')->all());
+        if ($tab === \App\Support\OrderAttention::TAB && $attention === []) {
+            $tab = 'ALL';
+        }
 
         if ($tab !== 'ALL') {
             if ($tab === 'PENDING' && $pendingSubtab !== '') {
                 $pendingMap = [
-                    'to_pack'     => ['READY_TO_SHIP'],
+                    'to_pack'     => ['READY_TO_SHIP', 'INVOICE_PENDING'],
                     'to_handover' => ['PROCESSED', 'RETRY_SHIP'],
                 ];
                 $statuses = $pendingMap[$pendingSubtab] ?? ['READY_TO_SHIP'];
                 $query->whereIn('status', $statuses);
-            } elseif ($tab === 'OTHER') {
-                $query->whereNotIn('status', $mappedStatuses);
+            } elseif ($tab === \App\Support\OrderAttention::TAB) {
+                $query->whereIn('status', array_keys($attention) ?: ['']);
             } else {
                 $statuses = $tabStatusMap[$tab] ?? [];
                 if (!empty($statuses)) {
@@ -151,7 +157,7 @@ class ShopeeOrdersPanel
         }
 
         $pending_sub_counts = [
-            'to_pack'     => (clone $baseCountQuery)->whereIn('status', ['READY_TO_SHIP'])->count(),
+            'to_pack'     => (clone $baseCountQuery)->whereIn('status', ['READY_TO_SHIP', 'INVOICE_PENDING'])->count(),
             'to_handover' => (clone $baseCountQuery)->whereIn('status', ['PROCESSED', 'RETRY_SHIP'])->count(),
         ];
 
@@ -189,11 +195,7 @@ class ShopeeOrdersPanel
                 : 0;
         }
 
-        $otherCount = (clone $baseCountQuery)->whereNotIn('status', $mappedStatuses)->count();
-        if ($otherCount > 0) {
-            $tabs['OTHER'] = FulfillmentSteps::label('other');
-            $tab_counts['OTHER'] = $otherCount;
-        }
+        [$tabs, $tab_counts] = \App\Support\OrderAttention::prepend($tabs, $tab_counts, $baseCountQuery, $attention);
 
         if ($sortBy === 'confirmed_pay') {
             $query->orderByRaw("CAST(JSON_UNQUOTE(JSON_EXTRACT(raw, '$.pay_time')) AS UNSIGNED) {$sortDir}");
@@ -227,6 +229,8 @@ class ShopeeOrdersPanel
             'active_tab' => $tab,
             'pending_subtab' => $pendingSubtab,
             'tab_counts' => $tab_counts,
+            'attention' => $attention,
+            'attention_mapping_url' => route('ext.shopee.index') . '?tab=status',
             'pending_sub_counts' => $pending_sub_counts,
             'courier_tally' => $courierTally->forStrip($courierKey),
             'savedAwbs' => $savedAwbs,
