@@ -96,6 +96,7 @@ class TikTokExtension extends ExtensionProvider implements ChannelProvider, SkuS
                     new MenuItem('Coupons', 'ext.tiktok.coupons.index', 'view_tiktok/coupon', null, $p, 'Sell'),
                     new MenuItem('Products', 'ext.tiktok.products.index', 'view_tiktok/product', null, $p, 'Catalog'),
                     new MenuItem('Product Groups', 'ext.tiktok.product-groups.index', 'view_tiktok/product_group', null, $p, 'Catalog'),
+                    new MenuItem('Listing Templates', 'ext.tiktok.listing-templates.index', 'view_tiktok/listing_template', null, $p, 'Catalog'),
                     new MenuItem('Description Templates', 'ext.tiktok.description-templates.index', 'view_tiktok/description_template', null, $p, 'Catalog'),
                     new MenuItem('Watermarks', 'ext.tiktok.watermarks.index', 'view_tiktok/watermark_template', null, $p, 'Catalog'),
                     new MenuItem('Categories', 'ext.tiktok.categories.index', 'view_tiktok/product_group', null, $p, 'Catalog'),

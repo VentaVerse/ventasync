@@ -9,7 +9,7 @@ class VentaCartDisabledStoreTest extends TestCase
     private const CONTROLLER = 'extensions/ventacart/Controllers/VentaCartProductGroupController.php';
 
     private const WRITE_ACTIONS = [
-        'syncId', 'checkAgainstVenta', 'pushProducts', 'pushStock', 'pushPrices', 'deleteFromVenta',
+        'checkAgainstVenta', 'pushProducts', 'pushStock', 'pushPrices', 'deleteFromVenta',
     ];
 
     private function source(string $file): string

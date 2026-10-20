@@ -663,7 +663,7 @@ class ShopeeListingStateTest extends TestCase
         $this->product('NOLINK');
 
         $this->actingAs($this->operator())->get(route('ext.shopee.products.index'))->assertOk()
-            ->assertSee('href="https://shopee.ph/product/2002/7003" target="_blank" rel="noopener">Shopee 7003', false)
+            ->assertSee('href="https://shopee.ph/product/2002/7003" target="_blank" rel="noopener">7003', false)
             ->assertSee('x-extlink', false);
     }
 

@@ -82,8 +82,8 @@ class TikTokListingStatusMenuTest extends TestCase
         $page->assertSee('All products')->assertSee('class="lss"', false);
         $page->assertDontSee('name="sync_status"', false);
         $page->assertSee('class="x-segment-bar"', false);
-        $page->assertDontSee('cc-col-chanid', false);
-        $page->assertSee('TikTok tt-9001');
+        $page->assertSee('>TikTok ID<', false);
+        $page->assertSee('>tt-9001<', false);
         $page->assertDontSee('cc-head-refresh', false);
         $page->assertSee('x-segment-group__refresh', false);
 

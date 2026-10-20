@@ -197,15 +197,6 @@ class ShopeeWriteOutcomeTest extends TestCase
         );
     }
 
-    public function test_relinking_without_a_link_does_not_claim_success(): void
-    {
-        $source = $this->source();
-
-        $this->assertStringContainsString("'sync_status' => 'pending', 'push_error' => null", $source);
-        $this->assertStringNotContainsString("->with('status', 'Product re-linked.')", $source,
-            'Re-link reports success on the branch where it found no link and set the product back to not pushed.');
-    }
-
     private function group(): int
     {
         return DB::table('ch_shopee_product_groups')->insertGetId([

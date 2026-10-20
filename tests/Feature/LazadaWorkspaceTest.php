@@ -98,6 +98,7 @@ class LazadaWorkspaceTest extends TestCase
             'ext.lazada.products.import',
             'ext.lazada.product-groups.index',
             'ext.lazada.description-templates.index',
+            'ext.lazada.listing-templates.index',
             'ext.lazada.watermarks.index',
             'ext.lazada.categories.index',
             'ext.lazada.brands.index',

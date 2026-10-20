@@ -252,9 +252,9 @@
                     $menu = ['label' => "Product {$p->product_id} actions", 'store' => 'Lazada', 'catalog' => $canEditCatalog ? route('products.edit', $p->product_id) : null];
                     if (!$listed && !$isUnlinked) {
                         $menu['push'] = ['action' => route('ext.lazada.product-groups.push', $group->id), 'label' => 'Send to Lazada', 'fields' => $gf];
-                        $menu['link'] = ['action' => route('ext.lazada.product-groups.syncId', [$group->id, $p->product_id]), 'fields' => ['_return' => $returnTo]];
-                    } elseif ($isUnlinked) {
-                        $menu['link'] = ['action' => route('ext.lazada.product-groups.linkProduct', [$group->id, $p->product_id]), 'fields' => ['_return' => $returnTo]];
+                    }
+                    if (!$listed) {
+                        $menu['link'] = ['action' => route('ext.lazada.product-groups.check', $group->id), 'fields' => $gf];
                     }
                     if ($listed) {
                         $menu['update'] = ['action' => route('ext.lazada.product-groups.updateProduct', $group->id), 'label' => 'Send to Lazada', 'fields' => $gf];

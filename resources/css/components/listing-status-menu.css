@@ -134,27 +134,6 @@
     }
 }
 
-.lsm-chanid {
-    font-family: var(--font-mono);
-}
-
-a.lsm-chanid {
-    color: inherit;
-    text-decoration: none;
-    text-underline-offset: 2px;
-}
-
-a.lsm-chanid:hover {
-    color: var(--bl-ink);
-    text-decoration-color: currentColor;
-}
-
-a.lsm-chanid:focus-visible {
-    outline: 2px solid var(--bl-brand);
-    outline-offset: 1px;
-    border-radius: 2px;
-}
-
 @media (max-width: 1000px) {
     .lsm-layout {
         grid-template-columns: minmax(0, 1fr);
