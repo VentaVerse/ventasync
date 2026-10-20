@@ -370,13 +370,10 @@ class ShopeeAddModelTest extends TestCase
                 ['model_id' => 94, 'model_sku' => 'CL-BL', 'tier_index' => [1, 1]],
             ],
         ]);
-        $group = \Extensions\Shopee\Models\ShopeeProductGroup::create([
-            'name' => 'Packs', 'store_id' => (int) ShopeeStore::query()->value('id'),
-            'shopee_category_id' => 100139, 'logistic_ids' => [8003],
-        ]);
+        $group = \Extensions\Shopee\Models\ShopeeProductGroup::create(['name' => 'Packs', 'store_id' => (int) ShopeeStore::query()->value('id')]);
 
         $this->actingAs($this->manager())
-            ->post(route('ext.shopee.product-groups.updateProduct', $group->id), ['ids' => [$pid]])
+            ->post(route('ext.shopee.products.bulk_push'), ['product_ids' => [$pid]])
             ->assertRedirect();
 
         $tier = collect($this->sentPosts)->firstWhere('path', '/api/v2/product/update_tier_variation');
@@ -650,13 +647,10 @@ class ShopeeAddModelTest extends TestCase
                 ['model_id' => 83, 'model_sku' => 'PK-20', 'tier_index' => [2]],
             ],
         ]);
-        $group = \Extensions\Shopee\Models\ShopeeProductGroup::create([
-            'name' => 'Packs', 'store_id' => $this->storeId(),
-            'shopee_category_id' => 100139, 'logistic_ids' => [8003],
-        ]);
+        $group = \Extensions\Shopee\Models\ShopeeProductGroup::create(['name' => 'Packs', 'store_id' => $this->storeId()]);
 
         $this->actingAs($this->manager())
-            ->post(route('ext.shopee.product-groups.updateProduct', $group->id), ['ids' => [$pid]])
+            ->post(route('ext.shopee.products.bulk_push'), ['product_ids' => [$pid]])
             ->assertRedirect();
 
         $this->assertSame([], $this->sentTo('/api/v2/product/delete_model'));
@@ -666,7 +660,7 @@ class ShopeeAddModelTest extends TestCase
         );
     }
 
-    public function test_the_group_update_deletes_a_switched_off_variation(): void
+    public function test_a_bulk_update_deletes_a_switched_off_variation(): void
     {
         $pid = $this->threePacksOnTheItem();
         \App\Channels\Listings\ListingVariations::save('shopee', $this->storeId(), $pid, ['PK-5', 'PK-10']);
@@ -678,17 +672,14 @@ class ShopeeAddModelTest extends TestCase
                 ['model_id' => 83, 'model_sku' => 'PK-20', 'tier_index' => [2]],
             ],
         ]);
-        $group = \Extensions\Shopee\Models\ShopeeProductGroup::create([
-            'name' => 'Packs', 'store_id' => $this->storeId(),
-            'shopee_category_id' => 100139, 'logistic_ids' => [8003],
-        ]);
+        $group = \Extensions\Shopee\Models\ShopeeProductGroup::create(['name' => 'Packs', 'store_id' => $this->storeId()]);
 
         $this->actingAs($this->manager())
-            ->post(route('ext.shopee.product-groups.updateProduct', $group->id), ['ids' => [$pid]])
+            ->post(route('ext.shopee.products.bulk_push'), ['product_ids' => [$pid]])
             ->assertSessionHas('status');
 
         $this->assertSame([['item_id' => 800, 'model_id' => 83]], $this->sentTo('/api/v2/product/delete_model'));
-        $this->assertStringContainsString("#{$pid}: Removed from Shopee: 20 pcs (PK-20).", (string) session('status'));
+        $this->assertStringContainsString('Removed from Shopee: 20 pcs (PK-20).', (string) session('status'));
         $this->assertFalse(ShopeeListingLink::query()->where('shopee_model_id', 83)->exists());
     }
 
@@ -706,18 +697,15 @@ class ShopeeAddModelTest extends TestCase
         $this->postResponses['/api/v2/product/update_tier_variation'] = ['ok' => true, 'status' => 200, 'body' => [
             'error' => 'error_in_item_promotion_remove_model', 'message' => 'Can\'t change tier_variation when item is under promotion.',
         ]];
-        $group = \Extensions\Shopee\Models\ShopeeProductGroup::create([
-            'name' => 'Packs', 'store_id' => (int) ShopeeStore::query()->value('id'),
-            'shopee_category_id' => 100139, 'logistic_ids' => [8003],
-        ]);
+        $group = \Extensions\Shopee\Models\ShopeeProductGroup::create(['name' => 'Packs', 'store_id' => (int) ShopeeStore::query()->value('id')]);
 
         $this->actingAs($this->manager())
-            ->post(route('ext.shopee.product-groups.updateProduct', $group->id), ['ids' => [$pid]])
+            ->post(route('ext.shopee.products.bulk_push'), ['product_ids' => [$pid]])
             ->assertSessionHas('status');
 
         $status = (string) session('status');
-        $this->assertStringStartsWith('Update: 1 updated', $status);
-        $this->assertStringContainsString("#{$pid}: Variation names were not changed: Shopee refused them", $status);
+        $this->assertStringStartsWith('1 pushed to Shopee.', $status);
+        $this->assertStringContainsString('Variation names were not changed: Shopee refused them', $status);
         $this->assertSame(1, collect($this->sentPosts)->where('path', '/api/v2/product/update_tier_variation')->count(), 'One attempt, never a second half.');
         $this->assertNotNull($this->postIndex('/api/v2/product/update_item'));
         $this->assertLessThan($this->postIndex('/api/v2/product/update_item'), $this->postIndex('/api/v2/product/update_tier_variation'));

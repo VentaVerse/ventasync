@@ -5,7 +5,6 @@ namespace Extensions\TikTok\Services\TikTok;
 use App\Channels\Listings\SheetReads;
 use Extensions\TikTok\Models\TikTokCategoryTemplate;
 use Extensions\TikTok\Models\TikTokListing;
-use Extensions\TikTok\Models\TikTokProductGroup;
 
 class TikTokSheetReads
 {
@@ -14,7 +13,7 @@ class TikTokSheetReads
     public function readMissing(array $c, TikTokClient $client, int $limit = SheetReads::PER_RUN): array
     {
         $wanted = TikTokListing::query()->whereNotNull('tiktok_category_id')->distinct()->pluck('tiktok_category_id')
-            ->merge(TikTokProductGroup::query()->whereNotNull('tiktok_category_id')->distinct()->pluck('tiktok_category_id'))
+            ->merge(\Extensions\TikTok\Models\TikTokListingTemplate::query()->whereNotNull('tiktok_category_id')->distinct()->pluck('tiktok_category_id'))
             ->map(fn ($v) => trim((string) $v))
             ->filter(fn ($v) => preg_match('/^\d+$/', $v) === 1)
             ->unique()->values()->all();

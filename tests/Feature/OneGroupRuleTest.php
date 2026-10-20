@@ -25,9 +25,7 @@ class OneGroupRuleTest extends TestCase
     private function group(ShopeeStore $store, string $name): ShopeeProductGroup
     {
         return ShopeeProductGroup::create([
-            'store_id' => $store->id, 'name' => $name,
-            'shopee_category_id' => 100, 'logistic_ids' => [1],
-        ]);
+            'store_id' => $store->id, 'name' => $name]);
     }
 
     public function test_free_held_and_moved_are_the_three_verdicts(): void

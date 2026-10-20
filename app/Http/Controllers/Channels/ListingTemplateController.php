@@ -20,8 +20,6 @@ abstract class ListingTemplateController extends Controller
 
     abstract protected function fieldValues(Request $request, array $data): array;
 
-    abstract protected function fieldsView(): string;
-
     abstract protected function applier(): \App\Channels\Listings\Templates\TemplateFields;
 
     protected function fieldsData(Model $template): array
@@ -172,7 +170,6 @@ abstract class ListingTemplateController extends Controller
             'saveUrl' => $template->exists ? $this->to('update', ['template' => $template->id]) : $this->to('store'),
             'createUrl' => $this->to('create'),
             'destroyUrl' => $template->exists ? $this->to('destroy', ['template' => $template->id]) : null,
-            'fieldsView' => $this->fieldsView(),
             'fields' => $this->fieldsData($template),
             'canManage' => $this->canManage(),
             'storeId' => $this->storeId(),

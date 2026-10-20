@@ -18,10 +18,6 @@ final class ListingMarks
         array $productIds = [],
         string $listingsTable = '',
         string $storeColumn = '',
-        string $groupsTable = '',
-        string $membersTable = '',
-        string $groupKey = '',
-        string $groupStoreColumn = '',
     ) {
         if ($productIds === [] || ! Schema::hasTable($listingsTable)) {
             return;
@@ -34,23 +30,6 @@ final class ListingMarks
             ->pluck('watermark_template_id', 'product_id');
 
         foreach ($own as $productId => $templateId) {
-            $this->byProduct[(int) $productId] = (int) $templateId;
-        }
-
-        $missing = array_values(array_diff($productIds, array_keys($this->byProduct)));
-        if ($missing === [] || ! Schema::hasTable($groupsTable) || ! Schema::hasTable($membersTable)) {
-            return;
-        }
-
-        $lent = DB::table($membersTable . ' as m')
-            ->join($groupsTable . ' as g', 'g.id', '=', 'm.' . $groupKey)
-            ->whereIn('m.product_id', $missing)
-            ->when($groupStoreColumn !== '', fn ($q) => $q->where('g.' . $groupStoreColumn, $this->storeId))
-            ->whereNotNull('g.watermark_template_id')
-            ->orderBy('m.id')
-            ->pluck('g.watermark_template_id', 'm.product_id');
-
-        foreach ($lent as $productId => $templateId) {
             $this->byProduct[(int) $productId] = (int) $templateId;
         }
     }

@@ -10,22 +10,7 @@ class ShopeeProductGroup extends Model
 
     protected $table = 'ch_shopee_product_groups';
 
-    protected $fillable = [
-        'watermark_template_id',
-        'store_id',
-        'name',
-        'shopee_category_id', 'shopee_brand_id', 'logistic_ids',
-        'markup_fixed', 'markup_percent',
-    ];
-
-    protected $casts = [
-        'logistic_ids' => 'array',
-    ];
-
-    public function groupAttributes()
-    {
-        return $this->hasMany(ShopeeProductGroupAttribute::class, 'shopee_product_group_id');
-    }
+    protected $fillable = ['store_id', 'name'];
 
     public function groupProducts()
     {

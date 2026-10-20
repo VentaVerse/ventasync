@@ -142,15 +142,6 @@
             <x-slot:main>
 
                 @include('partials.listing-group-band', [
-                    'fields' => [
-                        'category' => ['label' => 'Shopee category', 'kind' => 'combo', 'value' => '#sl-category-value', 'text' => '#sl-category', 'reloads' => true],
-                        'brand' => ['label' => 'Brand', 'kind' => 'combo', 'value' => 'input[name="shopee_brand_id"]', 'text' => '#sl-brand'],
-                        'couriers' => ['label' => 'Couriers', 'kind' => 'checks', 'name' => 'logistic_ids[]'],
-                        'markup_percent' => ['label' => 'Percent added', 'kind' => 'input', 'el' => '#sl-markup-pct'],
-                        'markup_fixed' => ['label' => 'Fixed amount added', 'kind' => 'input', 'el' => '#sl-markup-fixed'],
-                        'watermark' => ['label' => 'Watermark', 'kind' => 'follow', 'el' => 'select[name="watermark_template_id"]'],
-                        'attributes' => ['label' => 'Attribute answers', 'kind' => 'attributes'],
-                    ],
                     'canManage' => $canManage,
                 ])
 

@@ -166,13 +166,13 @@ class ShopeeCatalogChangeTest extends TestCase
         $pid = $this->product('Plug', '<p>Words.</p>');
         ShopeeListing::query()->create(['product_id' => $pid]);
         $this->editCatalog($pid, ['name' => 'Plug v2']);
-        $group = \Extensions\Shopee\Models\ShopeeProductGroup::create(['name' => 'Plugs', 'shopee_category_id' => 100013, 'logistic_ids' => [41003]]);
+        $group = \Extensions\Shopee\Models\ShopeeProductGroup::create(['name' => 'Plugs']);
         DB::table('ch_shopee_product_group_products')->insert(['shopee_product_group_id' => $group->id, 'product_id' => $pid]);
 
         $manager = $this->user(false);
         $manager->userGroup->permissions()->attach(Permission::whereIn('key', ['manage_shopee/product_group', 'view_shopee/product_group'])->pluck('id')->all());
 
-        $this->actingAs($manager)->get(route('ext.shopee.product-groups.products', $group->id))
+        $this->actingAs($manager)->get(route('ext.shopee.products.index', ['group' => $group->id]))
             ->assertOk()
             ->assertSee('Catalog change')
             ->assertSee(e(route('ext.shopee.listings.edit', [$pid, 'compare' => 1])), false);

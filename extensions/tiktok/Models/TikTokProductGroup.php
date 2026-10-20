@@ -11,32 +11,10 @@ class TikTokProductGroup extends Model
 
     protected $table = 'ch_tiktok_product_groups';
 
-    protected $fillable = [
-        'watermark_template_id',
-        'store_id', 'name', 'tiktok_category_id',
-        'markup_percent', 'markup_fixed',
-    ];
-
-    protected $casts = [
-    ];
-
-    public function category()
-    {
-        return $this->belongsTo(TikTokCategory::class, 'tiktok_category_id');
-    }
+    protected $fillable = ['store_id', 'name'];
 
     public function groupProducts()
     {
         return $this->hasMany(TikTokProductGroupProduct::class, 'tiktok_product_group_id');
-    }
-
-    public function applyMarkup(float $price): float
-    {
-        return round($price + ($price * (float) ($this->markup_percent ?? 0) / 100) + (float) ($this->markup_fixed ?? 0), 2);
-    }
-
-    public function attributes()
-    {
-        return $this->hasMany(TikTokProductGroupAttribute::class, 'tiktok_product_group_id');
     }
 }

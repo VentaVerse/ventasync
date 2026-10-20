@@ -140,7 +140,6 @@ class ShopeeUnlinkTest extends TestCase
     {
         $callers = [
             'extensions/shopee/Controllers/ShopeeProductController.php',
-            'extensions/shopee/Controllers/ShopeeProductGroupController.php',
         ];
 
         foreach ($callers as $file) {

@@ -125,7 +125,7 @@ class TikTokListingsTest extends TestCase
             'name' => 'TikTok listing product ' . $suffix, 'description' => 'Words.',
             'meta_title' => '', 'meta_description' => '', 'meta_keyword' => '', 'tag' => '',
         ]);
-        $group = TikTokProductGroup::firstOrCreate(['name' => 'Scope group'], ['tiktok_category_id' => '900009']);
+        $group = TikTokProductGroup::firstOrCreate(['name' => 'Scope group'], []);
         TikTokProductGroupProduct::create(['tiktok_product_group_id' => $group->id, 'product_id' => $productId, 'sync_status' => 'pending']);
 
         return $productId;
@@ -159,8 +159,7 @@ class TikTokListingsTest extends TestCase
         $r->assertSee('Live');
         $r->assertSee('Not found on TikTok Shop');
         $r->assertSee('Not checked yet');
-        $r->assertDontSee('a TikTok category');
-        $r->assertDontSee('Missing: a TikTok category');
+        $r->assertSee('a TikTok category', false);
         $r->assertSee('Send to TikTok Shop');
         $r->assertSee('Under review');
         $r->assertSee('Deactivate on TikTok Shop');
@@ -226,7 +225,7 @@ class TikTokListingsTest extends TestCase
     {
         $own = $this->seedProduct('S');
         TikTokListing::create(['product_id' => $own, 'tiktok_category_id' => '900111']);
-        TikTokProductGroup::create(['name' => 'Unread group', 'tiktok_category_id' => '900222']);
+        \Extensions\TikTok\Models\TikTokListingTemplate::query()->create(['store_id' => \Extensions\TikTok\Models\TikTokStore::defaultStore()->id, 'name' => 'Unread template', 'tiktok_category_id' => '900222']);
         $this->callResponses['GET /product/202309/categories/900111/attributes'] = ['ok' => true, 'status' => 200, 'body' => ['code' => 0, 'message' => 'Success',
             'data' => ['attributes' => [['id' => '101', 'name' => 'Material', 'type' => 'PRODUCT_PROPERTY', 'values' => []]]]]];
         $this->callResponses['GET /product/202309/categories/900222/attributes'] = ['ok' => true, 'status' => 200, 'body' => ['code' => 36009004, 'message' => 'Category not found']];
@@ -289,9 +288,7 @@ class TikTokListingsTest extends TestCase
         ])->assertSessionHas('status');
 
         $listing = TikTokListing::where('product_id', $productId)->first();
-        $this->assertNull($listing->tiktok_category_id);
-        $inherit = app(\Extensions\TikTok\Services\TikTok\TikTokInheritedSettings::class);
-        $this->assertSame('900009', (string) $inherit->fill($listing, $inherit->forProducts([$productId])[$productId] ?? null)['listing']->tiktok_category_id);
+        $this->assertSame('900009', (string) $listing->tiktok_category_id, 'a value equal to the group is still the listing\'s own');
         $this->assertSame('Valeton', $listing->brand_name);
         $this->assertSame(10.0, $listing->markup_percent);
         $this->assertSame('My own title', $listing->title);
@@ -397,7 +394,7 @@ class TikTokListingsTest extends TestCase
         $back = '/channels/tiktok/1/products?search=sp';
 
         $this->actingAs($this->manager())
-            ->put(route('ext.tiktok.listings.update', $productId), ['push_after' => 1, 'back' => $back])
+            ->put(route('ext.tiktok.listings.update', $productId), ['push_after' => 1, 'back' => $back, 'tiktok_category_id' => '900009'])
             ->assertRedirect($back)
             ->assertSessionHas('status');
 
@@ -407,7 +404,7 @@ class TikTokListingsTest extends TestCase
     public function test_the_listing_page_update_starts_from_the_listings_own_price(): void
     {
         $productId = $this->seedProduct('UP', 300);
-        TikTokListing::create(['product_id' => $productId, 'tiktok_product_id' => 'tt-up', 'tiktok_sku_id' => 's-up',
+        TikTokListing::create(['product_id' => $productId, 'tiktok_product_id' => 'tt-up', 'tiktok_sku_id' => 's-up', 'tiktok_category_id' => '900009',
             'price' => 500, 'markup_percent' => 10, 'last_pushed_at' => now(), 'last_push_source' => 'listing']);
 
         $this->actingAs($this->manager())->post(route('ext.tiktok.listings.push_update', $productId))->assertSessionHas('status');
@@ -537,7 +534,7 @@ class TikTokListingsTest extends TestCase
         $group = TikTokProductGroup::query()->where('name', 'Scope group')->firstOrFail();
         $user = $this->userWith(['manage_tiktok/product', 'view_tiktok/product', 'view_tiktok/product_group']);
 
-        foreach ([route('ext.tiktok.products.index'), route('ext.tiktok.product-groups.products', ['id' => $group->id])] as $url) {
+        foreach ([route('ext.tiktok.products.index'), route('ext.tiktok.products.index', ['group' => $group->id])] as $url) {
             $this->actingAs($user)->get($url)->assertOk()
                 ->assertSee('Qable IC50 Pro')
                 ->assertSee('TikTok listing product P')
@@ -545,7 +542,7 @@ class TikTokListingsTest extends TestCase
                 ->assertDontSee('Qable elsewhere');
         }
 
-        foreach ([route('ext.tiktok.products.index', ['q' => 'Qable']), route('ext.tiktok.product-groups.products', ['id' => $group->id, 'q' => 'Qable'])] as $url) {
+        foreach ([route('ext.tiktok.products.index', ['q' => 'Qable']), route('ext.tiktok.products.index', ['group' => $group->id, 'q' => 'Qable'])] as $url) {
             $this->actingAs($user)->get($url)->assertOk()
                 ->assertSee('Qable IC50 Pro')
                 ->assertDontSee('TikTok listing product P');

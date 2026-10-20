@@ -207,13 +207,10 @@ class ShopeeListingPageTest extends TestCase
         $this->assertStringNotContainsString('formnovalidate', $html);
     }
 
-    public function test_the_band_picks_the_group_and_the_fields_show_what_it_gives(): void
+    public function test_the_band_picks_the_group_and_the_fields_show_only_the_listings_own(): void
     {
         $productId = $this->seedProduct();
-        $group = \Extensions\Shopee\Models\ShopeeProductGroup::create([
-            'name' => 'Guitar pedals', 'shopee_category_id' => 100013,
-            'logistic_ids' => [8003], 'markup_percent' => 50, 'markup_fixed' => 0,
-        ]);
+        $group = \Extensions\Shopee\Models\ShopeeProductGroup::create(['name' => 'Guitar pedals']);
         \Extensions\Shopee\Models\ShopeeProductGroupProduct::create([
             'shopee_product_group_id' => $group->id, 'product_id' => $productId,
         ]);
@@ -223,8 +220,8 @@ class ShopeeListingPageTest extends TestCase
         $page->assertSee('Guitar pedals');
         $html = $page->getContent();
         $this->assertMatchesRegularExpression('/<option value="' . $group->id . '"\s+selected/', $html);
-        $this->assertMatchesRegularExpression('/id="sl-markup-pct"[^>]*value="50(\.0+)?"|value="50(\.0+)?"[^>]*id="sl-markup-pct"/', $html,
-            "the group's rule is the value in effect");
+        $this->assertDoesNotMatchRegularExpression('/id="sl-markup-pct"[^>]*value="50(\.0+)?"|value="50(\.0+)?"[^>]*id="sl-markup-pct"/', $html,
+            "the group's rule is not shown as the listing's");
     }
 
     public function test_the_listing_keeps_its_own_arrangement_and_an_emptied_one_sends_the_catalogs(): void
@@ -648,7 +645,7 @@ class ShopeeListingPageTest extends TestCase
     {
         $productId = $this->seedProduct();
         \Extensions\Shopee\Models\ShopeeListing::query()->updateOrCreate(['product_id' => $productId], ['shopee_category_id' => 555001]);
-        \Extensions\Shopee\Models\ShopeeProductGroup::query()->create(['name' => 'Unread group', 'shopee_category_id' => 555002]);
+        \Extensions\Shopee\Models\ShopeeListingTemplate::query()->create(['store_id' => \Extensions\Shopee\Models\ShopeeStore::defaultStore()->id, 'name' => 'Unread template', 'shopee_category_id' => 555002]);
         $this->fakeItemList(['NORMAL' => [], 'UNLIST' => [], 'BANNED' => [], 'REVIEWING' => [], 'SELLER_DELETE' => [], 'SHOPEE_DELETE' => []]);
         $this->getResponses['/api/v2/product/get_attribute_tree'] = fn (array $q) => (int) ($q['category_id'] ?? 0) === 555001
             ? ['ok' => true, 'status' => 200, 'body' => ['response' => ['attribute_list' => [['attribute_id' => 1, 'original_attribute_name' => 'Material', 'is_mandatory' => false]]]]]
@@ -950,13 +947,10 @@ class ShopeeListingPageTest extends TestCase
         ], $sent['body']['description_info']['extended_description']['field_list']);
     }
 
-    public function test_a_group_send_says_a_left_out_picture_as_a_warning(): void
+    public function test_a_send_says_a_left_out_picture_as_a_warning(): void
     {
         $productId = $this->catalogDescriptionWithTwoPictures();
-        $group = \Extensions\Shopee\Models\ShopeeProductGroup::create([
-            'name' => 'Description pictures',
-            'shopee_category_id' => 100013, 'logistic_ids' => [8003], 'markup_percent' => 0, 'markup_fixed' => 0,
-        ]);
+        $group = \Extensions\Shopee\Models\ShopeeProductGroup::create(['name' => 'Description pictures']);
         DB::table('ch_shopee_product_group_products')->insert([
             'shopee_product_group_id' => $group->id, 'product_id' => $productId,
         ]);
@@ -965,9 +959,9 @@ class ShopeeListingPageTest extends TestCase
         app(\Extensions\Shopee\Services\Shopee\ShopeeListingStates::class)->recordOutcome($productId, 'An earlier refusal.');
 
         $this->actingAs($this->userWith(['manage_shopee/product', 'view_shopee/product', 'manage_shopee/product_group', 'view_shopee/product_group']))
-            ->post(route('ext.shopee.product-groups.send', $group->id), ['ids' => [$productId]])
+            ->post(route('ext.shopee.products.bulk_push'), ['product_ids' => [$productId]])
             ->assertSessionMissing('error')
-            ->assertSessionHas('warning', fn (string $m) => str_contains($m, "#{$productId}: 1 description picture could not be uploaded and was left out."));
+            ->assertSessionHas('warning', fn ($m) => str_contains((string) $m, '1 description picture could not be uploaded and was left out.'));
 
         $sent = collect($this->sentPayloads)->firstWhere('path', '/api/v2/product/update_item');
         $this->assertNotNull($sent, 'The group update still goes.');
@@ -1088,10 +1082,7 @@ class ShopeeListingPageTest extends TestCase
         ShopeeListingLink::query()->create([
             'product_id' => $productId, 'shopee_item_id' => 990077, 'sku' => 'LSTP-SKU-1',
         ]);
-        $group = \Extensions\Shopee\Models\ShopeeProductGroup::create([
-            'name' => 'Check stampers',
-            'shopee_category_id' => 100013, 'logistic_ids' => [41003],
-        ]);
+        $group = \Extensions\Shopee\Models\ShopeeProductGroup::create(['name' => 'Check stampers']);
         DB::table('ch_shopee_product_group_products')->insert([
             'shopee_product_group_id' => $group->id, 'product_id' => $productId,
         ]);
@@ -1100,7 +1091,7 @@ class ShopeeListingPageTest extends TestCase
         $this->actingAs($this->userWith([
             'manage_shopee/product', 'view_shopee/product',
             'manage_shopee/product_group', 'view_shopee/product_group',
-        ]))->post(route('ext.shopee.product-groups.check', $group->id), ['ids' => [$productId]]);
+        ]))->post(route('ext.shopee.products.check'), ['product_ids' => [$productId]]);
 
         $listing = ShopeeListing::query()->where('product_id', $productId)->first();
         $this->assertNotNull($listing, 'The check must leave its stamp on the product record.');
@@ -1144,10 +1135,7 @@ class ShopeeListingPageTest extends TestCase
     public function test_the_row_menu_push_asks_before_publishing(): void
     {
         $productId = $this->seedProduct();
-        \Extensions\Shopee\Models\ShopeeProductGroup::create([
-            'name' => 'Confirm scope',
-            'shopee_category_id' => 100013, 'logistic_ids' => [8003],
-        ]);
+        \Extensions\Shopee\Models\ShopeeProductGroup::create(['name' => 'Confirm scope']);
         ShopeeListing::query()->create([
             'product_id' => $productId,
             'shopee_category_id' => 100013, 'logistic_ids' => [8003],
@@ -1168,10 +1156,7 @@ class ShopeeListingPageTest extends TestCase
     {
         $productId = $this->seedProduct();
         \Extensions\Shopee\Models\ShopeeListing::create(['product_id' => $productId]);
-        \Extensions\Shopee\Models\ShopeeProductGroup::create([
-            'name' => 'Unready scope',
-            'shopee_category_id' => 100013, 'logistic_ids' => [8003],
-        ]);
+        \Extensions\Shopee\Models\ShopeeProductGroup::create(['name' => 'Unready scope']);
         $this->fakeItemList(['NORMAL' => [], 'UNLIST' => [], 'BANNED' => [], 'REVIEWING' => []]);
         $this->getResponses['/api/v2/product/get_item_base_info'] =
             ['ok' => true, 'status' => 200, 'body' => ['response' => ['item_list' => []]]];
@@ -1239,7 +1224,7 @@ class ShopeeListingPageTest extends TestCase
     public function test_both_brand_pickers_warm_through_the_one_endpoint_and_the_page_guards_a_stall(): void
     {
         $this->assertStringContainsString('data-combo-warm', (string) file_get_contents(base_path('extensions/shopee/views/listings/edit.blade.php')));
-        $this->assertStringContainsString('data-combo-warm', (string) file_get_contents(base_path('extensions/shopee/views/product-groups/form.blade.php')));
+        $this->assertStringContainsString('data-combo-warm', (string) file_get_contents(base_path('extensions/shopee/views/templates/_fields.blade.php')));
         $this->assertStringContainsString('app(ShopeeProductGroupController::class)->brandsForCategory(', (string) file_get_contents(base_path('extensions/shopee/Controllers/ShopeeProductController.php')), 'the listing route delegates to the one warm');
         $js = (string) file_get_contents(base_path('resources/js/pages/group-form.js'));
         $this->assertStringContainsString('stalls >= 3', $js);
@@ -1257,13 +1242,13 @@ class ShopeeListingPageTest extends TestCase
             'access_token' => 't2', 'refresh_token' => 'r2', 'mode' => 'production',
         ]);
         ShopeeListing::query()->create(['store_id' => $other->id, 'product_id' => $plain, 'item_name' => 'Qable elsewhere']);
-        $group = \Extensions\Shopee\Models\ShopeeProductGroup::create(['name' => 'Titled pedals', 'shopee_category_id' => 100013, 'logistic_ids' => [8003]]);
+        $group = \Extensions\Shopee\Models\ShopeeProductGroup::create(['name' => 'Titled pedals']);
         foreach ([$titled, $plain] as $pid) {
             \Extensions\Shopee\Models\ShopeeProductGroupProduct::create(['shopee_product_group_id' => $group->id, 'product_id' => $pid, 'sync_status' => 'pending']);
         }
         $user = $this->userWith(['manage_shopee/product', 'view_shopee/product', 'view_shopee/product_group']);
 
-        foreach ([route('ext.shopee.products.index'), route('ext.shopee.product-groups.products', $group->id)] as $url) {
+        foreach ([route('ext.shopee.products.index'), route('ext.shopee.products.index', ['group' => $group->id])] as $url) {
             $this->actingAs($user)->get($url)->assertOk()
                 ->assertSee('Qable IC50 Pro')
                 ->assertSee('Plain catalog pedal')
@@ -1271,7 +1256,7 @@ class ShopeeListingPageTest extends TestCase
                 ->assertDontSee('Qable elsewhere');
         }
 
-        foreach ([route('ext.shopee.products.index', ['q' => 'Qable']), route('ext.shopee.product-groups.products', ['id' => $group->id, 'q' => 'Qable'])] as $url) {
+        foreach ([route('ext.shopee.products.index', ['q' => 'Qable']), route('ext.shopee.products.index', ['group' => $group->id, 'q' => 'Qable'])] as $url) {
             $this->actingAs($user)->get($url)->assertOk()
                 ->assertSee('Qable IC50 Pro')
                 ->assertDontSee('Plain catalog pedal');

@@ -6,7 +6,6 @@ use App\Models\WatermarkTemplate;
 use App\Services\Media\ListingWatermark;
 use App\Services\Media\StampedImages;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
@@ -44,18 +43,17 @@ class ListingWatermarkTest extends TestCase
         Storage::fake('public');
     }
 
-    public function test_the_listings_own_template_wins_over_its_groups(): void
+    public function test_only_the_listings_own_template_marks_its_pictures(): void
     {
         $own = $this->template('own');
-        $groups = $this->template('group');
         $pictures = [$this->png('catalog/p/a.png'), $this->png('catalog/p/b.png')];
 
-        $mine = ListingWatermark::paths($pictures, (object) ['watermark_template_id' => $own->id, 'watermark_all_images' => false], $groups->id, 'shopee', 1);
-        $lent = ListingWatermark::paths($pictures, (object) ['watermark_template_id' => null, 'watermark_all_images' => false], $groups->id, 'shopee', 1);
+        $mine = ListingWatermark::paths($pictures, (object) ['watermark_template_id' => $own->id, 'watermark_all_images' => false], 'shopee', 1);
+        $none = ListingWatermark::paths($pictures, (object) ['watermark_template_id' => null, 'watermark_all_images' => false], 'shopee', 1);
 
         $this->assertStringStartsWith(StampedImages::DIR . '/', $mine[0]);
-        $this->assertNotSame($mine[0], $lent[0], 'a listing with its own template is not marked with its group\'s');
         $this->assertSame('catalog/p/b.png', $mine[1], 'unticked: the main picture only');
+        $this->assertSame($pictures, $none, 'a listing with no template of its own is not marked, whatever its group');
     }
 
     public function test_the_tick_marks_every_picture_and_no_template_marks_none(): void
@@ -63,28 +61,9 @@ class ListingWatermarkTest extends TestCase
         $own = $this->template('own');
         $pictures = [$this->png('catalog/p/a.png'), $this->png('catalog/p/b.png')];
 
-        $all = ListingWatermark::paths($pictures, (object) ['watermark_template_id' => $own->id, 'watermark_all_images' => true], null, 'shopee', 1);
+        $all = ListingWatermark::paths($pictures, (object) ['watermark_template_id' => $own->id, 'watermark_all_images' => true], 'shopee', 1);
         $this->assertStringStartsWith(StampedImages::DIR . '/', $all[1]);
 
-        $this->assertSame($pictures, ListingWatermark::paths($pictures, null, null, 'shopee', 1));
-    }
-
-    public function test_the_group_template_is_read_from_the_products_group_in_that_store(): void
-    {
-        $a = $this->template('store-a');
-        $b = $this->template('store-b');
-        DB::statement('SET FOREIGN_KEY_CHECKS=0');
-        $groupA = DB::table('ch_ventacart_product_groups')->insertGetId(['store_id' => 1, 'name' => 'A', 'watermark_template_id' => $a->id, 'created_at' => now(), 'updated_at' => now()]);
-        $groupB = DB::table('ch_ventacart_product_groups')->insertGetId(['store_id' => 2, 'name' => 'B', 'watermark_template_id' => $b->id, 'created_at' => now(), 'updated_at' => now()]);
-        DB::table('ch_ventacart_product_group_products')->insert([
-            ['ventacart_product_group_id' => $groupA, 'product_id' => 77, 'created_at' => now(), 'updated_at' => now()],
-            ['ventacart_product_group_id' => $groupB, 'product_id' => 77, 'created_at' => now(), 'updated_at' => now()],
-        ]);
-        DB::statement('SET FOREIGN_KEY_CHECKS=1');
-
-        $args = ['ch_ventacart_product_groups', 'ch_ventacart_product_group_products', 'ventacart_product_group_id', 77, 'store_id'];
-        $this->assertSame($a->id, ListingWatermark::groupTemplateId(...[...$args, 1]));
-        $this->assertSame($b->id, ListingWatermark::groupTemplateId(...[...$args, 2]));
-        $this->assertNull(ListingWatermark::groupTemplateId('ch_ventacart_product_groups', 'ch_ventacart_product_group_products', 'ventacart_product_group_id', 999, 'store_id', 1));
+        $this->assertSame($pictures, ListingWatermark::paths($pictures, null, 'shopee', 1));
     }
 }

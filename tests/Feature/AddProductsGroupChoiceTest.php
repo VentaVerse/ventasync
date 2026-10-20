@@ -36,8 +36,8 @@ class AddProductsGroupChoiceTest extends TestCase
         $this->artisan('permissions:sync-catalog');
 
         $this->store = ShopeeStore::query()->create(['partner_id' => 1, 'partner_key' => 'k', 'shop_id' => 2, 'store_name' => 'Main shop', 'mode' => 'production']);
-        $this->cables = ShopeeProductGroup::create(['name' => 'Cables', 'shopee_category_id' => 1, 'logistic_ids' => [1], 'store_id' => $this->store->id]);
-        $this->pedals = ShopeeProductGroup::create(['name' => 'Pedals', 'shopee_category_id' => 1, 'logistic_ids' => [1], 'store_id' => $this->store->id]);
+        $this->cables = ShopeeProductGroup::create(['name' => 'Cables', 'store_id' => $this->store->id]);
+        $this->pedals = ShopeeProductGroup::create(['name' => 'Pedals', 'store_id' => $this->store->id]);
 
         $this->productId = (int) DB::table('products')->insertGetId([
             'sku' => 'SKU-P', 'quantity' => 5, 'price' => 100, 'status' => 1, 'image' => '',
@@ -95,7 +95,7 @@ class AddProductsGroupChoiceTest extends TestCase
     public function test_a_group_of_another_store_is_refused(): void
     {
         $other = ShopeeStore::query()->create(['partner_id' => 3, 'partner_key' => 'k', 'shop_id' => 4, 'store_name' => 'Outlet', 'mode' => 'production']);
-        $theirs = ShopeeProductGroup::create(['name' => 'Theirs', 'shopee_category_id' => 1, 'logistic_ids' => [1], 'store_id' => $other->id]);
+        $theirs = ShopeeProductGroup::create(['name' => 'Theirs', 'store_id' => $other->id]);
         $this->app->instance('shopee.route-store', $this->store);
 
         $this->add(['group' => (string) $theirs->id]);

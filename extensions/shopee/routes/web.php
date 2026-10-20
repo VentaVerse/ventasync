@@ -64,8 +64,6 @@ Route::middleware(['auth', \Extensions\Shopee\Http\ResolveShopeeStore::class])
         Route::get('/shopee/{store}/product-groups/categories/lookup', [ShopeeProductGroupController::class, 'categoryLookup'])->name('ext.shopee.product-groups.categoryLookup');
         Route::get('/shopee/{store}/product-groups/{id}/edit', [ShopeeProductGroupController::class, 'edit'])->name('ext.shopee.product-groups.edit');
         Route::get('/shopee/{store}/product-groups/{id}/products', [ShopeeProductGroupController::class, 'products'])->name('ext.shopee.product-groups.products');
-        Route::get('/shopee/{store}/product-groups/{id}/products/search', [ShopeeProductGroupController::class, 'productSearch'])->whereNumber('id')->name('ext.shopee.product-groups.productSearch');
-        Route::get('/shopee/{store}/product-groups/{id}/orphans', [ShopeeProductGroupController::class, 'orphans'])->name('ext.shopee.product-groups.orphans');
 
         Route::get('/shopee/{store}/products', [ShopeeProductController::class, 'index'])->name('ext.shopee.products.index');
         Route::get('/shopee/{store}/products/search-catalog', [ShopeeProductController::class, 'searchCatalogProducts'])->name('ext.shopee.products.search_catalog');
@@ -114,22 +112,8 @@ Route::middleware(['auth', \Extensions\Shopee\Http\ResolveShopeeStore::class])
         Route::post('/shopee/{store}/product-groups', [ShopeeProductGroupController::class, 'store'])->name('ext.shopee.product-groups.store');
         Route::put('/shopee/{store}/product-groups/{id}', [ShopeeProductGroupController::class, 'update'])->name('ext.shopee.product-groups.update');
         Route::delete('/shopee/{store}/product-groups/{id}', [ShopeeProductGroupController::class, 'destroy'])->name('ext.shopee.product-groups.destroy');
-        Route::post('/shopee/{store}/product-groups/{id}/products/{productId}/add', [ShopeeProductGroupController::class, 'addProduct'])->whereNumber('id')->whereNumber('productId')->name('ext.shopee.product-groups.addProduct');
-        Route::post('/shopee/{store}/product-groups/{id}/products/send', [ShopeeProductGroupController::class, 'send'])->name('ext.shopee.product-groups.send');
-        Route::post('/shopee/{store}/product-groups/{id}/send-runs', [ShopeeProductGroupController::class, 'sendRunBegin'])->whereNumber('id')->name('ext.shopee.product-groups.send_run_begin');
-        Route::post('/shopee/{store}/product-groups/{id}/send-runs/{run}/step', [ShopeeProductGroupController::class, 'sendRunStep'])->whereNumber('id')->whereNumber('run')->name('ext.shopee.product-groups.send_run_step');
-        Route::post('/shopee/{store}/product-groups/{id}/send-runs/{run}/stop', [ShopeeProductGroupController::class, 'sendRunStop'])->whereNumber('id')->whereNumber('run')->name('ext.shopee.product-groups.send_run_stop');
-        Route::post('/shopee/{store}/product-groups/{id}/products/check', [ShopeeProductGroupController::class, 'checkAgainstShopee'])->name('ext.shopee.product-groups.check');
-        Route::post('/shopee/{store}/product-groups/{id}/products/push', [ShopeeProductGroupController::class, 'push'])->name('ext.shopee.product-groups.push');
-        Route::post('/shopee/{store}/product-groups/{id}/products/update-product', [ShopeeProductGroupController::class, 'updateProduct'])->name('ext.shopee.product-groups.updateProduct');
-        Route::post('/shopee/{store}/product-groups/{id}/products/push-prices', [ShopeeProductGroupController::class, 'pushPrices'])->name('ext.shopee.product-groups.pushPrices');
-        Route::post('/shopee/{store}/product-groups/{id}/products/push-stock', [ShopeeProductGroupController::class, 'pushStock'])->name('ext.shopee.product-groups.pushStock');
         Route::post('/shopee/{store}/product-groups/{id}/products/mass-remove', [ShopeeProductGroupController::class, 'massRemove'])->name('ext.shopee.product-groups.massRemove');
         Route::post('/shopee/{store}/product-groups/move', [ShopeeProductGroupController::class, 'moveProducts'])->name('ext.shopee.product-groups.move');
-        Route::post('/shopee/{store}/product-groups/{id}/products/delete-from-shopee', [ShopeeProductGroupController::class, 'deleteFromShopee'])->name('ext.shopee.product-groups.deleteFromShopee');
-        Route::post('/shopee/{store}/product-groups/{id}/products/{productId}/unlink', [ShopeeProductGroupController::class, 'unlinkProduct'])->name('ext.shopee.product-groups.unlinkProduct');
-        Route::delete('/shopee/{store}/product-groups/{id}/products/{productId}', [ShopeeProductGroupController::class, 'removeProduct'])->name('ext.shopee.product-groups.removeProduct');
-        Route::post('/shopee/{store}/product-groups/{id}/template/sync', [ShopeeProductGroupController::class, 'syncTemplate'])->name('ext.shopee.product-groups.template_sync');
         Route::post('/shopee/{store}/product-groups/refresh-categories', [ShopeeProductGroupController::class, 'refreshCategories'])->name('ext.shopee.product-groups.refreshCategories');
         Route::post('/shopee/{store}/product-groups/fetch-attributes', [ShopeeProductGroupController::class, 'fetchAttributesAjax'])->name('ext.shopee.product-groups.fetchAttributes');
 

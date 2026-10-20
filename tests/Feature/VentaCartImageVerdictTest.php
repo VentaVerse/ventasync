@@ -2,26 +2,14 @@
 
 namespace Tests\Feature;
 
-use Extensions\VentaCart\Controllers\VentaCartProductGroupController;
-use ReflectionMethod;
+use Extensions\VentaCart\Services\VentaCart\VentaCartProductPush;
 use Tests\TestCase;
 
 class VentaCartImageVerdictTest extends TestCase
 {
     private function verdict(array $response): array
     {
-        $method = new ReflectionMethod(VentaCartProductGroupController::class, 'collectImageVerdict');
-
-        $sent = 0;
-        $stored = 0;
-        $reasons = [];
-
-        $method->invokeArgs(
-            app(VentaCartProductGroupController::class),
-            [$response, 1, &$sent, &$stored, &$reasons]
-        );
-
-        return ['sent' => $sent, 'stored' => $stored, 'reasons' => $reasons];
+        return VentaCartProductPush::imageVerdict($response);
     }
 
     public function test_images_ventacart_kept_are_counted(): void
@@ -84,10 +72,7 @@ class VentaCartImageVerdictTest extends TestCase
 
     public function test_a_taken_sku_tells_the_operator_how_to_get_out(): void
     {
-        $method = new ReflectionMethod(VentaCartProductGroupController::class, 'pushFailureText');
-
-        $message = $method->invoke(
-            app(VentaCartProductGroupController::class),
+        $message = VentaCartProductPush::failureText(
             ['body' => ['message' => 'The sku has already been taken.', 'errors' => ['sku' => ['The sku has already been taken.']]]],
             'm-vave-tank-pro'
         );
@@ -97,7 +82,7 @@ class VentaCartImageVerdictTest extends TestCase
         $this->assertStringContainsString('Send', $message,
             'The message does not name the action that resolves this, so the row is a dead end.');
 
-        $view = file_get_contents(base_path('extensions/ventacart/views/product-groups/products.blade.php'));
+        $view = file_get_contents(base_path('extensions/ventacart/views/listings/index.blade.php'));
         $this->assertStringContainsString("'label' => 'Send to ' . \$storeName", $view,
             'The message tells the operator to press Send, but the row menu has no Send action.');
         $this->assertStringNotContainsString('{"', $message,
@@ -106,30 +91,10 @@ class VentaCartImageVerdictTest extends TestCase
 
     public function test_an_unrelated_failure_is_not_rewritten(): void
     {
-        $method = new ReflectionMethod(VentaCartProductGroupController::class, 'pushFailureText');
-
-        $message = $method->invoke(
-            app(VentaCartProductGroupController::class),
-            ['body' => ['error' => 'Connection refused']],
-            'some-sku'
-        );
+        $message = VentaCartProductPush::failureText(['body' => ['error' => 'Connection refused']], 'some-sku');
 
         $this->assertStringContainsString('Connection refused', $message);
         $this->assertStringNotContainsString('Match VentaCart ID', $message,
             'An unrelated failure is being given advice that does not apply to it.');
-    }
-
-    public function test_lost_images_are_not_reported_as_a_clean_success(): void
-    {
-        $source = file_get_contents(base_path('extensions/ventacart/Controllers/VentaCartProductGroupController.php'));
-
-        $this->assertStringContainsString('$lostImages = $imagesSent > 0 && $imagesStored < $imagesSent;', $source,
-            'Nothing tests whether images were lost, so a push that dropped them all still reports green.');
-
-        $this->assertStringContainsString('$failed > 0 || $lostImages => \'warning\'', $source,
-            'Lost images do not affect the tone of the result.');
-
-        $this->assertStringContainsString('images were rejected by VentaCart', $source,
-            'The summary does not mention images at all.');
     }
 }

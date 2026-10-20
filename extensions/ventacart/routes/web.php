@@ -41,9 +41,7 @@ Route::middleware(['auth'])->prefix('channels')->group(function () {
     Route::delete('/ventacart/{store}/watermarks/{template}', [VentaCartWatermarkTemplateController::class, 'destroy'])->whereNumber('template')->name('ext.ventacart.watermarks.destroy')->defaults('permission_tier', 'manage');
     Route::get('/ventacart/{store}/product-groups/{group}/edit', [VentaCartProductGroupController::class, 'edit'])->name('ext.ventacart.product-groups.edit');
     Route::get('/ventacart/{store}/product-groups/{group}/products', [VentaCartProductGroupController::class, 'products'])->name('ext.ventacart.product-groups.products');
-    Route::get('/ventacart/{store}/product-groups/{group}/orphans', [VentaCartProductGroupController::class, 'orphans'])->name('ext.ventacart.product-groups.orphans');
 
-    Route::get('/ventacart/{store}/product-groups/search-products', [VentaCartProductGroupController::class, 'searchProducts'])->name('ext.ventacart.product-groups.searchProducts');
 
     Route::get('/ventacart/{store}/listings', [VentaCartListingController::class, 'index'])->name('ext.ventacart.listings.index');
     Route::post('/ventacart/{store}/listings/check', [VentaCartListingController::class, 'checkAgainstVenta'])->name('ext.ventacart.listings.check');
@@ -94,21 +92,9 @@ Route::middleware(['auth'])->prefix('channels')->group(function () {
     Route::put('/ventacart/{store}/product-groups/{group}', [VentaCartProductGroupController::class, 'update'])->name('ext.ventacart.product-groups.update');
     Route::delete('/ventacart/{store}/product-groups/{group}', [VentaCartProductGroupController::class, 'destroy'])->name('ext.ventacart.product-groups.destroy');
 
-    Route::post('/ventacart/{store}/product-groups/{group}/push', [VentaCartProductGroupController::class, 'pushProducts'])->name('ext.ventacart.product-groups.push');
-    Route::post('/ventacart/{store}/product-groups/{group}/send-runs', [VentaCartProductGroupController::class, 'sendRunBegin'])->whereNumber('group')->name('ext.ventacart.product-groups.send_run_begin');
-    Route::post('/ventacart/{store}/product-groups/{group}/send-runs/{run}/step', [VentaCartProductGroupController::class, 'sendRunStep'])->whereNumber('group')->whereNumber('run')->name('ext.ventacart.product-groups.send_run_step');
-    Route::post('/ventacart/{store}/product-groups/{group}/send-runs/{run}/stop', [VentaCartProductGroupController::class, 'sendRunStop'])->whereNumber('group')->whereNumber('run')->name('ext.ventacart.product-groups.send_run_stop');
-    Route::post('/ventacart/{store}/product-groups/{group}/push-stock', [VentaCartProductGroupController::class, 'pushStock'])->name('ext.ventacart.product-groups.push-stock');
-    Route::post('/ventacart/{store}/product-groups/{group}/push-prices', [VentaCartProductGroupController::class, 'pushPrices'])->name('ext.ventacart.product-groups.push-prices');
-    Route::post('/ventacart/{store}/product-groups/{group}/add-products', [VentaCartProductGroupController::class, 'addProducts'])->name('ext.ventacart.product-groups.addProducts');
     Route::post('/ventacart/{store}/product-groups/{group}/mass-remove', [VentaCartProductGroupController::class, 'massRemove'])->name('ext.ventacart.product-groups.mass-remove');
     Route::post('/ventacart/{store}/product-groups/move', [VentaCartProductGroupController::class, 'moveProducts'])->name('ext.ventacart.product-groups.move');
-    Route::post('/ventacart/{store}/product-groups/{group}/check', [VentaCartProductGroupController::class, 'checkAgainstVenta'])->name('ext.ventacart.product-groups.check');
-    Route::delete('/ventacart/{store}/product-groups/{group}/products/{product}', [VentaCartProductGroupController::class, 'removeProduct'])->name('ext.ventacart.product-groups.removeProduct');
 
-    Route::post('/ventacart/{store}/product-groups/{group}/products/{product}/unlink', [VentaCartProductGroupController::class, 'unlinkProduct'])->name('ext.ventacart.product-groups.unlink');
-    Route::post('/ventacart/{store}/product-groups/{group}/products/{product}/delete-from-ventacart', [VentaCartProductGroupController::class, 'deleteFromVenta'])->name('ext.ventacart.product-groups.deleteFromVenta');
-    Route::post('/ventacart/{store}/product-groups/{group}/delete-from-ventacart', [VentaCartProductGroupController::class, 'deleteFromVenta'])->name('ext.ventacart.product-groups.bulk-delete-from-ventacart');
 
     Route::post('/ventacart/{store}/listings/refresh-status', [VentaCartListingController::class, 'refreshStatus'])->name('ext.ventacart.listings.refresh_status');
     Route::post('/ventacart/{store}/listings/bulk-toggle', [VentaCartListingController::class, 'bulkToggle'])->name('ext.ventacart.listings.bulk_toggle');

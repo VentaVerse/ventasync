@@ -194,7 +194,7 @@ class ListingStatusMenuTest extends TestCase
     public function test_a_group_narrows_the_list_and_the_segment_splits_it(): void
     {
         $ids = $this->store();
-        $group = \Extensions\Lazada\Models\LazadaProductGroup::create(['name' => 'Cables', 'lazada_category_id' => 4321]);
+        $group = \Extensions\Lazada\Models\LazadaProductGroup::create(['name' => 'Cables']);
         \Extensions\Lazada\Models\LazadaProductGroupProduct::create([
             'lazada_product_group_id' => $group->id,
             'product_id' => $ids['listedOk'],
@@ -223,8 +223,8 @@ class ListingStatusMenuTest extends TestCase
     {
         $ids = $this->store();
         $pid = $ids['notListed'];
-        $groupA = \Extensions\Lazada\Models\LazadaProductGroup::create(['name' => 'Fuzz', 'lazada_category_id' => 4321]);
-        $groupB = \Extensions\Lazada\Models\LazadaProductGroup::create(['name' => 'Delay', 'lazada_category_id' => 4321]);
+        $groupA = \Extensions\Lazada\Models\LazadaProductGroup::create(['name' => 'Fuzz']);
+        $groupB = \Extensions\Lazada\Models\LazadaProductGroup::create(['name' => 'Delay']);
         $manager = $this->manager();
         $manager->userGroup->permissions()->attach(Permission::whereIn('key', ['manage_lazada/product_group', 'view_lazada/product_group'])->pluck('id')->all());
         $listingOnlyGroup = UserGroup::create(['name' => 'Listings without groups']);
@@ -247,39 +247,10 @@ class ListingStatusMenuTest extends TestCase
             ->assertRedirect($back);
         $this->assertSame([$groupB->id], $pivot());
 
-        $this->actingAs($manager)->get(route('ext.lazada.products.index', ['group' => $groupB->id]))->assertOk()->assertSee('Remove from group')->assertSee('Manage group');
+        $this->actingAs($manager)->get(route('ext.lazada.products.index', ['group' => $groupB->id]))->assertOk()->assertSee('Remove from group')->assertSee('Rename group');
 
         $this->actingAs($manager)->post(route('ext.lazada.product-groups.move'), ['ids' => [$pid], 'group' => 'none', '_return' => $back])
             ->assertRedirect($back)->assertSessionHas('status', '1 product ungrouped.');
         $this->assertSame([], $pivot());
-    }
-
-    public function test_a_whole_group_sends_as_a_run_from_the_listings_page(): void
-    {
-        $ids = $this->store();
-        $group = \Extensions\Lazada\Models\LazadaProductGroup::create(['name' => 'Fuzz']);
-        \Extensions\Lazada\Models\LazadaProductGroupProduct::create([
-            'lazada_product_group_id' => $group->id, 'product_id' => $ids['notListed'],
-            'lazada_listing_id' => LazadaListing::query()->where('product_id', $ids['notListed'])->value('id'),
-        ]);
-        $manager = $this->manager();
-        $manager->userGroup->permissions()->attach(Permission::whereIn('key', ['manage_lazada/product_group', 'view_lazada/product_group'])->pluck('id')->all());
-        $listingOnlyGroup = UserGroup::create(['name' => 'Listings without groups']);
-        $listingOnlyGroup->permissions()->attach(Permission::whereIn('key', ['manage_lazada/product', 'view_lazada/product'])->pluck('id')->all());
-        $listingOnly = User::factory()->create(['user_group_id' => $listingOnlyGroup->id]);
-        $page = route('ext.lazada.products.index', ['group' => $group->id]);
-
-        $this->actingAs($listingOnly)->get($page)->assertOk()->assertDontSee('Send group');
-        $this->actingAs($listingOnly)->post(route('ext.lazada.product-groups.send_run_begin', ['id' => $group->id]))->assertRedirect()->assertSessionHas('error');
-        $this->assertSame(0, \App\Models\AutomationRun::query()->count());
-
-        $this->actingAs($manager)->get($page)->assertOk()->assertSee('Send group')
-            ->assertSee('Send all 1 product in Fuzz to Lazada on group settings, rather than their own?');
-
-        $answer = $this->actingAs($manager)->postJson(route('ext.lazada.product-groups.send_run_begin', ['id' => $group->id]))->assertOk()->json();
-        $this->assertSame('failed', $answer['run']['status']);
-        $this->assertSame(1, $answer['run']['total']);
-        $this->assertSame('This product group has no Lazada category configured. Set a category first.', $answer['outcome']);
-        $this->assertSame('group:' . $group->id, \App\Models\AutomationRun::query()->value('subject'));
     }
 }

@@ -56,8 +56,6 @@ Route::middleware(['auth', \Extensions\TikTok\Http\ResolveTikTokStore::class])
         Route::delete('/tiktok/{store}/watermarks/{template}', [TikTokWatermarkTemplateController::class, 'destroy'])->whereNumber('template')->name('ext.tiktok.watermarks.destroy')->defaults('permission_tier', 'manage');
         Route::get('/tiktok/{store}/product-groups/{id}/edit', [TikTokProductGroupController::class, 'edit'])->name('ext.tiktok.product-groups.edit');
         Route::get('/tiktok/{store}/product-groups/{id}/products', [TikTokProductGroupController::class, 'products'])->name('ext.tiktok.product-groups.products');
-        Route::get('/tiktok/{store}/product-groups/{id}/products/search', [TikTokProductGroupController::class, 'productSearch'])->whereNumber('id')->name('ext.tiktok.product-groups.productSearch');
-        Route::get('/tiktok/{store}/product-groups/{id}/orphans', [TikTokProductGroupController::class, 'orphans'])->whereNumber('id')->name('ext.tiktok.product-groups.orphans');
 
         Route::get('/tiktok/{store}/coupons', [TikTokCouponController::class, 'index'])->name('ext.tiktok.coupons.index');
 
@@ -99,20 +97,8 @@ Route::middleware(['auth', \Extensions\TikTok\Http\ResolveTikTokStore::class])
         Route::post('/tiktok/{store}/product-groups', [TikTokProductGroupController::class, 'store'])->name('ext.tiktok.product-groups.store');
         Route::put('/tiktok/{store}/product-groups/{id}', [TikTokProductGroupController::class, 'update'])->name('ext.tiktok.product-groups.update');
         Route::delete('/tiktok/{store}/product-groups/{id}', [TikTokProductGroupController::class, 'destroy'])->name('ext.tiktok.product-groups.destroy');
-        Route::post('/tiktok/{store}/product-groups/{id}/products/{productId}/add', [TikTokProductGroupController::class, 'addProduct'])->whereNumber('id')->whereNumber('productId')->name('ext.tiktok.product-groups.addProduct');
-        Route::post('/tiktok/{store}/product-groups/{id}/products/{product}/unlink', [TikTokProductGroupController::class, 'unlinkProduct'])->name('ext.tiktok.product-groups.unlinkProduct');
-        Route::delete('/tiktok/{store}/product-groups/{id}/products/{product}', [TikTokProductGroupController::class, 'removeProduct'])->name('ext.tiktok.product-groups.removeProduct');
         Route::post('/tiktok/{store}/product-groups/{id}/mass-remove', [TikTokProductGroupController::class, 'massRemove'])->name('ext.tiktok.product-groups.massRemove');
         Route::post('/tiktok/{store}/product-groups/move', [TikTokProductGroupController::class, 'moveProducts'])->name('ext.tiktok.product-groups.move');
-        Route::post('/tiktok/{store}/product-groups/{id}/delete-from-tiktok', [TikTokProductGroupController::class, 'deleteFromTikTok'])->name('ext.tiktok.product-groups.deleteFromTikTok');
-        Route::post('/tiktok/{store}/product-groups/{id}/products/check', [TikTokProductGroupController::class, 'checkAgainstTikTok'])->whereNumber('id')->name('ext.tiktok.product-groups.check');
-        Route::post('/tiktok/{store}/product-groups/{id}/push', [TikTokProductGroupController::class, 'push'])->name('ext.tiktok.product-groups.push');
-        Route::post('/tiktok/{store}/product-groups/{id}/send-runs', [TikTokProductGroupController::class, 'sendRunBegin'])->whereNumber('id')->name('ext.tiktok.product-groups.send_run_begin');
-        Route::post('/tiktok/{store}/product-groups/{id}/send-runs/{run}/step', [TikTokProductGroupController::class, 'sendRunStep'])->whereNumber('id')->whereNumber('run')->name('ext.tiktok.product-groups.send_run_step');
-        Route::post('/tiktok/{store}/product-groups/{id}/send-runs/{run}/stop', [TikTokProductGroupController::class, 'sendRunStop'])->whereNumber('id')->whereNumber('run')->name('ext.tiktok.product-groups.send_run_stop');
-        Route::post('/tiktok/{store}/product-groups/{id}/update-product', [TikTokProductGroupController::class, 'updateProduct'])->name('ext.tiktok.product-groups.updateProduct');
-        Route::post('/tiktok/{store}/product-groups/{id}/push-prices', [TikTokProductGroupController::class, 'pushPrices'])->name('ext.tiktok.product-groups.pushPrices');
-        Route::post('/tiktok/{store}/product-groups/{id}/push-stock', [TikTokProductGroupController::class, 'pushStock'])->name('ext.tiktok.product-groups.pushStock');
 
         Route::post('/tiktok/{store}/products/fetch-attributes', [TikTokProductController::class, 'fetchAttributes'])->name('ext.tiktok.products.fetchAttributes');
         Route::get('/tiktok/{store}/products/search-catalog', [TikTokProductController::class, 'searchCatalogProducts'])->name('ext.tiktok.products.search_catalog');

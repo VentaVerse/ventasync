@@ -44,7 +44,13 @@
                 </div>
             </section>
 
-            @include($fieldsView, $fields + ['template' => $template, 'canManage' => $canManage, 'storeId' => $storeId])
+            @switch($channel)
+                @case('shopee') @include('ext-shopee::templates._fields', $fields + ['template' => $template, 'canManage' => $canManage, 'storeId' => $storeId]) @break
+                @case('lazada') @include('ext-lazada::templates._fields', $fields + ['template' => $template, 'canManage' => $canManage, 'storeId' => $storeId]) @break
+                @case('tiktok') @include('ext-tiktok::templates._fields', $fields + ['template' => $template, 'canManage' => $canManage, 'storeId' => $storeId]) @break
+                @case('woocommerce') @include('ext-woocommerce::templates._fields', $fields + ['template' => $template, 'canManage' => $canManage, 'storeId' => $storeId]) @break
+                @case('ventacart') @include('ext-ventacart::templates._fields', $fields + ['template' => $template, 'canManage' => $canManage, 'storeId' => $storeId]) @break
+            @endswitch
         </div>
 
         <div class="fm-col fm-col--side">

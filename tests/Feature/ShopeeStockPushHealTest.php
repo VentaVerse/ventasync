@@ -291,7 +291,7 @@ class ShopeeStockPushHealTest extends TestCase
         $this->assertSame([110.0, 110.0], array_map(fn ($m) => (float) $m['original_price'], $priceCalls[0]['body']['price_list']), 'base 100 + the listing\'s 10%');
     }
 
-    public function test_the_price_cron_prices_by_the_listing_rule_then_the_group_then_the_catalog(): void
+    public function test_the_price_cron_prices_by_the_listing_rule_else_the_catalog_never_the_group(): void
     {
         $a = $this->productWithVariations(['A-1' => 5]);
         ShopeeListingLink::create(['product_id' => $a, 'shopee_item_id' => 901, 'shopee_model_id' => 1, 'sku' => 'A-1']);
@@ -299,7 +299,7 @@ class ShopeeStockPushHealTest extends TestCase
 
         $b = $this->productWithVariations(['B-1' => 5]);
         ShopeeListingLink::create(['product_id' => $b, 'shopee_item_id' => 902, 'shopee_model_id' => 2, 'sku' => 'B-1']);
-        $group = \Extensions\Shopee\Models\ShopeeProductGroup::create(['name' => 'Grouped', 'shopee_category_id' => 100200, 'markup_percent' => 20, 'markup_fixed' => 0]);
+        $group = \Extensions\Shopee\Models\ShopeeProductGroup::create(['name' => 'Grouped']);
         \Extensions\Shopee\Models\ShopeeProductGroupProduct::create(['shopee_product_group_id' => $group->id, 'product_id' => $b]);
 
         $c = $this->productWithVariations(['C-1' => 5]);
@@ -309,7 +309,7 @@ class ShopeeStockPushHealTest extends TestCase
 
         $prices = collect($this->sentPosts)->where('path', '/api/v2/product/update_price')
             ->mapWithKeys(fn ($c) => [(int) $c['body']['item_id'] => (float) $c['body']['price_list'][0]['original_price']])->all();
-        $this->assertSame([901 => 110.0, 902 => 120.0, 903 => 100.0], $prices);
+        $this->assertSame([901 => 110.0, 902 => 100.0, 903 => 100.0], $prices, 'the grouped product without a rule of its own goes at the catalog price');
         $this->assertSame([], array_filter($this->sentPosts, fn ($c) => $c['path'] === '/api/v2/product/update_stock'), 'the price row never sends stock');
     }
 
@@ -442,11 +442,11 @@ class ShopeeStockPushHealTest extends TestCase
         $this->assertStringNotContainsString('===', implode(' ', $second->json('run.ledger')), 'the console never reaches the page');
     }
 
-    public function test_the_price_button_prices_a_listing_without_a_rule_by_its_group(): void
+    public function test_the_price_button_prices_a_listing_without_a_rule_at_the_catalog_price(): void
     {
         $pid = $this->productWithVariations(['G-1' => 5]);
         ShopeeListingLink::create(['product_id' => $pid, 'shopee_item_id' => 920, 'shopee_model_id' => 1, 'sku' => 'G-1']);
-        $group = \Extensions\Shopee\Models\ShopeeProductGroup::create(['name' => 'Priced group', 'shopee_category_id' => 100200, 'markup_percent' => 25, 'markup_fixed' => 0]);
+        $group = \Extensions\Shopee\Models\ShopeeProductGroup::create(['name' => 'Priced group']);
         \Extensions\Shopee\Models\ShopeeProductGroupProduct::create(['shopee_product_group_id' => $group->id, 'product_id' => $pid]);
 
         $this->actingAs($this->manager())->post(route('ext.shopee.products.sync_price', $pid))->assertRedirect();
@@ -454,7 +454,7 @@ class ShopeeStockPushHealTest extends TestCase
         $this->assertStringNotContainsString('no listing price rule', (string) session('status') . (string) session('error'));
         $calls = array_values(array_filter($this->sentPosts, fn ($c) => $c['path'] === '/api/v2/product/update_price'));
         $this->assertCount(1, $calls);
-        $this->assertSame(125.0, (float) $calls[0]['body']['price_list'][0]['original_price'], 'base 100 + the group\'s 25%');
+        $this->assertSame(100.0, (float) $calls[0]['body']['price_list'][0]['original_price'], 'the group\'s 25% is not added');
 
         $bulk = $this->actingAs($this->manager())->post(route('ext.shopee.products.bulk_sync_price'), ['product_ids' => [$pid]])->assertRedirect();
         $this->assertStringNotContainsString('without a listing price rule', (string) session('status') . (string) session('error'));

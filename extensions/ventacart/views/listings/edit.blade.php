@@ -114,12 +114,6 @@
             <x-slot:main>
 
                 @include('partials.listing-group-band', [
-                    'fields' => [
-                        'category' => ['label' => 'Category', 'kind' => 'input', 'el' => '#vl-category'],
-                        'markup_percent' => ['label' => 'Percent added', 'kind' => 'input', 'el' => '#vl-markup-pct'],
-                        'markup_fixed' => ['label' => 'Fixed amount added', 'kind' => 'input', 'el' => '#vl-markup-fixed'],
-                        'watermark' => ['label' => 'Watermark', 'kind' => 'follow', 'el' => 'select[name="watermark_template_id"]'],
-                    ],
                     'canManage' => $canManage,
                 ])
 

@@ -92,27 +92,14 @@ class VentaCartListing extends Model
         return $this->markup_percent !== null || $this->markup_fixed !== null;
     }
 
-    public static function ruleFor(?self $listing, ?object $group): \Closure
+    public static function ruleFor(?self $listing): \Closure
     {
-        return function (float $base) use ($listing, $group): float {
-            if ($listing && $listing->hasPriceRule()) {
-                return $listing->priceFor($base);
-            }
-            if ($group && ($group->markup_percent !== null || $group->markup_fixed !== null)) {
-                return round($base + ($base * (float) ($group->markup_percent ?? 0) / 100) + (float) ($group->markup_fixed ?? 0), 2);
-            }
-
-            return round($base, 2);
-        };
+        return fn (float $base): float => $listing && $listing->hasPriceRule() ? $listing->priceFor($base) : round($base, 2);
     }
 
-    public static function categoryFor(?self $listing, ?object $group): ?int
+    public static function categoryFor(?self $listing): ?int
     {
-        if ($listing && $listing->ventacart_category_id !== null) {
-            return (int) $listing->ventacart_category_id;
-        }
-
-        return ((int) ($group->ventacart_category_id ?? 0)) ?: null;
+        return ((int) ($listing?->ventacart_category_id ?? 0)) ?: null;
     }
 
     public function overrides(): array

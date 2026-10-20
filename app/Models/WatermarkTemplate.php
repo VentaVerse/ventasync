@@ -29,22 +29,9 @@ class WatermarkTemplate extends Model
         return static::query()->where('channel', $channel)->where('store_id', $storeId);
     }
 
-    public static function nameOf(?int $id, string $channel, int $storeId): ?string
+    public static function resolve(?int $listingTemplateId, string $channel, int $storeId): ?self
     {
-        return ($id === null || $id <= 0)
-            ? null
-            : static::ofStore($channel, $storeId)->whereKey($id)->value('name');
-    }
-
-    public static function resolve(?int $listingTemplateId, ?int $groupTemplateId, string $channel, int $storeId): ?self
-    {
-        foreach ([$listingTemplateId, $groupTemplateId] as $id) {
-            if ($id !== null && $id > 0 && ($row = static::ofStore($channel, $storeId)->find($id))) {
-                return $row;
-            }
-        }
-
-        return null;
+        return $listingTemplateId !== null && $listingTemplateId > 0 ? static::ofStore($channel, $storeId)->find($listingTemplateId) : null;
     }
 
     public static function idOrNull(mixed $id, string $channel, int $storeId): ?int

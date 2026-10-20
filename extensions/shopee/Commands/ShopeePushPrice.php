@@ -5,7 +5,6 @@ namespace Extensions\Shopee\Commands;
 use Extensions\Shopee\Models\ShopeeListing;
 use Extensions\Shopee\Models\ShopeeListingLink;
 use Extensions\Shopee\Models\ShopeeStore;
-use Extensions\Shopee\Services\Shopee\ShopeeInheritedSettings;
 use Extensions\Shopee\Services\Shopee\ShopeeStockPricePush;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
@@ -81,15 +80,12 @@ class ShopeePushPrice extends Command implements \App\Channels\Contracts\Steppab
     public static function priceRule(array $productIds): \Closure
     {
         $listings = ShopeeListing::query()->whereIn('product_id', $productIds ?: [0])->get()->keyBy('product_id');
-        $inherit = app(ShopeeInheritedSettings::class);
-        $groups = $inherit->forProducts($productIds);
         $withVariations = ShopeeListing::withVariations($productIds);
 
-        return function (int $productId, float $base) use ($listings, $groups, $inherit, $withVariations): float {
+        return function (int $productId, float $base) use ($listings, $withVariations): float {
             $listing = $listings->get($productId) ?? (new ShopeeListing())->forceFill(['product_id' => $productId]);
-            $filled = $inherit->fill($listing, $groups[$productId] ?? null)['listing'];
 
-            return (float) $filled->itemPriceFor($base, isset($withVariations[$productId]));
+            return (float) $listing->itemPriceFor($base, isset($withVariations[$productId]));
         };
     }
 

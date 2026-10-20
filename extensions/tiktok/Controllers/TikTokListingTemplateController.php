@@ -38,11 +38,6 @@ class TikTokListingTemplateController extends \App\Http\Controllers\Channels\Lis
         return new \Extensions\TikTok\Services\TikTok\TikTokTemplateFields($this->storeId());
     }
 
-    protected function fieldsView(): string
-    {
-        return 'ext-tiktok::templates._fields';
-    }
-
     protected function fieldsData(Model $template): array
     {
         $service = app(TikTokAttributes::class);

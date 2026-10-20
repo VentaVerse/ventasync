@@ -9,7 +9,7 @@ use App\Support\Catalog\ProductImages;
 
 final class ListingImages
 {
-    public static function cardData(int $productId, ?array $stored, ?object $listing, ?int $groupTemplateId, string $channel, int $storeId): array
+    public static function cardData(int $productId, ?array $stored, ?object $listing, string $channel, int $storeId): array
     {
         $submitted = null;
         $old = old('image_order');
@@ -21,10 +21,9 @@ final class ListingImages
         $refused = session()->hasOldInput();
         $templateId = ((int) ($refused ? old('watermark_template_id') : ($listing->watermark_template_id ?? 0))) ?: null;
         $allImages = $refused ? (bool) old('watermark_all_images') : (bool) ($listing->watermark_all_images ?? false);
-        $groupTemplateId = ((int) $groupTemplateId) ?: null;
 
         $paths = ProductImages::paths($productId, $submitted ?? $stored);
-        $template = WatermarkTemplate::resolve($templateId, $groupTemplateId, $channel, $storeId);
+        $template = WatermarkTemplate::resolve($templateId, $channel, $storeId);
         $stamper = app(StampedImages::class);
         $shown = function (string $path, int $i) use ($template, $allImages, $stamper): string {
             if ($template !== null && ($i === 0 || $allImages)) {
@@ -44,7 +43,6 @@ final class ListingImages
             'watermarkOptions' => WatermarkTemplate::forStore($channel, $storeId),
             'watermarkTemplateId' => $templateId,
             'watermarkAllImages' => $allImages,
-            'watermarkLent' => WatermarkTemplate::nameOf($groupTemplateId, $channel, $storeId),
             'imagesOff' => (function () use ($listing, $refused) {
                 $off = $refused ? old('image_off') : ($listing->image_off ?? null);
                 $off = is_string($off) ? json_decode($off, true) : $off;

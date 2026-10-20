@@ -241,38 +241,6 @@ class LazadaListingStateTest extends TestCase
         $this->assertSame(ListingState::NOT_LISTED, $this->engine()->forProducts([$productId])[$productId]->state);
     }
 
-    public function test_group_unlink_clears_the_listing_row_too(): void
-    {
-        $productId = $this->seedProduct('Group cut', 'GC-1');
-        $listing = LazadaListing::create(['product_id' => $productId, 'lazada_item_id' => '4440001', 'live_status' => 'active', 'live_checked_at' => now()]);
-        $listing->variants()->create(['sku_id' => '9001', 'seller_sku' => 'GC-1']);
-        $grp = \Extensions\Lazada\Models\LazadaProductGroup::create(['name' => 'Cutting group', 'lazada_category_id' => 4321]);
-        \Extensions\Lazada\Models\LazadaProductGroupProduct::create([
-            'lazada_product_group_id' => $grp->id, 'product_id' => $productId,
-            'lazada_listing_id' => $listing->id, 'sync_status' => 'pushed',
-        ]);
-        $ug = UserGroup::create(['name' => 'Lazada group cutters']);
-        $ug->permissions()->attach(Permission::whereIn('key', ['view_lazada/product_group', 'manage_lazada/product_group'])->pluck('id')->all());
-        $user = User::factory()->create(['user_group_id' => $ug->id]);
-
-        $this->actingAs($user)
-            ->post(route('ext.lazada.product-groups.unlinkProduct', [$grp->id, $productId]))
-            ->assertRedirect();
-
-        $listing->refresh();
-        $this->assertNull($listing->lazada_item_id, 'the listing row lets go too');
-        $this->assertNotNull($listing->unlinked_at);
-        $this->assertNull($listing->live_status);
-        $this->assertSame(0, $listing->variants()->count());
-        $this->assertSame('unlinked', \Extensions\Lazada\Models\LazadaProductGroupProduct::query()->where('product_id', $productId)->value('sync_status'));
-        $this->assertSame(ListingState::NOT_LISTED, $this->engine()->forProducts([$productId])[$productId]->state);
-
-        $page = $this->actingAs($user)->get(route('ext.lazada.product-groups.products', $grp->id))->assertOk();
-        $page->assertDontSee('4440001');
-        $page->assertDontSee(route('ext.lazada.product-groups.unlinkProduct', [$grp->id, $productId]), false);
-        $page->assertSee(route('ext.lazada.product-groups.check', $grp->id), false);
-    }
-
     public function test_summary_counts_attention_and_drift(): void
     {
 
@@ -322,14 +290,14 @@ class LazadaListingStateTest extends TestCase
             ->assertOk()->assertSee('My very first product')->assertSee('Add to store');
     }
 
-    public function test_the_group_page_offers_the_toggle_the_listing_page_offers(): void
+    public function test_the_products_page_filtered_by_a_group_offers_the_toggle(): void
     {
         $pid = $this->seedProduct('Togglable in group', 'TGL-1');
         $listing = LazadaListing::create([
             'product_id' => $pid, 'lazada_item_id' => '3101',
             'live_status' => 'inactive', 'live_checked_at' => now(),
         ]);
-        $grp = \Extensions\Lazada\Models\LazadaProductGroup::create(['name' => 'Toggle group', 'lazada_category_id' => 4321]);
+        $grp = \Extensions\Lazada\Models\LazadaProductGroup::create(['name' => 'Toggle group']);
         \Extensions\Lazada\Models\LazadaProductGroupProduct::create([
             'lazada_product_group_id' => $grp->id, 'product_id' => $pid,
             'lazada_listing_id' => $listing->id, 'sync_status' => 'pushed',
@@ -343,11 +311,10 @@ class LazadaListingStateTest extends TestCase
         );
         $user = \App\Models\User::factory()->create(['user_group_id' => $ug->id]);
 
-        $page = $this->actingAs($user)->get(route('ext.lazada.product-groups.products', $grp->id))->assertOk();
+        $page = $this->actingAs($user)->get(route('ext.lazada.products.index', ['group' => $grp->id]))->assertOk();
         $page->assertSee('Activate on Lazada');
         $page->assertSee('data-bulk-verb="deactivate"', false);
         $page->assertSee('data-bulk-verb="activate"', false);
-        $page->assertSee('data-bulk-field="product_ids[]"', false);
     }
 
     public function test_the_engine_is_reachable_through_the_listing_state_contract(): void
@@ -438,39 +405,19 @@ class LazadaListingStateTest extends TestCase
         $this->assertSame([], \App\Channels\Listings\ListingVariations::missing('lazada', $storeId, [$pid]));
     }
 
-    public function test_a_group_is_a_preset_the_product_inherits(): void
+    public function test_a_group_fills_nothing_in_at_send_time(): void
     {
-        $pid = $this->seedProduct('Inherits one', 'IN-1');
+        $pid = $this->seedProduct('Grouped one', 'IN-1');
         $listing = \Extensions\Lazada\Models\LazadaListing::query()->create(['product_id' => $pid]);
-        $grp = \Extensions\Lazada\Models\LazadaProductGroup::create(['name' => 'Preset group', 'lazada_category_id' => 4321, 'brand_name_override' => 'Acme']);
+        $grp = \Extensions\Lazada\Models\LazadaProductGroup::create(['name' => 'Preset group']);
         \Extensions\Lazada\Models\LazadaProductGroupProduct::create([
             'lazada_product_group_id' => $grp->id, 'product_id' => $pid,
             'lazada_listing_id' => $listing->id, 'sync_status' => 'pending',
         ]);
 
-        $inherit = app(\Extensions\Lazada\Services\Lazada\LazadaInheritedSettings::class);
-        $filled = $inherit->fill($listing, $inherit->forProducts([$pid])[$pid] ?? null);
-        $this->assertSame(4321, (int) $filled['listing']->primary_category_id);
-        $this->assertSame('Acme', $filled['listing']->brand_name_override);
-        $this->assertSame(['category' => 'Preset group', 'brand' => 'Preset group'], $filled['inherited']);
-
         $codes = array_column(app(\Extensions\Lazada\Services\Lazada\LazadaListingReadiness::class)
             ->forListings(collect([$listing]))[$listing->id]['gaps'], 'code');
-        $this->assertNotContains(\App\Channels\Listings\ListingState::GAP_CATEGORY, $codes);
-        $this->assertContains(\App\Channels\Listings\ListingState::GAP_SHEET, $codes, 'the inherited category is judged like its own: its sheet is still unread');
-
-        $this->assertNull(\Extensions\Lazada\Models\LazadaListing::query()->find($listing->id)->primary_category_id);
-        $this->assertNull($listing->primary_category_id);
-
-        $own = $this->seedProduct('Own one', 'OW-1');
-        $ownListing = \Extensions\Lazada\Models\LazadaListing::query()->create(['product_id' => $own, 'primary_category_id' => 99]);
-        \Extensions\Lazada\Models\LazadaProductGroupProduct::create([
-            'lazada_product_group_id' => $grp->id, 'product_id' => $own,
-            'lazada_listing_id' => $ownListing->id, 'sync_status' => 'pending',
-        ]);
-        $filled = $inherit->fill($ownListing, $inherit->forProducts([$own])[$own] ?? null);
-        $this->assertSame(99, (int) $filled['listing']->primary_category_id);
-        $this->assertSame(['brand' => 'Preset group'], $filled['inherited']);
+        $this->assertContains(\App\Channels\Listings\ListingState::GAP_CATEGORY, $codes, 'the group\'s category is not the listing\'s');
     }
     public function test_a_row_shows_the_stores_own_title_and_the_search_finds_it(): void
     {
@@ -484,7 +431,7 @@ class LazadaListingStateTest extends TestCase
             'access_token' => 't2', 'refresh_token' => 'r2',
         ]);
         LazadaListing::create(['store_id' => $other->id, 'product_id' => $plain, 'item_name' => 'Qable elsewhere']);
-        $grp = \Extensions\Lazada\Models\LazadaProductGroup::create(['name' => 'Titled pedals', 'lazada_category_id' => 4321]);
+        $grp = \Extensions\Lazada\Models\LazadaProductGroup::create(['name' => 'Titled pedals']);
         foreach ([[$titled, $titledRow], [$plain, $plainRow]] as [$pid, $row]) {
             \Extensions\Lazada\Models\LazadaProductGroupProduct::create([
                 'lazada_product_group_id' => $grp->id, 'product_id' => $pid,
@@ -497,7 +444,7 @@ class LazadaListingStateTest extends TestCase
         ])->pluck('id')->all());
         $user = User::factory()->create(['user_group_id' => $ug->id]);
 
-        foreach ([route('ext.lazada.products.index'), route('ext.lazada.product-groups.products', $grp->id)] as $url) {
+        foreach ([route('ext.lazada.products.index'), route('ext.lazada.products.index', ['group' => $grp->id])] as $url) {
             $this->actingAs($user)->get($url)->assertOk()
                 ->assertSee('Qable IC50 Pro')
                 ->assertSee('Plain catalog pedal')
@@ -505,7 +452,7 @@ class LazadaListingStateTest extends TestCase
                 ->assertDontSee('Qable elsewhere');
         }
 
-        foreach ([route('ext.lazada.products.index', ['q' => 'Qable']), route('ext.lazada.product-groups.products', ['id' => $grp->id, 'q' => 'Qable'])] as $url) {
+        foreach ([route('ext.lazada.products.index', ['q' => 'Qable']), route('ext.lazada.products.index', ['group' => $grp->id, 'q' => 'Qable'])] as $url) {
             $this->actingAs($user)->get($url)->assertOk()
                 ->assertSee('Qable IC50 Pro')
                 ->assertDontSee('Plain catalog pedal');

@@ -150,7 +150,6 @@ class LazadaImages
         $paths = \App\Services\Media\ListingWatermark::paths(
             \App\Channels\Listings\ListingImages::sending(\App\Support\Catalog\ProductImages::paths($productId, $own), $listing),
             $listing,
-            \App\Services\Media\ListingWatermark::groupTemplateId('ch_lazada_product_groups', 'ch_lazada_product_group_products', 'lazada_product_group_id', $productId, 'store_id', (int) ($listing?->store_id ?? 0) ?: null),
             'lazada',
             (int) ($listing?->store_id ?? 0)
         );

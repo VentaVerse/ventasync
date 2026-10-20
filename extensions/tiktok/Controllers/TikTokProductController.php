@@ -339,7 +339,6 @@ class TikTokProductController extends Controller
             'readinessByProductId' => $readinessByProductId,
             'failedFlag' => $failedFlag,
             'changeFlag' => $changeFlag,
-            'groupSize' => ctype_digit((string) $groupFilter) ? app(\Extensions\TikTok\Controllers\TikTokProductGroupController::class)->groupSendSize((int) $groupFilter) : null,
             'statusMenu' => \App\Channels\Listings\StatusMenu::build([
                 'url' => fn (array $params) => route('ext.tiktok.products.index', $params),
                 'query' => $request->query(),
@@ -1161,8 +1160,6 @@ class TikTokProductController extends Controller
     private function listingPushOptions(int $productId, array $c): array
     {
         $listing = TikTokListing::query()->where('product_id', $productId)->first() ?? (new TikTokListing())->forceFill(['product_id' => $productId]);
-        $inherit = app(\Extensions\TikTok\Services\TikTok\TikTokInheritedSettings::class);
-        $listing = $inherit->fill($listing, $inherit->forProducts([$productId])[$productId] ?? null)['listing'];
         $service = app(TikTokAttributes::class);
         $template = $listing && $listing->tiktok_category_id
             ? $service->ensureTemplate((string) $listing->tiktok_category_id, app(TikTokClient::class), $c)
@@ -1172,7 +1169,7 @@ class TikTokProductController extends Controller
             'category_id' => (string) ($listing->tiktok_category_id ?? ''),
             'brand_id' => $listing->brand_id ?? null,
             'attributes' => $service->payload($service->rows($template), $listing->attribute_values ?? []),
-            'priceFor' => \Extensions\TikTok\Services\TikTok\TikTokInheritedSettings::priceRule($listing, $inherit->groupModel($productId)),
+            'priceFor' => fn (float $base): float => $listing->priceFor($base),
             'warehouse_id' => $c['warehouse_id'] ?: null,
             'title' => $listing->title ?? null,
             'description' => $listing->description ?? null,

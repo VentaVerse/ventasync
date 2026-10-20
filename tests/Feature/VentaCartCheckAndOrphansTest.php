@@ -9,8 +9,6 @@ class VentaCartCheckAndOrphansTest extends TestCase
     private const CONTROLLER = 'extensions/ventacart/Controllers/VentaCartProductGroupController.php';
     private const SERVICE = 'extensions/ventacart/Services/VentaCart/VentaCartProductPush.php';
     private const CHECK = 'extensions/ventacart/Services/VentaCart/VentaCartLinkCheck.php';
-    private const PRODUCTS_VIEW = 'extensions/ventacart/views/product-groups/products.blade.php';
-    private const ORPHANS_VIEW = 'extensions/ventacart/views/product-groups/orphans.blade.php';
 
     private function source(string $file): string
     {
@@ -62,7 +60,7 @@ class VentaCartCheckAndOrphansTest extends TestCase
 
     public function test_an_unreachable_product_is_never_pushed(): void
     {
-        $body = $this->methodBody('sendProducts');
+        $body = $this->methodBody('push', self::SERVICE);
 
         $this->assertStringContainsString("\$verdict['state'] === 'unreachable'", $body,
             'pushProducts pushes after a check that failed, so a create can land on top of a '
@@ -87,30 +85,6 @@ class VentaCartCheckAndOrphansTest extends TestCase
             'Checking leaves no trace, so the operator cannot tell a fresh answer from an old belief.');
     }
 
-    public function test_a_push_also_counts_as_having_asked(): void
-    {
-        $this->assertStringContainsString("'last_confirmed_at' => now()", $this->methodBody('sendProducts'),
-            'A push reconciles first but does not record that it did, so a row checked seconds ago '
-            .'still reads as never checked.');
-    }
-
-    public function test_the_row_says_which_of_the_two_it_is(): void
-    {
-        $view = $this->source(self::PRODUCTS_VIEW);
-
-        $this->assertStringContainsString('$confirmedAt', $view);
-        $this->assertStringContainsString('Not checked since the push', $view,
-            'A row with no confirmation says nothing, so a badge written months ago looks identical '
-            .'to one confirmed a minute ago.');
-    }
-
-    public function test_the_column_is_actually_selected(): void
-    {
-        $this->assertStringContainsString("'vpgp.last_confirmed_at'", $this->source(self::CONTROLLER),
-            'The view reads last_confirmed_at but the query does not select it, so every row '
-            .'renders as never checked.');
-    }
-
     public function test_checking_never_writes_to_ventacart(): void
     {
         $body = $this->methodBody('run', self::CHECK);
@@ -131,38 +105,5 @@ class VentaCartCheckAndOrphansTest extends TestCase
 
         $this->assertStringContainsString('not checked this time', $body,
             'The check stops early without saying so, so unchecked products look confirmed.');
-    }
-
-    public function test_the_orphan_report_only_reads(): void
-    {
-        $body = $this->methodBody('orphans');
-
-        foreach (['updateOrCreate(', '->delete()', 'linkProductTo(', 'writeProductStatus('] as $write) {
-            $this->assertStringNotContainsString($write, $body,
-                "The orphan report calls {$write}. Adopting a VentaCart product by SKU without asking "
-                .'is how a catalog product ends up pointed at a stranger.');
-        }
-    }
-
-    public function test_the_orphan_report_admits_an_incomplete_read(): void
-    {
-        $body = $this->methodBody('orphans');
-
-        $this->assertStringContainsString('may be incomplete', $body,
-            'A failed page of results is dropped silently, so a partial list reads as the whole truth.');
-
-        $this->assertStringContainsString('$truncated', $body,
-            'The page ceiling is applied without being reported.');
-
-        $this->assertStringContainsString('may hold more than is listed here', $this->source(self::ORPHANS_VIEW),
-            'The view never surfaces truncation, so a cut-off list looks complete.');
-    }
-
-    public function test_an_orphan_is_decided_by_the_link_table(): void
-    {
-        $body = $this->methodBody('orphans');
-
-        $this->assertStringContainsString('$known->has($id)', $body,
-            'Orphan detection no longer compares against the recorded links.');
     }
 }

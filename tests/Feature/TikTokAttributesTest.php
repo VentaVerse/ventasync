@@ -104,9 +104,21 @@ class TikTokAttributesTest extends TestCase
     private function manager(): User
     {
         $group = UserGroup::create(['name' => 'TikTok attribute answerers ' . (++$this->groupSeq)]);
-        $group->permissions()->attach(Permission::whereIn('key', ['manage_tiktok/product_group', 'view_tiktok/product_group'])->pluck('id')->all());
+        $group->permissions()->attach(Permission::whereIn('key', ['manage_tiktok/product_group', 'view_tiktok/product_group', 'manage_tiktok/listing_template', 'view_tiktok/listing_template', 'manage_tiktok/product', 'view_tiktok/product'])->pluck('id')->all());
 
         return User::factory()->create(['user_group_id' => $group->id]);
+    }
+
+    private function applyTemplate(int $productId, array $attributes): void
+    {
+        $template = \Extensions\TikTok\Models\TikTokListingTemplate::query()->create([
+            'store_id' => \Extensions\TikTok\Models\TikTokStore::defaultStore()->id, 'name' => 'Answers ' . $productId, 'tiktok_category_id' => '900009',
+        ]);
+        foreach ($attributes as $key => $value) {
+            $template->templateAttributes()->create(['attribute_key' => (string) $key, 'value' => $value]);
+        }
+        $this->actingAs($this->manager())->post(route('ext.tiktok.listing-templates.apply'), ['product_ids' => [$productId], 'template_id' => $template->id])
+            ->assertSessionHas('status');
     }
 
     private function seedProduct(): int
@@ -126,11 +138,11 @@ class TikTokAttributesTest extends TestCase
         return $productId;
     }
 
-    public function test_opening_a_group_reads_and_caches_the_sheet_and_lists_only_product_properties(): void
+    public function test_opening_a_template_reads_and_caches_the_sheet_and_lists_only_product_properties(): void
     {
-        $group = TikTokProductGroup::create(['name' => 'Sheet group', 'tiktok_category_id' => '900009']);
+        $template = \Extensions\TikTok\Models\TikTokListingTemplate::query()->create(['store_id' => \Extensions\TikTok\Models\TikTokStore::defaultStore()->id, 'name' => 'Sheet template', 'tiktok_category_id' => '900009']);
 
-        $r = $this->actingAs($this->manager())->get(route('ext.tiktok.product-groups.edit', $group->id));
+        $r = $this->actingAs($this->manager())->get(route('ext.tiktok.listing-templates.edit', ['template' => $template->id]));
 
         $r->assertOk();
         $r->assertSee('Brand Origin');
@@ -139,27 +151,20 @@ class TikTokAttributesTest extends TestCase
         $this->assertCount(1, $this->callsFor('GET', '/product/202309/categories/900009/attributes'));
         $this->assertNotNull(TikTokCategoryTemplate::where('category_id', '900009')->first());
 
-        $this->actingAs($this->manager())->get(route('ext.tiktok.product-groups.edit', $group->id))->assertOk();
+        $this->actingAs($this->manager())->get(route('ext.tiktok.listing-templates.edit', ['template' => $template->id]))->assertOk();
         $this->assertCount(1, $this->callsFor('GET', '/product/202309/categories/900009/attributes'));
     }
 
-    public function test_a_groups_answers_ride_the_push_as_product_attributes_and_the_truth_lands_on_the_listing(): void
+    public function test_a_templates_answers_ride_the_push_as_product_attributes_and_the_truth_lands_on_the_listing(): void
     {
         $productId = $this->seedProduct();
-        $group = TikTokProductGroup::create(['name' => 'Answer group', 'tiktok_category_id' => '900009']);
-        TikTokProductGroupProduct::create(['tiktok_product_group_id' => $group->id, 'product_id' => $productId, 'sync_status' => 'pending']);
-
-        $this->actingAs($this->manager())->put(route('ext.tiktok.product-groups.update', $group->id), [
-            'name' => 'Answer group', 'tiktok_category_id' => '900009',
-            'product_ids' => [$productId],
-            'attributes' => ['100001' => 'v-ph', '100002' => 'Maple'],
-        ])->assertSessionHas('status');
-        $this->assertSame(['100001' => 'v-ph', '100002' => 'Maple'], $group->attributes()->pluck('value', 'attribute_key')->all());
+        $this->applyTemplate($productId, ['100001' => 'v-ph', '100002' => 'Maple']);
+        $this->assertEquals(['100001' => 'v-ph', '100002' => 'Maple'], TikTokListing::where('product_id', $productId)->first()->attribute_values);
 
         $this->callResponses['POST /product/202309/products'] = ['ok' => true, 'status' => 200, 'body' => ['code' => 0, 'message' => 'Success',
             'data' => ['product_id' => 'tt-777', 'skus' => [['id' => 'sku-1', 'seller_sku' => 'TTA-SKU']]]]];
 
-        $this->actingAs($this->manager())->post(route('ext.tiktok.product-groups.push', $group->id), ['ids' => [$productId]]);
+        $this->actingAs($this->manager())->post(route('ext.tiktok.products.bulk_push'), ['product_ids' => [$productId]]);
 
         $creates = $this->callsFor('POST', '/product/202309/products');
         $this->assertCount(1, $creates);
@@ -173,19 +178,12 @@ class TikTokAttributesTest extends TestCase
         $listing = TikTokListing::where('product_id', $productId)->first();
         $this->assertSame('tt-777', $listing->tiktok_product_id);
         $this->assertSame('sku-1', $listing->tiktok_sku_id);
-        $this->assertSame('group:Answer group', $listing->last_push_source);
-        $this->assertSame('tt-777', TikTokProductGroupProduct::where('product_id', $productId)->value('tiktok_product_id'));
     }
 
-    public function test_a_group_push_sends_the_listings_own_words_not_the_catalogs(): void
+    public function test_a_push_sends_the_listings_own_words_not_the_catalogs(): void
     {
         $productId = $this->seedProduct();
-        $group = TikTokProductGroup::create(['name' => 'Words group', 'tiktok_category_id' => '900009']);
-        TikTokProductGroupProduct::create(['tiktok_product_group_id' => $group->id, 'product_id' => $productId, 'sync_status' => 'pending']);
-        $this->actingAs($this->manager())->put(route('ext.tiktok.product-groups.update', $group->id), [
-            'name' => 'Words group', 'tiktok_category_id' => '900009',
-            'attributes' => ['100001' => 'v-ph', '100002' => 'Maple'],
-        ]);
+        $this->applyTemplate($productId, ['100001' => 'v-ph', '100002' => 'Maple']);
         TikTokListing::query()->updateOrCreate(
             ['product_id' => $productId],
             ['title' => 'TikTok only title', 'description' => 'TikTok only description.']
@@ -194,7 +192,7 @@ class TikTokAttributesTest extends TestCase
         $this->callResponses['POST /product/202309/products'] = ['ok' => true, 'status' => 200, 'body' => ['code' => 0, 'message' => 'Success',
             'data' => ['product_id' => 'tt-778', 'skus' => [['id' => 'sku-2', 'seller_sku' => 'TTA-SKU']]]]];
 
-        $this->actingAs($this->manager())->post(route('ext.tiktok.product-groups.push', $group->id), ['ids' => [$productId]]);
+        $this->actingAs($this->manager())->post(route('ext.tiktok.products.bulk_push'), ['product_ids' => [$productId]]);
 
         $creates = $this->callsFor('POST', '/product/202309/products');
         $this->assertCount(1, $creates);
@@ -202,51 +200,31 @@ class TikTokAttributesTest extends TestCase
         $this->assertSame('TikTok only description.', $creates[0]['body']['description']);
     }
 
-    public function test_a_group_push_keeps_the_listings_own_brand(): void
+    public function test_a_push_keeps_the_listings_own_brand(): void
     {
         $productId = $this->seedProduct();
-        $group = TikTokProductGroup::create(['name' => 'Brand group', 'tiktok_category_id' => '900009']);
-        TikTokProductGroupProduct::create(['tiktok_product_group_id' => $group->id, 'product_id' => $productId, 'sync_status' => 'pending']);
-        $this->actingAs($this->manager())->put(route('ext.tiktok.product-groups.update', $group->id), [
-            'name' => 'Brand group', 'tiktok_category_id' => '900009',
-            'attributes' => ['100001' => 'v-ph', '100002' => 'Maple'],
-        ]);
+        $this->applyTemplate($productId, ['100001' => 'v-ph', '100002' => 'Maple']);
         TikTokListing::query()->updateOrCreate(['product_id' => $productId], ['brand_id' => 'b-7', 'brand_name' => 'Boss']);
 
         $this->callResponses['POST /product/202309/products'] = ['ok' => true, 'status' => 200, 'body' => ['code' => 0, 'message' => 'Success',
             'data' => ['product_id' => 'tt-779', 'skus' => [['id' => 'sku-3', 'seller_sku' => 'TTA-SKU']]]]];
 
-        $this->actingAs($this->manager())->post(route('ext.tiktok.product-groups.push', $group->id), ['ids' => [$productId]]);
+        $this->actingAs($this->manager())->post(route('ext.tiktok.products.bulk_push'), ['product_ids' => [$productId]]);
 
         $creates = $this->callsFor('POST', '/product/202309/products');
         $this->assertCount(1, $creates);
         $this->assertSame('b-7', $creates[0]['body']['brand_id'] ?? null);
-        $this->assertSame('900009', (string) $creates[0]['body']['category_id'], 'the group fills the category the listing leaves blank');
-    }
-
-    public function test_a_group_send_updates_a_product_already_on_tiktok_instead_of_skipping_it(): void
-    {
-        $productId = $this->seedProduct();
-        $group = TikTokProductGroup::create(['name' => 'Live group', 'tiktok_category_id' => '900009']);
-        TikTokProductGroupProduct::create(['tiktok_product_group_id' => $group->id, 'product_id' => $productId, 'tiktok_product_id' => 'tt-555', 'sync_status' => 'pushed']);
-        TikTokListing::query()->create(['product_id' => $productId, 'tiktok_product_id' => 'tt-555']);
-
-        $this->actingAs($this->manager())->post(route('ext.tiktok.product-groups.push', $group->id), ['ids' => [$productId]])
-            ->assertSessionMissing('error');
-
-        $this->assertCount(1, $this->callsFor('PUT', '/product/202309/products/tt-555'), 'the live product is updated');
-        $this->assertCount(0, $this->callsFor('POST', '/product/202309/products'), 'nothing new is created on TikTok Shop');
+        $this->assertSame('900009', (string) $creates[0]['body']['category_id'], 'the template put the category on the listing');
     }
 
     public function test_the_selection_bars_send_updates_a_product_already_on_tiktok(): void
     {
         $productId = $this->seedProduct();
-        $group = TikTokProductGroup::create(['name' => 'Live group', 'tiktok_category_id' => '900009']);
+        $group = TikTokProductGroup::create(['name' => 'Live group']);
         TikTokProductGroupProduct::create(['tiktok_product_group_id' => $group->id, 'product_id' => $productId, 'tiktok_product_id' => 'tt-556', 'sync_status' => 'pushed']);
-        TikTokListing::query()->create(['product_id' => $productId, 'tiktok_product_id' => 'tt-556']);
+        TikTokListing::query()->create(['product_id' => $productId, 'tiktok_product_id' => 'tt-556', 'tiktok_category_id' => '900009']);
         \Extensions\TikTok\Models\TikTokCategoryTemplate::create(['category_id' => '900009', 'attributes' => [], 'fetched_at' => now()]);
         $user = $this->manager();
-        $user->userGroup->permissions()->attach(Permission::whereIn('key', ['manage_tiktok/product', 'view_tiktok/product'])->pluck('id')->all());
 
         $this->actingAs($user)->post(route('ext.tiktok.products.bulk_push'), ['product_ids' => [$productId]])
             ->assertSessionMissing('error');

@@ -70,8 +70,8 @@ class ListingGroupBandTest extends TestCase
     public function test_the_band_lists_the_stores_groups_with_the_products_own_picked(): void
     {
         $pid = $this->product();
-        $mine = ShopeeProductGroup::create(['name' => 'Multi-effects pedals', 'shopee_category_id' => 100013, 'logistic_ids' => [8003], 'markup_percent' => 12]);
-        ShopeeProductGroup::create(['name' => 'Overdrive pedals', 'shopee_category_id' => 100200, 'logistic_ids' => [8003]]);
+        $mine = ShopeeProductGroup::create(['name' => 'Multi-effects pedals']);
+        ShopeeProductGroup::create(['name' => 'Overdrive pedals']);
         DB::table('ch_shopee_product_group_products')->insert(['shopee_product_group_id' => $mine->id, 'product_id' => $pid]);
 
         $html = $this->actingAs($this->user(['view_shopee/product', 'manage_shopee/product']))
@@ -79,18 +79,19 @@ class ListingGroupBandTest extends TestCase
             ->assertOk()
             ->assertSee('Product group')
             ->assertSee('Overdrive pedals')
-            ->assertSee('Open the group')
+            ->assertSee("Show the group's products", false)
             ->assertSee('name="product_group_listed"', false)
             ->getContent();
 
         $this->assertMatchesRegularExpression('/<option value="' . $mine->id . '"\s+selected/', $html, "the product's own group is picked");
-        $this->assertStringContainsString('"category":{"id":100013', $html, "the group's values ride the page for the band to fill");
+        $this->assertStringNotContainsString('100013', $html, 'a group carries no values to the listing page');
+        $this->assertStringContainsString(e(route('ext.shopee.products.index', ['group' => $mine->id])), $html, 'the group opens as a filter on the Products page');
     }
 
     public function test_a_reader_sees_the_group_but_cannot_move_the_product(): void
     {
         $pid = $this->product();
-        $mine = ShopeeProductGroup::create(['name' => 'Multi-effects pedals', 'shopee_category_id' => 100013, 'logistic_ids' => [8003]]);
+        $mine = ShopeeProductGroup::create(['name' => 'Multi-effects pedals']);
         DB::table('ch_shopee_product_group_products')->insert(['shopee_product_group_id' => $mine->id, 'product_id' => $pid]);
 
         $this->actingAs($this->user(['view_shopee/product']))

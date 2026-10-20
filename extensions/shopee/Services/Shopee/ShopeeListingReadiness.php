@@ -50,16 +50,8 @@ class ShopeeListingReadiness
             CatalogGaps::IMAGE, CatalogGaps::ANY_SKU,
         ], $ownPictures);
 
-        $inherit = app(ShopeeInheritedSettings::class);
-        $inherited = $inherit->forProducts($productIds);
-
         $categoryIds = $listings->pluck('shopee_category_id')
             ->filter()->map(fn ($v) => (int) $v)->unique()->values()->all();
-        foreach ($inherited as $g) {
-            if ($g['category_id']) {
-                $categoryIds[] = $g['category_id'];
-            }
-        }
         $categoryIds = array_values(array_unique($categoryIds));
         if ($sharedCategory) {
             $categoryIds = array_values(array_unique(array_merge($categoryIds, [$sharedCategory])));
@@ -75,7 +67,7 @@ class ShopeeListingReadiness
         $out = [];
         foreach ($productIds as $productId) {
             $saved = $listings->get($productId) ?? (new ShopeeListing())->forceFill(['product_id' => $productId]);
-            $listing = $inherit->fill($saved, $inherited[$productId] ?? null)['listing'];
+            $listing = clone $saved;
             if ($listing && $sharedRule && $saved->markup_percent === null && $saved->markup_fixed === null) {
                 $listing->markup_percent = $shared['markup_percent'] ?? null;
                 $listing->markup_fixed = $shared['markup_fixed'] ?? null;

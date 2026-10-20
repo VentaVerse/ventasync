@@ -79,7 +79,7 @@ class TikTokAddToStoreTest extends TestCase
 
     private function group(string $name = 'Helmets'): TikTokProductGroup
     {
-        return TikTokProductGroup::create(['store_id' => $this->store->id, 'name' => $name, 'tiktok_category_id' => '900001']);
+        return TikTokProductGroup::create(['store_id' => $this->store->id, 'name' => $name]);
     }
 
     private function groupBase(int $groupId): string
@@ -253,84 +253,6 @@ class TikTokAddToStoreTest extends TestCase
             ->assertNotFound();
 
         $this->assertSame(1, TikTokListing::withoutGlobalScope('tiktokStore')->where('product_id', $pid)->count());
-    }
-
-    public function test_the_group_page_offers_the_panel_and_not_add_a_product_by_name(): void
-    {
-        $group = $this->group();
-
-        $html = $this->actingAs($this->manager())->get($this->groupBase($group->id) . '/products')->assertOk()->getContent();
-
-        $this->assertStringContainsString('data-add-panel-open', $html);
-        $this->assertStringContainsString('id="tiktok-group-add-panel"', $html);
-        $this->assertStringContainsString('In this group', $html);
-        $this->assertStringNotContainsString('Add a product by name', $html);
-        $this->assertStringNotContainsString('data-group-manual-add', $html);
-    }
-
-    public function test_group_search_offers_only_this_stores_products_and_names_the_owner_elsewhere(): void
-    {
-        $group = $this->group('Helmets');
-        $other = $this->group('Gloves');
-        $inGroup = $this->seedProduct('Already grouped', 'G-1');
-        $free = $this->seedProduct('On store free', 'S-1');
-        $elsewhere = $this->seedProduct('Owned elsewhere', 'E-1');
-        $this->seedProduct('Catalog only widget', 'OFF-1');
-        foreach ([$inGroup, $free, $elsewhere] as $pid) {
-            $this->onStore($pid);
-        }
-        TikTokProductGroupProduct::create(['tiktok_product_group_id' => $group->id, 'product_id' => $inGroup, 'sync_status' => 'pending']);
-        TikTokProductGroupProduct::create(['tiktok_product_group_id' => $other->id, 'product_id' => $elsewhere, 'sync_status' => 'pending']);
-
-        $r = $this->actingAs($this->manager())->getJson($this->groupBase($group->id) . '/products/search')->assertOk();
-        $byName = collect($r->json('items'))->keyBy('name');
-        $this->assertSame(['Catalog only widget', 'On store free', 'Owned elsewhere'], $byName->keys()->sort()->values()->all());
-        $this->assertSame('Gloves', $byName['Owned elsewhere']['elsewhere']);
-        $this->assertNull($byName['On store free']['elsewhere']);
-        $this->assertTrue($byName['On store free']['listed']);
-        $this->assertFalse($byName['Catalog only widget']['listed'], 'the row says the store does not carry it yet');
-
-        $all = $this->actingAs($this->manager())->getJson($this->groupBase($group->id) . '/products/search?all=1')->assertOk();
-        $allByName = collect($all->json('items'))->keyBy('name');
-        $this->assertTrue($allByName['Already grouped']['on_store']);
-    }
-
-    public function test_add_to_group_and_move_here_and_the_store_gate(): void
-    {
-        $group = $this->group('Helmets');
-        $other = $this->group('Gloves');
-        $free = $this->seedProduct('On store free', 'S-1');
-        $elsewhere = $this->seedProduct('Owned elsewhere', 'E-1');
-        $off = $this->seedProduct('Catalog only widget', 'OFF-1');
-        $this->onStore($free);
-        $this->onStore($elsewhere);
-        TikTokProductGroupProduct::create(['tiktok_product_group_id' => $other->id, 'product_id' => $elsewhere, 'sync_status' => 'pending']);
-
-        $this->actingAs($this->manager())
-            ->postJson($this->groupBase($group->id) . '/products/' . $free . '/add')
-            ->assertOk()->assertJson(['ok' => true, 'added' => true, 'moved_from' => null]);
-        $this->actingAs($this->manager())
-            ->postJson($this->groupBase($group->id) . '/products/' . $free . '/add')
-            ->assertOk()->assertJson(['added' => false]);
-        $this->assertSame(1, TikTokProductGroupProduct::query()->where('tiktok_product_group_id', $group->id)->where('product_id', $free)->count());
-
-        $this->actingAs($this->manager())
-            ->postJson($this->groupBase($group->id) . '/products/' . $off . '/add')
-            ->assertOk()->assertJson(['ok' => true, 'added' => true, 'listed' => true]);
-        $this->assertTrue(TikTokStoreProducts::has($off), 'it is on this store now');
-        $this->assertSame(1, TikTokProductGroupProduct::query()->where('product_id', $off)->count());
-        $this->actingAs($this->manager())
-            ->postJson($this->groupBase($group->id) . '/products/424242/add')
-            ->assertNotFound();
-
-        $this->actingAs($this->manager())
-            ->postJson($this->groupBase($group->id) . '/products/' . $elsewhere . '/add')
-            ->assertStatus(409);
-        $this->actingAs($this->manager())
-            ->postJson($this->groupBase($group->id) . '/products/' . $elsewhere . '/add', ['move' => true])
-            ->assertOk()->assertJson(['ok' => true, 'added' => true, 'moved_from' => 'Gloves']);
-        $owners = TikTokProductGroupProduct::query()->where('product_id', $elsewhere)->pluck('tiktok_product_group_id')->map(fn ($v) => (int) $v)->all();
-        $this->assertSame([$group->id], $owners, 'one product, one group: it moved rather than doubled');
     }
 
     public function test_the_edit_form_is_the_groups_settings_only(): void
