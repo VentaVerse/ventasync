@@ -10,6 +10,8 @@ use App\Http\Controllers\Settings\ExtensionController;
 use App\Http\Controllers\Settings\ErrorLogController;
 use App\Http\Controllers\Settings\ApiClientController;
 use App\Http\Controllers\Settings\OrderStatusController;
+use App\Http\Controllers\Settings\TaxController;
+use App\Http\Controllers\Settings\InvoiceController;
 
 Route::prefix('settings')->group(function () {
     Route::group([], function () {
@@ -98,6 +100,19 @@ Route::prefix('settings')->group(function () {
 
     Route::get('/fulfillment', [\App\Http\Controllers\Settings\FulfillmentController::class, 'edit'])->name('settings.fulfillment');
     Route::put('/fulfillment', [\App\Http\Controllers\Settings\FulfillmentController::class, 'update'])->name('settings.fulfillment.update');
+
+    Route::get('/taxes', [TaxController::class, 'index'])->name('taxes.index');
+    Route::put('/taxes/registration', [TaxController::class, 'updateRegistration'])->name('taxes.registration');
+    Route::get('/taxes/rates/create', [TaxController::class, 'create'])->name('taxes.create')
+    ->defaults('permission_tier', 'manage');
+    Route::post('/taxes/rates', [TaxController::class, 'store'])->name('taxes.store');
+    Route::get('/taxes/rates/{rate}/edit', [TaxController::class, 'edit'])->whereNumber('rate')->name('taxes.edit')
+    ->defaults('permission_tier', 'manage');
+    Route::put('/taxes/rates/{rate}', [TaxController::class, 'update'])->whereNumber('rate')->name('taxes.update');
+    Route::delete('/taxes/rates/{rate}', [TaxController::class, 'destroy'])->whereNumber('rate')->name('taxes.destroy');
+
+    Route::get('/invoices', [InvoiceController::class, 'edit'])->name('settings.invoices');
+    Route::put('/invoices', [InvoiceController::class, 'update'])->name('settings.invoices.update');
 
     Route::group([], function () {
         Route::get('/order-statuses', [OrderStatusController::class, 'index'])->name('order_statuses.index');

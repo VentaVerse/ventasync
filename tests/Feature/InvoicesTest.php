@@ -2,17 +2,16 @@
 
 namespace Tests\Feature;
 
-use App\Extensions\ExtensionManager;
 use App\Models\Admin\Permission;
 use App\Models\Admin\UserGroup;
 use App\Models\Catalog\Order;
 use App\Models\Catalog\OrderStatus;
 use App\Models\User;
 use App\Services\PermissionCatalog;
-use Extensions\Invoices\Models\Invoice;
-use Extensions\Invoices\Models\InvoiceSettings;
-use Extensions\Invoices\Models\TaxRate;
-use Extensions\Invoices\Services\InvoiceDocument;
+use App\Models\Invoice;
+use App\Models\InvoiceSettings;
+use App\Models\TaxRate;
+use App\Services\Sales\InvoiceDocument;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
@@ -21,20 +20,9 @@ class InvoicesTest extends TestCase
 {
     use RefreshDatabase;
 
-    protected function setUp(): void
-    {
-        parent::setUp();
-
-        $manager = $this->app->make(ExtensionManager::class);
-        $manager->install('invoices');
-        $manager->enable('invoices');
-        $this->app->register(\Extensions\Invoices\InvoicesExtension::class);
-        $this->app['router']->getRoutes()->refreshNameLookups();
-        $this->artisan('permissions:sync-catalog');
-    }
-
     private function user(array $keys): User
     {
+        $this->artisan('permissions:sync-catalog');
         $group = UserGroup::create(['name' => 'Group ' . md5(implode(',', $keys))]);
         $group->permissions()->attach(Permission::whereIn('key', $keys)->pluck('id')->all());
 
@@ -72,48 +60,48 @@ class InvoicesTest extends TestCase
 
     private function document(Order $order): string
     {
-        return view('ext-invoices::pdf.order', app(InvoiceDocument::class)->for($order))->render();
+        return view('sales.orders.pdf', app(InvoiceDocument::class)->for($order))->render();
     }
 
     public function test_settings_shows_taxes_under_store_and_invoices_under_sales(): void
     {
-        $this->actingAs($this->user(['view_settings/settings_hub', 'view_invoices/tax', 'view_invoices/settings']));
+        $this->actingAs($this->user(['view_settings/settings_hub', 'view_settings/tax', 'view_settings/invoice']));
 
         $this->get(route('settings.hub'))->assertOk()
-            ->assertSee(route('ext.invoices.taxes.index'))
-            ->assertSee(route('ext.invoices.settings.edit'));
+            ->assertSee(route('taxes.index'))
+            ->assertSee(route('settings.invoices'));
     }
 
     public function test_the_first_tax_rate_is_the_default_and_the_default_cannot_be_deleted(): void
     {
-        $this->actingAs($this->user(['view_invoices/tax', 'manage_invoices/tax']));
+        $this->actingAs($this->user(['view_settings/tax', 'manage_settings/tax']));
 
-        $this->post(route('ext.invoices.taxes.store'), ['name' => 'VAT', 'rate' => '12'])->assertRedirect(route('ext.invoices.taxes.index'));
+        $this->post(route('taxes.store'), ['name' => 'VAT', 'rate' => '12'])->assertRedirect(route('taxes.index'));
         $vat = TaxRate::firstWhere('name', 'VAT');
         $this->assertTrue($vat->is_default);
 
-        $this->delete(route('ext.invoices.taxes.destroy', $vat->id))->assertSessionHas('error');
+        $this->delete(route('taxes.destroy', $vat->id))->assertSessionHas('error');
         $this->assertNotNull(TaxRate::find($vat->id));
 
-        $this->post(route('ext.invoices.taxes.store'), ['name' => 'Zero-rated', 'rate' => '0', 'is_default' => '1']);
+        $this->post(route('taxes.store'), ['name' => 'Zero-rated', 'rate' => '0', 'is_default' => '1']);
         $this->assertFalse($vat->fresh()->is_default, 'making another rate the default takes it off the old one');
         $this->assertSame(1, TaxRate::where('is_default', true)->count());
 
-        $this->delete(route('ext.invoices.taxes.destroy', $vat->id))->assertSessionHas('success');
+        $this->delete(route('taxes.destroy', $vat->id))->assertSessionHas('success');
         $this->assertNull(TaxRate::find($vat->id));
     }
 
     public function test_the_registration_keeps_digits_only_and_checks_their_count(): void
     {
-        $this->actingAs($this->user(['view_invoices/tax', 'manage_invoices/tax']));
+        $this->actingAs($this->user(['view_settings/tax', 'manage_settings/tax']));
 
-        $this->put(route('ext.invoices.taxes.registration'), ['tax_status' => 'vat', 'tin' => '123-456-789', 'branch_code' => '', 'business_style' => 'Example Audio Supplies'])
+        $this->put(route('taxes.registration'), ['tax_status' => 'vat', 'tin' => '123-456-789', 'branch_code' => '', 'business_style' => 'Example Audio Supplies'])
             ->assertSessionHasNoErrors();
         $settings = InvoiceSettings::current();
         $this->assertSame('123456789', $settings->tin);
         $this->assertSame('123-456-789-00000', $settings->fullTin());
 
-        $this->put(route('ext.invoices.taxes.registration'), ['tax_status' => 'vat', 'tin' => '1234', 'branch_code' => '00000'])
+        $this->put(route('taxes.registration'), ['tax_status' => 'vat', 'tin' => '1234', 'branch_code' => '00000'])
             ->assertSessionHasErrors('tin');
     }
 
@@ -123,9 +111,9 @@ class InvoicesTest extends TestCase
         $first = $this->order();
         $second = $this->order();
 
-        $this->post(route('ext.invoices.orders.generate', $second->order_id))->assertRedirect(route('orders.show', $second->order_id));
-        $this->post(route('ext.invoices.orders.generate', $first->order_id));
-        $this->post(route('ext.invoices.orders.generate', $first->order_id));
+        $this->post(route('orders.invoice', $second->order_id))->assertRedirect(route('orders.show', $second->order_id));
+        $this->post(route('orders.invoice', $first->order_id));
+        $this->post(route('orders.invoice', $first->order_id));
 
         $this->assertSame('INV-000001', Invoice::firstWhere('order_id', $second->order_id)->label());
         $this->assertSame('INV-000002', Invoice::firstWhere('order_id', $first->order_id)->label());
@@ -133,7 +121,7 @@ class InvoicesTest extends TestCase
 
         InvoiceSettings::current()->update(['prefix' => 'INV-2027-']);
         $third = $this->order();
-        $this->post(route('ext.invoices.orders.generate', $third->order_id));
+        $this->post(route('orders.invoice', $third->order_id));
         $this->assertSame('INV-2027-000001', Invoice::firstWhere('order_id', $third->order_id)->label());
     }
 
@@ -142,15 +130,15 @@ class InvoicesTest extends TestCase
         $order = $this->order();
 
         $this->actingAs($this->user(['view_sales/order']));
-        $this->get(route('ext.invoices.orders.pdf', $order->order_id))->assertOk()->assertHeader('content-type', 'application/pdf');
-        $this->post(route('ext.invoices.orders.generate', $order->order_id))->assertStatus(302);
+        $this->get(route('orders.pdf', $order->order_id))->assertOk()->assertHeader('content-type', 'application/pdf');
+        $this->post(route('orders.invoice', $order->order_id))->assertStatus(302);
         $this->assertSame(0, Invoice::count(), 'view only cannot give a number');
 
         $this->actingAs($this->user(['view_sales/order', 'manage_sales/order']));
-        $this->post(route('ext.invoices.orders.generate', $order->order_id));
+        $this->post(route('orders.invoice', $order->order_id));
         $this->assertSame(1, Invoice::count());
 
-        $this->assertArrayNotHasKey('invoices/order_invoice', app(PermissionCatalog::class)->all(), 'no separate tick for the order PDF and number');
+        $this->assertArrayNotHasKey('sales/order_invoice', app(PermissionCatalog::class)->all(), 'no separate tick for the order PDF and number');
     }
 
     public function test_the_pdf_is_an_order_until_a_number_is_given_then_an_invoice(): void
@@ -163,13 +151,13 @@ class InvoicesTest extends TestCase
         $this->assertStringNotContainsString('INV-', $before);
 
         $this->actingAs($this->user(['view_sales/order', 'manage_sales/order']));
-        $this->get(route('ext.invoices.orders.pdf', $order->order_id))->assertHeader('content-disposition', 'inline; filename=order-' . $order->order_id . '.pdf');
+        $this->get(route('orders.pdf', $order->order_id))->assertHeader('content-disposition', 'inline; filename=order-' . $order->order_id . '.pdf');
 
-        $this->post(route('ext.invoices.orders.generate', $order->order_id));
+        $this->post(route('orders.invoice', $order->order_id));
         $after = $this->document($order);
         $this->assertStringContainsString('INVOICE', $after);
         $this->assertStringContainsString('No. INV-000001', $after);
-        $this->get(route('ext.invoices.orders.pdf', $order->order_id))->assertHeader('content-disposition', 'inline; filename=INV-000001.pdf');
+        $this->get(route('orders.pdf', $order->order_id))->assertHeader('content-disposition', 'inline; filename=INV-000001.pdf');
     }
 
     public function test_vat_is_worked_out_of_the_total_at_the_default_rate(): void
@@ -209,13 +197,13 @@ class InvoicesTest extends TestCase
         $this->actingAs($this->user(['view_sales/order', 'manage_sales/order']));
 
         $this->get(route('orders.show', $order->order_id))->assertOk()
-            ->assertSee(route('ext.invoices.orders.pdf', $order->order_id))
+            ->assertSee(route('orders.pdf', $order->order_id))
             ->assertSee('View PDF')
             ->assertSee('target="_blank"', false)
             ->assertSee('Generate invoice number')
             ->assertSee('invoice number INV-000001?', false);
 
-        $this->post(route('ext.invoices.orders.generate', $order->order_id));
+        $this->post(route('orders.invoice', $order->order_id));
 
         $this->get(route('orders.show', $order->order_id))->assertOk()
             ->assertDontSee('Generate invoice number')
@@ -229,7 +217,7 @@ class InvoicesTest extends TestCase
         $this->actingAs($this->user(['view_sales/order']));
 
         $this->get(route('orders.show', $order->order_id))->assertOk()
-            ->assertSee(route('ext.invoices.orders.pdf', $order->order_id))
+            ->assertSee(route('orders.pdf', $order->order_id))
             ->assertDontSee('Generate invoice number');
     }
 }

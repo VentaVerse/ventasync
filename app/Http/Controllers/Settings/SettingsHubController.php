@@ -23,28 +23,6 @@ class SettingsHubController extends Controller
 
     public static function destinations(): array
     {
-        $groups = self::coreDestinations();
-
-        $extensions = app(\App\Extensions\ExtensionManager::class);
-        foreach ($extensions->getEnabledIds() as $id) {
-            foreach ($extensions->getManifest($id)['settings_hub'] ?? [] as $card) {
-                if (isset($card['group'], $card['label'], $card['route']) && \Illuminate\Support\Facades\Route::has($card['route'])) {
-                    $groups[$card['group']][] = [
-                        'label' => $card['label'],
-                        'description' => $card['description'] ?? '',
-                        'route' => $card['route'],
-                        'icon' => $card['icon'] ?? 'puzzle',
-                        'keywords' => $card['keywords'] ?? [],
-                    ];
-                }
-            }
-        }
-
-        return $groups;
-    }
-
-    private static function coreDestinations(): array
-    {
         return [
             'Store' => [
                 ['label' => 'General', 'description' => 'Company name and address',
@@ -62,6 +40,9 @@ class SettingsHubController extends Controller
                 ['label' => 'Currencies', 'description' => 'Exchange rates and the default currency',
                  'route' => 'currencies.index', 'icon' => 'coins',
                  'keywords' => ['exchange', 'rate', 'peso', 'usd', 'forex', 'money']],
+                ['label' => 'Taxes', 'description' => 'TIN, VAT status and tax rates',
+                 'route' => 'taxes.index', 'icon' => 'banknote',
+                 'keywords' => ['tax', 'vat', 'tin', 'bir', 'rate']],
             ],
             'Sales' => [
                 ['label' => 'Order Statuses', 'description' => 'The statuses an order can move through',
@@ -70,6 +51,9 @@ class SettingsHubController extends Controller
                 ['label' => 'Fulfillment', 'description' => 'How orders are packed before booking',
                  'route' => 'settings.fulfillment', 'icon' => 'package',
                  'keywords' => ['packing', 'pack', 'count', 'booking', 'ship', 'packer']],
+                ['label' => 'Invoices', 'description' => 'Invoice numbers and the PDF',
+                 'route' => 'settings.invoices', 'icon' => 'receipt',
+                 'keywords' => ['invoice', 'pdf', 'number', 'prefix', 'logo']],
             ],
             'Access' => [
                 ['label' => 'Users', 'description' => 'People who can sign in',

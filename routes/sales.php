@@ -3,6 +3,7 @@
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Sales\OrderController;
 use App\Http\Controllers\Sales\OrderPaymentController;
+use App\Http\Controllers\Sales\OrderInvoiceController;
 
 Route::prefix('sales')->group(function () {
     Route::group([], function () {
@@ -10,6 +11,8 @@ Route::prefix('sales')->group(function () {
         Route::get('/orders/search-products', [OrderController::class, 'searchProducts'])->name('orders.search_products');
         Route::get('/orders/{id}', [OrderController::class, 'show'])->whereNumber('id')->name('orders.show');
         Route::get('/order-payments', [OrderPaymentController::class, 'paymentsReport'])->name('orders.payments_report');
+        Route::get('/orders/{order}/pdf', [OrderInvoiceController::class, 'pdf'])->whereNumber('order')
+        ->defaults('permission_key', 'sales/order')->name('orders.pdf');
     });
 
     Route::group([], function () {
@@ -32,5 +35,7 @@ Route::prefix('sales')->group(function () {
         Route::post('/orders/{id}/payments', [OrderPaymentController::class, 'storePayment'])->whereNumber('id')->name('orders.store_payment');
         Route::delete('/orders/{id}/payments/{paymentId}', [OrderPaymentController::class, 'destroyPayment'])->whereNumber('id')->whereNumber('paymentId')->name('orders.destroy_payment');
         Route::post('/orders/{id}/toggle-payments', [OrderPaymentController::class, 'togglePayments'])->whereNumber('id')->name('orders.toggle_payments');
+        Route::post('/orders/{order}/invoice', [OrderInvoiceController::class, 'generate'])->whereNumber('order')
+        ->defaults('permission_key', 'sales/order')->name('orders.invoice');
     });
 });
