@@ -203,6 +203,31 @@ class ChannelRegistry
         return $actions;
     }
 
+    public function orderActions(\App\Models\Catalog\Order $order): array
+    {
+        $actions = [];
+        foreach ($this->providersImplementing(\App\Channels\Contracts\OrderActionContributor::class) as $provider) {
+            foreach ($provider->orderActions($order) as $action) {
+                if (is_array($action) && isset($action['label'], $action['url'])) {
+                    $actions[] = $action;
+                }
+            }
+        }
+        return $actions;
+    }
+
+    public function orderHeadNotes(\App\Models\Catalog\Order $order): array
+    {
+        $notes = [];
+        foreach ($this->providersImplementing(\App\Channels\Contracts\OrderActionContributor::class) as $provider) {
+            $note = $provider->orderHeadNote($order);
+            if ($note !== null && $note !== '') {
+                $notes[] = $note;
+            }
+        }
+        return $notes;
+    }
+
     public function resolveChannelLabel(string $source): ?string
     {
         foreach ($this->providersImplementing(\App\Channels\Contracts\ChannelLabelResolver::class) as $resolver) {

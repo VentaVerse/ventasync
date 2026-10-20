@@ -5645,6 +5645,16 @@
         "name": "orders.update_shipping_cost"
     },
     {
+        "method": "POST",
+        "uri": "sales/orders/{order}/invoice",
+        "name": "ext.invoices.orders.generate"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "sales/orders/{order}/pdf",
+        "name": "ext.invoices.orders.pdf"
+    },
+    {
         "method": "GET|HEAD",
         "uri": "sanctum/csrf-cookie",
         "name": "sanctum.csrf-cookie"
@@ -5831,6 +5841,16 @@
     },
     {
         "method": "GET|HEAD",
+        "uri": "settings/invoices",
+        "name": "ext.invoices.settings.edit"
+    },
+    {
+        "method": "PUT",
+        "uri": "settings/invoices",
+        "name": "ext.invoices.settings.update"
+    },
+    {
+        "method": "GET|HEAD",
         "uri": "settings/mail",
         "name": "settings.mail"
     },
@@ -5878,6 +5898,41 @@
         "method": "GET|HEAD",
         "uri": "settings/order-statuses/{id}/edit",
         "name": "order_statuses.edit"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "settings/taxes",
+        "name": "ext.invoices.taxes.index"
+    },
+    {
+        "method": "POST",
+        "uri": "settings/taxes/rates",
+        "name": "ext.invoices.taxes.store"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "settings/taxes/rates/create",
+        "name": "ext.invoices.taxes.create"
+    },
+    {
+        "method": "DELETE",
+        "uri": "settings/taxes/rates/{rate}",
+        "name": "ext.invoices.taxes.destroy"
+    },
+    {
+        "method": "PUT",
+        "uri": "settings/taxes/rates/{rate}",
+        "name": "ext.invoices.taxes.update"
+    },
+    {
+        "method": "GET|HEAD",
+        "uri": "settings/taxes/rates/{rate}/edit",
+        "name": "ext.invoices.taxes.edit"
+    },
+    {
+        "method": "PUT",
+        "uri": "settings/taxes/registration",
+        "name": "ext.invoices.taxes.registration"
     },
     {
         "method": "GET|HEAD",

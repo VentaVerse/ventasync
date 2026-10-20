@@ -390,7 +390,7 @@ class Navigation
 
         [$class] = explode('@', $action);
         $catalog = app(\App\Services\PermissionCatalog::class);
-        $key = $catalog->keyForController($class);
+        $key = $catalog->keyForRoute($route, $class);
 
         if ($key === null) {
             return true;

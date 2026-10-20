@@ -76,7 +76,7 @@ return new class extends Migration
     private function rename(string $table, string $from, string $to): void
     {
         if (Schema::hasTable($table) && Schema::hasColumn($table, $from) && ! Schema::hasColumn($table, $to)) {
-            Schema::table($table, fn (Blueprint $t) => $t->renameColumn($from, $to));
+            \App\Support\Database\ColumnRename::run($table, $from, $to);
         }
     }
 };

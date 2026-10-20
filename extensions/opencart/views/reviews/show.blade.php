@@ -42,24 +42,19 @@
         </div>
 
         <div class="od-head__actions">
+            @if($ventaCartOpen)
+                <x-ui.button type="submit" form="rv-ventacart">Push to VentaCart</x-ui.button>
+            @endif
+            @if($wcOpen)
+                <x-ui.button type="submit" form="rv-woocommerce">Push to WooCommerce</x-ui.button>
+            @endif
+            @if($canManage && $openCartOpen)
+                <x-ui.button type="submit" form="rv-skip">Skip this review</x-ui.button>
+            @endif
             @if($canManage && $openCartOpen)
                 <x-ui.button variant="primary" type="submit" form="rv-push">
                     {{ $review->opencart_sync_status === 'error' ? 'Try the push again' : 'Push to OpenCart' }}
                 </x-ui.button>
-            @endif
-
-            @if(($canManage && $openCartOpen) || $ventaCartOpen || $wcOpen)
-            <x-ui.menu label="Review actions">
-                @if($ventaCartOpen)
-                    <button type="submit" class="x-menu__item" form="rv-ventacart">Push to VentaCart</button>
-                @endif
-                @if($wcOpen)
-                    <button type="submit" class="x-menu__item" form="rv-woocommerce">Push to WooCommerce</button>
-                @endif
-                @if($canManage && $openCartOpen)
-                    <button type="submit" class="x-menu__item" form="rv-skip">Skip this review</button>
-                @endif
-            </x-ui.menu>
             @endif
         </div>
     </header>

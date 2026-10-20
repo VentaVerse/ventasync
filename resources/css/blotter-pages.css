@@ -104,6 +104,16 @@
         display: flex;
         align-items: center;
         gap: 7px;
+        flex-wrap: wrap;
+    }
+
+    .od-head__actions form { display: contents; }
+
+    .od-head__note {
+        flex-basis: 100%;
+        margin: -4px 0 0;
+        font-size: 13px;
+        color: var(--bl-ink-2);
     }
 
     .od-status { position: relative; display: inline-flex; }

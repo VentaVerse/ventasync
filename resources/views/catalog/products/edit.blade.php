@@ -14,9 +14,19 @@
     };
 
 
-    $__productActions = app(\App\Channels\ChannelRegistry::class)
-        ->productActions((int) $product->product_id);
     $__user = auth()->user();
+    $__links = array_merge(
+        [
+            ['label' => 'Sales history', 'url' => route('products.sales', $product->product_id)],
+            ['label' => 'Stock history', 'url' => route('products.stock_history', $product->product_id)],
+        ],
+        array_values(array_filter(
+            app(\App\Channels\ChannelRegistry::class)->productActions((int) $product->product_id),
+            fn ($a) => empty($a['permission']) || ($__user && $__user->hasPermission($a['permission']))
+        ))
+    );
+    $__buttons = array_slice($__links, 0, 4);
+    $__more = array_slice($__links, 4);
 
     $__stockBreakdown = null;
     foreach (app(\App\Channels\ChannelRegistry::class)->productStockDetailContributors() as $__c) {
@@ -73,19 +83,14 @@
         </div>
 
         <div class="fm-head__actions">
+            @foreach($__buttons as $__action)
+                <x-ui.button :href="$__action['url']">{{ $__action['label'] }}</x-ui.button>
+            @endforeach
             <x-ui.menu label="Product {{ $product->product_id }} actions">
-                <a class="x-menu__item" href="{{ route('products.sales', $product->product_id) }}">Sales history</a>
-                <a class="x-menu__item" href="{{ route('products.stock_history', $product->product_id) }}">Stock history</a>
-                @foreach($__productActions as $__action)
-                    @php
-                        $__perm = $__action['permission'] ?? null;
-                        $__visible = !$__perm || ($__user && $__user->hasPermission($__perm));
-                    @endphp
-                    @if($__visible)
-                        <a class="x-menu__item" href="{{ $__action['url'] }}">{{ $__action['label'] }}</a>
-                    @endif
+                @foreach($__more as $__action)
+                    <a class="x-menu__item" href="{{ $__action['url'] }}">{{ $__action['label'] }}</a>
                 @endforeach
-                <div class="x-menu__sep"></div>
+                @if($__more !== [])<div class="x-menu__sep"></div>@endif
                 <button type="button" class="x-menu__item x-menu__item--danger"
                         data-confirm="Delete {{ $product->name }}? This cannot be undone.{{ ($channelNote ?? '') !== '' ? ' ' . $channelNote : '' }}"
                         data-confirm-submit="product-delete-form">Delete product</button>
