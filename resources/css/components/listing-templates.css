@@ -32,3 +32,94 @@
 .lt-delete {
     margin-top: 16px;
 }
+
+.lt-apply__pick {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 12px;
+    margin-bottom: 16px;
+}
+
+.lt-apply__pick .x-input {
+    min-width: 260px;
+}
+
+.lt-apply__field {
+    font-weight: 600;
+    text-align: left;
+    white-space: nowrap;
+}
+
+.lt-apply__what {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.lt-apply__fill {
+    color: var(--bl-good);
+    font-weight: 600;
+}
+
+.lt-apply__own {
+    color: var(--bl-attn);
+    font-weight: 600;
+}
+
+.lt-apply__same {
+    color: var(--bl-ink-2);
+}
+
+.lt-apply__list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    gap: 8px;
+}
+
+.lt-apply__item {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px 16px;
+}
+
+.lt-apply__ownval {
+    color: var(--bl-ink-2);
+}
+
+.lt-apply__choice {
+    display: inline-flex;
+    border: 1px solid var(--bl-rule-2);
+    border-radius: 7px;
+    overflow: hidden;
+}
+
+.lt-apply__choice label {
+    position: relative;
+    padding: 6px 12px;
+    font-size: 12.5px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.lt-apply__choice input {
+    position: absolute;
+    opacity: 0;
+    inset: 0;
+    margin: 0;
+    cursor: pointer;
+}
+
+.lt-apply__choice label:has(input:checked) {
+    background: var(--bl-ink);
+    color: var(--bl-sheet);
+}
+
+.lt-apply__choice label:has(input:focus-visible) {
+    outline: 2px solid var(--bl-brand-deep);
+    outline-offset: -2px;
+}

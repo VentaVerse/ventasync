@@ -189,6 +189,7 @@
             ['action' => route('ext.ventacart.listings.bulk_toggle', $setting->id), 'verb' => 'unlist', 'codes' => 'active', 'label' => 'Unlist :n on ' . $storeName, 'button' => 'Unlist on ' . $storeName, 'fields' => ['action' => 'unlist'], 'confirm' => "Unlist the selected products on {$storeName}? Customers stop seeing them. They can be relisted at any time."],
             ['action' => route('ext.ventacart.listings.bulk_toggle', $setting->id), 'verb' => 'relist', 'codes' => 'inactive', 'label' => 'Relist :n on ' . $storeName, 'button' => 'Relist on ' . $storeName, 'fields' => ['action' => 'relist'], 'confirm' => "Relist the selected products on {$storeName}? Customers see them again at once."],
         ],
+        'template' => ['action' => route('ext.ventacart.listing-templates.preview', ['store' => $setting->id]), 'label' => 'Apply template'],
         'link' => ['action' => route('ext.ventacart.listings.check', $setting->id), 'label' => 'Link IDs'],
         'delete' => ['action' => route('ext.ventacart.products.bulk_delete', $setting->id), 'label' => 'Delete from ' . $storeName, 'confirm' => "Delete the selected products from {$storeName}? They are removed at the storefront and this cannot be undone."],
         'remove' => ['action' => route('ext.ventacart.products.bulk_remove_from_store', $setting->id), 'label' => 'Remove from this channel', 'confirm' => "Remove the selected products from this channel? They leave this list and their groups and stop syncing. Anything already on {$storeName} stays up until you delete it there."],

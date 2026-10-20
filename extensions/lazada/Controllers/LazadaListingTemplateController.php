@@ -41,6 +41,11 @@ class LazadaListingTemplateController extends \App\Http\Controllers\Channels\Lis
         ];
     }
 
+    protected function applier(): \App\Channels\Listings\Templates\TemplateFields
+    {
+        return new \Extensions\Lazada\Services\Lazada\LazadaTemplateFields($this->storeId());
+    }
+
     protected function fieldsView(): string
     {
         return 'ext-lazada::templates._fields';

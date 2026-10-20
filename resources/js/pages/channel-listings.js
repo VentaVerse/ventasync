@@ -86,7 +86,7 @@ function initBulkForms(config, showProgress) {
 
             const submit = function () {
                 injectIds(form, ids, field);
-                showProgress(config.bulkTitle(ids.length));
+                if (!form.hasAttribute('data-bulk-plain')) showProgress(config.bulkTitle(ids.length));
                 const button = form.querySelector('button[type="submit"]');
                 if (button) button.disabled = true;
                 // Native submit(), not requestSubmit(): a re-entrant requestSubmit during a submit is silently dropped.
