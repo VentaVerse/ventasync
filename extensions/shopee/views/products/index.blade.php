@@ -183,6 +183,7 @@
             ['action' => route('ext.shopee.products.bulk_toggle'), 'verb' => 'unlist', 'codes' => 'NORMAL', 'label' => 'Delist :n from Shopee', 'button' => 'Delist from Shopee', 'fields' => ['action' => 'unlist'], 'confirm' => 'Delist the selected items from Shopee? Customers stop seeing them immediately. They stay here and can be published again at any time.'],
             ['action' => route('ext.shopee.products.bulk_toggle'), 'verb' => 'list', 'codes' => 'UNLIST', 'label' => 'Publish :n on Shopee', 'button' => 'Publish on Shopee', 'fields' => ['action' => 'list'], 'confirm' => 'Publish the selected items on Shopee? Customers see them again immediately.'],
         ],
+        'template' => ['action' => route('ext.shopee.listing-templates.preview'), 'label' => 'Apply template'],
         'link' => ['action' => route('ext.shopee.products.check'), 'label' => 'Link IDs'],
         'delete' => ['action' => route('ext.shopee.products.bulk_delete'), 'label' => 'Delete from Shopee', 'confirm' => 'Delete the selected products from Shopee? The listings are removed at the marketplace and this cannot be undone.'],
         'remove' => ['action' => route('ext.shopee.products.bulk_remove_from_store'), 'label' => 'Remove from this channel', 'confirm' => 'Remove the selected products from this channel? They leave this store\'s list and stop syncing. Anything already on Shopee stays up until you delete it there.'],

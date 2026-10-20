@@ -33,6 +33,11 @@ class TikTokListingTemplateController extends \App\Http\Controllers\Channels\Lis
         return ['tiktok_category_id' => ($data['tiktok_category_id'] ?? '') !== '' ? (string) $data['tiktok_category_id'] : null];
     }
 
+    protected function applier(): \App\Channels\Listings\Templates\TemplateFields
+    {
+        return new \Extensions\TikTok\Services\TikTok\TikTokTemplateFields($this->storeId());
+    }
+
     protected function fieldsView(): string
     {
         return 'ext-tiktok::templates._fields';

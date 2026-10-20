@@ -47,6 +47,8 @@ Route::middleware(['auth', \Extensions\Lazada\Http\ResolveLazadaStore::class])
         Route::post('/lazada/{store}/listing-templates', [\Extensions\Lazada\Controllers\LazadaListingTemplateController::class, 'store'])->name('ext.lazada.listing-templates.store')->defaults('permission_tier', 'manage');
         Route::put('/lazada/{store}/listing-templates/{template}', [\Extensions\Lazada\Controllers\LazadaListingTemplateController::class, 'update'])->whereNumber('template')->name('ext.lazada.listing-templates.update')->defaults('permission_tier', 'manage');
         Route::delete('/lazada/{store}/listing-templates/{template}', [\Extensions\Lazada\Controllers\LazadaListingTemplateController::class, 'destroy'])->whereNumber('template')->name('ext.lazada.listing-templates.destroy')->defaults('permission_tier', 'manage');
+        Route::post('/lazada/{store}/listing-templates/preview', [\Extensions\Lazada\Controllers\LazadaListingTemplateController::class, 'preview'])->name('ext.lazada.listing-templates.preview')->defaults('permission_tier', 'manage');
+        Route::post('/lazada/{store}/listing-templates/apply', [\Extensions\Lazada\Controllers\LazadaListingTemplateController::class, 'apply'])->name('ext.lazada.listing-templates.apply')->defaults('permission_tier', 'manage');
 
         Route::get('/lazada/{store}/description-templates', [LazadaDescriptionTemplateController::class, 'index'])->name('ext.lazada.description-templates.index');
         Route::post('/lazada/{store}/description-templates', [LazadaDescriptionTemplateController::class, 'store'])->name('ext.lazada.description-templates.store')->defaults('permission_tier', 'manage');

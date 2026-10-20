@@ -28,6 +28,11 @@ class VentaCartListingTemplateController extends \App\Http\Controllers\Channels\
         return ['ventacart_category_id' => $data['ventacart_category_id'] ?? null];
     }
 
+    protected function applier(): \App\Channels\Listings\Templates\TemplateFields
+    {
+        return new \Extensions\VentaCart\Services\VentaCart\VentaCartTemplateFields($this->storeId());
+    }
+
     protected function fieldsView(): string
     {
         return 'ext-ventacart::templates._fields';

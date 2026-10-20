@@ -22,6 +22,8 @@ abstract class ListingTemplateController extends Controller
 
     abstract protected function fieldsView(): string;
 
+    abstract protected function applier(): \App\Channels\Listings\Templates\TemplateFields;
+
     protected function fieldsData(Model $template): array
     {
         return [];
@@ -95,13 +97,74 @@ abstract class ListingTemplateController extends Controller
         return redirect($this->to('index'))->with('status', 'Listing template deleted.');
     }
 
+    public function preview(Request $request)
+    {
+        abort_unless($this->canManage(), 403);
+        $productIds = $this->productIds($request);
+        $templates = $this->query()->orderBy('name')->get();
+        if ($productIds === [] || $templates->isEmpty()) {
+            return redirect($this->productsUrl())->with('error', $productIds === [] ? 'No products selected.' : 'Create a listing template first.');
+        }
+        $template = $templates->firstWhere('id', (int) $request->input('template_id')) ?? $templates->first();
+
+        return view('channels.listing-templates.apply', [
+            'channelName' => $this->channelName(),
+            'template' => $template,
+            'templates' => $templates,
+            'productIds' => $productIds,
+            'rows' => app(\App\Channels\Listings\Templates\TemplateApply::class)->preview($this->applier(), $template, $productIds),
+            'previewUrl' => $this->to('preview'),
+            'applyUrl' => $this->to('apply'),
+            'productsUrl' => $this->productsUrl(),
+        ]);
+    }
+
+    public function apply(Request $request)
+    {
+        abort_unless($this->canManage(), 403);
+        $productIds = $this->productIds($request);
+        $template = $this->own((int) $request->input('template_id'));
+        $replace = [];
+        foreach ((array) $request->input('replace', []) as $key => $choices) {
+            foreach ((array) $choices as $pid => $choice) {
+                if ($choice === 'replace') {
+                    $replace[(string) $key][] = (int) $pid;
+                }
+            }
+        }
+        $changes = $productIds === [] ? 0 : app(\App\Channels\Listings\Templates\TemplateApply::class)->apply($this->applier(), $template, $productIds, $replace, $this->channel());
+
+        return redirect($this->productsUrl())->with('status', $changes === 0
+            ? 'Nothing to change.'
+            : $changes . ' ' . ($changes === 1 ? 'change' : 'changes') . ' applied from ' . $template->name . '.');
+    }
+
+    private function productIds(Request $request): array
+    {
+        $ids = array_values(array_unique(array_filter(array_map('intval', (array) $request->input('product_ids', [])), fn ($v) => $v > 0)));
+
+        return $ids === [] ? [] : \Illuminate\Support\Facades\DB::table('products')->whereIn('product_id', array_slice($ids, 0, 500))->pluck('product_id')->map(fn ($v) => (int) $v)->all();
+    }
+
+    private function channelName(): string
+    {
+        return app(\App\Channels\ChannelRegistry::class)->resolveChannelLabel($this->channel()) ?? \Illuminate\Support\Str::headline($this->channel());
+    }
+
+    private function productsUrl(): string
+    {
+        $ch = $this->channel();
+
+        return route('ext.' . $this->channel() . '.' . (in_array($ch, ['woocommerce', 'ventacart'], true) ? 'listings' : 'products') . '.index', ['store' => $this->storeId()]);
+    }
+
     private function form(Model $template)
     {
         $ch = $this->channel();
 
         return view('channels.listing-templates.edit', [
             'channel' => $ch,
-            'channelName' => app(\App\Channels\ChannelRegistry::class)->resolveChannelLabel($ch) ?? \Illuminate\Support\Str::headline($ch),
+            'channelName' => $this->channelName(),
             'template' => $template,
             'templates' => $this->query()->orderBy('name')->get(['id', 'name'])->map(fn ($t) => (object) [
                 'id' => (int) $t->id, 'name' => (string) $t->name, 'url' => $this->to('edit', ['template' => $t->id]),
@@ -113,7 +176,7 @@ abstract class ListingTemplateController extends Controller
             'fields' => $this->fieldsData($template),
             'canManage' => $this->canManage(),
             'storeId' => $this->storeId(),
-            'productsUrl' => route('ext.' . $this->channel() . '.' . (in_array($ch, ['woocommerce', 'ventacart'], true) ? 'listings' : 'products') . '.index', ['store' => $this->storeId()]),
+            'productsUrl' => $this->productsUrl(),
         ]);
     }
 

@@ -26,6 +26,7 @@
 <div class="cc-bulkbar" x-show="selected.length > 0" x-cloak data-bulkbar role="status">
     <span class="cc-bulkbar__count" aria-live="polite"><span class="x-num" x-text="selected.length"></span> selected <span class="cc-bulkbar__note" data-bulk-skipped></span></span>
     <div class="cc-bulkbar__actions">
+        @if(! empty($b['template'])){!! $bulkForm($b['template'], $b['template']['label'] ?? 'Apply template', 'secondary', ' data-bulk-plain') !!}@endif
         @if(! empty($b['push'])){!! $bulkForm($b['push'], $b['push']['label'] ?? 'Push') !!}@endif
         @if(! $isGroup)
             {!! $switches !!}
