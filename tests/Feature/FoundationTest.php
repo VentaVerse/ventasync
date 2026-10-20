@@ -276,7 +276,7 @@ class FoundationTest extends TestCase
             }
         }
 
-        foreach (['Fulfillment' => 'shopify'] as $label => $channel) {
+        foreach (['Fulfillment' => 'shopify', 'Amount' => 'pedallion', 'Date' => 'pedallion'] as $label => $channel) {
             if (! is_dir(base_path("extensions/{$channel}"))) {
                 $emitted[$label] = true;
             }
