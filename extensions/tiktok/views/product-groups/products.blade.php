@@ -248,9 +248,9 @@
                     $menu = ['label' => "Product {$p->product_id} actions", 'store' => 'TikTok Shop', 'catalog' => $canEditCatalog ? route('products.edit', $p->product_id) : null];
                     if (!$listed && !$isUnlinked) {
                         $menu['push'] = ['action' => route('ext.tiktok.product-groups.push', $group->id), 'label' => 'Send to TikTok Shop', 'fields' => $gf];
-                        $menu['link'] = ['action' => route('ext.tiktok.product-groups.syncId', [$group->id, $p->product_id]), 'fields' => ['_return' => $returnTo]];
-                    } elseif ($isUnlinked) {
-                        $menu['link'] = ['action' => route('ext.tiktok.product-groups.linkProduct', [$group->id, $p->product_id]), 'fields' => ['_return' => $returnTo]];
+                    }
+                    if (!$listed) {
+                        $menu['link'] = ['action' => route('ext.tiktok.product-groups.check', $group->id), 'fields' => $gf];
                     }
                     if ($listed) {
                         $menu['update'] = ['action' => route('ext.tiktok.product-groups.updateProduct', $group->id), 'label' => 'Send to TikTok Shop', 'fields' => $gf];

@@ -43,6 +43,7 @@
     </div>
     @if($canManage)
         <div class="cc-head-actions">
+            <x-ui.button :href="route('ext.ventacart.listing-templates.index', ['store' => $setting->id])">Listing templates</x-ui.button>
             <x-ui.button type="button" variant="primary" data-add-panel-open>
                 <x-ui.icon name="plus" size="14" /> Add products
             </x-ui.button>
@@ -207,7 +208,7 @@
         </x-slot:action>
     </x-ui.empty>
 @else
-@php $colCount = 6 + ($canManage ? 1 : 0); @endphp
+@php $colCount = 7 + ($canManage ? 1 : 0); @endphp
 <x-ui.table id="ventacart-listings-table">
     <x-slot:head>
         <tr>
@@ -224,6 +225,7 @@
             <th scope="col" @if($sort === 'product') aria-sort="{{ $dir === 'asc' ? 'ascending' : 'descending' }}" @endif><a class="x-th-sort" href="{{ $sortUrl('product') }}">Product @if($sort === 'product')<x-ui.icon name="{{ $dir === 'asc' ? 'chevron-up' : 'chevron-down' }}" size="12" />@endif</a></th>
             <th scope="col" class="cc-col-qty x-td-num" @if($sort === 'quantity') aria-sort="{{ $dir === 'asc' ? 'ascending' : 'descending' }}" @endif><a class="x-th-sort x-th-sort--num" href="{{ $sortUrl('quantity') }}">Stock @if($sort === 'quantity')<x-ui.icon name="{{ $dir === 'asc' ? 'chevron-up' : 'chevron-down' }}" size="12" />@endif</a></th>
             <th scope="col" class="cc-col-price x-td-num" @if($sort === 'price') aria-sort="{{ $dir === 'asc' ? 'ascending' : 'descending' }}" @endif><a class="x-th-sort x-th-sort--num" href="{{ $sortUrl('price') }}">Price @if($sort === 'price')<x-ui.icon name="{{ $dir === 'asc' ? 'chevron-up' : 'chevron-down' }}" size="12" />@endif</a></th>
+            <th scope="col" class="cc-col-chanid">VentaCart ID</th>
             <th scope="col" class="cc-col-sync">Listing</th>
             <th scope="col" class="x-td-actions"><span class="x-sr">Actions</span></th>
         </tr>
@@ -279,9 +281,6 @@
                         <a class="x-row-link co-item__name" href="{{ $listingUrl }}">{{ ($rowTitles[(int) $p->product_id] ?? $p->name) ?: 'Unnamed product' }}</a>
                         <div class="co-item__meta">
                             <span class="co-item__sku">{{ $p->sku ?: 'No SKU' }}</span>
-                            @if($listed)
-                                <span class="co-item__sku lsm-chanid">VentaCart {{ $link->ventacart_product_id }}</span>
-                            @endif
                             @if($p->brand_name)<span>{{ $p->brand_name }}</span>@endif
                             @if(($groupFilter ?? 'all') === 'all' && count($pGroups) > 0)
                                 <a class="co-item__var" href="{{ $indexUrl(array_merge(request()->except(['page', 'sync_status', 'group']), ['group' => $pGroups[0]['id']])) }}">Product group: {{ $pGroups[0]['name'] }}</a>
@@ -292,6 +291,13 @@
             </td>
             <td class="cc-col-qty x-td-num" data-label="Stock"><span class="x-num">{{ (int) $p->quantity }}</span></td>
             <td class="cc-col-price x-td-num" data-label="Price"><x-money :php="(float) $p->price" /></td>
+            <td class="cc-col-chanid" data-label="VentaCart ID">
+                @if($listed)
+                    <span class="x-num">{{ $link->ventacart_product_id }}</span>
+                @else
+                    <span class="x-cell-muted">Not listed</span>
+                @endif
+            </td>
             <td class="cc-col-sync" data-label="Listing">
                 @php $state = $listingStates[$pid] ?? null; @endphp
                 @if($state)
@@ -336,7 +342,7 @@
             </td>
         </tr>
         @if($optRows && count($optRows) > 0)
-            @include('partials.channel-variation-rows', ['rows' => $optRows, 'check' => $canManage, 'trail' => ['cc-col-sync', 'x-td-actions']])
+            @include('partials.channel-variation-rows', ['rows' => $optRows, 'check' => $canManage, 'trail' => ['cc-col-chanid', 'cc-col-sync', 'x-td-actions']])
         @endif
     @endforeach
 </x-ui.table>

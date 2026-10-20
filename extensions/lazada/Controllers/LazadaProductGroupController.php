@@ -515,135 +515,13 @@ class LazadaProductGroupController extends Controller
     {
         $group = LazadaProductGroup::query()->findOrFail($groupId);
 
-        $group->groupProducts()
-            ->where('product_id', $productId)
-            ->update(['sync_status' => 'unlinked']);
+        $listing = LazadaListing::query()->where('product_id', $productId)
+            ->whereNotNull('lazada_item_id')->where('lazada_item_id', '!=', '')->first();
+        $listing?->unlink();
         $this->states($group)->clearErrors([$productId]);
 
         return $this->productsRedirect($group->id)
-            ->with('status', 'Product unlinked from Lazada.');
-    }
-
-    public function syncId(int $groupId, int $productId)
-    {
-        $group = LazadaProductGroup::query()->findOrFail($groupId);
-        $pivot = $group->groupProducts()->where('product_id', $productId)->first();
-        if (!$pivot) {
-            return redirect()->back()->with('error', 'Product not in this product group.');
-        }
-
-        $store = LazadaStore::defaultStore()?->decrypted();
-        $creds = LazadaStore::activeCredentials($store);
-        if (!$store || !$creds['app_key'] || !$creds['app_secret'] || !$creds['access_token']) {
-            return redirect()->back()->with('error', 'Missing Lazada credentials.');
-        }
-        $client = app(\Extensions\Lazada\Services\Lazada\LazadaClient::class);
-
-        $product = DB::table('products')->where('product_id', $productId)->first(['sku']);
-        $skus = [];
-        if ($product->sku && trim($product->sku) !== '') $skus[] = trim($product->sku);
-
-        $optSkus = DB::table('product_variation_values')
-            ->where('product_id', $productId)
-            ->whereNotNull('sku')->where('sku', '!=', '')
-            ->pluck('sku')->map(fn($s) => trim($s))->unique()->toArray();
-        $skus = array_unique(array_merge($skus, $optSkus));
-
-        if (empty($skus)) {
-            $this->states($group)->recordOutcome($productId, 'Product has no SKU to match against Lazada.');
-
-            return redirect()->back()->with('error', 'Product has no SKU to match against Lazada.');
-        }
-
-        $lazadaProduct = LazadaListing::find($pivot->lazada_listing_id);
-        if ($lazadaProduct && $lazadaProduct->lazada_item_id && !$lazadaProduct->unlinked_at) {
-            app(LazadaItemCache::class)->refreshListing($lazadaProduct, $store, $client, 'lazada.product.item.get.cache.group');
-            if (! in_array($pivot->sync_status, ['error', 'failed'], true)) {
-                $pivot->update(['sync_status' => 'synced']);
-            }
-            return redirect()->back()->with('status', "Lazada item ID {$lazadaProduct->lazada_item_id}: cache refreshed.");
-        }
-
-        $matchedItemId = null;
-        foreach ($skus as $sku) {
-            $apiPath = '/products/get';
-            $timestamp = (string) round(microtime(true) * 1000);
-            $params = [
-                'app_key' => (string) $creds['app_key'],
-                'sign_method' => 'sha256',
-                'timestamp' => $timestamp,
-                'access_token' => (string) $creds['access_token'],
-                'filter' => 'all',
-                'search' => $sku,
-                'limit' => '50',
-                'offset' => '0',
-            ];
-            $params['sign'] = $client->sign($apiPath, $params, (string) $creds['app_secret']);
-            $result = $client->get((string) $store->region, $apiPath, $params);
-
-            if (!($result['ok'] ?? false)) continue;
-
-            $products = $result['body']['data']['products'] ?? [];
-            foreach ($products as $p) {
-                $itemId = $p['item_id'] ?? ($p['itemId'] ?? null);
-                if (!$itemId) continue;
-
-                foreach ($p['skus'] ?? [] as $s) {
-                    $sellerSku = $s['SellerSku'] ?? ($s['seller_sku'] ?? ($s['SellerSKU'] ?? null));
-                    if ($sellerSku !== null && strcasecmp(trim((string) $sellerSku), $sku) === 0) {
-                        $matchedItemId = (string) $itemId;
-                        break 3;
-                    }
-                }
-            }
-        }
-
-        if (!$matchedItemId) {
-            $this->states($group)->recordOutcome($productId, 'No matching product found on Lazada for SKU(s): ' . implode(', ', $skus));
-
-            return redirect()->back()->with('error', 'No matching product found on Lazada for SKU(s): ' . implode(', ', $skus));
-        }
-
-        if (!$lazadaProduct) {
-            $lazadaProduct = LazadaListing::find($pivot->lazada_listing_id);
-        }
-        if ($lazadaProduct) {
-            $lazadaProduct->update([
-                'lazada_item_id' => $matchedItemId,
-                'lazada_deleted_at' => null,
-                'unlinked_at' => null,
-            ]);
-
-            app(LazadaItemCache::class)->refreshListing($lazadaProduct, $store, $client, 'lazada.product.item.get.cache.group');
-        }
-
-        $pivot->update(['sync_status' => 'pushed']);
-        $this->states($group)->recordOutcome($productId, null);
-
-        return redirect()->back()->with('status', "Lazada item ID {$matchedItemId} synced for this product.");
-    }
-
-
-    public function linkProduct(int $groupId, int $productId)
-    {
-        $group = LazadaProductGroup::query()->findOrFail($groupId);
-        $pivot = $group->groupProducts()->where('product_id', $productId)->first();
-
-        if ($pivot) {
-            $hasItemId = false;
-            if ($pivot->lazada_listing_id) {
-                $hasItemId = LazadaListing::query()
-                    ->where('id', $pivot->lazada_listing_id)
-                    ->whereNotNull('lazada_item_id')
-                    ->where('lazada_item_id', '!=', '')
-                    ->exists();
-            }
-
-            $pivot->update(['sync_status' => $hasItemId ? 'synced' : 'pending']);
-        }
-
-        return $this->productsRedirect($group->id)
-            ->with('status', 'Product re-linked.');
+            ->with('status', $listing ? 'Product unlinked from Lazada.' : 'That product was not linked, so there was nothing to unlink.');
     }
 
     public function removeProduct(int $groupId, int $productId)

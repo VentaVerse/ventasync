@@ -41,6 +41,13 @@ Route::middleware(['auth', \Extensions\Lazada\Http\ResolveLazadaStore::class])
 
         Route::get('/lazada/{store}/product-groups', [LazadaProductGroupController::class, 'index'])->name('ext.lazada.product-groups.index');
         
+        Route::get('/lazada/{store}/listing-templates', [\Extensions\Lazada\Controllers\LazadaListingTemplateController::class, 'index'])->name('ext.lazada.listing-templates.index');
+        Route::get('/lazada/{store}/listing-templates/create', [\Extensions\Lazada\Controllers\LazadaListingTemplateController::class, 'create'])->name('ext.lazada.listing-templates.create')->defaults('permission_tier', 'manage');
+        Route::get('/lazada/{store}/listing-templates/{template}/edit', [\Extensions\Lazada\Controllers\LazadaListingTemplateController::class, 'edit'])->whereNumber('template')->name('ext.lazada.listing-templates.edit');
+        Route::post('/lazada/{store}/listing-templates', [\Extensions\Lazada\Controllers\LazadaListingTemplateController::class, 'store'])->name('ext.lazada.listing-templates.store')->defaults('permission_tier', 'manage');
+        Route::put('/lazada/{store}/listing-templates/{template}', [\Extensions\Lazada\Controllers\LazadaListingTemplateController::class, 'update'])->whereNumber('template')->name('ext.lazada.listing-templates.update')->defaults('permission_tier', 'manage');
+        Route::delete('/lazada/{store}/listing-templates/{template}', [\Extensions\Lazada\Controllers\LazadaListingTemplateController::class, 'destroy'])->whereNumber('template')->name('ext.lazada.listing-templates.destroy')->defaults('permission_tier', 'manage');
+
         Route::get('/lazada/{store}/description-templates', [LazadaDescriptionTemplateController::class, 'index'])->name('ext.lazada.description-templates.index');
         Route::post('/lazada/{store}/description-templates', [LazadaDescriptionTemplateController::class, 'store'])->name('ext.lazada.description-templates.store')->defaults('permission_tier', 'manage');
         Route::put('/lazada/{store}/description-templates/{template}', [LazadaDescriptionTemplateController::class, 'update'])->whereNumber('template')->name('ext.lazada.description-templates.update')->defaults('permission_tier', 'manage');
@@ -112,9 +119,7 @@ Route::middleware(['auth', \Extensions\Lazada\Http\ResolveLazadaStore::class])
         Route::post('/lazada/{store}/product-groups/{id}/products/mass-remove', [LazadaProductGroupController::class, 'massRemove'])->whereNumber('id')->name('ext.lazada.product-groups.massRemove');
         Route::post('/lazada/{store}/product-groups/move', [LazadaProductGroupController::class, 'moveProducts'])->name('ext.lazada.product-groups.move');
         Route::post('/lazada/{store}/product-groups/{id}/products/delete-from-lazada', [LazadaProductGroupController::class, 'deleteFromLazada'])->whereNumber('id')->name('ext.lazada.product-groups.deleteFromLazada');
-        Route::post('/lazada/{store}/product-groups/{id}/products/{productId}/sync-id', [LazadaProductGroupController::class, 'syncId'])->whereNumber('id')->name('ext.lazada.product-groups.syncId');
         Route::post('/lazada/{store}/product-groups/{id}/products/{productId}/unlink', [LazadaProductGroupController::class, 'unlinkProduct'])->whereNumber('id')->name('ext.lazada.product-groups.unlinkProduct');
-        Route::post('/lazada/{store}/product-groups/{id}/products/{productId}/link', [LazadaProductGroupController::class, 'linkProduct'])->whereNumber('id')->name('ext.lazada.product-groups.linkProduct');
         Route::delete('/lazada/{store}/product-groups/{id}/products/{productId}', [LazadaProductGroupController::class, 'removeProduct'])->whereNumber('id')->name('ext.lazada.product-groups.removeProduct');
         Route::post('/lazada/{store}/product-groups/{id}/template/sync', [LazadaProductGroupController::class, 'syncTemplate'])->whereNumber('id')->name('ext.lazada.product-groups.template_sync');
         Route::post('/lazada/{store}/product-groups/refresh-categories', [LazadaProductGroupController::class, 'refreshCategories'])->name('ext.lazada.product-groups.refreshCategories');
@@ -133,7 +138,6 @@ Route::middleware(['auth', \Extensions\Lazada\Http\ResolveLazadaStore::class])
         Route::post('/lazada/{store}/products/{productId}/upload', [LazadaProductController::class, 'uploadToLazada'])->whereNumber('productId')->name('ext.lazada.products.upload');
         Route::post('/lazada/{store}/products/{productId}/delete/lazada', [LazadaProductController::class, 'deleteFromLazada'])->whereNumber('productId')->name('ext.lazada.products.delete_lazada');
         Route::post('/lazada/{store}/products/{productId}/unlink', [LazadaProductController::class, 'unlink'])->whereNumber('productId')->name('ext.lazada.products.unlink');
-        Route::post('/lazada/{store}/products/{productId}/sync/lazada-id', [LazadaProductController::class, 'syncLazadaId'])->whereNumber('productId')->name('ext.lazada.products.sync_lazada_id');
 
         Route::post('/lazada/{store}/products/import-one', [LazadaProductController::class, 'importOne'])->name('ext.lazada.products.import_one');
         Route::post('/lazada/{store}/products/import-selected', [LazadaProductController::class, 'importSelected'])->name('ext.lazada.products.import_selected');
@@ -154,7 +158,6 @@ Route::middleware(['auth', \Extensions\Lazada\Http\ResolveLazadaStore::class])
         Route::post('/lazada/{store}/products/check', [LazadaProductController::class, 'checkAgainstLazada'])->name('ext.lazada.products.check');
         Route::post('/lazada/{store}/products/bulk/sync/quantity', [LazadaProductController::class, 'bulkSyncQuantity'])->name('ext.lazada.products.bulk_sync_quantity');
         Route::post('/lazada/{store}/products/bulk/sync/price', [LazadaProductController::class, 'bulkSyncPrice'])->name('ext.lazada.products.bulk_sync_price');
-        Route::post('/lazada/{store}/products/bulk/sync/lazada-id', [LazadaProductController::class, 'bulkSyncLazadaId'])->name('ext.lazada.products.bulk_sync_lazada_id');
         Route::post('/lazada/{store}/products/bulk/delete', [LazadaProductController::class, 'bulkDeleteFromLazada'])->name('ext.lazada.products.bulk_delete');
         Route::post('/lazada/{store}/products/bulk/remove-from-store', [LazadaProductController::class, 'bulkRemoveFromStore'])->name('ext.lazada.products.bulk_remove_from_store');
 

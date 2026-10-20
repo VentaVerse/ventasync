@@ -112,6 +112,7 @@ class ShopeeExtension extends ExtensionProvider implements ListingStateSource, C
                     new MenuItem('Vouchers', 'ext.shopee.vouchers.index', 'view_shopee/voucher', null, $p, 'Sell'),
                     new MenuItem('Products', 'ext.shopee.products.index', 'view_shopee/product', null, $p, 'Catalog'),
                     new MenuItem('Product Groups', 'ext.shopee.product-groups.index', 'view_shopee/product_group', null, $p, 'Catalog'),
+                    new MenuItem('Listing Templates', 'ext.shopee.listing-templates.index', 'view_shopee/listing_template', null, $p, 'Catalog'),
                     new MenuItem('Description Templates', 'ext.shopee.description-templates.index', 'view_shopee/description_template', null, $p, 'Catalog'),
                     new MenuItem('Watermarks', 'ext.shopee.watermarks.index', 'view_shopee/watermark_template', null, $p, 'Catalog'),
                     new MenuItem('Categories', 'ext.shopee.categories.index', 'view_shopee/category', null, $p, 'Catalog'),

@@ -59,6 +59,7 @@
     </div>
     @if($canManageLazada)
         <div class="cc-head-actions">
+            <x-ui.button :href="route('ext.lazada.listing-templates.index')">Listing templates</x-ui.button>
             <x-ui.button type="button" variant="primary" data-add-panel-open>
                 <x-ui.icon name="plus" size="14" /> Add products
             </x-ui.button>
@@ -209,9 +210,6 @@
     $bulkSyncPriceUrl = \Illuminate\Support\Facades\Route::has('ext.lazada.products.bulk_sync_price')
         ? route('ext.lazada.products.bulk_sync_price')
         : url('/channels/lazada/products/bulk/sync/price');
-    $bulkSyncLazadaIdUrl = \Illuminate\Support\Facades\Route::has('ext.lazada.products.bulk_sync_lazada_id')
-        ? route('ext.lazada.products.bulk_sync_lazada_id')
-        : url('/channels/lazada/products/bulk/sync/lazada-id');
     $bulkDeleteUrl = \Illuminate\Support\Facades\Route::has('ext.lazada.products.bulk_delete')
         ? route('ext.lazada.products.bulk_delete')
         : url('/channels/lazada/products/bulk/delete');
@@ -239,7 +237,7 @@
             ['action' => route('ext.lazada.products.bulk_toggle'), 'verb' => 'deactivate', 'codes' => 'active', 'label' => 'Deactivate :n on Lazada', 'button' => 'Deactivate on Lazada', 'fields' => ['action' => 'deactivate'], 'confirm' => 'Deactivate the selected items on Lazada? Customers stop seeing them. They stay here and can be activated again at any time.'],
             ['action' => route('ext.lazada.products.bulk_toggle'), 'verb' => 'activate', 'codes' => 'inactive', 'label' => 'Activate :n on Lazada', 'button' => 'Activate on Lazada', 'fields' => ['action' => 'activate'], 'confirm' => 'Activate the selected items on Lazada? Customers see them again once Lazada applies it.'],
         ],
-        'link' => ['action' => route('ext.lazada.products.bulk_sync_lazada_id'), 'label' => 'Link IDs'],
+        'link' => ['action' => route('ext.lazada.products.check'), 'label' => 'Link IDs'],
         'delete' => ['action' => route('ext.lazada.products.bulk_delete'), 'label' => 'Delete from Lazada', 'confirm' => 'Delete the selected listings from Lazada? The listings are removed at the marketplace and this cannot be undone.'],
         'remove' => ['action' => route('ext.lazada.products.bulk_remove_from_store'), 'label' => 'Remove from this channel', 'confirm' => 'Remove the selected products from this channel? They leave this store\'s list and stop syncing. Anything already on Lazada stays up until you delete it there.'],
     ];
@@ -269,7 +267,7 @@
         @endif
     </x-ui.empty>
 @else
-@php $colCount = 6 + ($canManageLazada ? 1 : 0); @endphp
+@php $colCount = 7 + ($canManageLazada ? 1 : 0); @endphp
 <x-ui.table id="lazada-listings-table">
     <x-slot:head>
         <tr>
@@ -301,6 +299,12 @@
                 </a>
             </th>
             <th scope="col" class="cc-col-price x-td-num">Price</th>
+            <th scope="col" class="cc-col-chanid" @if($sort === 'lazada_item_id') aria-sort="{{ $dir === 'asc' ? 'ascending' : 'descending' }}" @endif>
+                <a class="x-th-sort" href="{{ $sortUrl('lazada_item_id') }}">
+                    Lazada ID
+                    @if($sort === 'lazada_item_id')<x-ui.icon name="{{ $dir === 'asc' ? 'chevron-up' : 'chevron-down' }}" size="12" />@endif
+                </a>
+            </th>
             <th scope="col" class="cc-col-sync" @if($sort === 'lazada_status') aria-sort="{{ $dir === 'asc' ? 'ascending' : 'descending' }}" @endif>
                 <a class="x-th-sort" href="{{ $sortUrl('lazada_status') }}">
                     Listing
@@ -373,9 +377,6 @@
                         <div class="co-item__meta">
                             <x-ui.badge :tone="$pStatus ? 'success' : 'neutral'">{{ $pStatus ? 'Enabled' : 'Disabled' }}</x-ui.badge>
                             <span class="co-item__sku">{{ $pSku ?: 'No SKU' }}</span>
-                            @if($hasItemId)
-                                <span class="co-item__sku lsm-chanid">Lazada {{ $row->lazada_item_id }}</span>
-                            @endif
                             @if($pMfg !== '')
                                 <span>{{ $pMfg }}</span>
                             @endif
@@ -401,6 +402,13 @@
 
 
 
+            <td class="cc-col-chanid" data-label="Lazada ID">
+                @if($hasItemId)
+                    <span class="x-num">{{ $row->lazada_item_id }}</span>
+                @else
+                    <span class="x-cell-muted">Not listed</span>
+                @endif
+            </td>
             <td class="cc-col-sync" data-label="Listing">
                 @if($rowState === null)
                     <x-ui.badge tone="neutral">Not listed</x-ui.badge>
@@ -436,7 +444,7 @@
                         if (!$listing || !$hasItemId || $isUnlinked) {
                             $menu['push'] = ['href' => $editUrl, 'label' => 'Send to Lazada'];
                             if ($listing) {
-                                $menu['link'] = ['action' => route('ext.lazada.products.sync_lazada_id', $pid)];
+                                $menu['link'] = ['action' => route('ext.lazada.products.check'), 'fields' => ['product_ids[]' => $pid]];
                             }
                         } else {
                             $menu['update'] = ['action' => route('ext.lazada.products.upload', $pid), 'label' => 'Send to Lazada', 'confirm' => $listing->lazada_deleted_at
@@ -463,7 +471,7 @@
             </td>
         </tr>
         @if($variationCount > 0)
-            @include('partials.channel-variation-rows', ['rows' => $optRows, 'check' => $canManageLazada, 'trail' => ['cc-col-sync', 'x-td-actions']])
+            @include('partials.channel-variation-rows', ['rows' => $optRows, 'check' => $canManageLazada, 'trail' => ['cc-col-chanid', 'cc-col-sync', 'x-td-actions']])
         @endif
     @endforeach
 </x-ui.table>

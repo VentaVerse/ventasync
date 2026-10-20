@@ -101,6 +101,7 @@ class LazadaExtension extends ExtensionProvider implements ChannelProvider, SkuR
                     new MenuItem('Vouchers', 'ext.lazada.vouchers.index', 'view_lazada/voucher', null, $p, 'Sell'),
                     new MenuItem('Products', 'ext.lazada.products.index', 'view_lazada/product', null, $p, 'Catalog'),
                     new MenuItem('Product Groups', 'ext.lazada.product-groups.index', 'view_lazada/product_group', null, $p, 'Catalog'),
+                    new MenuItem('Listing Templates', 'ext.lazada.listing-templates.index', 'view_lazada/listing_template', null, $p, 'Catalog'),
                     new MenuItem('Description Templates', 'ext.lazada.description-templates.index', 'view_lazada/description_template', null, $p, 'Catalog'),
                     new MenuItem('Watermarks', 'ext.lazada.watermarks.index', 'view_lazada/watermark_template', null, $p, 'Catalog'),
                     new MenuItem('Categories', 'ext.lazada.categories.index', 'view_lazada/category', null, $p, 'Catalog'),

@@ -37,6 +37,12 @@ Route::middleware(['auth', \Extensions\Shopee\Http\ResolveShopeeStore::class])
 
         Route::get('/shopee/{store}/product-groups', [ShopeeProductGroupController::class, 'index'])->name('ext.shopee.product-groups.index');
         
+        Route::get('/shopee/{store}/listing-templates', [\Extensions\Shopee\Controllers\ShopeeListingTemplateController::class, 'index'])->name('ext.shopee.listing-templates.index');
+        Route::get('/shopee/{store}/listing-templates/create', [\Extensions\Shopee\Controllers\ShopeeListingTemplateController::class, 'create'])->name('ext.shopee.listing-templates.create')->defaults('permission_tier', 'manage');
+        Route::get('/shopee/{store}/listing-templates/{template}/edit', [\Extensions\Shopee\Controllers\ShopeeListingTemplateController::class, 'edit'])->whereNumber('template')->name('ext.shopee.listing-templates.edit');
+        Route::post('/shopee/{store}/listing-templates', [\Extensions\Shopee\Controllers\ShopeeListingTemplateController::class, 'store'])->name('ext.shopee.listing-templates.store')->defaults('permission_tier', 'manage');
+        Route::put('/shopee/{store}/listing-templates/{template}', [\Extensions\Shopee\Controllers\ShopeeListingTemplateController::class, 'update'])->whereNumber('template')->name('ext.shopee.listing-templates.update')->defaults('permission_tier', 'manage');
+        Route::delete('/shopee/{store}/listing-templates/{template}', [\Extensions\Shopee\Controllers\ShopeeListingTemplateController::class, 'destroy'])->whereNumber('template')->name('ext.shopee.listing-templates.destroy')->defaults('permission_tier', 'manage');
         Route::get('/shopee/{store}/description-templates', [ShopeeDescriptionTemplateController::class, 'index'])->name('ext.shopee.description-templates.index');
         Route::post('/shopee/{store}/description-templates', [ShopeeDescriptionTemplateController::class, 'store'])->name('ext.shopee.description-templates.store')->defaults('permission_tier', 'manage');
         Route::put('/shopee/{store}/description-templates/{template}', [ShopeeDescriptionTemplateController::class, 'update'])->whereNumber('template')->name('ext.shopee.description-templates.update')->defaults('permission_tier', 'manage');
@@ -119,9 +125,7 @@ Route::middleware(['auth', \Extensions\Shopee\Http\ResolveShopeeStore::class])
         Route::post('/shopee/{store}/product-groups/{id}/products/mass-remove', [ShopeeProductGroupController::class, 'massRemove'])->name('ext.shopee.product-groups.massRemove');
         Route::post('/shopee/{store}/product-groups/move', [ShopeeProductGroupController::class, 'moveProducts'])->name('ext.shopee.product-groups.move');
         Route::post('/shopee/{store}/product-groups/{id}/products/delete-from-shopee', [ShopeeProductGroupController::class, 'deleteFromShopee'])->name('ext.shopee.product-groups.deleteFromShopee');
-        Route::post('/shopee/{store}/product-groups/{id}/products/{productId}/sync-id', [ShopeeProductGroupController::class, 'syncId'])->name('ext.shopee.product-groups.syncId');
         Route::post('/shopee/{store}/product-groups/{id}/products/{productId}/unlink', [ShopeeProductGroupController::class, 'unlinkProduct'])->name('ext.shopee.product-groups.unlinkProduct');
-        Route::post('/shopee/{store}/product-groups/{id}/products/{productId}/link', [ShopeeProductGroupController::class, 'linkProduct'])->name('ext.shopee.product-groups.linkProduct');
         Route::delete('/shopee/{store}/product-groups/{id}/products/{productId}', [ShopeeProductGroupController::class, 'removeProduct'])->name('ext.shopee.product-groups.removeProduct');
         Route::post('/shopee/{store}/product-groups/{id}/template/sync', [ShopeeProductGroupController::class, 'syncTemplate'])->name('ext.shopee.product-groups.template_sync');
         Route::post('/shopee/{store}/product-groups/refresh-categories', [ShopeeProductGroupController::class, 'refreshCategories'])->name('ext.shopee.product-groups.refreshCategories');
@@ -143,7 +147,6 @@ Route::middleware(['auth', \Extensions\Shopee\Http\ResolveShopeeStore::class])
         Route::post('/shopee/{store}/products/{productId}/remove-from-store', [ShopeeProductController::class, 'removeFromStore'])->whereNumber('productId')->name('ext.shopee.products.remove_from_store');
         Route::post('/shopee/{store}/products/rebuild-cache', [ShopeeProductController::class, 'rebuildCache'])->name('ext.shopee.products.rebuild_cache');
         Route::post('/shopee/{store}/products/{productId}/push-direct', [ShopeeProductController::class, 'pushDirect'])->name('ext.shopee.products.push_direct');
-        Route::post('/shopee/{store}/products/{productId}/sync/shopee-id', [ShopeeProductController::class, 'syncSingleProductId'])->name('ext.shopee.products.sync_shopee_id');
         Route::post('/shopee/{store}/products/{productId}/sync/quantity', [ShopeeProductController::class, 'syncQuantity'])->name('ext.shopee.products.sync_quantity');
         Route::post('/shopee/{store}/products/{productId}/sync/price', [ShopeeProductController::class, 'syncPrice'])->name('ext.shopee.products.sync_price');
         Route::post('/shopee/{store}/listings/{productId}', [ShopeeProductController::class, 'saveListing'])->whereNumber('productId')->name('ext.shopee.listings.update');

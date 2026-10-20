@@ -100,6 +100,7 @@ class TikTokWorkspaceTest extends TestCase
             'ext.tiktok.products.import',
             'ext.tiktok.product-groups.index',
             'ext.tiktok.description-templates.index',
+            'ext.tiktok.listing-templates.index',
             'ext.tiktok.watermarks.index',
             'ext.tiktok.categories.index',
             'ext.tiktok.index',

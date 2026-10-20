@@ -50,6 +50,7 @@
 @import './components/description-template.css' layer(vocabulary);
 @import './components/catalog-change.css' layer(vocabulary);
 @import './components/listing-status-menu.css' layer(vocabulary);
+@import './components/listing-templates.css' layer(vocabulary);
 @import './components/category-tree-pick.css' layer(vocabulary);
 @import './components/typeahead.css' layer(vocabulary);
 @import './components/nav-progress.css' layer(vocabulary);

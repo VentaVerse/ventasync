@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- The Products page shows the VentaCart ID in its own column again.
 - Phone app: VentaCart order lines show the ordered variation's own photo from the Master Catalog when it has one.
 - The order list draws the same header row as every channel: Customer, Order, the sales order beside it, and Created on the right; the Date column is gone and the total column is Total.
 - On a hosted (cloud) server, store addresses must be public https addresses; private and local addresses are refused, and requests do not follow redirects. Self-hosted installs are unchanged.

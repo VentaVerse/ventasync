@@ -119,7 +119,7 @@ class VentaCartListingsIndexTest extends TestCase
         $this->assertMatchesRegularExpression('/<span class="lss__label">All<\/span>\s*<span class="lss__n">3<\/span>/', $html);
         $this->assertMatchesRegularExpression('/<span class="lss__label">Live on Gear Depot<\/span>\s*<span class="lss__n">2<\/span>/', $html);
         $this->assertMatchesRegularExpression('/<span class="lsm-item__label">All products<\/span>\s*<span class="lsm-n">3<\/span>/', $html);
-        $this->assertStringContainsString('<span class="co-item__sku lsm-chanid">VentaCart 11</span>', $html);
+        $this->assertMatchesRegularExpression('/<td class="cc-col-chanid" data-label="VentaCart ID">\s*<span class="x-num">11<\/span>/', $html);
         $this->assertStringContainsString('class="x-segment-group__refresh"', $html);
         $this->assertStringNotContainsString('class="cc-head-refresh"', $html);
         foreach ($ids as $pid) {

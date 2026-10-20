@@ -284,7 +284,7 @@
                     $menu = ['label' => "Product {$p->product_id} actions", 'store' => 'Shopee', 'catalog' => $canEditCatalog ? route('products.edit', $p->product_id) : null];
                     if (!$listed) {
                         $menu['push'] = ['action' => route('ext.shopee.product-groups.send', $group->id), 'label' => 'Send to Shopee', 'fields' => $gf];
-                        $menu['link'] = ['action' => route('ext.shopee.products.sync_shopee_id', $p->product_id)];
+                        $menu['link'] = ['action' => route('ext.shopee.product-groups.check', $group->id), 'fields' => $gf];
                     } else {
                         $menu['update'] = ['action' => route('ext.shopee.product-groups.send', $group->id), 'label' => 'Send to Shopee', 'fields' => $gf];
                         if ($canToggleListing && $rowState?->state === \App\Channels\Listings\ListingState::LIVE) {

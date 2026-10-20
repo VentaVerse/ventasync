@@ -61,6 +61,7 @@
     </div>
     @if($canManageShopee)
         <div class="cc-head-actions">
+            <x-ui.button :href="route('ext.shopee.listing-templates.index')">Listing templates</x-ui.button>
             <x-ui.button type="button" variant="primary" data-add-panel-open>
                 <x-ui.icon name="plus" size="14" /> Add products
             </x-ui.button>
@@ -212,7 +213,7 @@
         @endif
     </x-ui.empty>
 @else
-@php $colCount = 7 + ($canManageShopee ? 1 : 0); @endphp
+@php $colCount = 8 + ($canManageShopee ? 1 : 0); @endphp
 <x-ui.table id="shopee-listings-table">
     <x-slot:head>
         <tr>
@@ -249,6 +250,7 @@
                     @if($sort === 'price')<x-ui.icon name="{{ $dir === 'asc' ? 'chevron-up' : 'chevron-down' }}" size="12" />@endif
                 </a>
             </th>
+            <th scope="col" class="cc-col-chanid">Shopee ID</th>
             <th scope="col" class="cc-col-stat">Master Catalog</th>
             <th scope="col" class="cc-col-sync">Listing</th>
             <th scope="col" class="x-td-actions"><span class="x-sr">Actions</span></th>
@@ -310,14 +312,6 @@
                         <a class="x-row-link co-item__name" href="{{ route('products.edit', $p->product_id) }}">{{ $pName ?: 'Unnamed product' }}</a>
                         <div class="co-item__meta">
                             <span class="co-item__sku">{{ $p->sku ?: 'No SKU' }}</span>
-                            @if($link)
-                                @php $liveUrl = \Extensions\Shopee\Models\ShopeeStore::publicListingUrl($link->shopee_item_id); @endphp
-                                @if($liveUrl)
-                                    <a class="co-item__sku lsm-chanid" href="{{ $liveUrl }}" target="_blank" rel="noopener">Shopee {{ $link->shopee_item_id }}<x-ui.icon name="external-link" size="10" class="x-extlink" /><span class="x-sr"> (opens Shopee in a new tab)</span></a>
-                                @else
-                                    <span class="co-item__sku lsm-chanid">Shopee {{ $link->shopee_item_id }}</span>
-                                @endif
-                            @endif
                             @if($p->brand_name)
                                 <span>{{ $p->brand_name }}</span>
                             @endif
@@ -333,6 +327,19 @@
             <td class="cc-col-qty x-td-num" data-label="Stock"><span class="x-num">{{ (int) $p->quantity }}</span></td>
 
             <td class="cc-col-price x-td-num" data-label="Price"><x-money :php="(float) ($rowPrices[(int) $p->product_id] ?? $p->price)" /></td>
+
+            <td class="cc-col-chanid" data-label="Shopee ID">
+                @if($link)
+                    @php $liveUrl = \Extensions\Shopee\Models\ShopeeStore::publicListingUrl($link->shopee_item_id); @endphp
+                    @if($liveUrl)
+                        <a class="x-num" href="{{ $liveUrl }}" target="_blank" rel="noopener">{{ $link->shopee_item_id }}<x-ui.icon name="external-link" size="10" class="x-extlink" /><span class="x-sr"> (opens Shopee in a new tab)</span></a>
+                    @else
+                        <span class="x-num">{{ $link->shopee_item_id }}</span>
+                    @endif
+                @else
+                    <span class="x-cell-muted">Not listed</span>
+                @endif
+            </td>
 
             <td class="cc-col-stat" data-label="Catalog">
                 <x-ui.badge :tone="(int) $p->status === 1 ? 'success' : 'neutral'">{{ (int) $p->status === 1 ? 'Enabled' : 'Disabled' }}</x-ui.badge>
@@ -375,7 +382,7 @@
                             $menu['push'] = ($rowState?->ready ?? false)
                                 ? ['action' => route('ext.shopee.products.push_direct', $p->product_id), 'label' => 'Send to Shopee', 'attrs' => ['data-push-review' => route('ext.shopee.products.push_review', $p->product_id)]]
                                 : ['href' => route('ext.shopee.listings.edit', [$p->product_id, 'back' => request()->getRequestUri()]), 'label' => 'Send to Shopee', 'title' => 'Not ready yet - the listing page names what is still missing'];
-                            $menu['link'] = ['action' => route('ext.shopee.products.sync_shopee_id', $p->product_id)];
+                            $menu['link'] = ['action' => route('ext.shopee.products.check'), 'fields' => ['product_ids[]' => $p->product_id]];
                         } else {
                             $menu['update'] = ['action' => route('ext.shopee.listings.push_update', $p->product_id), 'label' => 'Send to Shopee', 'confirm' => "Send this listing's content and settings to the live Shopee item? Title, description, package, category, couriers, attributes, price and stock are updated.", 'verb' => 'Send', 'tone' => 'primary'];
                             if ($rowState?->state === \App\Channels\Listings\ListingState::LIVE) {
@@ -399,7 +406,7 @@
             </td>
         </tr>
         @if($variationCount > 0)
-            @include('partials.channel-variation-rows', ['rows' => $optRows, 'check' => $canManageShopee, 'trail' => ['cc-col-stat', 'cc-col-sync', 'x-td-actions']])
+            @include('partials.channel-variation-rows', ['rows' => $optRows, 'check' => $canManageShopee, 'trail' => ['cc-col-chanid', 'cc-col-stat', 'cc-col-sync', 'x-td-actions']])
         @endif
     @endforeach
 </x-ui.table>

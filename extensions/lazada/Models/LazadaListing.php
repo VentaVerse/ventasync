@@ -76,6 +76,15 @@ class LazadaListing extends Model
         return $this->hasMany(LazadaListingVariation::class, 'lazada_listing_id');
     }
 
+    public function unlink(): void
+    {
+        $this->forceFill(['lazada_item_id' => null, 'unlinked_at' => now(), 'live_status' => null, 'live_checked_at' => null])->save();
+        $this->variants()->delete();
+        LazadaProductGroupProduct::query()->where('product_id', $this->product_id)
+            ->whereIn('lazada_product_group_id', LazadaProductGroup::query()->withoutGlobalScope('lazadaStore')->where('store_id', $this->store_id)->select('id'))
+            ->update(['sync_status' => 'unlinked']);
+    }
+
     public function contentOverrides(): array
     {
         return ['title' => $this->item_name, 'description' => $this->description];

@@ -247,7 +247,7 @@
                     $menu = ['label' => "Product {$p->product_id} actions", 'store' => $storeName, 'catalog' => route('products.edit', $p->product_id)];
                     if (!$hasVentaId) {
                         $menu['push'] = ['action' => route('ext.ventacart.product-groups.push', [$setting->id, $group->id]), 'label' => 'Send to ' . $storeName, 'fields' => $gf];
-                        $menu['link'] = ['action' => route('ext.ventacart.product-groups.link', [$setting->id, $group->id, $p->product_id]), 'fields' => ['_return' => $returnTo]];
+                        $menu['link'] = ['action' => route('ext.ventacart.product-groups.check', [$setting->id, $group->id]), 'fields' => $gf];
                     } else {
                         $menu['update'] = ['action' => route('ext.ventacart.product-groups.push', [$setting->id, $group->id]), 'label' => 'Send to ' . $storeName, 'fields' => $gf];
                         if ($gRow?->state === \App\Channels\Listings\ListingState::LIVE) {

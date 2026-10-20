@@ -82,10 +82,10 @@ class ShopeeListingStatusMenuTest extends TestCase
         $page->assertDontSee('name="sync_status"', false);
         $page->assertSee('class="x-segment-bar"', false);
         $page->assertSee('x-segment__item', false);
-        $page->assertDontSee('>Shopee ID<', false);
+        $page->assertSee('>Shopee ID<', false);
         $page->assertDontSee('cc-head-refresh', false);
         $page->assertSee('x-segment-group__refresh', false);
-        $this->assertMatchesRegularExpression('/class="co-item__sku lsm-chanid"[^>]*>Shopee 9001</', $page->getContent(), 'the item id rides the product line');
+        $this->assertMatchesRegularExpression('/<td class="cc-col-chanid" data-label="Shopee ID">.*?>9001</s', $page->getContent(), 'the item id has its own column');
         $page->assertSee('shopee_tab=live', false);
         $page->assertSee('lsm-n lsm-n--bad">1<', false);
 

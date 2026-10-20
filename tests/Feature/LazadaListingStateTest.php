@@ -241,6 +241,38 @@ class LazadaListingStateTest extends TestCase
         $this->assertSame(ListingState::NOT_LISTED, $this->engine()->forProducts([$productId])[$productId]->state);
     }
 
+    public function test_group_unlink_clears_the_listing_row_too(): void
+    {
+        $productId = $this->seedProduct('Group cut', 'GC-1');
+        $listing = LazadaListing::create(['product_id' => $productId, 'lazada_item_id' => '4440001', 'live_status' => 'active', 'live_checked_at' => now()]);
+        $listing->variants()->create(['sku_id' => '9001', 'seller_sku' => 'GC-1']);
+        $grp = \Extensions\Lazada\Models\LazadaProductGroup::create(['name' => 'Cutting group', 'lazada_category_id' => 4321]);
+        \Extensions\Lazada\Models\LazadaProductGroupProduct::create([
+            'lazada_product_group_id' => $grp->id, 'product_id' => $productId,
+            'lazada_listing_id' => $listing->id, 'sync_status' => 'pushed',
+        ]);
+        $ug = UserGroup::create(['name' => 'Lazada group cutters']);
+        $ug->permissions()->attach(Permission::whereIn('key', ['view_lazada/product_group', 'manage_lazada/product_group'])->pluck('id')->all());
+        $user = User::factory()->create(['user_group_id' => $ug->id]);
+
+        $this->actingAs($user)
+            ->post(route('ext.lazada.product-groups.unlinkProduct', [$grp->id, $productId]))
+            ->assertRedirect();
+
+        $listing->refresh();
+        $this->assertNull($listing->lazada_item_id, 'the listing row lets go too');
+        $this->assertNotNull($listing->unlinked_at);
+        $this->assertNull($listing->live_status);
+        $this->assertSame(0, $listing->variants()->count());
+        $this->assertSame('unlinked', \Extensions\Lazada\Models\LazadaProductGroupProduct::query()->where('product_id', $productId)->value('sync_status'));
+        $this->assertSame(ListingState::NOT_LISTED, $this->engine()->forProducts([$productId])[$productId]->state);
+
+        $page = $this->actingAs($user)->get(route('ext.lazada.product-groups.products', $grp->id))->assertOk();
+        $page->assertDontSee('4440001');
+        $page->assertDontSee(route('ext.lazada.product-groups.unlinkProduct', [$grp->id, $productId]), false);
+        $page->assertSee(route('ext.lazada.product-groups.check', $grp->id), false);
+    }
+
     public function test_summary_counts_attention_and_drift(): void
     {
 

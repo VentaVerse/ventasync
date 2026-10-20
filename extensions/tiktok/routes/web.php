@@ -32,6 +32,12 @@ Route::middleware(['auth', \Extensions\TikTok\Http\ResolveTikTokStore::class])
 
         Route::get('/tiktok/{store}/product-groups', [TikTokProductGroupController::class, 'index'])->name('ext.tiktok.product-groups.index');
         
+        Route::get('/tiktok/{store}/listing-templates', [\Extensions\TikTok\Controllers\TikTokListingTemplateController::class, 'index'])->name('ext.tiktok.listing-templates.index');
+        Route::get('/tiktok/{store}/listing-templates/create', [\Extensions\TikTok\Controllers\TikTokListingTemplateController::class, 'create'])->name('ext.tiktok.listing-templates.create')->defaults('permission_tier', 'manage');
+        Route::get('/tiktok/{store}/listing-templates/{template}/edit', [\Extensions\TikTok\Controllers\TikTokListingTemplateController::class, 'edit'])->whereNumber('template')->name('ext.tiktok.listing-templates.edit');
+        Route::post('/tiktok/{store}/listing-templates', [\Extensions\TikTok\Controllers\TikTokListingTemplateController::class, 'store'])->name('ext.tiktok.listing-templates.store')->defaults('permission_tier', 'manage');
+        Route::put('/tiktok/{store}/listing-templates/{template}', [\Extensions\TikTok\Controllers\TikTokListingTemplateController::class, 'update'])->whereNumber('template')->name('ext.tiktok.listing-templates.update')->defaults('permission_tier', 'manage');
+        Route::delete('/tiktok/{store}/listing-templates/{template}', [\Extensions\TikTok\Controllers\TikTokListingTemplateController::class, 'destroy'])->whereNumber('template')->name('ext.tiktok.listing-templates.destroy')->defaults('permission_tier', 'manage');
         Route::get('/tiktok/{store}/description-templates', [TikTokDescriptionTemplateController::class, 'index'])->name('ext.tiktok.description-templates.index');
         Route::post('/tiktok/{store}/description-templates', [TikTokDescriptionTemplateController::class, 'store'])->name('ext.tiktok.description-templates.store')->defaults('permission_tier', 'manage');
         Route::put('/tiktok/{store}/description-templates/{template}', [TikTokDescriptionTemplateController::class, 'update'])->whereNumber('template')->name('ext.tiktok.description-templates.update')->defaults('permission_tier', 'manage');
@@ -92,9 +98,7 @@ Route::middleware(['auth', \Extensions\TikTok\Http\ResolveTikTokStore::class])
         Route::put('/tiktok/{store}/product-groups/{id}', [TikTokProductGroupController::class, 'update'])->name('ext.tiktok.product-groups.update');
         Route::delete('/tiktok/{store}/product-groups/{id}', [TikTokProductGroupController::class, 'destroy'])->name('ext.tiktok.product-groups.destroy');
         Route::post('/tiktok/{store}/product-groups/{id}/products/{productId}/add', [TikTokProductGroupController::class, 'addProduct'])->whereNumber('id')->whereNumber('productId')->name('ext.tiktok.product-groups.addProduct');
-        Route::post('/tiktok/{store}/product-groups/{id}/products/{product}/sync-id', [TikTokProductGroupController::class, 'syncId'])->name('ext.tiktok.product-groups.syncId');
         Route::post('/tiktok/{store}/product-groups/{id}/products/{product}/unlink', [TikTokProductGroupController::class, 'unlinkProduct'])->name('ext.tiktok.product-groups.unlinkProduct');
-        Route::post('/tiktok/{store}/product-groups/{id}/products/{product}/link', [TikTokProductGroupController::class, 'linkProduct'])->name('ext.tiktok.product-groups.linkProduct');
         Route::delete('/tiktok/{store}/product-groups/{id}/products/{product}', [TikTokProductGroupController::class, 'removeProduct'])->name('ext.tiktok.product-groups.removeProduct');
         Route::post('/tiktok/{store}/product-groups/{id}/mass-remove', [TikTokProductGroupController::class, 'massRemove'])->name('ext.tiktok.product-groups.massRemove');
         Route::post('/tiktok/{store}/product-groups/move', [TikTokProductGroupController::class, 'moveProducts'])->name('ext.tiktok.product-groups.move');

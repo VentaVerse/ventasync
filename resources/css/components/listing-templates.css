@@ -1,0 +1,34 @@
+.lt-list {
+    list-style: none;
+    margin: 0 0 12px;
+    padding: 0;
+    display: grid;
+    gap: 2px;
+}
+
+.lt-list__item {
+    display: block;
+    padding: 7px 10px;
+    border-radius: 6px;
+    color: var(--bl-ink);
+    text-decoration: none;
+}
+
+.lt-list__item:hover {
+    background: var(--bl-paper);
+}
+
+.lt-list__item.is-active {
+    background: var(--bl-paper);
+    font-weight: 600;
+    box-shadow: inset 2px 0 0 var(--bl-brand-deep);
+}
+
+.lt-list__item:focus-visible {
+    outline: 2px solid var(--bl-ink-2);
+    outline-offset: 1px;
+}
+
+.lt-delete {
+    margin-top: 16px;
+}

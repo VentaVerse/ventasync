@@ -119,7 +119,7 @@ class ShopeeProductGroupController extends Controller
                 ->first();
 
             if ($template && $template->attributes) {
-                $attributes = $this->extractAttributes($template->attributes);
+                $attributes = \Extensions\Shopee\Services\Shopee\ShopeeCategoryAttributes::extract($template->attributes);
             }
 
             if ($group->exists) {
@@ -560,7 +560,7 @@ class ShopeeProductGroupController extends Controller
 
         return [
             'template' => $template,
-            'attributes' => $template ? $this->extractAttributes($template->attributes) : [],
+            'attributes' => $template ? \Extensions\Shopee\Services\Shopee\ShopeeCategoryAttributes::extract($template->attributes) : [],
         ];
     }
 
@@ -1005,119 +1005,6 @@ class ShopeeProductGroupController extends Controller
         );
     }
 
-    public function syncId(int $groupId, int $productId, \Extensions\Shopee\Services\Shopee\ShopeeClient $client)
-    {
-        $group = ShopeeProductGroup::query()->findOrFail($groupId);
-        $pivot = $group->groupProducts()->where('product_id', $productId)->first();
-        if (!$pivot) {
-            return redirect()->back()->with('error', 'Product not in this product group.');
-        }
-
-        $store = ShopeeStore::defaultStore()?->decrypted();
-        $auth = ShopeeStore::activeAuth($store);
-        if (!$store || !$auth['complete']) {
-            $modeLabel = $auth['mode'] === 'sandbox' ? 'Sandbox' : 'Production';
-            return redirect()->back()->with('error', "Missing Shopee {$modeLabel} credentials.");
-        }
-        $mode = $auth['mode'];
-        $pid = (int) $auth['partner_id'];
-        $pkey = (string) $auth['partner_key'];
-        $token = (string) $auth['access_token'];
-        $shopId = (int) $auth['shop_id'];
-
-        $product = DB::table('products')->where('product_id', $productId)->first(['sku']);
-        $skus = [];
-        if ($product->sku && trim($product->sku) !== '') $skus[] = strtolower(trim($product->sku));
-
-        $optSkus = DB::table('product_variation_values')
-            ->where('product_id', $productId)
-            ->whereNotNull('sku')->where('sku', '!=', '')
-            ->pluck('sku')->map(fn($s) => strtolower(trim($s)))->unique()->toArray();
-        $skus = array_unique(array_merge($skus, $optSkus));
-
-        if (empty($skus)) {
-            return redirect()->back()->with('error', 'Product has no SKU to match against Shopee.');
-        }
-
-        $catalogHasVariations = !empty($optSkus);
-
-        $existingLink = ShopeeListingLink::query()
-            ->where('product_id', $productId)
-            ->whereNotNull('shopee_item_id')
-            ->first();
-        if ($existingLink) {
-            return $this->refreshShopeeProductLinks($pivot, $productId, (int) $existingLink->shopee_item_id, $skus, $client, $mode, $pid, $pkey, $token, $shopId);
-        }
-
-        $matchedItemId = null;
-        $cacheHits = ShopeeItemCache::query()
-            ->whereIn(DB::raw('LOWER(sku)'), $skus)
-            ->get();
-
-        if ($cacheHits->isNotEmpty()) {
-            $matchedItemId = (int) $cacheHits->first()->shopee_item_id;
-        }
-
-        if (!$matchedItemId) {
-            $offset = 0;
-            $pageSize = 50;
-
-            for ($page = 0; $page < 20; $page++) {
-                $res = $client->shopGet($mode, $pid, $pkey, $token, $shopId,
-                    '/api/v2/product/get_item_list', [
-                        'offset' => $offset,
-                        'page_size' => $pageSize,
-                        'item_status' => 'NORMAL',
-                    ]);
-
-                $items = $res['body']['response']['item'] ?? [];
-                if (empty($items)) break;
-
-                $itemIds = array_filter(array_map(fn($i) => $i['item_id'] ?? null, $items));
-                $detail = $client->shopGet($mode, $pid, $pkey, $token, $shopId,
-                    '/api/v2/product/get_item_base_info', [
-                        'item_id_list' => implode(',', $itemIds),
-                    ]);
-
-                $itemList = $detail['body']['response']['item_list'] ?? [];
-                foreach ($itemList as $il) {
-                    $itemSku = strtolower(trim($il['item_sku'] ?? ''));
-
-                    if ($itemSku !== '' && in_array($itemSku, $skus)) {
-                        $matchedItemId = (int) $il['item_id'];
-                        break 2;
-                    }
-
-                    if (! empty($il['has_model'])) {
-                        $modelRes = $client->shopGet($mode, $pid, $pkey, $token, $shopId,
-                            '/api/v2/product/get_model_list', ['item_id' => (int) $il['item_id']]);
-                        foreach (($modelRes['body']['response']['model'] ?? []) as $model) {
-                            $modelSku = strtolower(trim((string) ($model['model_sku'] ?? '')));
-                            if ($modelSku !== '' && in_array($modelSku, $skus)) {
-                                $matchedItemId = (int) $il['item_id'];
-                                break 3;
-                            }
-                        }
-                    }
-                }
-
-                if (!($res['body']['response']['has_next_page'] ?? false)) break;
-                $offset += $pageSize;
-            }
-        }
-
-        if (!$matchedItemId) {
-            return redirect()->back()->with('error', 'No matching product found on Shopee for SKU(s): ' . implode(', ', $skus));
-        }
-
-        $pivot->update([
-            'shopee_item_id' => (string) $matchedItemId,
-            'sync_status' => 'pushed',
-        ]);
-
-        return $this->refreshShopeeProductLinks($pivot, $productId, (int) $matchedItemId, $skus, $client, $mode, $pid, $pkey, $token, $shopId);
-    }
-
     private function refreshShopeeProductLinks(
         object $pivot, int $productId, int $itemId, array $skus,
         \Extensions\Shopee\Services\Shopee\ShopeeClient $client, string $mode, int $pid, string $pkey, string $token, int $shopId
@@ -1137,43 +1024,6 @@ class ShopeeProductGroupController extends Controller
         return redirect()->back()->with('status', $r['mode'] === 'models'
             ? "Shopee item ID {$itemId} synced, {$r['linked']} variation(s) linked."
             : "Shopee item ID {$itemId} synced.");
-    }
-
-    public function linkProduct(int $groupId, int $productId)
-    {
-        $group = ShopeeProductGroup::query()->findOrFail($groupId);
-        $pivot = $group->groupProducts()->where('product_id', $productId)->first();
-
-        if (! $pivot) {
-            return $this->productsRedirect($group->id)
-                ->with('error', 'That product is not in this product group.');
-        }
-
-        if (! empty($pivot->shopee_item_id)) {
-            $pivot->update(['sync_status' => 'pushed']);
-
-            return $this->productsRedirect($group->id)
-                ->with('status', 'Product re-linked to Shopee item ' . $pivot->shopee_item_id . '.');
-        }
-
-        $linkId = DB::table('ch_shopee_listing_links')
-            ->when(app()->bound('shopee.route-store'), fn ($q) => $q->where('store_id', app('shopee.route-store')->id))
-            ->where('product_id', $productId)
-            ->value('shopee_item_id');
-
-        if ($linkId) {
-            $pivot->update(['shopee_item_id' => (string) $linkId, 'sync_status' => 'pushed']);
-
-            return $this->productsRedirect($group->id)
-                ->with('status', 'Product re-linked to Shopee item ' . $linkId . '.');
-        }
-
-        $pivot->update(['sync_status' => 'pending', 'push_error' => null]);
-
-        return $this->productsRedirect($group->id)->with(
-            'warning',
-            'No Shopee link was found for this product, so it is set back to not pushed. Use Match Shopee ID to find an existing listing, or push it to create one.'
-        );
     }
 
     public function removeProduct(int $groupId, int $productId)
@@ -2300,45 +2150,6 @@ class ShopeeProductGroupController extends Controller
         }
     }
 
-    private function extractAttributes($data): array
-    {
-        if (!is_array($data)) {
-            return [];
-        }
-
-        $list = $data;
-        if (isset($data['attribute_list']) && is_array($data['attribute_list'])) {
-            $list = $data['attribute_list'];
-        }
-
-        if (!is_array($list) || empty($list)) {
-            return [];
-        }
-
-        $out = [];
-        foreach ($list as $a) {
-            if (!is_array($a)) continue;
-
-            $name = (string)($a['original_attribute_name'] ?? $a['display_attribute_name'] ?? $a['attribute_name'] ?? '');
-            $id = $a['attribute_id'] ?? null;
-            $required = (bool)($a['is_mandatory'] ?? $a['mandatory'] ?? false);
-            $inputType = (string)($a['input_type'] ?? $a['input_validation_type'] ?? 'text');
-            $options = $a['attribute_value_list'] ?? $a['options'] ?? $a['values'] ?? null;
-
-            $key = is_scalar($id) ? (string)$id : ($name !== '' ? $name : '');
-            if ($key === '') continue;
-
-            $out[] = [
-                'key' => $key,
-                'name' => $name !== '' ? $name : $key,
-                'required' => $required,
-                'input_type' => $inputType,
-                'options' => is_array($options) ? $options : [],
-            ];
-        }
-        return $out;
-    }
-
     public function refreshCategories(ShopeeClient $client)
     {
         $store = ShopeeStore::defaultStore()?->decrypted();
@@ -2460,7 +2271,7 @@ class ShopeeProductGroupController extends Controller
             ]
         );
 
-        $attributes = $this->extractAttributes($template->attributes);
+        $attributes = \Extensions\Shopee\Services\Shopee\ShopeeCategoryAttributes::extract($template->attributes);
 
         $html = view('ext-shopee::product-groups._attributes', [
             'attributes' => $attributes,
