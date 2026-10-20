@@ -137,7 +137,7 @@ class TikTokDescriptionImagesTest extends TestCase
             'name' => 'TikTok description pictures product', 'description' => $description,
             'meta_title' => '', 'meta_description' => '', 'meta_keyword' => '', 'tag' => '',
         ]);
-        $group = TikTokProductGroup::firstOrCreate(['name' => 'Scope group'], ['tiktok_category_id' => '900009']);
+        $group = TikTokProductGroup::firstOrCreate(['name' => 'Scope group'], []);
         TikTokProductGroupProduct::create(['tiktok_product_group_id' => $group->id, 'product_id' => $productId, 'sync_status' => 'pending']);
         TikTokListing::create(['product_id' => $productId, 'tiktok_category_id' => '900009', 'title' => 'A title long enough for TikTok Shop']);
 

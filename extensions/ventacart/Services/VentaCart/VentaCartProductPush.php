@@ -300,7 +300,6 @@ class VentaCartProductPush
         $paths = \App\Services\Media\ListingWatermark::paths(
             \App\Support\Catalog\ProductImages::paths($productId, $this->ownImageOrder($productId)),
             $marking,
-            \App\Services\Media\ListingWatermark::groupTemplateId('ch_ventacart_product_groups', 'ch_ventacart_product_group_products', 'ventacart_product_group_id', $productId, 'store_id', (int) $this->store->id),
             'ventacart',
             (int) $this->store->id
         );

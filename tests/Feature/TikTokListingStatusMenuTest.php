@@ -140,8 +140,8 @@ class TikTokListingStatusMenuTest extends TestCase
     {
         $pid = $this->product('Movable pedal', 'TMV-1');
         TikTokListing::query()->create(['product_id' => $pid]);
-        $groupA = \Extensions\TikTok\Models\TikTokProductGroup::create(['name' => 'Fuzz', 'tiktok_category_id' => '900009']);
-        $groupB = \Extensions\TikTok\Models\TikTokProductGroup::create(['name' => 'Delay', 'tiktok_category_id' => '900009']);
+        $groupA = \Extensions\TikTok\Models\TikTokProductGroup::create(['name' => 'Fuzz']);
+        $groupB = \Extensions\TikTok\Models\TikTokProductGroup::create(['name' => 'Delay']);
         $manager = $this->manager();
         $manager->userGroup->permissions()->attach(Permission::whereIn('key', ['manage_tiktok/product_group', 'view_tiktok/product_group'])->pluck('id')->all());
         $listingOnlyGroup = UserGroup::create(['name' => 'Listings without groups']);
@@ -164,40 +164,10 @@ class TikTokListingStatusMenuTest extends TestCase
             ->assertRedirect($back);
         $this->assertSame([$groupB->id], $pivot());
 
-        $this->actingAs($manager)->get(route('ext.tiktok.products.index', ['group' => $groupB->id]))->assertOk()->assertSee('Remove from group')->assertSee('Manage group');
+        $this->actingAs($manager)->get(route('ext.tiktok.products.index', ['group' => $groupB->id]))->assertOk()->assertSee('Remove from group')->assertSee('Rename group');
 
         $this->actingAs($manager)->post(route('ext.tiktok.product-groups.move'), ['ids' => [$pid], 'group' => 'none', '_return' => $back])
             ->assertRedirect($back)->assertSessionHas('status', '1 product ungrouped.');
         $this->assertSame([], $pivot());
-    }
-
-    public function test_a_whole_group_sends_as_a_run_from_the_listings_page(): void
-    {
-        \Illuminate\Support\Facades\Http::fake();
-        $group = \Extensions\TikTok\Models\TikTokProductGroup::create(['name' => 'Fuzz', 'tiktok_category_id' => '900009']);
-        $pids = [$this->product('Run pedal one', 'TRN-1'), $this->product('Run pedal two', 'TRN-2')];
-        foreach ($pids as $pid) {
-            TikTokListing::query()->create(['product_id' => $pid]);
-            \Extensions\TikTok\Models\TikTokProductGroupProduct::create(['tiktok_product_group_id' => $group->id, 'product_id' => $pid, 'sync_status' => 'pending']);
-        }
-        $manager = $this->manager();
-        $manager->userGroup->permissions()->attach(Permission::whereIn('key', ['manage_tiktok/product_group', 'view_tiktok/product_group'])->pluck('id')->all());
-        $listingOnlyGroup = UserGroup::create(['name' => 'Listings without groups']);
-        $listingOnlyGroup->permissions()->attach(Permission::whereIn('key', ['manage_tiktok/product', 'view_tiktok/product'])->pluck('id')->all());
-        $listingOnly = User::factory()->create(['user_group_id' => $listingOnlyGroup->id]);
-        $page = route('ext.tiktok.products.index', ['group' => $group->id]);
-
-        $this->actingAs($listingOnly)->get($page)->assertOk()->assertDontSee('Send group');
-        $this->actingAs($listingOnly)->post(route('ext.tiktok.product-groups.send_run_begin', ['id' => $group->id]))->assertRedirect()->assertSessionHas('error');
-        $this->assertSame(0, \App\Models\AutomationRun::query()->count());
-
-        $this->actingAs($manager)->get($page)->assertOk()->assertSee('Send group')
-            ->assertSee('Send all 2 products in Fuzz to TikTok Shop on group settings, rather than their own?');
-
-        $answer = $this->actingAs($manager)->postJson(route('ext.tiktok.product-groups.send_run_begin', ['id' => $group->id]))->assertOk()->json();
-        $this->assertSame('done', $answer['run']['status']);
-        $this->assertSame(2, $answer['run']['total']);
-        $this->assertSame('2 products: 0 ok, 2 failed.', $answer['outcome']);
-        $this->assertSame(['error', 'error'], \Extensions\TikTok\Models\TikTokProductGroupProduct::query()->where('tiktok_product_group_id', $group->id)->orderBy('product_id')->pluck('sync_status')->all());
     }
 }

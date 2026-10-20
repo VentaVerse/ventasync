@@ -9,7 +9,6 @@ class ShopeeReconcileTest extends TestCase
     private const CONTROLLER = 'extensions/shopee/Controllers/ShopeeProductGroupController.php';
 
     private const CHECK = 'extensions/shopee/Services/Shopee/ShopeeLinkCheck.php';
-    private const VIEW = 'extensions/shopee/views/product-groups/products.blade.php';
 
     private function source(string $file): string
     {
@@ -212,99 +211,12 @@ class ShopeeReconcileTest extends TestCase
         );
     }
 
-    public function test_send_reconciles_before_it_decides(): void
-    {
-        $body = $this->methodBody('sendProducts');
-
-        $reconcileAt = strpos($body, 'linkCheck->reconcile(');
-        $createAt = strpos($body, 'createOnShopee(');
-        $updateAt = strpos($body, 'updateOnShopee(');
-
-        $this->assertNotFalse($reconcileAt, 'send no longer reconciles, so it is guessing again.');
-        $this->assertNotFalse($createAt);
-        $this->assertNotFalse($updateAt);
-
-        $this->assertLessThan($createAt, $reconcileAt,
-            'send creates before it has checked Shopee, so it can duplicate a listing that exists.');
-        $this->assertLessThan($updateAt, $reconcileAt,
-            'send updates before it has checked Shopee, so it can send an update for a deleted item.');
-    }
-
-    public function test_send_refuses_to_write_on_a_verdict_it_cannot_trust(): void
-    {
-        $body = $this->methodBody('sendProducts');
-
-        $this->assertMatchesRegularExpression(
-            "/'taken'.*?'unreachable'.*?continue;/s",
-            $body,
-            'send proceeds after a verdict of taken or unreachable, so it can create a duplicate or '
-            .'tie two products to one listing.'
-        );
-    }
-
-    public function test_the_row_always_offers_one_action_that_works(): void
-    {
-        $view = $this->source(self::VIEW);
-
-        $this->assertStringContainsString("'label' => 'Send to Shopee'", $view,
-            'The row no longer offers Send, which is the only action that works in every state.');
-        $this->assertGreaterThanOrEqual(2, substr_count($view, "route('ext.shopee.product-groups.send', \$group->id), 'label' =>"), 'Push and Update both ride Send');
-
-        foreach (['Match Shopee ID', 'Link to Shopee again'] as $gone) {
-            $this->assertDoesNotMatchRegularExpression(
-                '/>\s*'.preg_quote($gone, '/').'\s*<\/button>/',
-                $view,
-                "The row menu offers '{$gone}' again, which is one of the mutually exclusive states "
-                .'that made this a trap.'
-            );
-        }
-    }
-
-    public function test_send_is_not_hidden_by_any_status(): void
-    {
-        $view = $this->source(self::VIEW);
-        $at = strpos($view, 'Send to Shopee');
-        $this->assertNotFalse($at);
-
-        $before = substr($view, max(0, $at - 700), 700);
-
-        foreach (['$hasShopeeId', '$isUnlinked'] as $gate) {
-            $this->assertStringNotContainsString('@if('.$gate, $before,
-                "Send is wrapped in {$gate}, so the row can once again reach a state that offers "
-                .'nothing which works.');
-        }
-    }
-
     public function test_the_check_records_when_it_asked(): void
     {
         $this->assertStringContainsString("'last_checked_at' => now()", $this->methodBody('run'),
             'Checking leaves no trace, so a fresh answer cannot be told from an old belief.');
         $this->assertStringNotContainsString("'last_confirmed_at'", $this->methodBody('run'),
             'The check is stamping the per-group copy again.');
-    }
-
-    public function test_a_send_also_counts_as_having_asked(): void
-    {
-        $this->assertStringContainsString("'last_checked_at' => now()", $this->methodBody('sendProducts'),
-            'Send reconciles but does not record that it did, so a row checked seconds ago still '
-            .'reads as never checked.');
-    }
-
-    public function test_the_row_says_which_of_the_two_it_is(): void
-    {
-        $view = $this->source(self::VIEW);
-
-        $this->assertStringContainsString('$confirmedAt', $view);
-        $this->assertStringContainsString('Not checked since the push', $view,
-            'A row with no confirmation says nothing, so a badge written months ago looks identical '
-            .'to one confirmed a minute ago.');
-    }
-
-    public function test_the_column_is_actually_selected(): void
-    {
-        $this->assertStringContainsString("'gp.last_confirmed_at'", $this->source(self::CONTROLLER),
-            'The view reads last_confirmed_at but the query does not select it, so every row renders '
-            .'as never checked.');
     }
 
     public function test_checking_never_writes_to_shopee(): void
@@ -326,36 +238,6 @@ class ShopeeReconcileTest extends TestCase
             'The check has no ceiling, so a large group runs until the request times out.');
         $this->assertStringContainsString('not checked this time', $body,
             'The check stops early without saying so, so unchecked products look confirmed.');
-    }
-
-    public function test_the_orphan_report_only_reads(): void
-    {
-        $body = $this->methodBody('orphans');
-
-        foreach (['updateOrCreate(', '->delete()', 'writeProductStatus(', 'unlinkProduct('] as $write) {
-            $this->assertStringNotContainsString($write, $body,
-                "The orphan report calls {$write}. Adopting a Shopee item by SKU without asking is "
-                .'how a catalog product ends up pointed at a stranger.');
-        }
-    }
-
-    public function test_the_orphan_report_admits_an_incomplete_read(): void
-    {
-        $this->assertStringContainsString("'complete' => \$index['complete']", $this->methodBody('orphans'),
-            'The report does not pass on whether the scan finished, so a cut-off list reads as the '
-            .'whole truth.');
-
-        $this->assertStringContainsString(
-            'may be incomplete',
-            $this->source('extensions/shopee/views/product-groups/orphans.blade.php'),
-            'The view never surfaces an incomplete scan.'
-        );
-    }
-
-    public function test_orphans_are_grouped_by_item(): void
-    {
-        $this->assertStringContainsString('$byItem', $this->methodBody('orphans'),
-            'Orphans are listed per SKU, so one item with four variations appears four times.');
     }
 
     public function test_the_shop_is_scanned_once_per_shop(): void

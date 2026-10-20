@@ -105,10 +105,7 @@ class ShopeeReadinessTest extends TestCase
 
     private function catchAllGroup(): void
     {
-        \Extensions\Shopee\Models\ShopeeProductGroup::create([
-            'name' => 'Readiness scope',
-            'shopee_category_id' => 106755, 'logistic_ids' => [41003],
-        ]);
+        \Extensions\Shopee\Models\ShopeeProductGroup::create(['name' => 'Readiness scope']);
     }
 
     private function readyListing(int $productId): void
@@ -126,28 +123,18 @@ class ShopeeReadinessTest extends TestCase
         \Extensions\Shopee\Models\ShopeeLogistic::create(['logistics_channel_id' => 41003, 'logistics_channel_name' => 'J&T Express', 'enabled' => true]);
     }
 
-    public function test_a_grouped_product_inherits_the_groups_category_and_couriers(): void
+    public function test_a_grouped_product_needs_its_own_category_and_couriers(): void
     {
         $this->storeSetUp();
-        $group = \Extensions\Shopee\Models\ShopeeProductGroup::create([
-            'name' => 'Pedals preset', 'shopee_category_id' => 106755, 'logistic_ids' => [41003],
-        ]);
-        \Extensions\Shopee\Models\ShopeeCategoryTemplate::query()->firstOrCreate(['category_id' => 106755], ['attributes' => ['attribute_list' => []]]);
+        $group = \Extensions\Shopee\Models\ShopeeProductGroup::create(['name' => 'Pedals preset']);
         $grouped = $this->seedProduct('Grouped bare', 'GRP-1');
-        ShopeeListing::query()->create(['product_id' => $grouped, 'attribute_values' => ['2000' => '1 year']]);
+        ShopeeListing::query()->create(['product_id' => $grouped]);
         \Extensions\Shopee\Models\ShopeeProductGroupProduct::create(['shopee_product_group_id' => $group->id, 'product_id' => $grouped]);
-        $alone = $this->seedProduct('Alone bare', 'ALN-1');
-        ShopeeListing::query()->create(['product_id' => $alone]);
 
-        $out = app(ShopeeListingReadiness::class)->forProducts([$grouped, $alone]);
-
-        $this->assertTrue($out[$grouped]['ready'], implode(' | ', $out[$grouped]['missing']));
-        $this->assertFalse($out[$alone]['ready']);
-        $this->assertContains('a Shopee category', $out[$alone]['missing']);
-
-        ShopeeListing::query()->where('product_id', $grouped)->update(['shopee_category_id' => 999999]);
         $out = app(ShopeeListingReadiness::class)->forProducts([$grouped]);
-        $this->assertStringContainsString('attribute sheet', implode(' ', $out[$grouped]['missing']), 'its own unread category, not the group\'s, is what readiness judged');
+
+        $this->assertFalse($out[$grouped]['ready'], 'a group fills nothing in at send time');
+        $this->assertContains('a Shopee category', $out[$grouped]['missing']);
     }
 
     public function test_the_computation_names_each_missing_thing(): void

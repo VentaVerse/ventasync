@@ -453,7 +453,6 @@ class ShopeeProductController extends Controller
             'liveCheckedAt' => $liveCheckedAt,
             'failedFlag' => $failedFlag,
             'changeFlag' => $changeFlag,
-            'groupSize' => ctype_digit((string) $groupFilter) ? app(\Extensions\Shopee\Controllers\ShopeeProductGroupController::class)->groupSendSize((int) $groupFilter) : null,
             'statusMenu' => \App\Channels\Listings\StatusMenu::build([
                 'url' => fn (array $params) => route('ext.shopee.products.index', $params),
                 'query' => $request->query(),
@@ -959,9 +958,7 @@ class ShopeeProductController extends Controller
             return ['ok' => false, 'message' => 'Push failed: Product already listed on Shopee (Item ID: ' . $existingLink->shopee_item_id . ').'];
         }
 
-        $gateInherit = app(\Extensions\Shopee\Services\Shopee\ShopeeInheritedSettings::class);
-        $gateRow = ShopeeListing::query()->where('product_id', $productId)->first() ?? (new ShopeeListing())->forceFill(['product_id' => $productId]);
-        $gateCategory = (int) ($gateInherit->fill($gateRow, $gateInherit->forProducts([$productId])[$productId] ?? null)['listing']->shopee_category_id ?? 0);
+        $gateCategory = (int) (ShopeeListing::query()->where('product_id', $productId)->value('shopee_category_id') ?? 0);
         if ($gateCategory > 0) {
             app(ShopeeProductGroupController::class)->ensureTemplate($gateCategory, $client);
         }
@@ -1000,19 +997,11 @@ class ShopeeProductController extends Controller
         }
 
         $saved = ShopeeListing::query()->where('product_id', $productId)->first();
-        $inheritedFrom = [];
-        $listing = null;
-        if ($saved) {
-            $inherit = app(\Extensions\Shopee\Services\Shopee\ShopeeInheritedSettings::class);
-            $filled = $inherit->fill($saved, $inherit->forProducts([$productId])[$productId] ?? null);
-            $listing = $filled['listing'];
-            $inheritedFrom = $filled['inherited'];
-        }
+        $listing = $saved;
 
         if (!$listing || !$listing->pushable()) {
             return ['ok' => false, 'message' => 'Push failed: this product has no Shopee listing settings yet. '
-                . 'Open its listing (Products → Open listing) and save its category, couriers and price rule, '
-                . 'or push it from its product group.'];
+                . 'Open its listing (Products → Open listing) and save its category and couriers, or apply a listing template.'];
         }
 
         $logisticIds = $listing->logistic_ids ?? [];
@@ -1066,7 +1055,6 @@ class ShopeeProductController extends Controller
                 'category_id' => (int) $listing->shopee_category_id,
                 'logistic_ids' => $logisticIds,
                 'price' => $sellingPrice,
-                'inherited_from' => $inheritedFrom,
             ],
         ])->save();
 
@@ -1116,7 +1104,8 @@ class ShopeeProductController extends Controller
                 if (ShopeeListingLink::query()->where('product_id', $productId)->exists()) {
                     $r = $this->performListingUpdate($productId, $client, $auth);
 
-                    return ['ok' => $r['ok'] && ($r['failure'] ?? null) === null, 'message' => (string) $r['message']];
+                    return ['ok' => $r['ok'] && ($r['failure'] ?? null) === null, 'message' => (string) $r['message'],
+                        'note' => trim((string) preg_replace('/^Update pushed\.\s*/', '', (string) $r['message'])) ?: null, 'warning' => ! empty($r['warning'])];
                 }
                 $answer = $this->pushOne($productId, $auth, $client);
                 $this->listingStates()->recordOutcome($productId, $answer['ok'] ? null : $answer['message']);
@@ -1990,11 +1979,7 @@ class ShopeeProductController extends Controller
         }
 
 
-        $inherited = app(\Extensions\Shopee\Services\Shopee\ShopeeInheritedSettings::class);
-        $shown = $inherited->fill(
-            $listing ?? (new ShopeeListing())->forceFill(['product_id' => $productId]),
-            $inherited->forProducts([$productId])[$productId] ?? null
-        )['listing'];
+        $shown = $listing ?? (new ShopeeListing())->forceFill(['product_id' => $productId]);
 
         $categoryId = (int) ($shown->shopee_category_id ?? 0);
         $groupController = app(ShopeeProductGroupController::class);
@@ -2031,7 +2016,7 @@ class ShopeeProductController extends Controller
                 ->get(['brand_id', 'name'])
             : collect();
 
-        return view('ext-shopee::listings.edit', \App\Channels\Listings\ListingImages::cardData($productId, $listing->image_order ?? null, $listing ?? null, \App\Services\Media\ListingWatermark::groupTemplateId('ch_shopee_product_groups', 'ch_shopee_product_group_products', 'shopee_product_group_id', $productId, 'store_id', (int) ($listing->store_id ?? 0) ?: null), 'shopee', \App\Channels\Listings\ListingStore::id('shopee')) + [
+        return view('ext-shopee::listings.edit', \App\Channels\Listings\ListingImages::cardData($productId, $listing->image_order ?? null, $listing ?? null, 'shopee', \App\Channels\Listings\ListingStore::id('shopee')) + [
             'listingState' => $listingState,
             'product' => $product,
             'listing' => $listing,
@@ -2063,64 +2048,10 @@ class ShopeeProductController extends Controller
 
     private function groupBandFor(int $productId, int $storeId): array
     {
-        $current = \App\Channels\Listings\ListingGroup::current([
+        return \App\Channels\Listings\ListingGroup::band([
             'pivot' => 'ch_shopee_product_group_products', 'fk' => 'shopee_product_group_id',
-            'groups' => 'ch_shopee_product_groups', 'storeFk' => 'store_id',
-            'storeId' => $storeId,
-        ], $productId);
-
-        $groups = ShopeeProductGroup::query()
-            ->where('store_id', $storeId)
-            ->orderBy('name')
-            ->get(['id', 'name', 'shopee_category_id', 'shopee_brand_id', 'logistic_ids', 'markup_percent', 'markup_fixed', 'watermark_template_id']);
-        if ($groups->isEmpty()) {
-            return ['current' => $current, 'groups' => [], 'values' => []];
-        }
-
-        $categoryIds = $groups->pluck('shopee_category_id')->map(fn ($v) => (int) $v)->filter()->unique()->values()->all();
-        $brandIds = $groups->pluck('shopee_brand_id')->map(fn ($v) => (int) $v)->filter()->unique()->values()->all();
-
-        $categoryNames = $categoryIds === [] ? collect()
-            : ShopeeCategory::query()->whereIn('category_id', $categoryIds)->pluck('name', 'category_id');
-        $brands = $brandIds === [] ? collect()
-            : \Extensions\Shopee\Models\ShopeeBrand::query()->whereIn('brand_id', $brandIds)->get(['brand_id', 'category_id', 'name']);
-        $answers = \Extensions\Shopee\Models\ShopeeProductGroupAttribute::query()
-            ->whereIn('shopee_product_group_id', $groups->pluck('id')->all())
-            ->get(['shopee_product_group_id', 'attribute_key', 'value'])
-            ->filter(fn ($a) => trim((string) $a->value) !== '')
-            ->groupBy('shopee_product_group_id');
-
-        $values = [];
-        foreach ($groups as $g) {
-            $cid = (int) ($g->shopee_category_id ?? 0);
-            $bid = (int) ($g->shopee_brand_id ?? 0);
-            $categoryName = $cid > 0 ? $categoryNames->get($cid) : null;
-            $brandName = null;
-            if ($bid > 0) {
-                $brand = $brands->first(fn ($b) => (int) $b->brand_id === $bid && (int) $b->category_id === $cid)
-                    ?? $brands->firstWhere('brand_id', $bid);
-                $brandName = $brand ? (string) $brand->name : '';
-            }
-            $values[(int) $g->id] = [
-                'category' => $cid > 0 ? ['id' => $cid, 'label' => $categoryName !== null ? $categoryName . ' (' . $cid . ')' : (string) $cid] : null,
-                'brand' => $bid > 0 ? ['id' => $bid, 'label' => $brandName] : null,
-                'couriers' => array_values(array_filter(array_map('intval', (array) ($g->logistic_ids ?? [])))),
-                'markup_percent' => $g->markup_percent !== null ? (float) $g->markup_percent : null,
-                'markup_fixed' => $g->markup_fixed !== null ? (float) $g->markup_fixed : null,
-                'watermark' => $g->watermark_template_id !== null ? (int) $g->watermark_template_id : null,
-                'attributes' => ($answers->get($g->id) ?? collect())->pluck('value', 'attribute_key')->all(),
-            ];
-        }
-
-        return [
-            'current' => $current,
-            'groups' => $groups->map(fn ($g) => [
-                'id' => (int) $g->id,
-                'name' => (string) $g->name,
-                'url' => route('ext.shopee.product-groups.products', $g->id),
-            ])->values()->all(),
-            'values' => $values,
-        ];
+            'groups' => 'ch_shopee_product_groups', 'storeFk' => 'store_id', 'storeId' => $storeId,
+        ], $productId, 'ext.shopee.products.index');
     }
 
     public function rereadVariations(int $productId)
@@ -2298,22 +2229,6 @@ class ShopeeProductController extends Controller
 
         ShopeeListing::query()->updateOrCreate(['product_id' => $productId], $fields);
 
-        $followed = app(\Extensions\Shopee\Services\Shopee\ShopeeInheritedSettings::class)->forProducts([$productId])[$productId] ?? null;
-        $savedRow = ShopeeListing::query()->where('product_id', $productId)->first();
-        if ($followed && $savedRow) {
-            if (is_array($savedRow->attribute_values)) {
-                $savedRow->attribute_values = \App\Channels\Listings\ListingGroup::ownAnswers($savedRow->attribute_values, (array) ($followed['attributes'] ?? [])) ?: null;
-            }
-            \App\Channels\Listings\ListingGroup::follow($savedRow, [
-                'shopee_category_id' => $followed['category_id'],
-                'shopee_brand_id' => $followed['brand_id'],
-                'logistic_ids' => $followed['logistic_ids'],
-                'watermark_template_id' => \Extensions\Shopee\Models\ShopeeProductGroup::query()->whereKey($followed['group_id'])->value('watermark_template_id'),
-                'markup_percent' => $followed['markup_percent'],
-                'markup_fixed' => $followed['markup_fixed'],
-            ], [['markup_percent', 'markup_fixed']]);
-        }
-
         if (($sellHere = \App\Channels\Listings\ListingVariations::submitted($request)) !== null) {
             \App\Channels\Listings\ListingVariations::save('shopee', (int) (ShopeeStore::defaultStore()?->id ?? 0), $productId, $sellHere);
         }
@@ -2438,11 +2353,7 @@ class ShopeeProductController extends Controller
             return ['ok' => false, 'message' => 'Product not found.'];
         }
 
-        $inherit = app(\Extensions\Shopee\Services\Shopee\ShopeeInheritedSettings::class);
-        $listing = $inherit->fill(
-            ShopeeListing::query()->where('product_id', $productId)->first() ?? (new ShopeeListing())->forceFill(['product_id' => $productId]),
-            $inherit->forProducts([$productId])[$productId] ?? null
-        )['listing'];
+        $listing = ShopeeListing::query()->where('product_id', $productId)->first() ?? (new ShopeeListing())->forceFill(['product_id' => $productId]);
 
         $coreName = html_entity_decode((string) ($product->name ?? ''), ENT_QUOTES | ENT_HTML5, 'UTF-8');
         $coreDescription = \App\Support\Catalog\DescriptionText::of((string) ($product->description ?? ''));

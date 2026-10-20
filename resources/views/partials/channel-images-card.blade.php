@@ -45,7 +45,7 @@
             <x-ui.field label="Watermark" for="{{ ($anchor ?? 'lc-images') }}-watermark" name="watermark_template_id">
                 <div class="x-select-wrap">
                     <select id="{{ ($anchor ?? 'lc-images') }}-watermark" name="watermark_template_id" class="x-input" @disabled(!($canManage ?? false))>
-                        <option value="">{{ !empty($watermarkLent) ? 'From the product group: ' . $watermarkLent : 'None' }}</option>
+                        <option value="">None</option>
                         @foreach($watermarkOptions as $option)
                             <option value="{{ $option->id }}" @selected((int) ($watermarkTemplateId ?? 0) === (int) $option->id)>{{ $option->name }}</option>
                         @endforeach

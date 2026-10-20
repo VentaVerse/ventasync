@@ -33,8 +33,4 @@ class VentaCartListingTemplateController extends \App\Http\Controllers\Channels\
         return new \Extensions\VentaCart\Services\VentaCart\VentaCartTemplateFields($this->storeId());
     }
 
-    protected function fieldsView(): string
-    {
-        return 'ext-ventacart::templates._fields';
-    }
 }

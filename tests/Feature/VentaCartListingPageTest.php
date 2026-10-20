@@ -282,48 +282,36 @@ class VentaCartListingPageTest extends TestCase
         $this->assertNotNull($store->fresh()->last_stock_push_at);
     }
 
-    public function test_the_group_pages_push_stock_sends_only_what_the_store_sells_and_names_what_it_lacks(): void
+    public function test_the_bulk_stock_push_sends_only_what_the_store_sells_and_names_what_it_lacks(): void
     {
         [$store, $pid, $group] = $this->productWithVariations();
-        $pusher = $this->userWith(['view_ventacart/product_group', 'manage_ventacart/product_group']);
+        $pusher = $this->userWith(['view_ventacart/listing', 'manage_ventacart/listing']);
 
         $this->actingAs($pusher)
-            ->post(route('ext.ventacart.product-groups.push-stock', [$store->id, $group->id]), ['ids' => [$pid]])
+            ->post(route('ext.ventacart.listings.bulk_push_stock', [$store->id]), ['product_ids' => [$pid]])
             ->assertRedirect()
             ->assertSessionHas('status');
 
         $this->assertOnlyTheSoldVariantsWentAndTheGapIsNamed($store, $pid);
     }
 
-    public function test_a_ventacart_group_picks_the_stores_own_category_and_the_listing_reports_it(): void
+    public function test_a_ventacart_listing_template_picks_the_stores_own_category(): void
     {
         $store = $this->store();
-        $pid = $this->product();
         \Extensions\VentaCart\Models\VentaCartCategory::create([
             'store_id' => $store->id, 'ventacart_category_id' => 42, 'name' => 'Pedals', 'parent_id' => 0,
         ]);
-        $manager = $this->userWith(['view_ventacart/listing', 'manage_ventacart/listing', 'view_ventacart/product_group', 'manage_ventacart/product_group']);
+        $manager = $this->userWith(['view_ventacart/listing_template', 'manage_ventacart/listing_template']);
+
+        $this->actingAs($manager)->get(route('ext.ventacart.listing-templates.create', $store->id))->assertOk()->assertSee('Category');
 
         $this->actingAs($manager)
-            ->get(route('ext.ventacart.product-groups.create', $store->id))
-            ->assertOk()->assertSee('Category on Gear Depot')->assertSee('Pedals');
-
-        $this->actingAs($manager)
-            ->post(route('ext.ventacart.product-groups.store', $store->id), ['name' => 'Pedal group', 'ventacart_category_id' => 42, 'markup_percent' => 10])
+            ->post(route('ext.ventacart.listing-templates.store', $store->id), ['name' => 'Pedal template', 'ventacart_category_id' => 42, 'markup_percent' => 10])
             ->assertSessionHasNoErrors();
-        $group = \Extensions\VentaCart\Models\VentaCartProductGroup::query()->where('name', 'Pedal group')->first();
-        $this->assertSame(42, (int) $group->ventacart_category_id);
-        $this->assertSame([], $group->products()->pluck('product_id')->all());
-
-        \Extensions\VentaCart\Models\VentaCartProductGroupProduct::create(['ventacart_product_group_id' => $group->id, 'product_id' => $pid]);
-        $page = $this->actingAs($manager)->get(route('ext.ventacart.listings.edit', [$store->id, $pid]))->assertOk();
-        $page->assertSee('Category on Gear Depot');
-        $page->assertSee('Pedals');
-        $page->assertSee('Pedal group');
+        $this->assertSame(42, (int) \Extensions\VentaCart\Models\VentaCartListingTemplate::query()->where('name', 'Pedal template')->value('ventacart_category_id'));
 
         $this->actingAs($manager)
-            ->from(route('ext.ventacart.product-groups.create', $store->id))
-            ->post(route('ext.ventacart.product-groups.store', $store->id), ['name' => 'Ghost', 'ventacart_category_id' => 999])
+            ->post(route('ext.ventacart.listing-templates.store', $store->id), ['name' => 'Ghost', 'ventacart_category_id' => 999])
             ->assertSessionHasErrors('ventacart_category_id');
     }
 
@@ -559,7 +547,6 @@ class VentaCartListingPageTest extends TestCase
             new \Extensions\VentaCart\Services\VentaCart\VentaCartClient($store), $store
         ))->setFeesOnly()->setSkipStockAdjust()->pull(since: '2026-06-01', full: true, maxPages: 1);
 
-
         $this->assertSame(111.11, round((float) DB::table('order_products')->where('order_id', $oid)->value('cost'), 2),
             'A fees run re-stamped the cost of goods from the catalog. That moves every profit figure in the system.');
         $this->assertSame(1, DB::table('order_products')->where('order_id', $oid)->count());
@@ -675,50 +662,18 @@ class VentaCartListingPageTest extends TestCase
             'The pull stopped after the first page: a store with more orders than fit on one page is silently half-read.');
     }
 
-    public function test_a_group_push_applies_the_groups_markup_and_sends_its_category(): void
-    {
-        $store = $this->store();
-        $pid = $this->product();
-        $group = \Extensions\VentaCart\Models\VentaCartProductGroup::create([
-            'store_id' => $store->id, 'name' => 'Pedals',
-            'markup_percent' => 20, 'ventacart_category_id' => 77,
-        ]);
-        \Extensions\VentaCart\Models\VentaCartProductGroupProduct::create(['ventacart_product_group_id' => $group->id, 'product_id' => $pid]);
-
-        Http::fake([
-            self::BASE . '/api/v1/products/GP-200' => Http::response(['error' => 'Product not found'], 404),
-            self::BASE . '/api/v1/products' => Http::response(['id' => 9101, 'sku' => 'GP-200', 'images' => [], 'images_failed' => []], 201),
-        ]);
-
-        $pusher = $this->userWith(['view_ventacart/listing', 'manage_ventacart/listing', 'view_ventacart/product_group', 'manage_ventacart/product_group']);
-        $this->actingAs($pusher)
-            ->post(route('ext.ventacart.product-groups.push', [$store->id, $group->id]), ['ids' => [$pid]])
-            ->assertRedirect();
-
-        Http::assertSent(function ($request) {
-            if ($request->method() !== 'POST' || ! str_ends_with($request->url(), '/api/v1/products')) {
-                return false;
-            }
-            $body = $request->data();
-
-            return round((float) $body['price'], 2) === 1200.0
-                && ($body['category_ids'] ?? null) === [77];
-        });
-    }
-
-    public function test_a_listings_none_declines_its_groups_category(): void
+    public function test_none_means_no_category_whatever_the_group_holds(): void
     {
         $store = $this->store();
         $pid = $this->product();
         \Extensions\VentaCart\Models\VentaCartCategory::create(['store_id' => $store->id, 'ventacart_category_id' => 77, 'name' => 'Pedals', 'parent_id' => 0]);
-        $group = \Extensions\VentaCart\Models\VentaCartProductGroup::create(['store_id' => $store->id, 'name' => 'Pedals', 'ventacart_category_id' => 77]);
+        $group = \Extensions\VentaCart\Models\VentaCartProductGroup::create(['store_id' => $store->id, 'name' => 'Pedals']);
         \Extensions\VentaCart\Models\VentaCartProductGroupProduct::create(['ventacart_product_group_id' => $group->id, 'product_id' => $pid]);
         $editor = $this->userWith(['view_ventacart/listing', 'manage_ventacart/listing']);
 
         $this->actingAs($editor)->put(route('ext.ventacart.listings.update', [$store->id, $pid]), ['ventacart_category_id' => 0])->assertSessionHasNoErrors();
         $saved = VentaCartListing::query()->where('store_id', $store->id)->where('product_id', $pid)->value('ventacart_category_id');
-        $this->assertNotNull($saved, 'None is kept as the listing\'s answer, not blanked back to following');
-        $this->assertSame(0, (int) $saved);
+        $this->assertNull($saved, 'None is no category');
 
         Http::fake([
             self::BASE . '/api/v1/products/GP-200' => Http::response(['error' => 'Product not found'], 404),
@@ -726,7 +681,7 @@ class VentaCartListingPageTest extends TestCase
         ]);
         $this->actingAs($editor)->post(route('ext.ventacart.listings.push', [$store->id, $pid]))->assertRedirect();
         Http::assertSent(fn ($request) => $request->method() === 'POST' && str_ends_with($request->url(), '/api/v1/products')
-            && ($request->data()['category_ids'] ?? null) === []);
+            && empty($request->data()['category_ids'] ?? []));
 
         $loose = $this->product('GP-300');
         $this->actingAs($editor)->put(route('ext.ventacart.listings.update', [$store->id, $loose]), ['ventacart_category_id' => 0])->assertSessionHasNoErrors();
@@ -741,8 +696,7 @@ class VentaCartListingPageTest extends TestCase
             'store_id' => $store->id, 'product_id' => $pid, 'markup_percent' => 10,
         ]);
         $group = \Extensions\VentaCart\Models\VentaCartProductGroup::create([
-            'store_id' => $store->id, 'name' => 'Pedals', 'markup_percent' => 50,
-        ]);
+            'store_id' => $store->id, 'name' => 'Pedals']);
         \Extensions\VentaCart\Models\VentaCartProductGroupProduct::create(['ventacart_product_group_id' => $group->id, 'product_id' => $pid]);
 
         Http::fake([
@@ -752,7 +706,7 @@ class VentaCartListingPageTest extends TestCase
 
         $pusher = $this->userWith(['view_ventacart/listing', 'manage_ventacart/listing', 'view_ventacart/product_group', 'manage_ventacart/product_group']);
         $this->actingAs($pusher)
-            ->post(route('ext.ventacart.product-groups.push', [$store->id, $group->id]), ['ids' => [$pid]])
+            ->post(route('ext.ventacart.listings.bulk_push', [$store->id]), ['product_ids' => [$pid]])
             ->assertRedirect();
 
         Http::assertSent(fn ($request) => $request->method() !== 'POST'
@@ -778,7 +732,7 @@ class VentaCartListingPageTest extends TestCase
 
         $pusher = $this->userWith(['view_ventacart/listing', 'manage_ventacart/listing', 'view_ventacart/product_group', 'manage_ventacart/product_group']);
         $this->actingAs($pusher)
-            ->post(route('ext.ventacart.product-groups.push', [$store->id, $group->id]), ['ids' => [$pid]])
+            ->post(route('ext.ventacart.listings.bulk_push', [$store->id]), ['product_ids' => [$pid]])
             ->assertRedirect();
 
         Http::assertSent(function ($request) {
@@ -914,13 +868,6 @@ class VentaCartListingPageTest extends TestCase
         VentaCartProductGroupProduct::create(['ventacart_product_group_id' => $group->id, 'product_id' => $pid, 'sync_status' => 'pending']);
         Http::fake();
 
-        $html = $this->actingAs($this->userWith(['view_ventacart/product_group', 'manage_ventacart/product_group', 'view_ventacart/listing']))
-            ->get(route('ext.ventacart.product-groups.products', [$store->id, $group->id]))
-            ->assertOk()
-            ->getContent();
-
-        $this->assertStringNotContainsString(route('ext.ventacart.listings.edit', [$store->id, $pid]), $html);
-
         $actions = $this->app->make(VentaCartExtension::class, ['app' => $this->app])->productActions($pid);
         $this->assertCount(1, $actions);
         $this->assertSame('Listing on Gear Depot', $actions[0]['label']);
@@ -975,7 +922,6 @@ class VentaCartListingPageTest extends TestCase
         $this->actingAs($this->manager())->get(route('ext.ventacart.listings.index', $store->id))->assertOk()->assertDontSee('PICK-1');
     }
 
-
     public function test_push_price_sends_the_listings_price_rule(): void
     {
         $store = $this->store();
@@ -992,7 +938,6 @@ class VentaCartListingPageTest extends TestCase
             && str_contains($r->url(), '/api/v1/products/GP-200')
             && (float) ($r->data()['price'] ?? 0) === 1100.0);
     }
-
 
     private function fakeAStoreWithoutTheProduct(): void
     {
@@ -1038,19 +983,19 @@ class VentaCartListingPageTest extends TestCase
         $this->assertSame(550.0, $this->sentPrice('PUT', '/api/v1/products/GP-200'));
     }
 
-    public function test_a_groups_rule_is_added_to_the_listings_own_price(): void
+    public function test_a_groups_rule_is_not_added_to_the_listings_own_price(): void
     {
         $store = $this->store();
         $pid = $this->product('GP-200', 1000);
         VentaCartListingLink::create(['store_id' => $store->id, 'product_id' => $pid, 'ventacart_product_id' => 5001, 'sku' => 'GP-200']);
         VentaCartListing::create(['store_id' => $store->id, 'product_id' => $pid, 'price' => 500]);
-        $group = VentaCartProductGroup::create(['store_id' => $store->id, 'name' => 'Pedals', 'markup_percent' => 20]);
+        $group = VentaCartProductGroup::create(['store_id' => $store->id, 'name' => 'Pedals']);
         VentaCartProductGroupProduct::create(['ventacart_product_group_id' => $group->id, 'product_id' => $pid]);
         $this->fakeAStoreWithoutTheProduct();
 
         $this->actingAs($this->manager())->post(route('ext.ventacart.listings.push_price', [$store->id, $pid]))->assertRedirect();
 
-        $this->assertSame(600.0, $this->sentPrice('PUT', '/api/v1/products/GP-200'));
+        $this->assertSame(500.0, $this->sentPrice('PUT', '/api/v1/products/GP-200'));
     }
 
     public function test_a_blank_price_starts_from_the_catalog_price(): void
@@ -1300,7 +1245,7 @@ class VentaCartListingPageTest extends TestCase
         $this->fakeTheTeeStore($this->storeTee('Color', ['TEE-RED' => 'Red', 'TEE-BLU' => 'Blue']));
 
         $this->actingAs($this->pusher())
-            ->post(route('ext.ventacart.product-groups.push', [$store->id, $group->id]), ['ids' => [$pid]])
+            ->post(route('ext.ventacart.listings.bulk_push', [$store->id]), ['product_ids' => [$pid]])
             ->assertRedirect();
 
         $this->assertSame(
@@ -1317,7 +1262,7 @@ class VentaCartListingPageTest extends TestCase
         $this->fakeTheTeeStore($this->storeTee('Shade', ['TEE-RED' => 'Crimson', 'TEE-BLU' => 'Navy']));
 
         $this->actingAs($this->pusher())
-            ->post(route('ext.ventacart.product-groups.push', [$store->id, $group->id]), ['ids' => [$pid]])
+            ->post(route('ext.ventacart.listings.bulk_push', [$store->id]), ['product_ids' => [$pid]])
             ->assertRedirect();
 
         $this->assertSame(

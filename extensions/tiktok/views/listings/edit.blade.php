@@ -103,13 +103,6 @@
         <x-channel.listing-body>
             <x-slot:main>
                 @include('partials.listing-group-band', [
-                    'fields' => [
-                        'category' => ['label' => 'TikTok category', 'kind' => 'combo', 'value' => '#tl-category-value', 'text' => '#tl-category', 'reloads' => true],
-                        'markup_percent' => ['label' => 'Percent added', 'kind' => 'input', 'el' => '#tl-markup-pct'],
-                        'markup_fixed' => ['label' => 'Fixed amount added', 'kind' => 'input', 'el' => '#tl-markup-fixed'],
-                        'watermark' => ['label' => 'Watermark', 'kind' => 'follow', 'el' => 'select[name="watermark_template_id"]'],
-                        'attributes' => ['label' => 'Attribute answers', 'kind' => 'attributes'],
-                    ],
                     'canManage' => $canManage,
                 ])
 

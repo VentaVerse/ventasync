@@ -6,7 +6,6 @@ use App\Channels\Listings\SheetReads;
 use Extensions\Lazada\Controllers\LazadaProductController;
 use Extensions\Lazada\Models\LazadaCategoryTemplate;
 use Extensions\Lazada\Models\LazadaListing;
-use Extensions\Lazada\Models\LazadaProductGroup;
 
 class LazadaSheetReads
 {
@@ -14,7 +13,7 @@ class LazadaSheetReads
     {
         $region = (string) ($store->region ?? '');
         $wanted = LazadaListing::query()->whereNotNull('primary_category_id')->distinct()->pluck('primary_category_id')
-            ->merge(LazadaProductGroup::query()->whereNotNull('lazada_category_id')->distinct()->pluck('lazada_category_id'))
+            ->merge(\Extensions\Lazada\Models\LazadaListingTemplate::query()->whereNotNull('primary_category_id')->distinct()->pluck('primary_category_id'))
             ->map(fn ($v) => (int) $v)
             ->filter(fn ($v) => $v > 0)
             ->unique()->values()->all();

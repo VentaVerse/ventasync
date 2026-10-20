@@ -446,7 +446,7 @@ class ShopeeListingStateTest extends TestCase
             'meta_title' => '', 'meta_description' => '', 'meta_keyword' => '', 'tag' => '',
         ]);
         ShopeeListingLink::create(['product_id' => $pid, 'shopee_item_id' => 3003, 'sku' => 'TGL-GRP', 'live_status' => 'NORMAL', 'live_checked_at' => now()]);
-        $grp = \Extensions\Shopee\Models\ShopeeProductGroup::create(['name' => 'Toggle group', 'shopee_category_id' => 100139]);
+        $grp = \Extensions\Shopee\Models\ShopeeProductGroup::create(['name' => 'Toggle group']);
         \Extensions\Shopee\Models\ShopeeProductGroupProduct::create([
             'shopee_product_group_id' => $grp->id, 'product_id' => $pid,
             'shopee_item_id' => 3003, 'sync_status' => 'pushed',
@@ -460,7 +460,7 @@ class ShopeeListingStateTest extends TestCase
         );
         $user = \App\Models\User::factory()->create(['user_group_id' => $ug->id]);
 
-        $this->actingAs($user)->get(route('ext.shopee.product-groups.products', $grp->id))
+        $this->actingAs($user)->get(route('ext.shopee.products.index', ['group' => $grp->id]))
             ->assertOk()->assertSee('Delist from Shopee');
     }
 
@@ -615,11 +615,8 @@ class ShopeeListingStateTest extends TestCase
         foreach ([$missing, $refused, $clean] as $p) {
             DB::table('ch_shopee_product_group_products')->insert(['shopee_product_group_id' => $grp, 'product_id' => $p]);
         }
-        $this->actingAs($user)->get(route('ext.shopee.product-groups.products', ['id' => $grp, 'sync_status' => 'error']))->assertOk()
-            ->assertSee('MISSVAR')->assertSee('PUSHERR')->assertDontSee('CLEANROW')
-            ->assertSee('>Has an error</option>', false);
-        $this->actingAs($user)->get(route('ext.shopee.product-groups.products', $grp))->assertOk()
-            ->assertSee('have an error.');
+        $this->actingAs($user)->get(route('ext.shopee.products.index', ['group' => $grp, 'sync_status' => 'error']))->assertOk()
+            ->assertSee('MISSVAR')->assertSee('PUSHERR')->assertDontSee('CLEANROW');
 
         $states->recordOutcome($refused, null);
         $this->assertSame([$missing], $states->erroredProductIds());

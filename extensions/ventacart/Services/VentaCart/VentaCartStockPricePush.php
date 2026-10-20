@@ -29,11 +29,6 @@ final class VentaCartStockPricePush
             ->get(['product_id', 'sku', 'quantity', 'price', 'price_prefix', 'absolute_price'])->groupBy(fn ($r) => (int) $r->product_id);
         $hidden = \App\Channels\Listings\ListingVariations::hidden('ventacart', (int) $this->store->id, $ids);
         $listings = \Extensions\VentaCart\Models\VentaCartListing::query()->where('store_id', $this->store->id)->whereIn('product_id', $ids)->get()->keyBy(fn ($l) => (int) $l->product_id);
-        $groupsByProduct = DB::table('ch_ventacart_product_group_products as gp')
-            ->join('ch_ventacart_product_groups as g', 'g.id', '=', 'gp.ventacart_product_group_id')
-            ->where('g.store_id', $this->store->id)->whereIn('gp.product_id', $ids)
-            ->orderBy('gp.id')->get(['gp.product_id', 'g.markup_percent', 'g.markup_fixed'])
-            ->unique('product_id')->keyBy(fn ($r) => (int) $r->product_id);
         $withVariations = array_flip(\Extensions\VentaCart\Models\VentaCartListing::withVariations($ids));
 
         foreach ($ids as $pid) {
@@ -53,7 +48,7 @@ final class VentaCartStockPricePush
                 continue;
             }
             $basePrice = (float) $product->price;
-            $rule = \Extensions\VentaCart\Models\VentaCartListing::ruleFor($listings->get($pid), $groupsByProduct->get($pid));
+            $rule = \Extensions\VentaCart\Models\VentaCartListing::ruleFor($listings->get($pid));
 
             $variantSkus = $variants->filter(fn ($v) => trim((string) ($v->sku ?? '')) !== '');
             $hasVariants = $variantSkus->isNotEmpty();

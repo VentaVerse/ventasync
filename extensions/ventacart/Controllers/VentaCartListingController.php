@@ -489,7 +489,6 @@ class VentaCartListingController extends Controller
             'catalogTotal' => $catalogTotal,
             'failedFlag' => $failedFlag,
             'changeFlag' => $changeFlag,
-            'groupSize' => ctype_digit((string) $groupFilter) ? app(\Extensions\VentaCart\Controllers\VentaCartProductGroupController::class)->groupSendSize((int) $groupFilter) : null,
             'statusMenu' => \App\Channels\Listings\StatusMenu::build([
                 'url' => fn (array $params) => route('ext.ventacart.listings.index', array_merge(['store' => $store], $params)),
                 'query' => $request->query(),
@@ -854,37 +853,19 @@ class VentaCartListingController extends Controller
             }
         }
 
-        $groupId = \App\Channels\Listings\ListingGroup::current([
+        $groupBand = \App\Channels\Listings\ListingGroup::band([
             'pivot' => 'ch_ventacart_product_group_products', 'fk' => 'ventacart_product_group_id',
             'groups' => 'ch_ventacart_product_groups', 'storeFk' => 'store_id', 'storeId' => $store,
-        ], $productId);
-        $storeGroups = VentaCartProductGroup::query()->where('store_id', $store)->orderBy('name')
-            ->get(['id', 'name', 'ventacart_category_id', 'markup_percent', 'markup_fixed', 'watermark_template_id']);
-        $group = $groupId !== null ? $storeGroups->firstWhere('id', $groupId) : null;
+        ], $productId, 'ext.ventacart.listings.index', ['store' => $store]);
         $num = fn ($v) => $v !== null ? (float) $v : null;
-        $groupBand = [
-            'current' => $groupId,
-            'groups' => $storeGroups->map(fn ($g) => [
-                'id' => (int) $g->id,
-                'name' => (string) $g->name,
-                'url' => route('ext.ventacart.product-groups.products', [$store, $g->id]),
-            ])->all(),
-            'values' => $storeGroups->mapWithKeys(fn ($g) => [(int) $g->id => [
-                'category' => $g->ventacart_category_id ? (int) $g->ventacart_category_id : null,
-                'markup_percent' => $num($g->markup_percent),
-                'markup_fixed' => $num($g->markup_fixed),
-                'watermark' => $g->watermark_template_id ? (int) $g->watermark_template_id : null,
-            ]])->all(),
-        ];
 
-        $shownCategoryId = VentaCartListing::categoryFor($listing instanceof VentaCartListing ? $listing : null, $group);
-        $ownRule = $listing && ($listing->markup_percent !== null || $listing->markup_fixed !== null);
-        $markupPercent = $ownRule ? $num($listing->markup_percent) : $num($group?->markup_percent);
-        $markupFixed = $ownRule ? $num($listing->markup_fixed) : $num($group?->markup_fixed);
+        $shownCategoryId = VentaCartListing::categoryFor($listing instanceof VentaCartListing ? $listing : null);
+        $markupPercent = $num($listing?->markup_percent);
+        $markupFixed = $num($listing?->markup_fixed);
         $hasVariations = VentaCartListing::withVariations([$productId]) !== [];
-        $pushPrice = VentaCartListing::ruleFor($listing, $group)(VentaCartListing::startFor($listing, (float) $product->price, $hasVariations));
+        $pushPrice = VentaCartListing::ruleFor($listing)(VentaCartListing::startFor($listing, (float) $product->price, $hasVariations));
 
-        return view('ext-ventacart::listings.edit', \App\Channels\Listings\ListingImages::cardData($productId, $listing->image_order ?? null, $listing ?? null, \App\Services\Media\ListingWatermark::groupTemplateId('ch_ventacart_product_groups', 'ch_ventacart_product_group_products', 'ventacart_product_group_id', $productId, 'store_id', $store), 'ventacart', \App\Channels\Listings\ListingStore::id('ventacart')) + [
+        return view('ext-ventacart::listings.edit', \App\Channels\Listings\ListingImages::cardData($productId, $listing->image_order ?? null, $listing ?? null, 'ventacart', \App\Channels\Listings\ListingStore::id('ventacart')) + [
             'readiness' => \Extensions\VentaCart\Services\VentaCart\VentaCartListingReadiness::forProducts([$productId])[$productId] ?? null,
             'setting' => $setting,
             'product' => $product,
@@ -988,20 +969,8 @@ class VentaCartListingController extends Controller
             ]
         );
 
-        $groupRow = \Illuminate\Support\Facades\DB::table('ch_ventacart_product_group_products as gp')
-            ->join('ch_ventacart_product_groups as g', 'g.id', '=', 'gp.ventacart_product_group_id')
-            ->where('g.store_id', $store)->where('gp.product_id', $productId)->orderBy('gp.id')
-            ->first(['g.ventacart_category_id', 'g.markup_percent', 'g.markup_fixed', 'g.watermark_template_id']);
         $savedRow = VentaCartListing::query()->where('store_id', $store)->where('product_id', $productId)->first();
-        if ($groupRow && $savedRow) {
-            \App\Channels\Listings\ListingGroup::follow($savedRow, [
-                'ventacart_category_id' => $groupRow->ventacart_category_id,
-                'watermark_template_id' => $groupRow->watermark_template_id,
-                'markup_percent' => $groupRow->markup_percent,
-                'markup_fixed' => $groupRow->markup_fixed,
-            ], [['markup_percent', 'markup_fixed']]);
-        }
-        if ($savedRow && $savedRow->ventacart_category_id !== null && (int) $savedRow->ventacart_category_id === 0 && ! (int) ($groupRow->ventacart_category_id ?? 0)) {
+        if ($savedRow && $savedRow->ventacart_category_id !== null && (int) $savedRow->ventacart_category_id === 0) {
             $savedRow->forceFill(['ventacart_category_id' => null])->save();
         }
 
@@ -1042,19 +1011,13 @@ class VentaCartListingController extends Controller
         $store = (int) $setting->id;
         $listing = VentaCartListing::query()->firstOrNew(['store_id' => $store, 'product_id' => $productId]);
 
-        $group = $this->groupFor($store, $productId);
-        $priceFor = match (true) {
-            $listing->hasPriceRule() => fn (float $base) => $listing->priceFor($base),
-            $group !== null && ($group->markup_percent !== null || $group->markup_fixed !== null)
-                => fn (float $base) => round($base + ($base * (float) ($group->markup_percent ?? 0) / 100) + (float) ($group->markup_fixed ?? 0), 2),
-            default => null,
-        };
+        $priceFor = $listing->hasPriceRule() ? fn (float $base) => $listing->priceFor($base) : null;
 
         $outcome = VentaCartProductPush::for($setting)->push(
             $productId,
             $listing->overrides(),
             $priceFor,
-            VentaCartListing::categoryFor($listing, $group)
+            VentaCartListing::categoryFor($listing)
         );
 
         $states = \Extensions\VentaCart\Services\VentaCart\VentaCartListingStates::for($store);
@@ -1093,16 +1056,6 @@ class VentaCartListingController extends Controller
         $tone = ($outcome['images']['sent'] > 0 && $outcome['images']['stored'] < $outcome['images']['sent']) ? 'warning' : 'status';
 
         return ['ok' => true, 'message' => trim($sentence), 'tone' => $tone];
-    }
-
-    private function groupFor(int $store, int $productId): ?object
-    {
-        return DB::table('ch_ventacart_product_groups as g')
-            ->join('ch_ventacart_product_group_products as gp', 'gp.ventacart_product_group_id', '=', 'g.id')
-            ->where('g.store_id', $store)
-            ->where('gp.product_id', $productId)
-            ->orderBy('gp.id')
-            ->first(['g.id', 'g.ventacart_category_id', 'g.markup_percent', 'g.markup_fixed']);
     }
 
     public function bulkPush(Request $request, int $store)

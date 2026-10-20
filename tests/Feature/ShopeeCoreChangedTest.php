@@ -153,16 +153,13 @@ class ShopeeCoreChangedTest extends TestCase
             'product_id' => $productId,
             'last_pushed_at' => now()->subDays(3), 'last_push_source' => 'listing',
         ]);
-        $group = ShopeeProductGroup::create([
-            'name' => 'Core watch group',
-            'shopee_category_id' => 100013, 'logistic_ids' => [41003],
-        ]);
+        $group = ShopeeProductGroup::create(['name' => 'Core watch group']);
         DB::table('ch_shopee_product_group_products')->insert([
             'shopee_product_group_id' => $group->id, 'product_id' => $productId,
         ]);
 
         $r = $this->actingAs($this->manager())
-            ->get(route('ext.shopee.product-groups.products', $group->id));
+            ->get(route('ext.shopee.products.index', ['group' => $group->id]));
 
         $r->assertOk();
         $r->assertDontSee('catalog changed since');

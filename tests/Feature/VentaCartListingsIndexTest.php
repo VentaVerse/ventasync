@@ -350,7 +350,6 @@ class VentaCartListingsIndexTest extends TestCase
 
         $markers = [
             route('ext.ventacart.listings.index', ['store' => $store->id, 'sync_status' => 'error']) => 'lsm-item lsm-flag is-on',
-            route('ext.ventacart.product-groups.products', ['store' => $store->id, 'group' => $group->id, 'sync_status' => 'error']) => '>Has an error</option>',
         ];
         $pages = fn () => array_keys($markers);
         foreach ($markers as $url => $marker) {
@@ -383,7 +382,7 @@ class VentaCartListingsIndexTest extends TestCase
         $group = VentaCartProductGroup::query()->where('store_id', $store->id)->where('name', 'Pedals')->firstOrFail();
         Http::fake();
 
-        foreach ([route('ext.ventacart.listings.index', $store->id), route('ext.ventacart.product-groups.products', [$store->id, $group->id])] as $url) {
+        foreach ([route('ext.ventacart.listings.index', $store->id), route('ext.ventacart.listings.index', [$store->id, 'group' => $group->id])] as $url) {
             $this->actingAs($this->manager())->get($url)->assertOk()
                 ->assertSee('Qable IC50 Pro')
                 ->assertSee('Unlisted pedal')
@@ -393,7 +392,7 @@ class VentaCartListingsIndexTest extends TestCase
 
         foreach ([
             route('ext.ventacart.listings.index', ['store' => $store->id, 'q' => 'Qable']),
-            route('ext.ventacart.product-groups.products', ['store' => $store->id, 'group' => $group->id, 'q' => 'Qable']),
+            route('ext.ventacart.listings.index', ['store' => $store->id, 'group' => $group->id, 'q' => 'Qable']),
         ] as $url) {
             $this->actingAs($this->manager())->get($url)->assertOk()
                 ->assertSee('Qable IC50 Pro')
@@ -428,38 +427,10 @@ class VentaCartListingsIndexTest extends TestCase
             ->assertRedirect($back);
         $this->assertSame([$groupB->id], $pivot());
 
-        $this->actingAs($manager)->get(route('ext.ventacart.listings.index', ['store' => $store->id, 'group' => $groupB->id]))->assertOk()->assertSee('Remove from group')->assertSee('Manage group');
+        $this->actingAs($manager)->get(route('ext.ventacart.listings.index', ['store' => $store->id, 'group' => $groupB->id]))->assertOk()->assertSee('Remove from group')->assertSee('Rename group');
 
         $this->actingAs($manager)->post(route('ext.ventacart.product-groups.move', $store->id), ['ids' => [$pid], 'group' => 'none', '_return' => $back])
             ->assertRedirect($back)->assertSessionHas('status', '1 product ungrouped.');
         $this->assertSame([], $pivot());
-    }
-
-    public function test_a_whole_group_sends_as_a_run_from_the_listings_page(): void
-    {
-        Http::fake();
-        $store = $this->store();
-        $group = VentaCartProductGroup::create(['store_id' => $store->id, 'name' => 'Fuzz']);
-        foreach ([$this->product('RN-1', 'Run pedal one'), $this->product('RN-2', 'Run pedal two')] as $pid) {
-            VentaCartListing::create(['store_id' => $store->id, 'product_id' => $pid]);
-            \Extensions\VentaCart\Models\VentaCartProductGroupProduct::create(['ventacart_product_group_id' => $group->id, 'product_id' => $pid]);
-        }
-        $manager = $this->userWith(['view_ventacart/listing', 'manage_ventacart/listing', 'view_ventacart/product_group', 'manage_ventacart/product_group']);
-        $listingOnly = $this->manager();
-        $page = route('ext.ventacart.listings.index', ['store' => $store->id, 'group' => $group->id]);
-
-        $this->actingAs($listingOnly)->get($page)->assertOk()->assertDontSee('Send group');
-        $this->actingAs($listingOnly)->post(route('ext.ventacart.product-groups.send_run_begin', [$store->id, $group->id]))->assertRedirect()->assertSessionHas('error');
-        $this->assertSame(0, \App\Models\AutomationRun::query()->count());
-
-        $this->actingAs($manager)->get($page)->assertOk()->assertSee('Send group')
-            ->assertSee('Send all 2 products in Fuzz to Gear Depot on group settings, rather than their own?');
-
-        $store->update(['enabled' => false]);
-        $answer = $this->actingAs($manager)->postJson(route('ext.ventacart.product-groups.send_run_begin', [$store->id, $group->id]))->assertOk()->json();
-        $this->assertSame('failed', $answer['run']['status']);
-        $this->assertSame(2, $answer['run']['total']);
-        $this->assertSame('That VentaCart store is turned off, so nothing was sent to it. Enable it in its settings first.', $answer['outcome']);
-        Http::assertNothingSent();
     }
 }

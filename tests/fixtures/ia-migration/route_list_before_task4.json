@@ -1981,88 +1981,13 @@
     },
     {
         "method": "GET|HEAD",
-        "uri": "channels/lazada/{store}/product-groups/{id}/orphans",
-        "name": "ext.lazada.product-groups.orphans"
-    },
-    {
-        "method": "GET|HEAD",
         "uri": "channels/lazada/{store}/product-groups/{id}/products",
         "name": "ext.lazada.product-groups.products"
     },
     {
         "method": "POST",
-        "uri": "channels/lazada/{store}/product-groups/{id}/products/check",
-        "name": "ext.lazada.product-groups.check"
-    },
-    {
-        "method": "POST",
-        "uri": "channels/lazada/{store}/product-groups/{id}/products/delete-from-lazada",
-        "name": "ext.lazada.product-groups.deleteFromLazada"
-    },
-    {
-        "method": "POST",
         "uri": "channels/lazada/{store}/product-groups/{id}/products/mass-remove",
         "name": "ext.lazada.product-groups.massRemove"
-    },
-    {
-        "method": "POST",
-        "uri": "channels/lazada/{store}/product-groups/{id}/products/push",
-        "name": "ext.lazada.product-groups.push"
-    },
-    {
-        "method": "POST",
-        "uri": "channels/lazada/{store}/product-groups/{id}/products/push-prices",
-        "name": "ext.lazada.product-groups.pushPrices"
-    },
-    {
-        "method": "POST",
-        "uri": "channels/lazada/{store}/product-groups/{id}/products/push-stock",
-        "name": "ext.lazada.product-groups.pushStock"
-    },
-    {
-        "method": "GET|HEAD",
-        "uri": "channels/lazada/{store}/product-groups/{id}/products/search",
-        "name": "ext.lazada.product-groups.productSearch"
-    },
-    {
-        "method": "POST",
-        "uri": "channels/lazada/{store}/product-groups/{id}/products/update-product",
-        "name": "ext.lazada.product-groups.updateProduct"
-    },
-    {
-        "method": "DELETE",
-        "uri": "channels/lazada/{store}/product-groups/{id}/products/{productId}",
-        "name": "ext.lazada.product-groups.removeProduct"
-    },
-    {
-        "method": "POST",
-        "uri": "channels/lazada/{store}/product-groups/{id}/products/{productId}/add",
-        "name": "ext.lazada.product-groups.addProduct"
-    },
-    {
-        "method": "POST",
-        "uri": "channels/lazada/{store}/product-groups/{id}/products/{productId}/unlink",
-        "name": "ext.lazada.product-groups.unlinkProduct"
-    },
-    {
-        "method": "POST",
-        "uri": "channels/lazada/{store}/product-groups/{id}/send-runs",
-        "name": "ext.lazada.product-groups.send_run_begin"
-    },
-    {
-        "method": "POST",
-        "uri": "channels/lazada/{store}/product-groups/{id}/send-runs/{run}/step",
-        "name": "ext.lazada.product-groups.send_run_step"
-    },
-    {
-        "method": "POST",
-        "uri": "channels/lazada/{store}/product-groups/{id}/send-runs/{run}/stop",
-        "name": "ext.lazada.product-groups.send_run_stop"
-    },
-    {
-        "method": "POST",
-        "uri": "channels/lazada/{store}/product-groups/{id}/template/sync",
-        "name": "ext.lazada.product-groups.template_sync"
     },
     {
         "method": "POST",
@@ -3056,93 +2981,13 @@
     },
     {
         "method": "GET|HEAD",
-        "uri": "channels/shopee/{store}/product-groups/{id}/orphans",
-        "name": "ext.shopee.product-groups.orphans"
-    },
-    {
-        "method": "GET|HEAD",
         "uri": "channels/shopee/{store}/product-groups/{id}/products",
         "name": "ext.shopee.product-groups.products"
     },
     {
         "method": "POST",
-        "uri": "channels/shopee/{store}/product-groups/{id}/products/check",
-        "name": "ext.shopee.product-groups.check"
-    },
-    {
-        "method": "POST",
-        "uri": "channels/shopee/{store}/product-groups/{id}/products/delete-from-shopee",
-        "name": "ext.shopee.product-groups.deleteFromShopee"
-    },
-    {
-        "method": "POST",
         "uri": "channels/shopee/{store}/product-groups/{id}/products/mass-remove",
         "name": "ext.shopee.product-groups.massRemove"
-    },
-    {
-        "method": "POST",
-        "uri": "channels/shopee/{store}/product-groups/{id}/products/push",
-        "name": "ext.shopee.product-groups.push"
-    },
-    {
-        "method": "POST",
-        "uri": "channels/shopee/{store}/product-groups/{id}/products/push-prices",
-        "name": "ext.shopee.product-groups.pushPrices"
-    },
-    {
-        "method": "POST",
-        "uri": "channels/shopee/{store}/product-groups/{id}/products/push-stock",
-        "name": "ext.shopee.product-groups.pushStock"
-    },
-    {
-        "method": "GET|HEAD",
-        "uri": "channels/shopee/{store}/product-groups/{id}/products/search",
-        "name": "ext.shopee.product-groups.productSearch"
-    },
-    {
-        "method": "POST",
-        "uri": "channels/shopee/{store}/product-groups/{id}/products/send",
-        "name": "ext.shopee.product-groups.send"
-    },
-    {
-        "method": "POST",
-        "uri": "channels/shopee/{store}/product-groups/{id}/products/update-product",
-        "name": "ext.shopee.product-groups.updateProduct"
-    },
-    {
-        "method": "DELETE",
-        "uri": "channels/shopee/{store}/product-groups/{id}/products/{productId}",
-        "name": "ext.shopee.product-groups.removeProduct"
-    },
-    {
-        "method": "POST",
-        "uri": "channels/shopee/{store}/product-groups/{id}/products/{productId}/add",
-        "name": "ext.shopee.product-groups.addProduct"
-    },
-    {
-        "method": "POST",
-        "uri": "channels/shopee/{store}/product-groups/{id}/products/{productId}/unlink",
-        "name": "ext.shopee.product-groups.unlinkProduct"
-    },
-    {
-        "method": "POST",
-        "uri": "channels/shopee/{store}/product-groups/{id}/send-runs",
-        "name": "ext.shopee.product-groups.send_run_begin"
-    },
-    {
-        "method": "POST",
-        "uri": "channels/shopee/{store}/product-groups/{id}/send-runs/{run}/step",
-        "name": "ext.shopee.product-groups.send_run_step"
-    },
-    {
-        "method": "POST",
-        "uri": "channels/shopee/{store}/product-groups/{id}/send-runs/{run}/stop",
-        "name": "ext.shopee.product-groups.send_run_stop"
-    },
-    {
-        "method": "POST",
-        "uri": "channels/shopee/{store}/product-groups/{id}/template/sync",
-        "name": "ext.shopee.product-groups.template_sync"
     },
     {
         "method": "GET|HEAD",
@@ -3745,11 +3590,6 @@
         "name": "ext.tiktok.product-groups.update"
     },
     {
-        "method": "POST",
-        "uri": "channels/tiktok/{store}/product-groups/{id}/delete-from-tiktok",
-        "name": "ext.tiktok.product-groups.deleteFromTikTok"
-    },
-    {
         "method": "GET|HEAD",
         "uri": "channels/tiktok/{store}/product-groups/{id}/edit",
         "name": "ext.tiktok.product-groups.edit"
@@ -3761,73 +3601,8 @@
     },
     {
         "method": "GET|HEAD",
-        "uri": "channels/tiktok/{store}/product-groups/{id}/orphans",
-        "name": "ext.tiktok.product-groups.orphans"
-    },
-    {
-        "method": "GET|HEAD",
         "uri": "channels/tiktok/{store}/product-groups/{id}/products",
         "name": "ext.tiktok.product-groups.products"
-    },
-    {
-        "method": "POST",
-        "uri": "channels/tiktok/{store}/product-groups/{id}/products/check",
-        "name": "ext.tiktok.product-groups.check"
-    },
-    {
-        "method": "GET|HEAD",
-        "uri": "channels/tiktok/{store}/product-groups/{id}/products/search",
-        "name": "ext.tiktok.product-groups.productSearch"
-    },
-    {
-        "method": "POST",
-        "uri": "channels/tiktok/{store}/product-groups/{id}/products/{productId}/add",
-        "name": "ext.tiktok.product-groups.addProduct"
-    },
-    {
-        "method": "DELETE",
-        "uri": "channels/tiktok/{store}/product-groups/{id}/products/{product}",
-        "name": "ext.tiktok.product-groups.removeProduct"
-    },
-    {
-        "method": "POST",
-        "uri": "channels/tiktok/{store}/product-groups/{id}/products/{product}/unlink",
-        "name": "ext.tiktok.product-groups.unlinkProduct"
-    },
-    {
-        "method": "POST",
-        "uri": "channels/tiktok/{store}/product-groups/{id}/push",
-        "name": "ext.tiktok.product-groups.push"
-    },
-    {
-        "method": "POST",
-        "uri": "channels/tiktok/{store}/product-groups/{id}/push-prices",
-        "name": "ext.tiktok.product-groups.pushPrices"
-    },
-    {
-        "method": "POST",
-        "uri": "channels/tiktok/{store}/product-groups/{id}/push-stock",
-        "name": "ext.tiktok.product-groups.pushStock"
-    },
-    {
-        "method": "POST",
-        "uri": "channels/tiktok/{store}/product-groups/{id}/send-runs",
-        "name": "ext.tiktok.product-groups.send_run_begin"
-    },
-    {
-        "method": "POST",
-        "uri": "channels/tiktok/{store}/product-groups/{id}/send-runs/{run}/step",
-        "name": "ext.tiktok.product-groups.send_run_step"
-    },
-    {
-        "method": "POST",
-        "uri": "channels/tiktok/{store}/product-groups/{id}/send-runs/{run}/stop",
-        "name": "ext.tiktok.product-groups.send_run_stop"
-    },
-    {
-        "method": "POST",
-        "uri": "channels/tiktok/{store}/product-groups/{id}/update-product",
-        "name": "ext.tiktok.product-groups.updateProduct"
     },
     {
         "method": "GET|HEAD",
@@ -4415,11 +4190,6 @@
         "name": "ext.ventacart.product-groups.move"
     },
     {
-        "method": "GET|HEAD",
-        "uri": "channels/ventacart/{store}/product-groups/search-products",
-        "name": "ext.ventacart.product-groups.searchProducts"
-    },
-    {
         "method": "DELETE",
         "uri": "channels/ventacart/{store}/product-groups/{group}",
         "name": "ext.ventacart.product-groups.destroy"
@@ -4428,21 +4198,6 @@
         "method": "PUT",
         "uri": "channels/ventacart/{store}/product-groups/{group}",
         "name": "ext.ventacart.product-groups.update"
-    },
-    {
-        "method": "POST",
-        "uri": "channels/ventacart/{store}/product-groups/{group}/add-products",
-        "name": "ext.ventacart.product-groups.addProducts"
-    },
-    {
-        "method": "POST",
-        "uri": "channels/ventacart/{store}/product-groups/{group}/check",
-        "name": "ext.ventacart.product-groups.check"
-    },
-    {
-        "method": "POST",
-        "uri": "channels/ventacart/{store}/product-groups/{group}/delete-from-ventacart",
-        "name": "ext.ventacart.product-groups.bulk-delete-from-ventacart"
     },
     {
         "method": "GET|HEAD",
@@ -4456,58 +4211,8 @@
     },
     {
         "method": "GET|HEAD",
-        "uri": "channels/ventacart/{store}/product-groups/{group}/orphans",
-        "name": "ext.ventacart.product-groups.orphans"
-    },
-    {
-        "method": "GET|HEAD",
         "uri": "channels/ventacart/{store}/product-groups/{group}/products",
         "name": "ext.ventacart.product-groups.products"
-    },
-    {
-        "method": "DELETE",
-        "uri": "channels/ventacart/{store}/product-groups/{group}/products/{product}",
-        "name": "ext.ventacart.product-groups.removeProduct"
-    },
-    {
-        "method": "POST",
-        "uri": "channels/ventacart/{store}/product-groups/{group}/products/{product}/delete-from-ventacart",
-        "name": "ext.ventacart.product-groups.deleteFromVenta"
-    },
-    {
-        "method": "POST",
-        "uri": "channels/ventacart/{store}/product-groups/{group}/products/{product}/unlink",
-        "name": "ext.ventacart.product-groups.unlink"
-    },
-    {
-        "method": "POST",
-        "uri": "channels/ventacart/{store}/product-groups/{group}/push",
-        "name": "ext.ventacart.product-groups.push"
-    },
-    {
-        "method": "POST",
-        "uri": "channels/ventacart/{store}/product-groups/{group}/push-prices",
-        "name": "ext.ventacart.product-groups.push-prices"
-    },
-    {
-        "method": "POST",
-        "uri": "channels/ventacart/{store}/product-groups/{group}/push-stock",
-        "name": "ext.ventacart.product-groups.push-stock"
-    },
-    {
-        "method": "POST",
-        "uri": "channels/ventacart/{store}/product-groups/{group}/send-runs",
-        "name": "ext.ventacart.product-groups.send_run_begin"
-    },
-    {
-        "method": "POST",
-        "uri": "channels/ventacart/{store}/product-groups/{group}/send-runs/{run}/step",
-        "name": "ext.ventacart.product-groups.send_run_step"
-    },
-    {
-        "method": "POST",
-        "uri": "channels/ventacart/{store}/product-groups/{group}/send-runs/{run}/stop",
-        "name": "ext.ventacart.product-groups.send_run_stop"
     },
     {
         "method": "POST",
@@ -4865,11 +4570,6 @@
         "name": "ext.woocommerce.product-groups.move"
     },
     {
-        "method": "GET|HEAD",
-        "uri": "channels/woocommerce/{store}/product-groups/search-products",
-        "name": "ext.woocommerce.product-groups.searchProducts"
-    },
-    {
         "method": "DELETE",
         "uri": "channels/woocommerce/{store}/product-groups/{group}",
         "name": "ext.woocommerce.product-groups.destroy"
@@ -4878,21 +4578,6 @@
         "method": "PUT",
         "uri": "channels/woocommerce/{store}/product-groups/{group}",
         "name": "ext.woocommerce.product-groups.update"
-    },
-    {
-        "method": "POST",
-        "uri": "channels/woocommerce/{store}/product-groups/{group}/add-products",
-        "name": "ext.woocommerce.product-groups.addProducts"
-    },
-    {
-        "method": "POST",
-        "uri": "channels/woocommerce/{store}/product-groups/{group}/check",
-        "name": "ext.woocommerce.product-groups.check"
-    },
-    {
-        "method": "POST",
-        "uri": "channels/woocommerce/{store}/product-groups/{group}/delete-from-store",
-        "name": "ext.woocommerce.product-groups.bulk-delete-from-store"
     },
     {
         "method": "GET|HEAD",
@@ -4908,51 +4593,6 @@
         "method": "GET|HEAD",
         "uri": "channels/woocommerce/{store}/product-groups/{group}/products",
         "name": "ext.woocommerce.product-groups.products"
-    },
-    {
-        "method": "POST",
-        "uri": "channels/woocommerce/{store}/product-groups/{group}/products/{product}/delete-from-store",
-        "name": "ext.woocommerce.product-groups.deleteFromStore"
-    },
-    {
-        "method": "POST",
-        "uri": "channels/woocommerce/{store}/product-groups/{group}/products/{product}/remove",
-        "name": "ext.woocommerce.product-groups.removeProduct"
-    },
-    {
-        "method": "POST",
-        "uri": "channels/woocommerce/{store}/product-groups/{group}/products/{product}/unlink",
-        "name": "ext.woocommerce.product-groups.unlink"
-    },
-    {
-        "method": "POST",
-        "uri": "channels/woocommerce/{store}/product-groups/{group}/push",
-        "name": "ext.woocommerce.product-groups.push"
-    },
-    {
-        "method": "POST",
-        "uri": "channels/woocommerce/{store}/product-groups/{group}/push-prices",
-        "name": "ext.woocommerce.product-groups.push-prices"
-    },
-    {
-        "method": "POST",
-        "uri": "channels/woocommerce/{store}/product-groups/{group}/push-stock",
-        "name": "ext.woocommerce.product-groups.push-stock"
-    },
-    {
-        "method": "POST",
-        "uri": "channels/woocommerce/{store}/product-groups/{group}/send-runs",
-        "name": "ext.woocommerce.product-groups.send_run_begin"
-    },
-    {
-        "method": "POST",
-        "uri": "channels/woocommerce/{store}/product-groups/{group}/send-runs/{run}/step",
-        "name": "ext.woocommerce.product-groups.send_run_step"
-    },
-    {
-        "method": "POST",
-        "uri": "channels/woocommerce/{store}/product-groups/{group}/send-runs/{run}/stop",
-        "name": "ext.woocommerce.product-groups.send_run_stop"
     },
     {
         "method": "POST",

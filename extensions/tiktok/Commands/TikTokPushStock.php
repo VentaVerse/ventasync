@@ -3,7 +3,6 @@
 namespace Extensions\TikTok\Commands;
 
 use Extensions\TikTok\Models\TikTokApiLog;
-use Extensions\TikTok\Models\TikTokProductGroupProduct;
 use Extensions\TikTok\Models\TikTokStore;
 use Extensions\TikTok\Services\TikTok\TikTokClient;
 use Extensions\TikTok\Services\TikTok\TikTokStockPushService;
@@ -63,11 +62,7 @@ class TikTokPushStock extends Command implements \App\Channels\Contracts\Steppab
         }
         $client = app(TikTokClient::class);
 
-        $pivotRows = TikTokProductGroupProduct::query()
-            ->whereIn('tiktok_product_group_id', \Extensions\TikTok\Models\TikTokProductGroup::query()->select('id'))
-            ->whereNotNull('tiktok_product_id')
-            ->where('tiktok_product_id', '!=', '')
-            ->get();
+        $pivotRows = \Extensions\TikTok\Services\TikTok\TikTokLinkedRows::get();
 
         if ($pivotRows->isEmpty()) {
             $this->info('No TikTok products linked.');

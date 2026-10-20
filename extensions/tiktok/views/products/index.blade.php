@@ -114,20 +114,7 @@
     $canManageGroups = auth()->user()?->hasPermission('manage_tiktok/product_group') ?? false;
     $chosenGroup = collect($statusMenu['groups'])->first(fn ($g) => $g['active'] && $g['key'] !== 'none');
     $groupLine = ($chosenGroup && $canManageGroups) ? [
-        'return' => request()->getRequestUri(),
         'manage' => route('ext.tiktok.product-groups.edit', $chosenGroup['key']),
-        'send' => [
-            'action' => route('ext.tiktok.product-groups.push', $chosenGroup['key']),
-            'confirm' => 'Send the ticked products to ' . 'TikTok Shop' . ' on the settings of ' . $chosenGroup['label'] . ', rather than their own?',
-        ],
-        'send_all' => [
-            'begin' => route('ext.tiktok.product-groups.send_run_begin', ['id' => $chosenGroup['key']]),
-            'step' => route('ext.tiktok.product-groups.send_run_step', ['id' => $chosenGroup['key'], 'run' => 0]),
-            'stop' => route('ext.tiktok.product-groups.send_run_stop', ['id' => $chosenGroup['key'], 'run' => 0]),
-            'name' => 'Send ' . $chosenGroup['label'],
-            'count' => (int) ($groupSize ?? 0),
-            'confirm' => 'Send all ' . number_format((int) ($groupSize ?? 0)) . ' ' . \Illuminate\Support\Str::plural('product', (int) ($groupSize ?? 0)) . ' in ' . $chosenGroup['label'] . ' to ' . 'TikTok Shop' . ' on group settings, rather than their own?',
-        ],
     ] : null;
 @endphp
 @include('partials.listing-stand-segment', ['menu' => $statusMenu, 'group' => $groupLine])
@@ -260,7 +247,7 @@
 
             $products->pluck('product_id')->map(fn ($v) => (int) $v)->all(),
 
-            'ch_tiktok_listings', 'store_id', 'ch_tiktok_product_groups', 'ch_tiktok_product_group_products', 'tiktok_product_group_id', 'store_id'
+            'ch_tiktok_listings', 'store_id'
 
         );
 

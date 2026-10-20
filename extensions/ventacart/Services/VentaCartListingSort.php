@@ -15,7 +15,7 @@ final class VentaCartListingSort
             'name' => 'pd.name',
             'catalog_added' => 'p.date_added',
             'price' => 'p.price',
-            'store_price' => ListingSort::storePrice($listing, 'sg'),
+            'store_price' => ListingSort::storePrice($listing),
             'stock' => 'p.quantity',
             'sku' => 'p.sku',
             'brand' => 'm.name',
@@ -26,13 +26,6 @@ final class VentaCartListingSort
 
     public static function join(Builder $query, int $storeId): void
     {
-        ListingSort::joinStore($query, $storeId, ['table' => 'ch_ventacart_listings', 'store' => 'store_id'], self::GROUP);
+        ListingSort::joinStore($query, $storeId, ['table' => 'ch_ventacart_listings', 'store' => 'store_id']);
     }
-
-    public static function joinGroup(Builder $query, int $storeId): void
-    {
-        ListingSort::joinGroupMarkup($query, $storeId, self::GROUP);
-    }
-
-    private const GROUP = ['pivot' => 'ch_ventacart_product_group_products', 'table' => 'ch_ventacart_product_groups', 'key' => 'ventacart_product_group_id', 'store' => 'store_id'];
 }

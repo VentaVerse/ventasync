@@ -248,7 +248,7 @@ class ShopeeAddToStoreTest extends TestCase
         $pid = $this->seedProduct('Live widget', 'LIVE-1');
         $this->onStore($pid);
         ShopeeListingLink::create(['store_id' => $this->store->id, 'product_id' => $pid, 'shopee_item_id' => '901234', 'sku' => 'LIVE-1', 'live_status' => 'NORMAL']);
-        $group = ShopeeProductGroup::create(['store_id' => $this->store->id, 'name' => 'Group', 'shopee_category_id' => 100]);
+        $group = ShopeeProductGroup::create(['store_id' => $this->store->id, 'name' => 'Group']);
         ShopeeProductGroupProduct::create(['shopee_product_group_id' => $group->id, 'product_id' => $pid]);
 
         $this->actingAs($this->manager())
@@ -292,123 +292,7 @@ class ShopeeAddToStoreTest extends TestCase
 
     private function group(string $name = 'Helmets'): ShopeeProductGroup
     {
-        return ShopeeProductGroup::create(['store_id' => $this->store->id, 'name' => $name, 'shopee_category_id' => 100, 'logistic_ids' => [1]]);
-    }
-
-    public function test_the_group_page_offers_the_panel_and_not_add_a_product_by_name(): void
-    {
-        $group = $this->group();
-
-        $html = $this->actingAs($this->manager())->get($this->groupBase($group->id) . '/products')->assertOk()->getContent();
-
-        $this->assertStringContainsString('data-add-panel-open', $html);
-        $this->assertStringContainsString('id="shopee-group-add-panel"', $html);
-        $this->assertStringContainsString('In this group', $html, 'the panel speaks the group\'s vocabulary');
-        $this->assertStringNotContainsString('Add a product by name', $html);
-        $this->assertStringNotContainsString('data-group-manual-add', $html);
-    }
-
-    public function test_group_search_offers_the_main_catalog_and_says_what_the_store_does_not_carry_yet(): void
-    {
-        $group = $this->group();
-        $inGroup = $this->seedProduct('Already grouped', 'G-1');
-        $onStore = $this->seedProduct('On store free', 'S-1');
-        $this->seedProduct('Catalog only widget', 'OFF-1');
-        $this->onStore($inGroup);
-        $this->onStore($onStore);
-        ShopeeProductGroupProduct::create(['shopee_product_group_id' => $group->id, 'product_id' => $inGroup]);
-
-        $r = $this->actingAs($this->manager())->getJson($this->groupBase($group->id) . '/products/search')->assertOk();
-
-        $byName = collect($r->json('items'))->keyBy('name');
-        $this->assertEqualsCanonicalizing(['On store free', 'Catalog only widget'], $byName->keys()->all(), 'the catalog, minus what the group already holds');
-        $this->assertTrue($byName['On store free']['listed']);
-        $this->assertFalse($byName['Catalog only widget']['listed'], 'the row says the store does not carry it yet');
-
-        $all = $this->actingAs($this->manager())->getJson($this->groupBase($group->id) . '/products/search?all=1')->assertOk();
-        $byName = collect($all->json('items'))->keyBy('name');
-        $this->assertTrue($byName['Already grouped']['on_store'], 'the panel\'s "already in" flag means in this group here');
-        $this->assertFalse($byName['On store free']['on_store']);
-    }
-
-    public function test_adding_a_catalog_product_to_a_group_lists_it_on_the_store_as_it_joins(): void
-    {
-        $group = $this->group();
-        $pid = $this->seedProduct('Catalog only widget', 'OFF-1');
-        $this->assertFalse(ShopeeStoreProducts::has($pid));
-
-        $this->actingAs($this->manager())
-            ->postJson($this->groupBase($group->id) . '/products/' . $pid . '/add')
-            ->assertOk()->assertJson(['ok' => true, 'added' => true, 'listed' => true]);
-
-        $this->assertTrue(ShopeeStoreProducts::has($pid), 'it is on this store now');
-        $this->assertSame(1, ShopeeProductGroupProduct::query()->where('shopee_product_group_id', $group->id)->where('product_id', $pid)->count());
-
-        $again = $this->seedProduct('On store already', 'S-2');
-        $this->onStore($again);
-        $this->actingAs($this->manager())
-            ->postJson($this->groupBase($group->id) . '/products/' . $again . '/add')
-            ->assertOk()->assertJson(['ok' => true, 'added' => true, 'listed' => false]);
-        $this->assertSame(1, ShopeeListing::query()->where('product_id', $again)->count());
-
-        $this->actingAs($this->manager())
-            ->postJson($this->groupBase($group->id) . '/products/424242/add')
-            ->assertNotFound();
-    }
-
-    public function test_group_search_names_the_group_that_owns_a_product_elsewhere(): void
-    {
-        $group = $this->group('Helmets');
-        $other = $this->group('Gloves');
-        $pid = $this->seedProduct('Owned elsewhere', 'E-1');
-        $this->onStore($pid);
-        ShopeeProductGroupProduct::create(['shopee_product_group_id' => $other->id, 'product_id' => $pid]);
-
-        $r = $this->actingAs($this->manager())->getJson($this->groupBase($group->id) . '/products/search')->assertOk();
-
-        $item = collect($r->json('items'))->firstWhere('name', 'Owned elsewhere');
-        $this->assertNotNull($item);
-        $this->assertFalse($item['on_store']);
-        $this->assertSame('Gloves', $item['elsewhere'], 'the panel can offer Move here instead of a refusal after the press');
-    }
-
-    public function test_add_to_group_over_json_puts_this_stores_product_in_the_group(): void
-    {
-        $group = $this->group();
-        $pid = $this->seedProduct('On store free', 'S-1');
-        $this->onStore($pid);
-
-        $this->actingAs($this->manager())
-            ->postJson($this->groupBase($group->id) . '/products/' . $pid . '/add')
-            ->assertOk()->assertJson(['ok' => true, 'product_id' => $pid, 'added' => true, 'moved_from' => null]);
-
-        $this->assertSame(1, ShopeeProductGroupProduct::query()->where('shopee_product_group_id', $group->id)->where('product_id', $pid)->count());
-
-        $this->actingAs($this->manager())
-            ->postJson($this->groupBase($group->id) . '/products/' . $pid . '/add')
-            ->assertOk()->assertJson(['added' => false]);
-        $this->assertSame(1, ShopeeProductGroupProduct::query()->where('shopee_product_group_id', $group->id)->where('product_id', $pid)->count());
-    }
-
-    public function test_move_here_takes_the_product_from_the_group_that_owned_it(): void
-    {
-        $group = $this->group('Helmets');
-        $other = $this->group('Gloves');
-        $pid = $this->seedProduct('Owned elsewhere', 'E-1');
-        $this->onStore($pid);
-        ShopeeProductGroupProduct::create(['shopee_product_group_id' => $other->id, 'product_id' => $pid]);
-
-        $this->actingAs($this->manager())
-            ->postJson($this->groupBase($group->id) . '/products/' . $pid . '/add')
-            ->assertStatus(409);
-        $this->assertSame($other->id, (int) ShopeeProductGroupProduct::query()->where('product_id', $pid)->value('shopee_product_group_id'));
-
-        $this->actingAs($this->manager())
-            ->postJson($this->groupBase($group->id) . '/products/' . $pid . '/add', ['move' => true])
-            ->assertOk()->assertJson(['ok' => true, 'added' => true, 'moved_from' => 'Gloves']);
-
-        $owners = ShopeeProductGroupProduct::query()->where('product_id', $pid)->pluck('shopee_product_group_id')->map(fn ($v) => (int) $v)->all();
-        $this->assertSame([$group->id], $owners, 'one product, one group: it moved rather than doubled');
+        return ShopeeProductGroup::create(['store_id' => $this->store->id, 'name' => $name]);
     }
 
     public function test_the_edit_form_is_the_groups_settings_only(): void

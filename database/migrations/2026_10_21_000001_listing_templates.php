@@ -63,6 +63,58 @@ return new class extends Migration
         }
 
         $this->copyGroups();
+        $this->dropGroupSettings();
+    }
+
+    public const GROUP_SETTINGS = [
+        'shopee' => ['shopee_category_id', 'shopee_brand_id', 'logistic_ids', 'markup_fixed', 'markup_percent', 'watermark_template_id'],
+        'lazada' => ['lazada_category_id', 'brand_id', 'brand_name_override', 'markup_fixed', 'markup_percent', 'watermark_template_id'],
+        'tiktok' => ['tiktok_category_id', 'markup_percent', 'markup_fixed', 'watermark_template_id'],
+        'woocommerce' => ['woo_category_id', 'markup_percent', 'markup_fixed', 'watermark_template_id'],
+        'ventacart' => ['ventacart_category_id', 'ventacart_brand_id', 'markup_percent', 'markup_fixed', 'watermark_template_id'],
+    ];
+
+    public function dropGroupSettings(): void
+    {
+        foreach (self::GROUP_SETTINGS as $channel => $columns) {
+            Schema::dropIfExists("ch_{$channel}_product_group_attributes");
+            $table = "ch_{$channel}_product_groups";
+            $present = array_values(array_filter($columns, fn ($c) => Schema::hasColumn($table, $c)));
+            if ($present !== []) {
+                Schema::table($table, fn (Blueprint $t) => $t->dropColumn($present));
+            }
+        }
+    }
+
+    public function restoreGroupSettings(): void
+    {
+        foreach (self::GROUP_SETTINGS as $channel => $columns) {
+            $table = "ch_{$channel}_product_groups";
+            if (! Schema::hasTable($table) || Schema::hasColumn($table, 'markup_percent')) {
+                continue;
+            }
+            Schema::table($table, function (Blueprint $t) use ($channel) {
+                match ($channel) {
+                    'shopee' => [$t->unsignedBigInteger('shopee_category_id')->nullable(), $t->unsignedBigInteger('shopee_brand_id')->nullable(), $t->json('logistic_ids')->nullable()],
+                    'lazada' => [$t->unsignedBigInteger('lazada_category_id')->nullable(), $t->unsignedBigInteger('brand_id')->nullable(), $t->string('brand_name_override', 255)->nullable()],
+                    'tiktok' => [$t->string('tiktok_category_id', 255)->nullable()],
+                    'woocommerce' => [$t->unsignedBigInteger('woo_category_id')->nullable()],
+                    'ventacart' => [$t->unsignedBigInteger('ventacart_category_id')->nullable(), $t->unsignedBigInteger('ventacart_brand_id')->nullable()],
+                };
+                $t->decimal('markup_fixed', 12, 2)->nullable();
+                $t->decimal('markup_percent', 8, 2)->nullable();
+                $t->unsignedBigInteger('watermark_template_id')->nullable();
+            });
+            if (in_array($channel, ['shopee', 'lazada', 'tiktok'], true) && ! Schema::hasTable("ch_{$channel}_product_group_attributes")) {
+                Schema::create("ch_{$channel}_product_group_attributes", function (Blueprint $t) use ($channel) {
+                    $t->id();
+                    $t->unsignedBigInteger("{$channel}_product_group_id");
+                    $t->string('attribute_key', 191);
+                    $t->text('value')->nullable();
+                    $t->timestamps();
+                });
+            }
+        }
     }
 
     public const CHANNELS = [
@@ -211,6 +263,7 @@ return new class extends Migration
 
     public function down(): void
     {
+        $this->restoreGroupSettings();
         foreach (['shopee', 'lazada', 'tiktok'] as $channel) {
             Schema::dropIfExists("ch_{$channel}_listing_template_attributes");
         }

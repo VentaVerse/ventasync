@@ -3,8 +3,6 @@
 namespace Extensions\TikTok\Commands;
 
 use Extensions\TikTok\Models\TikTokListing;
-use Extensions\TikTok\Models\TikTokProductGroup;
-use Extensions\TikTok\Models\TikTokProductGroupProduct;
 use Extensions\TikTok\Models\TikTokStore;
 use Extensions\TikTok\Services\TikTok\TikTokStockPricePush;
 use Illuminate\Console\Command;
@@ -63,11 +61,7 @@ class TikTokPushPrice extends Command implements \App\Channels\Contracts\Steppab
             return 1;
         }
 
-        $pivotRows = TikTokProductGroupProduct::query()
-            ->whereIn('tiktok_product_group_id', TikTokProductGroup::query()->select('id'))
-            ->whereNotNull('tiktok_product_id')
-            ->where('tiktok_product_id', '!=', '')
-            ->get();
+        $pivotRows = \Extensions\TikTok\Services\TikTok\TikTokLinkedRows::get();
         if ($pivotRows->isEmpty()) {
             $this->info('No TikTok products linked.');
 
@@ -91,26 +85,13 @@ class TikTokPushPrice extends Command implements \App\Channels\Contracts\Steppab
 
     public static function priceRule(iterable $pivots): \Closure
     {
-        $pivots = collect($pivots);
-        $pids = $pivots->pluck('product_id')->map(fn ($v) => (int) $v)->unique()->values()->all();
+        $pids = collect($pivots)->pluck('product_id')->map(fn ($v) => (int) $v)->unique()->values()->all();
         $listings = TikTokListing::query()->whereIn('product_id', $pids ?: [0])->get()->keyBy('product_id');
-        $store = TikTokStore::defaultStore();
-        $groupByProduct = TikTokProductGroupProduct::query()->whereIn('product_id', $pids ?: [0])
-            ->whereIn('tiktok_product_group_id', TikTokProductGroup::query()->forStore($store)->select('id'))
-            ->orderBy('id')->get()
-            ->groupBy('product_id')->map(fn ($rows) => (int) $rows->first()->tiktok_product_group_id);
-        $groupIds = $pivots->pluck('tiktok_product_group_id')->filter()->merge($groupByProduct->values())->unique()->all();
-        $groups = TikTokProductGroup::query()->forStore($store)->whereIn('id', $groupIds ?: [0])->get()->keyBy('id');
 
-        return function (float $base, object $pivot) use ($listings, $groups, $groupByProduct): float {
-            $pid = (int) $pivot->product_id;
-            $listing = $listings->get($pid);
-            if ($listing && ($listing->markup_percent !== null || $listing->markup_fixed !== null)) {
-                return $listing->priceFor($base);
-            }
-            $group = $groups->get((int) ($pivot->tiktok_product_group_id ?? 0)) ?? $groups->get((int) ($groupByProduct->get($pid) ?? 0));
+        return function (float $base, object $pivot) use ($listings): float {
+            $listing = $listings->get((int) $pivot->product_id);
 
-            return $group ? $group->applyMarkup($base) : $base;
+            return $listing ? $listing->priceFor($base) : $base;
         };
     }
 

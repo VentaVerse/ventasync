@@ -66,7 +66,7 @@ class VentaCartLastRunFiguresTest extends TestCase
     {
         $this->assertStringContainsString(
             "'last_product_sync_at' => now()",
-            $this->source('extensions/ventacart/Controllers/VentaCartProductGroupController.php'),
+            $this->source('extensions/ventacart/Services/VentaCart/VentaCartProductPush.php'),
             'Pushing products leaves no trace. This is the only path that pushes them - ventacart:sync '
             .'accepts only `orders` - so nothing else can stamp it.'
         );

@@ -10,20 +10,7 @@ class VentaCartProductGroup extends Model
 {
     protected $table = 'ch_ventacart_product_groups';
 
-    protected $fillable = [
-        'watermark_template_id',
-        'store_id',
-        'name',
-        'ventacart_category_id',
-        'ventacart_brand_id',
-        'markup_percent',
-        'markup_fixed',
-    ];
-
-    protected $casts = [
-        'markup_percent'       => 'decimal:2',
-        'markup_fixed'         => 'decimal:2',
-    ];
+    protected $fillable = ['store_id', 'name'];
 
     public function store(): BelongsTo
     {

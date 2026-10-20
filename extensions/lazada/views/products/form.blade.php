@@ -8,10 +8,8 @@
 
 @section('content')
 @php
-    $groupMarkup = $listing->groups->first();
-
-    $effectiveFixed = old('markup_fixed', $listing->markup_fixed ?? ($groupMarkup->markup_fixed ?? null));
-    $effectivePercent = old('markup_percent', $listing->markup_percent ?? ($groupMarkup->markup_percent ?? null));
+    $effectiveFixed = old('markup_fixed', $listing->markup_fixed);
+    $effectivePercent = old('markup_percent', $listing->markup_percent);
 
     $noBrand = old('no_brand');
     if ($noBrand === null) {
@@ -198,14 +196,6 @@
             <x-slot:main>
                 @if($mode === 'edit')
                     @include('partials.listing-group-band', [
-                        'fields' => [
-                            'category' => ['label' => 'Lazada category', 'kind' => 'combo', 'value' => 'input[name="primary_category_id"]', 'text' => '#lz-category', 'reloads' => true],
-                            'brand' => ['label' => 'Brand', 'kind' => 'lzbrand', 'id' => '[data-brand-id]', 'none' => '[data-brand-none-flag]', 'text' => '#lz-brand', 'readout' => '[data-brand-picked]'],
-                            'markup_percent' => ['label' => 'Percent added', 'kind' => 'input', 'el' => '#lz-markup-pct'],
-                            'markup_fixed' => ['label' => 'Fixed amount added', 'kind' => 'input', 'el' => '#lz-markup-fixed'],
-                            'watermark' => ['label' => 'Watermark', 'kind' => 'follow', 'el' => 'select[name="watermark_template_id"]'],
-                            'attributes' => ['label' => 'Attribute answers', 'kind' => 'attributes'],
-                        ],
                         'canManage' => true,
                     ])
                 @endif

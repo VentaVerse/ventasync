@@ -74,7 +74,7 @@ final class ListingSort
         return $query->orderBy($productId, $direction === 'asc' ? 'asc' : 'desc');
     }
 
-    public static function joinStore(Builder $query, int $storeId, array $listing, array $group, string $productId = 'p.product_id'): Builder
+    public static function joinStore(Builder $query, int $storeId, array $listing, string $productId = 'p.product_id'): Builder
     {
         $query->leftJoin($listing['table'] . ' as sl', function ($join) use ($listing, $storeId, $productId) {
             $join->on('sl.product_id', '=', $productId);
@@ -83,18 +83,7 @@ final class ListingSort
             }
         });
 
-        return self::joinGroupMarkup($query, $storeId, $group, $productId);
-    }
-
-    public static function joinGroupMarkup(Builder $query, int $storeId, array $group, string $productId = 'p.product_id'): Builder
-    {
-        $markup = DB::table($group['pivot'] . ' as sgp')
-            ->join($group['table'] . ' as sgt', 'sgt.id', '=', 'sgp.' . $group['key'])
-            ->when($storeId > 0, fn ($q) => $q->where('sgt.' . $group['store'], $storeId))
-            ->groupBy('sgp.product_id')
-            ->selectRaw('sgp.product_id, MAX(sgt.markup_percent) AS markup_percent, MAX(sgt.markup_fixed) AS markup_fixed');
-
-        return $query->leftJoinSub($markup, 'sg', 'sg.product_id', '=', $productId);
+        return $query;
     }
 
     public static function soldLast30Days(string $storeKey, string $productId = 'p.product_id'): Builder
@@ -112,18 +101,11 @@ final class ListingSort
         return $sold;
     }
 
-    public static function storePrice(string $listing, ?string $group = null, string $product = 'p'): Expression
+    public static function storePrice(string $listing, string $product = 'p'): Expression
     {
         $hasVariations = "EXISTS (SELECT 1 FROM `product_variation_values` spov WHERE spov.product_id = {$product}.product_id)";
         $start = "(CASE WHEN {$listing}.price IS NOT NULL AND {$listing}.price > 0 AND NOT {$hasVariations} THEN {$listing}.price ELSE {$product}.price END)";
-        $rule = fn (string $alias) => "({$start} + {$start} * COALESCE({$alias}.markup_percent, 0) / 100 + COALESCE({$alias}.markup_fixed, 0))";
 
-        $sql = "(CASE WHEN {$listing}.markup_percent IS NOT NULL OR {$listing}.markup_fixed IS NOT NULL THEN " . $rule($listing);
-        if ($group !== null) {
-            $sql .= " WHEN {$group}.markup_percent IS NOT NULL OR {$group}.markup_fixed IS NOT NULL THEN " . $rule($group);
-        }
-        $sql .= " ELSE {$start} END)";
-
-        return DB::raw($sql);
+        return DB::raw("({$start} + {$start} * COALESCE({$listing}.markup_percent, 0) / 100 + COALESCE({$listing}.markup_fixed, 0))");
     }
 }

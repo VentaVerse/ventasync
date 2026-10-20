@@ -250,7 +250,7 @@ class TikTokMultistoreTest extends TestCase
     {
         $one = TikTokStore::create(['mode' => 'live', 'store_name' => 'Main store']);
         $two = TikTokStore::create(['mode' => 'live', 'store_name' => 'Outlet']);
-        $group = fn ($store, string $name) => tap((new \Extensions\TikTok\Models\TikTokProductGroup())->forceFill(['store_id' => $store->id, 'name' => $name, 'tiktok_category_id' => '900001']))->save();
+        $group = fn ($store, string $name) => tap((new \Extensions\TikTok\Models\TikTokProductGroup())->forceFill(['store_id' => $store->id, 'name' => $name]))->save();
         $x = $group($one, 'Group X');
         $y = $group($one, 'Group Y');
         $onOutlet = $group($two, 'Group Y outlet');

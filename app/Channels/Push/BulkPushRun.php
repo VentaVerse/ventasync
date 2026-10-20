@@ -18,12 +18,19 @@ final class BulkPushRun
         $overflow = array_slice($productIds, $limit);
         $pushed = [];
         $refused = [];
+        $notes = [];
+        $warned = false;
 
         foreach (array_slice($productIds, 0, $limit) as $productId) {
             $answer = $pushOne($productId);
             $name = self::label($productId);
             if ($answer['ok'] ?? false) {
                 $pushed[] = $name;
+                $warned = $warned || ! empty($answer['warning']);
+                $note = trim((string) ($answer['note'] ?? (! empty($answer['warning']) ? ($answer['message'] ?? '') : '')));
+                if ($note !== '') {
+                    $notes[] = $name . ': ' . $note;
+                }
             } else {
                 $refused[] = $name . ': ' . trim((string) ($answer['message'] ?? 'it was refused and gave no reason.'));
             }
@@ -33,6 +40,9 @@ final class BulkPushRun
         if ($pushed !== []) {
             $parts[] = count($pushed) . ' pushed to ' . $channel . '.';
         }
+        if ($notes !== []) {
+            $parts[] = implode(' ', $notes);
+        }
         if ($refused !== []) {
             $parts[] = count($refused) . ' not pushed. ' . implode(' ', $refused);
         }
@@ -40,7 +50,7 @@ final class BulkPushRun
             $parts[] = count($overflow) . ' left for a second press: ' . $limit . ' go up at a time.';
         }
 
-        return ['key' => $pushed === [] ? 'error' : 'status', 'message' => implode(' ', $parts)];
+        return ['key' => $pushed === [] ? 'error' : ($warned ? 'warning' : 'status'), 'message' => implode(' ', $parts)];
     }
 
     public static function label(int $productId): string

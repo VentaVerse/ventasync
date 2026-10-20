@@ -25,10 +25,7 @@ class LazadaListingReadiness
         $region = (string) (LazadaStore::defaultStore()?->region ?? '');
         $attrs = app(LazadaAttributes::class);
 
-        $inherit = app(LazadaInheritedSettings::class);
         $productIds = $listings->pluck('product_id')->filter()->map(fn ($v) => (int) $v)->unique()->values()->all();
-        $groups = $inherit->forProducts($productIds);
-        $listings = $listings->map(fn ($l) => $inherit->fill($l, $groups[(int) $l->product_id] ?? null)['listing']);
         if (!empty($overrides['settings'])) {
             $s = $overrides['settings'];
             $listings = $listings->map(function ($l) use ($s) {
@@ -99,7 +96,6 @@ class LazadaListingReadiness
             $productId = (int) $listing->product_id;
             $gaps = [];
             $product = $products->get($productId);
-            $group = $groups[$productId] ?? null;
 
             foreach ($catalog[$productId] ?? [] as $gap) {
                 $gaps[] = $gap;
@@ -116,7 +112,7 @@ class LazadaListingReadiness
                     $gaps[] = ['code' => ListingState::GAP_SHEET, 'label' => "its category's attribute sheet (Refresh reads it)"];
                 } else {
                     $answered = ($savedAttrs->get($listing->id) ?? collect())->pluck('value', 'attribute_key')->all();
-                    foreach ((array) ($group['attributes'] ?? []) + $sharedAnswers as $k => $v) {
+                    foreach ($sharedAnswers as $k => $v) {
                         if (trim((string) ($answered[$k] ?? '')) === '' && trim((string) $v) !== '') {
                             $answered[$k] = $v;
                         }
@@ -151,7 +147,7 @@ class LazadaListingReadiness
                 }
             }
 
-            foreach ($this->variationGaps($listing, $product, $group, $template, $requiredKeys, $povByProduct->get($productId) ?? collect(), $combosByProduct->get($productId) ?? collect(), $axisByProduct[$productId] ?? 0) as $gap) {
+            foreach ($this->variationGaps($listing, $product, $template, $requiredKeys, $povByProduct->get($productId) ?? collect(), $combosByProduct->get($productId) ?? collect(), $axisByProduct[$productId] ?? 0) as $gap) {
                 $gaps[] = $gap;
             }
 
@@ -162,17 +158,13 @@ class LazadaListingReadiness
         return $out;
     }
 
-    private function variationGaps($listing, ?object $product, ?array $group, ?LazadaCategoryTemplate $template, array $requiredKeys, $povRows, $combos, int $axes): array
+    private function variationGaps($listing, ?object $product, ?LazadaCategoryTemplate $template, array $requiredKeys, $povRows, $combos, int $axes): array
     {
         $gaps = [];
 
         $basePrice = (float) ($product->price ?? 0);
         $fixed = $listing->markup_fixed;
         $percent = $listing->markup_percent;
-        if ($fixed === null && $percent === null && $group) {
-            $fixed = $group['markup_fixed'] ?? null;
-            $percent = $group['markup_percent'] ?? null;
-        }
         $priceOf = fn (?float $absolute) => LazadaPushPayload::computeFinalPrice($absolute !== null ? $absolute : $basePrice, $fixed !== null ? (float) $fixed : null, $percent !== null ? (float) $percent : null);
         $prices = [];
 

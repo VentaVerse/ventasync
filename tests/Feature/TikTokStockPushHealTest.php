@@ -240,31 +240,10 @@ class TikTokStockPushHealTest extends TestCase
         $page->assertDontSee('carries every catalog variation, missing ones included');
     }
 
-    public function test_a_failed_group_batch_does_not_flash_green(): void
-    {
-        $pid = $this->comboProduct(['TT-1' => 5]);
-        $grp = TikTokProductGroup::create(['name' => 'Tone group', 'tiktok_category_id' => '900009']);
-        $pivot = TikTokProductGroupProduct::create([
-            'tiktok_product_group_id' => $grp->id, 'product_id' => $pid,
-            'tiktok_product_id' => 'tt-5', 'tiktok_sku_id' => json_encode(['TT-1' => 's1']),
-            'sync_status' => 'pushed',
-        ]);
-        $this->updateAnswers['inventory'] = ['ok' => true, 'status' => 200, 'body' => ['code' => 500, 'message' => 'internal error']];
-
-        $this->actingAs($this->manager())
-            ->post(route('ext.tiktok.product-groups.pushStock', $grp->id))
-            ->assertRedirect();
-
-        $this->assertNull(session('status'), '0 ok must not wear the green tick');
-        $this->assertStringContainsString('0 ok, 1 failed', (string) session('error'));
-        $this->assertSame('error', $pivot->fresh()->sync_status);
-        $this->assertStringContainsString('internal error', (string) $pivot->fresh()->push_error);
-    }
-
-    public function test_the_price_button_prices_a_product_without_a_listing_rule_by_its_group(): void
+    public function test_the_price_button_prices_a_product_without_a_listing_rule_at_the_catalog_price(): void
     {
         $pid = $this->comboProduct(['TP-1' => 5]);
-        $grp = TikTokProductGroup::create(['name' => 'Priced group', 'tiktok_category_id' => '900009', 'markup_percent' => 20]);
+        $grp = TikTokProductGroup::create(['name' => 'Priced group']);
         TikTokProductGroupProduct::create([
             'tiktok_product_group_id' => $grp->id, 'product_id' => $pid,
             'tiktok_product_id' => 'tt-9', 'tiktok_sku_id' => json_encode(['TP-1' => 's1']), 'sync_status' => 'pushed',
@@ -274,6 +253,6 @@ class TikTokStockPushHealTest extends TestCase
 
         $calls = array_values(array_filter($this->calls, fn ($c) => $c['method'] === 'price'));
         $this->assertCount(1, $calls);
-        $this->assertSame('126', (string) $calls[0]['skus'][0]['price']['amount']);
+        $this->assertSame('105', (string) $calls[0]['skus'][0]['price']['amount'], 'the group\'s 20% is not added');
     }
 }

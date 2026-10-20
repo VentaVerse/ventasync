@@ -3,8 +3,6 @@
 namespace Extensions\TikTok\Services\TikTok;
 
 use Extensions\TikTok\Commands\TikTokPushPrice;
-use Extensions\TikTok\Models\TikTokProductGroup;
-use Extensions\TikTok\Models\TikTokProductGroupProduct;
 use Extensions\TikTok\Models\TikTokStore;
 
 final class TikTokPushSteps
@@ -15,10 +13,7 @@ final class TikTokPushSteps
         foreach (TikTokStore::enabledStores() as $store) {
             app()->instance('tiktok.route-store', $store);
             try {
-                $pids = TikTokProductGroupProduct::query()
-                    ->whereIn('tiktok_product_group_id', TikTokProductGroup::query()->select('id'))
-                    ->whereNotNull('tiktok_product_id')->where('tiktok_product_id', '!=', '')
-                    ->orderBy('product_id')->pluck('product_id')->map(fn ($v) => (int) $v)->unique()->values()->all();
+                $pids = TikTokLinkedRows::get()->pluck('product_id')->map(fn ($v) => (int) $v)->unique()->values()->all();
             } finally {
                 app()->forgetInstance('tiktok.route-store');
             }
@@ -60,9 +55,7 @@ final class TikTokPushSteps
                 if (! $c['app_key'] || ! $c['app_secret'] || ! $c['token']) {
                     return ['error' => 'Store ' . ($raw->store_name ?: '#' . $raw->id) . ' is not connected to TikTok Shop.'];
                 }
-                $pivots = TikTokProductGroupProduct::query()
-                    ->whereIn('tiktok_product_group_id', TikTokProductGroup::query()->select('id'))
-                    ->whereIn('product_id', $pids)->whereNotNull('tiktok_product_id')->where('tiktok_product_id', '!=', '')->get();
+                $pivots = TikTokLinkedRows::get($pids);
                 $results = app(TikTokStockPricePush::class)->push($kind, $c, $pivots, $kind === 'price' ? TikTokPushPrice::priceRule($pivots) : null);
                 TikTokStockPricePush::recordOutcomes($kind, $results['outcomes'], $raw);
                 foreach ($pids as $pid) {

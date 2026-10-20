@@ -55,8 +55,6 @@ class LazadaPushPayload
             $listing->markup_fixed = $settings['markup_fixed'] ?? null;
             $listing->markup_percent = $settings['markup_percent'] ?? null;
         }
-        $inheritedGroup = app(LazadaInheritedSettings::class)->forProducts([(int) $listing->product_id])[(int) $listing->product_id] ?? null;
-        $listing = app(LazadaInheritedSettings::class)->fill($listing, $inheritedGroup)['listing'];
         $langId = (int) config('catalog.default_language_id');
 
         $product = DB::table('products as p')
@@ -100,7 +98,7 @@ class LazadaPushPayload
             ->pluck('value', 'attribute_key')
             ->toArray();
 
-        foreach (($overrides['attributes'] ?? ($inheritedGroup['attributes'] ?? [])) as $oKey => $oValue) {
+        foreach (($overrides['attributes'] ?? []) as $oKey => $oValue) {
             $oKey = (string) $oKey;
             if (!array_key_exists($oKey, $attrs) || trim((string) (is_array($attrs[$oKey]) ? implode('', $attrs[$oKey]) : $attrs[$oKey])) === '') {
                 $attrs[$oKey] = $oValue;
@@ -177,13 +175,6 @@ class LazadaPushPayload
 
         $effectiveFixed = $listing->markup_fixed;
         $effectivePercent = $listing->markup_percent;
-        if ($effectiveFixed === null && $effectivePercent === null) {
-            $mkGroup = $listing->groups()->first();
-            if ($mkGroup) {
-                $effectiveFixed = $mkGroup->markup_fixed;
-                $effectivePercent = $mkGroup->markup_percent;
-            }
-        }
 
         $variantKeys = [];
         $keyForPosition = [];

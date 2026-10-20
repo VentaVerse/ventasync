@@ -49,11 +49,6 @@ class ShopeeListingTemplateController extends \App\Http\Controllers\Channels\Lis
         return new \Extensions\Shopee\Services\Shopee\ShopeeTemplateFields($this->storeId());
     }
 
-    protected function fieldsView(): string
-    {
-        return 'ext-shopee::templates._fields';
-    }
-
     protected function fieldsData(Model $template): array
     {
         $categoryTemplate = null;

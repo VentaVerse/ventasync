@@ -101,7 +101,7 @@ class TikTokStockPushTest extends TestCase
     {
         $group = UserGroup::create(['name' => 'TikTok stock pushers']);
         $group->permissions()->attach(
-            Permission::whereIn('key', ['manage_tiktok/product_group', 'view_tiktok/product_group', 'manage_tiktok/listing', 'view_tiktok/listing'])->pluck('id')->all()
+            Permission::whereIn('key', ['manage_tiktok/product_group', 'view_tiktok/product_group', 'manage_tiktok/listing', 'view_tiktok/listing', 'manage_tiktok/product', 'view_tiktok/product'])->pluck('id')->all()
         );
 
         return User::factory()->create(['user_group_id' => $group->id]);
@@ -171,7 +171,7 @@ class TikTokStockPushTest extends TestCase
     public function test_the_cron_pushes_every_combination_its_own_quantity(): void
     {
         ['product_id' => $productId] = $this->seedTwoAxisProduct();
-        $group = TikTokProductGroup::create(['name' => 'Stock group', 'tiktok_category_id' => '900001']);
+        $group = TikTokProductGroup::create(['name' => 'Stock group']);
         TikTokProductGroupProduct::create([
             'tiktok_product_group_id' => $group->id, 'product_id' => $productId,
             'tiktok_product_id' => 'tt-1', 'sync_status' => 'pushed', 'last_pushed_at' => now(),
@@ -189,7 +189,7 @@ class TikTokStockPushTest extends TestCase
     public function test_a_legacy_map_keyed_by_option_value_id_is_rebuilt_by_seller_sku_before_the_push(): void
     {
         ['product_id' => $productId, 'ovIds' => $ovIds] = $this->seedTwoAxisProduct();
-        $group = TikTokProductGroup::create(['name' => 'Legacy group', 'tiktok_category_id' => '900001']);
+        $group = TikTokProductGroup::create(['name' => 'Legacy group']);
         $pivot = TikTokProductGroupProduct::create([
             'tiktok_product_group_id' => $group->id, 'product_id' => $productId,
             'tiktok_product_id' => 'tt-2', 'sync_status' => 'pushed', 'last_pushed_at' => now(),
@@ -210,10 +210,10 @@ class TikTokStockPushTest extends TestCase
         $this->assertSame(['TTV-Red-S' => 's1', 'TTV-Red-M' => 's2', 'TTV-Black-S' => 's3', 'TTV-Black-M' => 's4'], json_decode((string) $pivot->fresh()->tiktok_sku_id, true));
     }
 
-    public function test_the_group_page_pushes_stock_through_the_same_resolver(): void
+    public function test_the_products_page_pushes_stock_through_the_same_resolver(): void
     {
         ['product_id' => $productId] = $this->seedTwoAxisProduct();
-        $group = TikTokProductGroup::create(['name' => 'Page group', 'tiktok_category_id' => '900001']);
+        $group = TikTokProductGroup::create(['name' => 'Page group']);
         TikTokProductGroupProduct::create([
             'tiktok_product_group_id' => $group->id, 'product_id' => $productId,
             'tiktok_product_id' => 'tt-3', 'sync_status' => 'pushed', 'last_pushed_at' => now(),
@@ -221,7 +221,7 @@ class TikTokStockPushTest extends TestCase
         ]);
 
         $this->actingAs($this->manager())
-            ->post(route('ext.tiktok.product-groups.pushStock', $group->id), ['ids' => [$productId]])
+            ->post(route('ext.tiktok.products.bulk_push_stock'), ['product_ids' => [$productId]])
             ->assertSessionHas('status');
 
         $calls = $this->callsFor('POST', '/product/202309/products/tt-3/inventory/update');
@@ -233,10 +233,11 @@ class TikTokStockPushTest extends TestCase
     public function test_a_push_names_every_axis_on_every_sku_and_stores_the_map_by_seller_sku(): void
     {
         ['product_id' => $productId] = $this->seedTwoAxisProduct();
-        $group = TikTokProductGroup::create(['name' => 'Push group', 'tiktok_category_id' => '900001', 'markup_percent' => 0]);
+        $group = TikTokProductGroup::create(['name' => 'Push group']);
         TikTokProductGroupProduct::create([
             'tiktok_product_group_id' => $group->id, 'product_id' => $productId, 'sync_status' => 'pending',
         ]);
+        \Extensions\TikTok\Models\TikTokListing::query()->updateOrCreate(['product_id' => $productId], ['tiktok_category_id' => '900001']);
         $this->callResponses['POST /product/202309/products'] = function (array $body) {
             $skus = [];
             foreach ($body['skus'] as $i => $sku) {
@@ -247,7 +248,7 @@ class TikTokStockPushTest extends TestCase
         };
 
         $this->actingAs($this->manager())
-            ->post(route('ext.tiktok.product-groups.push', $group->id), ['ids' => [$productId]]);
+            ->post(route('ext.tiktok.products.bulk_push'), ['product_ids' => [$productId]]);
 
         $creates = $this->callsFor('POST', '/product/202309/products');
         $this->assertCount(1, $creates);
@@ -273,10 +274,10 @@ class TikTokStockPushTest extends TestCase
         );
     }
 
-    public function test_the_price_cron_prices_by_the_listing_rule_then_the_group(): void
+    public function test_the_price_cron_prices_by_the_listing_rule_never_the_group(): void
     {
         ['product_id' => $productId] = $this->seedTwoAxisProduct();
-        $group = TikTokProductGroup::create(['name' => 'Price group', 'tiktok_category_id' => '900001', 'markup_percent' => 10]);
+        $group = TikTokProductGroup::create(['name' => 'Price group']);
         TikTokProductGroupProduct::create([
             'tiktok_product_group_id' => $group->id, 'product_id' => $productId,
             'tiktok_product_id' => 'tt-9', 'sync_status' => 'pushed', 'last_pushed_at' => now(),
@@ -288,7 +289,7 @@ class TikTokStockPushTest extends TestCase
         $calls = $this->callsFor('POST', '/product/202309/products/tt-9/prices/update');
         $this->assertCount(1, $calls);
         $byId = collect($calls[0]['body']['skus'])->keyBy('id')->map(fn ($s) => $s['price']['amount']);
-        $this->assertSame(['s1' => '1210', 's2' => '1320', 's3' => '1430', 's4' => '1540'], $byId->all(), 'the group\'s 10% on each combination');
+        $this->assertSame(['s1' => '1100', 's2' => '1200', 's3' => '1300', 's4' => '1400'], $byId->all(), 'no listing rule: the catalog prices, not the group\'s 10%');
         $this->assertSame([], $this->callsFor('POST', '/product/202309/products/tt-9/inventory/update'), 'the price row never sends stock');
 
         (new \Extensions\TikTok\Models\TikTokListing())->forceFill(['product_id' => $productId, 'markup_percent' => 0, 'markup_fixed' => 50])->save();
@@ -307,7 +308,7 @@ class TikTokStockPushTest extends TestCase
             'brand_id' => 0, 'date_added' => now(), 'date_modified' => now(),
         ]);
         ['product_id' => $varied] = $this->seedTwoAxisProduct();
-        $group = TikTokProductGroup::create(['name' => 'Own price group', 'tiktok_category_id' => '900001']);
+        $group = TikTokProductGroup::create(['name' => 'Own price group']);
         TikTokProductGroupProduct::create([
             'tiktok_product_group_id' => $group->id, 'product_id' => $simple,
             'tiktok_product_id' => 'tt-s', 'tiktok_sku_id' => 'single-1', 'sync_status' => 'pushed', 'last_pushed_at' => now(),
@@ -330,15 +331,6 @@ class TikTokStockPushTest extends TestCase
         $this->assertSame(['s1' => '1210', 's2' => '1320', 's3' => '1430', 's4' => '1540'], $byId->all(), 'each variation from the catalog, the stored Price ignored');
     }
 
-    public function test_a_groups_rule_is_the_same_sum_as_a_listings(): void
-    {
-        foreach ([[7.5, null, 123.45], [-10, -5, 1000.0], [null, 50, 99.99], [12.345, 0.555, 10.0]] as [$pct, $fixed, $base]) {
-            $group = (new TikTokProductGroup())->forceFill(['markup_percent' => $pct, 'markup_fixed' => $fixed]);
-            $listing = (new \Extensions\TikTok\Models\TikTokListing())->forceFill(['markup_percent' => $pct, 'markup_fixed' => $fixed]);
-            $this->assertSame($listing->priceFor($base), $group->applyMarkup($base), "percent {$pct}, fixed {$fixed} on {$base}");
-        }
-    }
-
     public function test_another_stores_group_never_reaches_this_store(): void
     {
         $main = TikTokStore::query()->orderBy('id')->first();
@@ -347,16 +339,13 @@ class TikTokStockPushTest extends TestCase
             'access_token' => 't2', 'refresh_token' => 'r2', 'shop_cipher' => 'c2', 'expires_at' => now()->addDays(3),
         ]);
         $pid = 424242;
-        $other = TikTokProductGroup::create(['store_id' => $outlet->id, 'name' => 'Outlet group', 'tiktok_category_id' => '900001', 'markup_percent' => 20]);
+        $other = TikTokProductGroup::create(['store_id' => $outlet->id, 'name' => 'Outlet group']);
         TikTokProductGroupProduct::create(['tiktok_product_group_id' => $other->id, 'product_id' => $pid, 'sync_status' => 'pending']);
 
         $this->app->instance('tiktok.route-store', $main);
         $rule = \Extensions\TikTok\Commands\TikTokPushPrice::priceRule([(object) ['product_id' => $pid]]);
         $this->assertSame(1000.0, $rule(1000.0, (object) ['product_id' => $pid]), 'no group on this store: the catalog price');
         $this->app->forgetInstance('tiktok.route-store');
-
-        $this->assertSame([], app(\Extensions\TikTok\Services\TikTok\TikTokInheritedSettings::class)->forProducts([$pid]),
-            'with no store bound, the lookup reads the default store\'s groups, not every store\'s');
         $this->assertSame((int) $main->id, (int) TikTokStore::defaultStore()->id);
     }
 
@@ -387,7 +376,7 @@ class TikTokStockPushTest extends TestCase
 
     private function linkedInGroup(int $productId, string $ttId, array $map = self::SKU_IDS): TikTokProductGroupProduct
     {
-        $group = TikTokProductGroup::create(['name' => 'Rename group ' . $ttId, 'tiktok_category_id' => '900001']);
+        $group = TikTokProductGroup::create(['name' => 'Rename group ' . $ttId]);
 
         return TikTokProductGroupProduct::create([
             'tiktok_product_group_id' => $group->id, 'product_id' => $productId,
@@ -398,8 +387,12 @@ class TikTokStockPushTest extends TestCase
 
     private function updateThroughGroup(TikTokProductGroupProduct $pivot): \Illuminate\Testing\TestResponse
     {
+        \Extensions\TikTok\Models\TikTokListing::query()->updateOrCreate(['product_id' => $pivot->product_id], [
+            'tiktok_category_id' => '900001', 'tiktok_product_id' => $pivot->tiktok_product_id, 'tiktok_sku_id' => $pivot->tiktok_sku_id,
+        ]);
+
         return $this->actingAs($this->manager())
-            ->post(route('ext.tiktok.product-groups.updateProduct', $pivot->tiktok_product_group_id), ['ids' => [$pivot->product_id]]);
+            ->post(route('ext.tiktok.products.bulk_push'), ['product_ids' => [$pivot->product_id]]);
     }
 
     private static function withoutPicture(array $attributes): array
@@ -498,7 +491,7 @@ class TikTokStockPushTest extends TestCase
         $this->updateThroughGroup($pivot);
 
         $this->assertSame(self::SKU_IDS, array_map(fn ($s) => $s['id'] ?? null, $this->editedSkus('tt-r4')));
-        $this->assertSame(self::SKU_IDS, json_decode((string) $pivot->fresh()->tiktok_sku_id, true));
+        $this->assertSame(self::SKU_IDS, json_decode((string) \Extensions\TikTok\Models\TikTokListing::where('product_id', $productId)->value('tiktok_sku_id'), true));
         $this->assertSame(self::SKU_IDS, json_decode((string) \Extensions\TikTok\Models\TikTokListing::where('product_id', $productId)->value('tiktok_sku_id'), true));
 
         $this->artisan('tiktok:push-stock')->assertExitCode(0);
@@ -572,13 +565,11 @@ class TikTokStockPushTest extends TestCase
         $second = collect($puts[1]['body']['skus'])->keyBy('seller_sku')->all();
         $this->assertSame(self::SKU_IDS, array_map(fn ($s) => $s['id'] ?? null, $second));
         $this->assertSame([['id' => '7301', 'value_id' => '8301', 'value_name' => 'Crimson'], ['id' => '7302', 'value_id' => '9001', 'value_name' => 'S']], self::withoutPicture($second['TTV-Red-S']['sales_attributes']));
-        $this->assertSame('pushed', $pivot->fresh()->sync_status);
-        $response->assertSessionHas('warning');
-        $summary = (string) session('warning');
-        $this->assertStringStartsWith('Update: 1 updated. #' . $productId . ': Variation names were not changed: TikTok Shop refused them (', $summary);
+        $summary = (string) (session('warning') ?? session('status'));
+        $this->assertStringContainsString('Variation names were not changed: TikTok Shop refused them (', $summary);
         $this->assertStringContainsString('sale property is invalid', $summary);
         $this->assertNull(\Extensions\TikTok\Models\TikTokListing::where('product_id', $productId)->value('last_push_error'), 'the update succeeded, so the row carries no error');
-        $this->assertSame(self::SKU_IDS, json_decode((string) $pivot->fresh()->tiktok_sku_id, true));
+        $this->assertSame(self::SKU_IDS, json_decode((string) \Extensions\TikTok\Models\TikTokListing::where('product_id', $productId)->value('tiktok_sku_id'), true));
     }
 
     public function test_an_item_that_cannot_be_read_is_not_edited(): void
@@ -592,7 +583,6 @@ class TikTokStockPushTest extends TestCase
 
         $this->assertSame([], $this->callsFor('PUT', '/product/202309/products/tt-r6'));
         $this->assertSame([], $this->callsFor('POST', '/product/202309/images/upload'), 'not even a picture');
-        $this->assertSame('error', $pivot->fresh()->sync_status);
         $this->assertSame(
             'TikTok Shop did not say which variations this item has (TikTok Shop did not answer: Internal error), so nothing was sent.',
             \Extensions\TikTok\Models\TikTokListing::where('product_id', $productId)->value('last_push_error')
@@ -603,12 +593,14 @@ class TikTokStockPushTest extends TestCase
     {
         ['product_id' => $productId] = $this->seedTwoAxisProduct();
         $this->categoryWithSpecification();
-        $group = TikTokProductGroup::create(['name' => 'Create group', 'tiktok_category_id' => '900001']);
+        $group = TikTokProductGroup::create(['name' => 'Create group']);
         TikTokProductGroupProduct::create(['tiktok_product_group_id' => $group->id, 'product_id' => $productId, 'sync_status' => 'pending']);
+        \Extensions\TikTok\Models\TikTokListing::query()->updateOrCreate(['product_id' => $productId], ['tiktok_category_id' => '900001']);
+        \Extensions\TikTok\Models\TikTokListing::query()->updateOrCreate(['product_id' => $productId], ['tiktok_category_id' => '900001']);
         $this->callResponses['POST /product/202309/products'] = ['ok' => true, 'status' => 200, 'body' => ['code' => 0, 'message' => 'Success',
             'data' => ['product_id' => 'tt-c1', 'skus' => array_map(fn ($seller, $id) => ['id' => $id, 'seller_sku' => $seller], array_keys(self::SKU_IDS), self::SKU_IDS)]]];
 
-        $this->actingAs($this->manager())->post(route('ext.tiktok.product-groups.push', $group->id), ['ids' => [$productId]]);
+        $this->actingAs($this->manager())->post(route('ext.tiktok.products.bulk_push'), ['product_ids' => [$productId]]);
 
         $creates = $this->callsFor('POST', '/product/202309/products');
         $this->assertCount(1, $creates);
@@ -623,7 +615,7 @@ class TikTokStockPushTest extends TestCase
     public function test_the_heal_keeps_a_sku_map_longer_than_255_characters_on_the_group_pivot(): void
     {
         ['product_id' => $productId] = $this->seedTwoAxisProduct();
-        $group = TikTokProductGroup::create(['name' => 'Wide group', 'tiktok_category_id' => '900001']);
+        $group = TikTokProductGroup::create(['name' => 'Wide group']);
         $pivot = TikTokProductGroupProduct::create([
             'tiktok_product_group_id' => $group->id, 'product_id' => $productId,
             'tiktok_product_id' => 'tt-7', 'sync_status' => 'pushed', 'last_pushed_at' => now(),

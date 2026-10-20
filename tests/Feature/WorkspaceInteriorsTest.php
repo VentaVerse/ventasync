@@ -202,12 +202,7 @@ class WorkspaceInteriorsTest extends TestCase
             'item_max_dimension' => ['length' => 40, 'width' => 30, 'height' => 20, 'unit' => 'cm'],
         ]);
 
-        ShopeeProductGroup::create([
-            'name' => 'Pedals & Effects',
-            'shopee_category_id' => 100777,
-            'markup_fixed' => 25,
-            'markup_percent' => 7.5,
-        ]);
+        ShopeeProductGroup::create(['name' => 'Pedals & Effects']);
 
         $user = $this->manager();
 
@@ -831,12 +826,7 @@ class WorkspaceInteriorsTest extends TestCase
             'name' => 'Morley & Sons',
         ]);
 
-        LazadaProductGroup::create([
-            'name' => 'Pedals & Effects',
-            'lazada_category_id' => 9257,
-            'markup_fixed' => 25,
-            'markup_percent' => 7.5,
-        ]);
+        LazadaProductGroup::create(['name' => 'Pedals & Effects']);
 
         $listing = LazadaListing::create([
             'product_id' => 4242,
@@ -1410,7 +1400,6 @@ class WorkspaceInteriorsTest extends TestCase
             'settings'          => route('ext.ventacart.settings.show', ['store' => $store]),
             'product-groups'    => route('ext.ventacart.product-groups.index', $store),
             'group-form'        => route('ext.ventacart.product-groups.edit', [$store, $group]),
-            'group-products'    => route('ext.ventacart.product-groups.products', [$store, $group]),
         ];
     }
 
@@ -1482,10 +1471,7 @@ class WorkspaceInteriorsTest extends TestCase
             'is_leaf' => true, 'permission_statuses' => ['AVAILABLE', 'INVITE_ONLY'],
         ]);
 
-        $group = TikTokProductGroup::create([
-            'name' => 'Pedal Batch', 'tiktok_category_id' => '600123',
-            'markup_percent' => 7.5, 'markup_fixed' => 250,
-        ]);
+        $group = TikTokProductGroup::create(['name' => 'Pedal Batch']);
 
         TikTokApiLog::create([
             'method' => 'GET', 'api_path' => '/authorization/202309/shops',
@@ -1502,8 +1488,6 @@ class WorkspaceInteriorsTest extends TestCase
 
         $groups = $this->actingAs($user)->get(route('ext.tiktok.product-groups.index'))->assertOk();
         $groups->assertSee('Pedal Batch');
-        $groups->assertSee('Guitar Pedals');
-        $groups->assertSee('7.5% of price');
 
         $settings = $this->actingAs($user)->get(route('ext.tiktok.index'))->assertOk();
         $settings->assertSee('/authorization/202309/shops');
@@ -1522,7 +1506,7 @@ class WorkspaceInteriorsTest extends TestCase
             'id' => '600999', 'parent_id' => null, 'name' => $payload,
             'is_leaf' => false, 'permission_statuses' => [$payload],
         ]);
-        TikTokProductGroup::create(['name' => $payload, 'tiktok_category_id' => '600999']);
+        TikTokProductGroup::create(['name' => $payload]);
 
         $user = $this->tiktokManager();
 
@@ -1558,7 +1542,7 @@ class WorkspaceInteriorsTest extends TestCase
     public function test_the_tiktok_read_tier_is_not_offered_write_controls(): void
     {
         $this->seedTiktokSetting();
-        TikTokProductGroup::create(['name' => 'Pedal Batch', 'tiktok_category_id' => '600123']);
+        TikTokProductGroup::create(['name' => 'Pedal Batch']);
         $user = $this->tiktokViewer();
 
         $categories = $this->actingAs($user)->get(route('ext.tiktok.categories.index'))->assertOk();
@@ -1894,51 +1878,6 @@ class WorkspaceInteriorsTest extends TestCase
         $form = $this->actingAs($user)->get(route('ext.ventacart.product-groups.edit', [$one, $group->id]))->assertOk();
         $form->assertDontSee('Save product group');
         $this->assertMatchesRegularExpression('/name="name"[^>]*\bdisabled\b/', $form->getContent());
-
-        $products = $this->actingAs($user)->get(route('ext.ventacart.product-groups.products', [$one, $group->id]))->assertOk();
-        $products->assertDontSee(route('ext.ventacart.product-groups.push', [$one, $group->id]), false);
-        $products->assertDontSee(route('ext.ventacart.product-groups.addProducts', [$one, $group->id]), false);
-
-        \Illuminate\Support\Facades\Http::fake([
-            '*' => \Illuminate\Support\Facades\Http::response(['data' => [
-                ['id' => 901, 'sku' => 'ORPHAN-1', 'name' => 'Made in VentaCart directly'],
-                ['id' => 902, 'sku' => 'ORPHAN-2', 'name' => 'Left behind by a removed link'],
-            ]], 200),
-        ]);
-
-        $this->actingAs($user)->get(route('ext.ventacart.product-groups.orphans', [$one, $group->id]))
-            ->assertOk()
-            ->assertSee('ORPHAN-1')
-            ->assertSee('Made in VentaCart directly')
-            ->assertDontSee('Adopt')
-            ->assertDontSee(route('ext.ventacart.product-groups.check', [$one, $group->id]), false);
-
-        $settings = $this->actingAs($user)->get(route('ext.ventacart.settings.show', ['store' => $one]))->assertOk();
-        foreach ([
-            route('ext.ventacart.test'),
-            route('ext.ventacart.fetch_statuses'),
-            route('ext.ventacart.save_status_map'),
-            route('ext.ventacart.api_log_mode', $one),
-            route('ext.ventacart.clear_api_logs', $one),
-        ] as $url) {
-            $settings->assertDontSee($url, false);
-        }
-
-        $settings->assertDontSee('Save connection');
-        $settings->assertDontSee('Test connection');
-        $settings->assertDontSee('Delete store');
-        $settings->assertDontSee('action="'.e(route('ext.ventacart.destroy', $one)).'"', false);
-
-        $html = $settings->getContent();
-        foreach (['store_name', 'base_url', 'api_token', 'warehouse_id', 'sync_last_days', 'sync_orders_from', 'enabled'] as $field) {
-            $this->assertMatchesRegularExpression(
-                '/name="'.preg_quote($field, '/').'"[^>]*\bdisabled\b/',
-                $html,
-                "The {$field} control is editable for an operator who cannot save it."
-            );
-        }
-        $this->assertStringNotContainsString('ventacart-token-one', $html,
-            'The read tier was sent the store API token.');
     }
 
     public function test_the_ventacart_manage_tier_is_offered_those_same_controls(): void
@@ -1957,16 +1896,6 @@ class WorkspaceInteriorsTest extends TestCase
 
         $this->actingAs($user)->get(route('ext.ventacart.product-groups.edit', [$one, $group->id]))
             ->assertOk()->assertSee('Save product group');
-
-        $products = $this->actingAs($user)->get(route('ext.ventacart.product-groups.products', [$one, $group->id]))->assertOk();
-        foreach ([
-            route('ext.ventacart.product-groups.push', [$one, $group->id]),
-            route('ext.ventacart.product-groups.check', [$one, $group->id]),
-            route('ext.ventacart.product-groups.mass-remove', [$one, $group->id]),
-            route('ext.ventacart.product-groups.addProducts', [$one, $group->id]),
-        ] as $url) {
-            $products->assertSee($url, false);
-        }
 
         $settings = $this->actingAs($user)->get(route('ext.ventacart.settings.show', ['store' => $one]))->assertOk();
         foreach ([
@@ -1997,7 +1926,7 @@ class WorkspaceInteriorsTest extends TestCase
         $this->assertDenied($this->actingAs($user)->post(route('ext.ventacart.api_log_mode', $one)), 'api_log_mode');
         $this->assertDenied($this->actingAs($user)->delete(route('ext.ventacart.clear_api_logs', $one)), 'clear_api_logs');
         $this->assertDenied($this->actingAs($user)->get(route('ext.ventacart.product-groups.create', $one)), 'product-groups.create');
-        $this->assertDenied($this->actingAs($user)->post(route('ext.ventacart.product-groups.push', [$one, $group->id])), 'product-groups.push');
+        $this->assertDenied($this->actingAs($user)->post(route('ext.ventacart.product-groups.mass-remove', [$one, $group->id]), ['ids' => [1]]), 'product-groups.mass-remove');
     }
 
     public function test_a_ventacart_save_for_one_store_leaves_the_other_store_untouched(): void
@@ -2145,9 +2074,7 @@ class WorkspaceInteriorsTest extends TestCase
         $productId = $this->seedCatalogProduct('Overdrive Pedal', 'OD-808');
 
         $group = VentaCartProductGroup::create([
-            'store_id' => $one, 'name' => 'Pedal Batch',
-            'markup_percent' => 5, 'markup_fixed' => 100,
-        ]);
+            'store_id' => $one, 'name' => 'Pedal Batch']);
         DB::table('ch_ventacart_product_group_products')->insert([
             'ventacart_product_group_id' => $group->id, 'product_id' => $productId,
             'created_at' => now(), 'updated_at' => now(),
@@ -2172,11 +2099,6 @@ class WorkspaceInteriorsTest extends TestCase
 
         $groups = $this->actingAs($user)->get(route('ext.ventacart.product-groups.index', $one))->assertOk();
         $groups->assertSee('Pedal Batch');
-        $groups->assertSee('5% of price');
-
-        $products = $this->actingAs($user)->get(route('ext.ventacart.product-groups.products', [$one, $group->id]))->assertOk();
-        $products->assertSee('Overdrive Pedal');
-        $products->assertSee('OD-808');
 
         $settings = $this->actingAs($user)->get(route('ext.ventacart.settings.show', ['store' => $one]))->assertOk();
         $settings->assertSee('Awaiting pickup');

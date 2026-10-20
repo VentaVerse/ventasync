@@ -198,7 +198,7 @@ class LazadaStockPushHealTest extends TestCase
         $clean = $this->named($this->comboProduct(['LZC-1' => 3]), 'Clean quiet product');
         $c = LazadaListing::create(['product_id' => $clean, 'lazada_item_id' => '902', 'live_status' => 'active']);
 
-        $group = \Extensions\Lazada\Models\LazadaProductGroup::create(['name' => 'Filter group', 'lazada_category_id' => 4321]);
+        $group = \Extensions\Lazada\Models\LazadaProductGroup::create(['name' => 'Filter group']);
         foreach ([$a, $b, $c] as $row) {
             \Extensions\Lazada\Models\LazadaProductGroupProduct::create([
                 'lazada_product_group_id' => $group->id, 'product_id' => $row->product_id,
@@ -210,7 +210,7 @@ class LazadaStockPushHealTest extends TestCase
         $this->assertSame([$missing, $refused], $this->states()->erroredProductIds());
         foreach ([
             route('ext.lazada.products.index', ['sync_status' => 'error']) => 'lsm-flag is-on',
-            route('ext.lazada.product-groups.products', [$group->id, 'sync_status' => 'error']) => '>Has an error</option>',
+            route('ext.lazada.products.index', ['group' => $group->id, 'sync_status' => 'error']) => 'lsm-flag is-on',
         ] as $url => $says) {
             $this->actingAs($user)->get($url)->assertOk()
                 ->assertSee('Missing size product')->assertSee('Refused price product')->assertDontSee('Clean quiet product')
@@ -220,7 +220,7 @@ class LazadaStockPushHealTest extends TestCase
         $this->states()->clearErrors([$refused]);
 
         $this->assertSame([$missing], $this->states()->erroredProductIds());
-        foreach ([route('ext.lazada.products.index', ['sync_status' => 'error']), route('ext.lazada.product-groups.products', [$group->id, 'sync_status' => 'error'])] as $url) {
+        foreach ([route('ext.lazada.products.index', ['sync_status' => 'error']), route('ext.lazada.products.index', ['group' => $group->id, 'sync_status' => 'error'])] as $url) {
             $this->actingAs($user)->get($url)->assertOk()
                 ->assertSee('Missing size product')->assertDontSee('Refused price product')->assertDontSee('Clean quiet product');
         }
@@ -260,32 +260,6 @@ class LazadaStockPushHealTest extends TestCase
         $this->assertNull($row->fresh()->lazada_item_id, 'an item another product holds is never adopted');
         $this->assertStringContainsString('linked to Master Catalog product #' . $holder, (string) $this->line($other));
         $this->assertNotNull(session('error'));
-    }
-
-    public function test_a_group_stock_failure_shows_on_the_line_and_its_success_clears_it(): void
-    {
-        $pid = $this->comboProduct(['LZ-1' => 5]);
-        $listing = LazadaListing::create(['product_id' => $pid, 'lazada_item_id' => '900']);
-        LazadaListingVariation::create(['lazada_listing_id' => $listing->id, 'seller_sku' => 'LZ-1', 'sku_id' => 11]);
-        $this->fakeItem(['LZ-1' => 11]);
-        $group = \Extensions\Lazada\Models\LazadaProductGroup::create(['name' => 'Stock group', 'lazada_category_id' => 4321]);
-        $pivot = \Extensions\Lazada\Models\LazadaProductGroupProduct::create([
-            'lazada_product_group_id' => $group->id, 'product_id' => $pid,
-            'lazada_listing_id' => $listing->id, 'sync_status' => 'pushed',
-        ]);
-
-        $this->postResponses['/product/price_quantity/update'] = ['ok' => true, 'status' => 200,
-            'body' => ['code' => '901', 'message' => 'Quota exceeded for this API']];
-        $this->actingAs($this->groupManager())->post(route('ext.lazada.product-groups.pushStock', $group->id), ['ids' => [$pid]])->assertRedirect();
-        $this->assertStringContainsString('Stock push:', (string) $this->line($pid));
-        $this->assertStringContainsString('Quota exceeded', (string) $this->line($pid));
-        $this->assertSame('error', $pivot->fresh()->sync_status);
-
-        unset($this->postResponses['/product/price_quantity/update']);
-        $this->actingAs($this->groupManager())->post(route('ext.lazada.product-groups.pushStock', $group->id), ['ids' => [$pid]])->assertRedirect();
-        $this->assertNull($this->line($pid));
-        $this->assertSame('pushed', $pivot->fresh()->sync_status);
-        $this->assertNull($pivot->fresh()->push_error);
     }
 
     private function updateCalls(): array
@@ -421,7 +395,7 @@ class LazadaStockPushHealTest extends TestCase
         $this->assertStringContainsString('<SkuId>12</SkuId>', $payloads);
     }
 
-    public function test_the_price_cron_prices_by_the_listing_rule_then_the_group_then_the_catalog(): void
+    public function test_the_price_cron_prices_by_the_listing_rule_else_the_catalog_never_the_group(): void
     {
         $a = $this->comboProduct(['LA-1' => 5]);
         $la = LazadaListing::create(['product_id' => $a, 'lazada_item_id' => '901', 'markup_percent' => 10]);
@@ -430,7 +404,7 @@ class LazadaStockPushHealTest extends TestCase
         $b = $this->comboProduct(['LB-1' => 5]);
         $lb = LazadaListing::create(['product_id' => $b, 'lazada_item_id' => '902']);
         LazadaListingVariation::create(['lazada_listing_id' => $lb->id, 'seller_sku' => 'LB-1', 'sku_id' => 12]);
-        $group = \Extensions\Lazada\Models\LazadaProductGroup::create(['name' => 'Grouped', 'lazada_category_id' => 4321, 'markup_percent' => 20]);
+        $group = \Extensions\Lazada\Models\LazadaProductGroup::create(['name' => 'Grouped']);
         \Extensions\Lazada\Models\LazadaProductGroupProduct::create(['lazada_product_group_id' => $group->id, 'product_id' => $b, 'lazada_listing_id' => $lb->id]);
 
         $c = $this->comboProduct(['LC-1' => 5]);
@@ -443,7 +417,7 @@ class LazadaStockPushHealTest extends TestCase
         $this->assertCount(3, $calls);
         $payloads = implode(' ', array_map(fn ($c) => (string) $c['params']['payload'], $calls));
         $this->assertMatchesRegularExpression('~<SkuId>11</SkuId>.*?115\.50~s', $payloads, 'the listing\'s 10%');
-        $this->assertMatchesRegularExpression('~<SkuId>12</SkuId>.*?126\.00~s', $payloads, 'the group\'s 20%');
+        $this->assertMatchesRegularExpression('~<SkuId>12</SkuId>.*?105\.00~s', $payloads, 'the group\'s 20% is not added');
         $this->assertMatchesRegularExpression('~<SkuId>13</SkuId>.*?105\.00~s', $payloads, 'the catalog price as it is');
         $this->assertStringNotContainsString('<Quantity>', $payloads, 'the price row never sends stock');
         $this->assertSame('sync_price', $la->fresh()->last_sync_action);

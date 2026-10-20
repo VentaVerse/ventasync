@@ -15,7 +15,7 @@ final class ShopeeListingSort
             'name' => 'pd.name',
             'catalog_added' => 'p.date_added',
             'price' => 'p.price',
-            'store_price' => ListingSort::storePrice($listing, 'sg'),
+            'store_price' => ListingSort::storePrice($listing),
             'stock' => 'p.quantity',
             'sku' => 'p.sku',
             'brand' => 'm.name',
@@ -26,13 +26,6 @@ final class ShopeeListingSort
 
     public static function join(Builder $query, int $storeId): void
     {
-        ListingSort::joinStore($query, $storeId, ['table' => 'ch_shopee_listings', 'store' => 'store_id'], self::GROUP);
+        ListingSort::joinStore($query, $storeId, ['table' => 'ch_shopee_listings', 'store' => 'store_id']);
     }
-
-    public static function joinGroup(Builder $query, int $storeId): void
-    {
-        ListingSort::joinGroupMarkup($query, $storeId, self::GROUP);
-    }
-
-    private const GROUP = ['pivot' => 'ch_shopee_product_group_products', 'table' => 'ch_shopee_product_groups', 'key' => 'shopee_product_group_id', 'store' => 'store_id'];
 }

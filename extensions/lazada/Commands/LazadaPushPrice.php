@@ -4,7 +4,6 @@ namespace Extensions\Lazada\Commands;
 
 use Extensions\Lazada\Models\LazadaListing;
 use Extensions\Lazada\Models\LazadaStore;
-use Extensions\Lazada\Services\Lazada\LazadaInheritedSettings;
 use Extensions\Lazada\Services\Lazada\LazadaPushPayload;
 use Extensions\Lazada\Services\Lazada\LazadaStockPricePush;
 use Illuminate\Console\Command;
@@ -78,17 +77,9 @@ class LazadaPushPrice extends Command implements \App\Channels\Contracts\Steppab
     public static function priceRule(iterable $listings): \Closure
     {
         $listings = collect($listings);
-        $groups = app(LazadaInheritedSettings::class)->forProducts($listings->pluck('product_id')->map(fn ($v) => (int) $v)->all());
         $rules = [];
         foreach ($listings as $l) {
-            $pid = (int) $l->product_id;
-            $fixed = $l->markup_fixed;
-            $pct = $l->markup_percent;
-            if ($fixed === null && $pct === null && isset($groups[$pid])) {
-                $fixed = $groups[$pid]['markup_fixed'];
-                $pct = $groups[$pid]['markup_percent'];
-            }
-            $rules[$pid] = [$fixed, $pct];
+            $rules[(int) $l->product_id] = [$l->markup_fixed, $l->markup_percent];
         }
 
         return function (int $productId, float $base) use ($rules): float {

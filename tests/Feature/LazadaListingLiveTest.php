@@ -917,99 +917,6 @@ class LazadaListingLiveTest extends TestCase
         $this->assertSame([], $this->sentPosts);
     }
 
-    public function test_a_group_page_tells_the_products_truth_not_its_own_memory(): void
-    {
-        $productId = $this->seedProduct('Truthful group product', 'LZT-TRUTH');
-        $listing = LazadaListing::query()->create([
-            'product_id' => $productId, 'lazada_item_id' => '990077',
-            'last_pushed_at' => now()->subMinutes(5), 'last_push_source' => 'listing',
-        ]);
-        $group = \Extensions\Lazada\Models\LazadaProductGroup::create([
-            'name' => 'Truth group', 'lazada_category_id' => 12345,
-        ]);
-        \Extensions\Lazada\Models\LazadaProductGroupProduct::create([
-            'lazada_product_group_id' => $group->id, 'product_id' => $productId,
-            'lazada_listing_id' => $listing->id,
-            'sync_status' => 'error', 'push_error' => 'Special characters are not allowed.',
-            'last_pushed_at' => now()->subMinutes(37),
-        ]);
-
-        $r = $this->actingAs($this->manager())
-            ->get(route('ext.lazada.product-groups.products', $group->id));
-
-        $r->assertOk();
-        $r->assertSee('990077');
-        $r->assertSee('Listed');
-        $r->assertDontSee('>Failed<', false);
-        $r->assertDontSee('<tr class="cc-err-row">', false);
-        $r->assertDontSee('Special characters');
-    }
-
-    public function test_a_group_push_sends_the_listings_own_values_and_fills_its_blanks_from_the_group(): void
-    {
-        $productId = $this->seedProduct('Group-dressed product', 'GRP-DRESS');
-        DB::table('products')->where('product_id', $productId)->update(['image' => 'catalog/x.png']);
-
-        $listing = LazadaListing::query()->create([
-            'product_id' => $productId, 'primary_category_id' => 111,
-        ]);
-        $listing->forceFill(['markup_fixed' => 5])->save();
-        \Extensions\Lazada\Models\LazadaListingAttribute::create([
-            'lazada_listing_id' => $listing->id, 'attribute_key' => 'material', 'value' => 'Maple',
-        ]);
-
-        $group = \Extensions\Lazada\Models\LazadaProductGroup::create([
-            'name' => 'Dressing group', 'lazada_category_id' => 222,
-            'markup_fixed' => 20,
-        ]);
-        \Extensions\Lazada\Models\LazadaProductGroupProduct::create([
-            'lazada_product_group_id' => $group->id, 'product_id' => $productId,
-            'lazada_listing_id' => $listing->id, 'sync_status' => 'pending',
-        ]);
-        \Extensions\Lazada\Models\LazadaProductGroupAttribute::create([
-            'lazada_product_group_id' => $group->id, 'attribute_key' => 'material', 'value' => 'Rosewood',
-        ]);
-        \Extensions\Lazada\Models\LazadaProductGroupAttribute::create([
-            'lazada_product_group_id' => $group->id, 'attribute_key' => 'warranty_type', 'value' => 'No Warranty',
-        ]);
-        \Extensions\Lazada\Models\LazadaCategoryTemplate::create([
-            'region' => 'ph', 'primary_category_id' => 111,
-            'template_body' => ['data' => ['attributes' => []]], 'fetched_at' => now(),
-        ]);
-
-        $this->postResponses['/image/migrate'] = ['ok' => true, 'status' => 200, 'body' => [
-            'code' => '0', 'data' => ['image' => ['url' => 'https://sg-live.slatic.net/p/fake.jpg']],
-        ]];
-
-        $states = app(\Extensions\Lazada\Services\Lazada\LazadaListingStates::class);
-        $states->recordOutcome($productId, 'Upload refused: an earlier refusal');
-        $this->assertNotNull($states->errors([$productId])[$productId]);
-
-        $this->actingAs($this->manager())
-            ->post(route('ext.lazada.product-groups.push', $group->id), ['ids' => [$productId]])
-            ->assertRedirect();
-
-        $this->assertNull($states->errors([$productId])[$productId], 'a successful group push clears the line');
-
-        $create = collect($this->sentPosts)->firstWhere('path', '/product/create');
-        $this->assertNotNull($create, 'the push must reach /product/create');
-        $payload = (string) ($create['params']['payload'] ?? '');
-        $this->assertStringContainsString('Maple', $payload, "the listing's own answer wins over the group's");
-        $this->assertStringNotContainsString('Rosewood', $payload);
-        $this->assertStringContainsString('No Warranty', $payload, 'the group fills the answer the listing leaves blank');
-        $this->assertStringContainsString('111', $payload, "the listing's own category is sent");
-
-        $listing->refresh();
-        $this->assertSame(111, (int) $listing->primary_category_id, "the listing's own category is untouched");
-        $this->assertSame(5.0, (float) $listing->markup_fixed);
-        $this->assertSame('Maple', \Extensions\Lazada\Models\LazadaListingAttribute::query()
-            ->where('lazada_listing_id', $listing->id)->where('attribute_key', 'material')->value('value'),
-            "the listing's own attribute value is untouched");
-        $this->assertFalse(\Extensions\Lazada\Models\LazadaListingAttribute::query()
-            ->where('lazada_listing_id', $listing->id)->where('attribute_key', 'warranty_type')->exists(),
-            "the group's answer is sent, never written into the listing");
-    }
-
     private function descriptionPicture(string $path): string
     {
         $canvas = imagecreatetruecolor(12, 12);
@@ -1141,7 +1048,7 @@ class LazadaListingLiveTest extends TestCase
         $this->migrateAnswers(['refused.png']);
 
         $listing = LazadaListing::query()->where('product_id', $pid)->firstOrFail();
-        $group = \Extensions\Lazada\Models\LazadaProductGroup::create(['name' => 'Cables', 'lazada_category_id' => 9257]);
+        $group = \Extensions\Lazada\Models\LazadaProductGroup::create(['name' => 'Cables']);
         \Extensions\Lazada\Models\LazadaProductGroupProduct::create([
             'lazada_product_group_id' => $group->id, 'product_id' => $pid,
             'lazada_listing_id' => $listing->id, 'sync_status' => 'pending',
@@ -1150,9 +1057,9 @@ class LazadaListingLiveTest extends TestCase
         $states->recordOutcome($pid, 'Upload refused: an earlier refusal');
 
         $this->actingAs($this->manager())
-            ->post(route('ext.lazada.product-groups.push', $group->id), ['ids' => [$pid]])
+            ->post(route('ext.lazada.products.bulk_push'), ['product_ids' => [$pid]])
             ->assertRedirect()
-            ->assertSessionHas('warning', fn ($message) => str_contains((string) $message, "#{$pid}: 1 picture was left out of the description."));
+            ->assertSessionHas('warning', fn ($message) => str_contains((string) $message, '1 picture was left out of the description.'));
 
         $this->assertStringNotContainsString('refused.png', json_encode($this->updateAttributes()));
         $this->assertNull($states->errors([$pid])[$pid], 'the push went, so the line is cleared, not set to the warning');
@@ -1328,7 +1235,6 @@ class LazadaListingLiveTest extends TestCase
         $this->assertSame('inactive', $listing->fresh()->live_status);
     }
 
-
     private function storeId(): int
     {
         return (int) LazadaStore::defaultStore()->id;
@@ -1500,23 +1406,23 @@ class LazadaListingLiveTest extends TestCase
         }
     }
 
-    public function test_a_group_update_deactivates_a_variation_switched_off_for_the_store(): void
+    public function test_a_bulk_update_deactivates_a_variation_switched_off_for_the_store(): void
     {
         $pid = $this->colorProduct('SW-GRP');
         $this->sellHere($pid, ['SW-GRP-B', 'SW-GRP-G']);
         $this->liveColors('SW-GRP');
         $listing = LazadaListing::query()->where('product_id', $pid)->firstOrFail();
-        $group = \Extensions\Lazada\Models\LazadaProductGroup::create(['name' => 'Switch group', 'lazada_category_id' => 9257]);
+        $group = \Extensions\Lazada\Models\LazadaProductGroup::create(['name' => 'Switch group']);
         \Extensions\Lazada\Models\LazadaProductGroupProduct::create([
             'lazada_product_group_id' => $group->id, 'product_id' => $pid,
             'lazada_listing_id' => $listing->id, 'sync_status' => 'pending',
         ]);
 
         $this->actingAs($this->manager())
-            ->post(route('ext.lazada.product-groups.updateProduct', $group->id), ['ids' => [$pid]])
+            ->post(route('ext.lazada.products.bulk_push'), ['product_ids' => [$pid]])
             ->assertRedirect();
 
-        $this->assertStringContainsString('Switched off on Lazada: Red (SW-GRP-R).', (string) session('status'));
+        $this->assertStringContainsString('Switched off on Lazada: Red (SW-GRP-R).', (string) (session('warning') ?? session('status')));
         $this->assertSame([['Request' => ['Product' => ['ItemId' => 2712258176, 'Skus' => ['SkuId' => 1, 'SellerSku' => 'SW-GRP-R']]]]], $this->deactivations());
         $this->assertSame(['SW-GRP-B', 'SW-GRP-G'], array_keys($this->updateSkus()));
     }

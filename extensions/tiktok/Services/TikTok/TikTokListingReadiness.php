@@ -25,14 +25,11 @@ class TikTokListingReadiness
         $listings = TikTokListing::query()->whereIn('product_id', $productIds)->get()->keyBy(fn ($l) => (int) $l->product_id);
         $linked = $listings->filter(fn ($l) => trim((string) ($l->tiktok_product_id ?? '')) !== '')->keys()->flip()
             ->union(TikTokProductGroupProduct::query()->onStore()->whereIn('product_id', $productIds)->whereNotNull('tiktok_product_id')->pluck('product_id')->map(fn ($v) => (int) $v)->flip());
-        $inherit = app(TikTokInheritedSettings::class);
-        $groups = $inherit->forProducts($productIds);
         foreach ($productIds as $pid) {
             if (! $listings->has($pid)) {
                 $listings->put($pid, (new TikTokListing())->forceFill(['product_id' => $pid]));
             }
         }
-        $listings = $listings->map(fn ($l) => $inherit->fill($l, $groups[(int) $l->product_id] ?? null)['listing']);
         $ownPictures = $listings->filter(fn ($l) => ! empty($l->image_order))->pluck('product_id')
             ->map(fn ($v) => (int) $v)->all();
         $catalog = CatalogGaps::forProducts($productIds, [CatalogGaps::ENABLED, CatalogGaps::IMAGE, CatalogGaps::ANY_SKU], $ownPictures);

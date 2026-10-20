@@ -9,7 +9,7 @@ use Tests\TestCase;
 class VentaCartReconcileTest extends TestCase
 {
     private const CONTROLLER = 'extensions/ventacart/Controllers/VentaCartProductGroupController.php';
-    private const VIEW = 'extensions/ventacart/views/product-groups/products.blade.php';
+    private const VIEW = 'extensions/ventacart/views/listings/index.blade.php';
 
     private const SERVICE = 'extensions/ventacart/Services/VentaCart/VentaCartProductPush.php';
 
@@ -20,10 +20,10 @@ class VentaCartReconcileTest extends TestCase
 
     public function test_the_push_reconciles_before_it_decides(): void
     {
-        $source = $this->source(self::CONTROLLER);
+        $source = $this->source(self::SERVICE);
 
         $reconcile = strpos($source, '$verdict = $this->reconcileLink(');
-        $decide = strpos($source, 'if ($existingLink && $existingLink->ventacart_product_id) {');
+        $decide = strpos($source, 'if ($link && $link->ventacart_product_id) {');
 
         $this->assertNotFalse($reconcile, 'The push no longer reconciles at all.');
         $this->assertNotFalse($decide);
@@ -78,20 +78,11 @@ class VentaCartReconcileTest extends TestCase
 
     public function test_unlink_removes_the_link(): void
     {
-        $body = $this->methodBody('unlinkProduct');
+        $body = $this->methodBody('unlink');
 
-        $this->assertStringContainsString('VentaCartListingLink::where', $body,
+        $this->assertStringContainsString('VentaCartListingLink::query()->where', $body,
             'Unlink still only flips a status flag, so the ERP goes on believing the product is on VentaCart.');
         $this->assertStringContainsString('->delete();', $body);
-    }
-
-    public function test_the_summary_states_the_finding_not_the_outcome(): void
-    {
-        $source = $this->source(self::CONTROLLER);
-
-        $this->assertStringContainsString("' had been removed on VentaCart'", $source);
-        $this->assertStringNotContainsString("'was recreated'", $source,
-            'The summary claims an outcome the push may not have reached, so a failed recreate still reads as one.');
     }
 
     public function test_the_image_wall_is_explained(): void
@@ -109,6 +100,7 @@ class VentaCartReconcileTest extends TestCase
     {
         $map = [
             'reconcileLink' => [\Extensions\VentaCart\Services\VentaCart\VentaCartProductPush::class, self::SERVICE],
+            'unlink' => [\Extensions\VentaCart\Controllers\VentaCartListingController::class, 'extensions/ventacart/Controllers/VentaCartListingController.php'],
         ];
         [$class, $file] = $map[$method] ?? [VentaCartProductGroupController::class, self::CONTROLLER];
         $ref = new ReflectionMethod($class, $method);

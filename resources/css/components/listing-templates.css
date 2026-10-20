@@ -123,3 +123,9 @@
     outline: 2px solid var(--bl-brand-deep);
     outline-offset: -2px;
 }
+
+.pg-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 6px;
+}

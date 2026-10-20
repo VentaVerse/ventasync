@@ -114,20 +114,7 @@
     $canManageGroups = auth()->user()?->hasPermission('manage_ventacart/product_group') ?? false;
     $chosenGroup = collect($statusMenu['groups'])->first(fn ($g) => $g['active'] && $g['key'] !== 'none');
     $groupLine = ($chosenGroup && $canManageGroups) ? [
-        'return' => request()->getRequestUri(),
         'manage' => route('ext.ventacart.product-groups.edit', [$setting->id, $chosenGroup['key']]),
-        'send' => [
-            'action' => route('ext.ventacart.product-groups.push', [$setting->id, $chosenGroup['key']]),
-            'confirm' => 'Send the ticked products to ' . $storeName . ' on the settings of ' . $chosenGroup['label'] . ', rather than their own?',
-        ],
-        'send_all' => [
-            'begin' => route('ext.ventacart.product-groups.send_run_begin', ['store' => $setting->id, 'group' => $chosenGroup['key']]),
-            'step' => route('ext.ventacart.product-groups.send_run_step', ['store' => $setting->id, 'group' => $chosenGroup['key'], 'run' => 0]),
-            'stop' => route('ext.ventacart.product-groups.send_run_stop', ['store' => $setting->id, 'group' => $chosenGroup['key'], 'run' => 0]),
-            'name' => 'Send ' . $chosenGroup['label'],
-            'count' => (int) ($groupSize ?? 0),
-            'confirm' => 'Send all ' . number_format((int) ($groupSize ?? 0)) . ' ' . \Illuminate\Support\Str::plural('product', (int) ($groupSize ?? 0)) . ' in ' . $chosenGroup['label'] . ' to ' . $storeName . ' on group settings, rather than their own?',
-        ],
     ] : null;
 @endphp
 @include('partials.listing-stand-segment', ['menu' => $statusMenu, 'group' => $groupLine])
@@ -240,7 +227,7 @@
 
             $products->pluck('product_id')->map(fn ($v) => (int) $v)->all(),
 
-            'ch_ventacart_listings', 'store_id', 'ch_ventacart_product_groups', 'ch_ventacart_product_group_products', 'ventacart_product_group_id', 'store_id'
+            'ch_ventacart_listings', 'store_id'
 
         );
 

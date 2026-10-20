@@ -122,17 +122,4 @@ class ChannelProductStatusTest extends TestCase
         $this->assertLessThan(500, mb_strlen($stored), 'The reason was stored unbounded.');
         $this->assertStringEndsWith('...', $stored, 'Truncation is not signposted to the reader.');
     }
-
-    public function test_every_channel_routes_its_status_writes_through_one_place(): void
-    {
-        foreach (['shopee', 'lazada', 'tiktok', 'ventacart'] as $channel) {
-            $path = glob(base_path("extensions/{$channel}/Controllers/*ProductGroupController.php"))[0] ?? null;
-
-            $this->assertNotNull($path, "No product-group controller found for {$channel}.");
-
-            $this->assertStringContainsString('ChannelProductStatus::write(', file_get_contents($path),
-                "{$channel} writes product status without going through the shared writer, so its "
-                .'groups can disagree with each other again.');
-        }
-    }
 }

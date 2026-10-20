@@ -242,20 +242,18 @@ class WatermarkTemplateTest extends TestCase
         $this->assertStringStartsWith('image/', (string) $response->headers->get('Content-Type'));
     }
 
-    public function test_a_listings_own_template_beats_its_groups_and_none_means_none(): void
+    public function test_a_listings_own_template_is_the_one_used_and_none_means_none(): void
     {
         $path = $this->mark();
         $own = $this->template(['name' => 'Own', 'image_path' => $path]);
-        $group = $this->template(['name' => 'Group', 'image_path' => $path]);
         $second = ShopeeStore::create(['mode' => 'live', 'store_name' => 'Second store']);
         $foreign = WatermarkTemplate::create(['channel' => 'shopee', 'store_id' => $second->id, 'name' => 'Foreign', 'image_path' => $path]);
 
         $store = $this->store->id;
-        $this->assertSame($own->id, WatermarkTemplate::resolve($own->id, $group->id, 'shopee', $store)?->id);
-        $this->assertSame($group->id, WatermarkTemplate::resolve(null, $group->id, 'shopee', $store)?->id);
-        $this->assertNull(WatermarkTemplate::resolve(null, null, 'shopee', $store));
-        $this->assertNull(WatermarkTemplate::resolve(999999, null, 'shopee', $store));
-        $this->assertNull(WatermarkTemplate::resolve($foreign->id, null, 'shopee', $store));
+        $this->assertSame($own->id, WatermarkTemplate::resolve($own->id, 'shopee', $store)?->id);
+        $this->assertNull(WatermarkTemplate::resolve(null, 'shopee', $store));
+        $this->assertNull(WatermarkTemplate::resolve(999999, 'shopee', $store));
+        $this->assertNull(WatermarkTemplate::resolve($foreign->id, 'shopee', $store));
         $this->assertNull(WatermarkTemplate::idOrNull($foreign->id, 'shopee', $store));
         $this->assertSame($own->id, WatermarkTemplate::idOrNull($own->id, 'shopee', $store));
     }
@@ -283,6 +281,6 @@ class WatermarkTemplateTest extends TestCase
             ->assertRedirect($this->url('index'));
 
         $this->assertSame(0, WatermarkTemplate::count());
-        $this->assertNull(WatermarkTemplate::resolve($template->id, null, 'shopee', $this->store->id));
+        $this->assertNull(WatermarkTemplate::resolve($template->id, 'shopee', $this->store->id));
     }
 }

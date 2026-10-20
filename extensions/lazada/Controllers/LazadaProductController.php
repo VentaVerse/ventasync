@@ -11,7 +11,6 @@ use Extensions\Lazada\Models\LazadaApiLog;
 use Extensions\Lazada\Models\LazadaImageLink;
 use Extensions\Lazada\Models\LazadaListing;
 use Extensions\Lazada\Models\LazadaListingAttribute;
-use Extensions\Lazada\Models\LazadaProductGroupAttribute;
 use Extensions\Lazada\Models\LazadaListingVariation;
 use Extensions\Lazada\Models\LazadaStore;
 use App\Services\ActivityLogger;
@@ -439,7 +438,6 @@ private function persistProductSyncStatus(LazadaListing $listing, string $action
         $order = \App\Channels\Listings\ListingSort::chosen($request, 'lazada.listings.' . $storeId);
         $byHeading = $request->filled('sort');
         if (! $byHeading) {
-            \Extensions\Lazada\Services\LazadaListingSort::joinGroup($query, $storeId);
             \App\Channels\Listings\ListingSort::apply($query, $order, $sortMenu);
         } elseif (isset($sortExpressions[$sort])) {
             $query->orderByRaw($sortExpressions[$sort] . ' ' . $dir);
@@ -481,8 +479,7 @@ private function persistProductSyncStatus(LazadaListing $listing, string $action
             $marks = new \App\Channels\Listings\ListingMarks(
                 'lazada', \App\Channels\Listings\ListingStore::id('lazada'),
                 $products->pluck('product_id')->map(fn ($v) => (int) $v)->all(),
-                'ch_lazada_listings', 'store_id',
-                'ch_lazada_product_groups', 'ch_lazada_product_group_products', 'lazada_product_group_id', 'store_id'
+                'ch_lazada_listings', 'store_id'
             );
             $productThumbsById = $products->mapWithKeys(function ($r) use ($marks) {
                 $marked = $marks->thumb((int) $r->product_id, $r->image ?? null);
@@ -568,7 +565,6 @@ private function persistProductSyncStatus(LazadaListing $listing, string $action
             'listTab' => 'store',
             'failedFlag' => $failedFlag,
             'changeFlag' => $changeFlag,
-            'groupSize' => ctype_digit((string) $groupFilter) ? app(\Extensions\Lazada\Controllers\LazadaProductGroupController::class)->groupSendSize((int) $groupFilter) : null,
             'statusMenu' => \App\Channels\Listings\StatusMenu::build([
                 'url' => fn (array $params) => route('ext.lazada.products.index', $params),
                 'query' => $request->query(),
@@ -923,13 +919,6 @@ private function persistProductSyncStatus(LazadaListing $listing, string $action
 
         $fixedMarkup = $listing->markup_fixed;
         $percentMarkup = $listing->markup_percent;
-        if ($fixedMarkup === null && $percentMarkup === null) {
-            $mkGroup = $listing->groups()->first();
-            if ($mkGroup) {
-                $fixedMarkup = $mkGroup->markup_fixed;
-                $percentMarkup = $mkGroup->markup_percent;
-            }
-        }
 
         $mPct = (float) ($percentMarkup ?? 0);
         $mFixed = (float) ($fixedMarkup ?? 0);
@@ -1092,8 +1081,7 @@ private function persistProductSyncStatus(LazadaListing $listing, string $action
     private function pushOne(int $productId, LazadaClient $client): array
     {
         $saved = $this->listingFor($productId);
-        $inherit = app(\Extensions\Lazada\Services\Lazada\LazadaInheritedSettings::class);
-        $listing = $inherit->fill($saved, $inherit->forProducts([(int) $saved->product_id])[(int) $saved->product_id] ?? null)['listing'];
+        $listing = clone $saved;
 
         $store = LazadaStore::defaultStore()?->decrypted();
         $creds = LazadaStore::activeCredentials($store);
@@ -1219,7 +1207,8 @@ private function persistProductSyncStatus(LazadaListing $listing, string $action
 
                 $note = $this->payload()->renameWarning($preview);
 
-                return ['ok' => true, 'message' => LazadaVariationSwitch::line('Update pushed.', $relinkNote, $switchNote, $pictureNote, $note), 'errors' => [], 'warning' => $pictureNote !== null];
+                return ['ok' => true, 'message' => LazadaVariationSwitch::line('Update pushed.', $relinkNote, $switchNote, $pictureNote, $note), 'errors' => [], 'warning' => $pictureNote !== null,
+                    'note' => LazadaVariationSwitch::line(null, $relinkNote, $switchNote, $pictureNote, $note)];
             }
 
             $itemId = $this->payload()->extractCreatedItemId($result);
@@ -1639,13 +1628,7 @@ public function bulkSyncPrice(Request $request, LazadaClient $client)
 
     $rules = [];
     foreach ($listings as $l) {
-        $fixed = $l->markup_fixed;
-        $pct = $l->markup_percent;
-        if ($fixed === null && $pct === null) {
-            $g = $l->groups()->first();
-            if ($g) { $fixed = $g->markup_fixed; $pct = $g->markup_percent; }
-        }
-        $rules[(int) $l->product_id] = [$fixed, $pct];
+        $rules[(int) $l->product_id] = [$l->markup_fixed, $l->markup_percent];
     }
 
     $results = app(\Extensions\Lazada\Services\Lazada\LazadaStockPricePush::class)
@@ -1854,8 +1837,7 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
         $template = null;
         $attributes = [];
         $selectedBrandName = '';
-        $inheritSvc = app(\Extensions\Lazada\Services\Lazada\LazadaInheritedSettings::class);
-        $shown = $inheritSvc->fill($listing, $inheritSvc->forProducts([(int) $listing->product_id])[(int) $listing->product_id] ?? null)['listing'];
+        $shown = $listing;
         if (!empty($shown->brand_id)) {
             $b = LazadaBrand::query()
                 ->where('region', $this->region())
@@ -1939,7 +1921,7 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
 
         $groupBand = $listing->exists ? $this->groupBandFor($listing) : ['current' => null, 'groups' => [], 'values' => []];
 
-        return view('ext-lazada::products.form', \App\Channels\Listings\ListingImages::cardData((int) $listing->product_id, $listing->image_order ?? null, $listing ?? null, \App\Services\Media\ListingWatermark::groupTemplateId('ch_lazada_product_groups', 'ch_lazada_product_group_products', 'lazada_product_group_id', (int) $listing->product_id, 'store_id', (int) ($listing->store_id ?? 0) ?: null), 'lazada', \App\Channels\Listings\ListingStore::id('lazada')) + [
+        return view('ext-lazada::products.form', \App\Channels\Listings\ListingImages::cardData((int) $listing->product_id, $listing->image_order ?? null, $listing ?? null, 'lazada', \App\Channels\Listings\ListingStore::id('lazada')) + [
             'readiness' => $readiness,
             'listingState' => $listingState,
             'coverage' => $coverage,
@@ -1978,72 +1960,10 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
 
     private function groupBandFor(LazadaListing $listing): array
     {
-        $storeId = (int) ($listing->store_id ?? 0);
-        $current = \App\Channels\Listings\ListingGroup::current([
+        return \App\Channels\Listings\ListingGroup::band([
             'pivot' => 'ch_lazada_product_group_products', 'fk' => 'lazada_product_group_id',
-            'groups' => 'ch_lazada_product_groups', 'storeFk' => 'store_id',
-            'storeId' => $storeId,
-        ], (int) $listing->product_id);
-
-        $groups = \Extensions\Lazada\Models\LazadaProductGroup::query()
-            ->where('store_id', $storeId)
-            ->orderBy('name')
-            ->get(['id', 'name', 'lazada_category_id', 'brand_id', 'brand_name_override', 'markup_fixed', 'markup_percent', 'watermark_template_id']);
-        $groupIds = $groups->pluck('id')->map(fn ($v) => (int) $v)->all();
-
-        $categoryNames = LazadaCategory::query()
-            ->whereIn('category_id', $groups->pluck('lazada_category_id')->filter()->map(fn ($v) => (int) $v)->unique()->values()->all() ?: [0])
-            ->pluck('name', 'category_id');
-        $brandNames = LazadaBrand::query()
-            ->where('region', $this->region())
-            ->whereIn('brand_id', $groups->pluck('brand_id')->filter()->map(fn ($v) => (int) $v)->unique()->values()->all() ?: [0])
-            ->pluck('name', 'brand_id');
-        $answers = LazadaProductGroupAttribute::query()
-            ->whereIn('lazada_product_group_id', $groupIds ?: [0])
-            ->get(['lazada_product_group_id', 'attribute_key', 'value'])
-            ->filter(fn ($a) => trim((string) $a->value) !== '' && strtolower(trim((string) $a->attribute_key)) !== 'brand')
-            ->groupBy('lazada_product_group_id');
-
-        $list = [];
-        $values = [];
-        foreach ($groups as $g) {
-            $id = (int) $g->id;
-            $list[] = [
-                'id' => $id,
-                'name' => (string) $g->name,
-                'url' => $storeId > 0
-                    ? route('ext.lazada.product-groups.products', ['store' => $storeId, 'id' => $id])
-                    : route('ext.lazada.product-groups.products', $id),
-            ];
-
-            $categoryId = (int) ($g->lazada_category_id ?? 0);
-            $categoryName = $categoryId > 0 ? (string) ($categoryNames[$categoryId] ?? '') : '';
-
-            $brandId = (int) ($g->brand_id ?? 0);
-            $override = trim((string) ($g->brand_name_override ?? ''));
-            $none = strtolower($override) === 'no brand';
-            $brand = null;
-            if ($brandId > 0 || $override !== '') {
-                $brand = [
-                    'id' => $brandId ?: null,
-                    'label' => $none ? 'No Brand' : (string) ($brandNames[$brandId] ?? $override),
-                    'none' => $none,
-                ];
-            }
-
-            $values[$id] = [
-                'category' => $categoryId > 0
-                    ? ['id' => $categoryId, 'label' => $categoryName !== '' ? $categoryName . ' (' . $categoryId . ')' : (string) $categoryId]
-                    : null,
-                'brand' => $brand,
-                'markup_percent' => $g->markup_percent,
-                'markup_fixed' => $g->markup_fixed,
-                'watermark' => $g->watermark_template_id !== null ? (int) $g->watermark_template_id : null,
-                'attributes' => ($answers[$id] ?? collect())->pluck('value', 'attribute_key')->all(),
-            ];
-        }
-
-        return ['current' => $current, 'groups' => $list, 'values' => $values];
+            'groups' => 'ch_lazada_product_groups', 'storeFk' => 'store_id', 'storeId' => (int) ($listing->store_id ?? 0),
+        ], (int) $listing->product_id, 'ext.lazada.products.index');
     }
 
     public function update(Request $request, int $productId)
@@ -2124,28 +2044,6 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
             ], (int) $listing->product_id, $picked['id'], ['lazada_listing_id' => $listing->id, 'created_at' => now()]);
         }
 
-        $followGroup = app(\Extensions\Lazada\Services\Lazada\LazadaInheritedSettings::class)->forProducts([(int) $listing->product_id])[(int) $listing->product_id] ?? null;
-        if ($followGroup) {
-            $groupWatermark = (int) \Extensions\Lazada\Models\LazadaProductGroup::query()->whereKey($followGroup['group_id'] ?? 0)->value('watermark_template_id');
-            if ((int) ($listing->watermark_template_id ?? 0) > 0 && (int) $listing->watermark_template_id === $groupWatermark) {
-                $listing->watermark_template_id = null;
-            }
-            if ((int) ($listing->primary_category_id ?? 0) > 0 && (int) $listing->primary_category_id === (int) ($followGroup['category_id'] ?? 0)) {
-                $listing->primary_category_id = null;
-            }
-            if ((int) ($listing->brand_id ?? 0) === (int) ($followGroup['brand_id'] ?? 0)
-                && strtolower(trim((string) $listing->brand_name_override)) === strtolower(trim((string) ($followGroup['brand_name'] ?? '')))) {
-                $listing->brand_id = null;
-                $listing->brand_name_override = null;
-            }
-            $num = fn ($v) => ($v === null || $v === '') ? null : (float) $v;
-            if ($num($listing->markup_fixed) === $num($followGroup['markup_fixed'] ?? null)
-                && $num($listing->markup_percent) === $num($followGroup['markup_percent'] ?? null)) {
-                $listing->markup_fixed = null;
-                $listing->markup_percent = null;
-            }
-        }
-
         if ($request->has('image_order')) {
             $listing->image_order = \App\Channels\Listings\ListingImages::submitted(
                 (int) $listing->product_id,
@@ -2157,7 +2055,7 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
         $listing->save();
 
         if ($request->has('attributes')) {
-            $this->storeAttributes($listing, (array) ($data['attributes'] ?? []), (array) ($followGroup['attributes'] ?? []));
+            $this->storeAttributes($listing, (array) ($data['attributes'] ?? []));
         }
         if ($request->has('variants')) {
             $this->storeVariants($listing, (array) ($data['variants'] ?? []));
@@ -2209,19 +2107,14 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
         return $errors;
     }
 
-    private function storeAttributes(LazadaListing $listing, array $attrs, array $groupAnswers = []): void
+    private function storeAttributes(LazadaListing $listing, array $attrs): void
     {
         unset($attrs['brand']);
 
-        DB::transaction(function () use ($listing, $attrs, $groupAnswers) {
+        DB::transaction(function () use ($listing, $attrs) {
             foreach ($attrs as $key => $value) {
                 $key = trim((string) $key);
                 if ($key === '') {
-                    continue;
-                }
-                if (array_key_exists($key, $groupAnswers)
-                    && strtolower(trim((string) $value)) === strtolower(trim((string) $groupAnswers[$key]))) {
-                    LazadaListingAttribute::query()->where('lazada_listing_id', $listing->id)->where('attribute_key', $key)->delete();
                     continue;
                 }
                 LazadaListingAttribute::query()->updateOrCreate(
@@ -2241,15 +2134,7 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
             ->pluck('value', 'attribute_key')
             ->toArray();
 
-        $groupAttrs = [];
-        $firstGroup = $listing->groups()->first();
-        if ($firstGroup) {
-            $groupAttrs = LazadaProductGroupAttribute::query()
-                ->where('lazada_product_group_id', $firstGroup->id)
-                ->pluck('value', 'attribute_key')
-                ->toArray();
-        }
-        $saved = array_merge($groupAttrs, $productOwnSaved);
+        $saved = $productOwnSaved;
 
         $productRow = DB::table('products as p')
             ->leftJoin('product_descriptions as pd', function ($j) use ($langId) {

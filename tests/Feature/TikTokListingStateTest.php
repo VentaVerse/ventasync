@@ -133,7 +133,7 @@ class TikTokListingStateTest extends TestCase
     public function test_a_pivot_only_product_counts_as_linked(): void
     {
         $productId = $this->seedProduct('Pivot legacy', 'PV-1');
-        $grp = TikTokProductGroup::create(['name' => 'Legacy group', 'tiktok_category_id' => '900009']);
+        $grp = TikTokProductGroup::create(['name' => 'Legacy group']);
         TikTokProductGroupProduct::create([
             'tiktok_product_group_id' => $grp->id, 'product_id' => $productId,
             'tiktok_product_id' => 'tt-legacy', 'sync_status' => 'pushed',
@@ -163,7 +163,7 @@ class TikTokListingStateTest extends TestCase
         DB::table('products')->where('product_id', $notListed)->update(['date_modified' => now()->addMinute()]);
 
         $pivotOnly = $this->seedProduct('Pivot only', 'DR-4');
-        $grp = TikTokProductGroup::create(['name' => 'Drift group', 'tiktok_category_id' => '900009']);
+        $grp = TikTokProductGroup::create(['name' => 'Drift group']);
         TikTokProductGroupProduct::create(['tiktok_product_group_id' => $grp->id, 'product_id' => $pivotOnly, 'tiktok_product_id' => 'tt-804', 'sync_status' => 'pushed']);
 
         $states = $this->engine()->forProducts([$inSync, $behind, $notListed, $pivotOnly]);
@@ -188,26 +188,6 @@ class TikTokListingStateTest extends TestCase
         $listing = TikTokListing::query()->where('product_id', $productId)->first();
         $this->assertNull($listing->tiktok_product_id);
         $this->assertNull($listing->live_status, 'a kept status would be stale forever');
-        $this->assertSame(ListingState::NOT_LISTED, $this->engine()->forProducts([$productId])[$productId]->state);
-    }
-
-    public function test_group_unlink_clears_the_listing_row_too(): void
-    {
-        $productId = $this->seedProduct('Group cut', 'GC-1');
-        TikTokListing::create(['product_id' => $productId, 'tiktok_product_id' => 'tt-702', 'live_status' => 'ACTIVATE', 'live_checked_at' => now()]);
-        $grp = TikTokProductGroup::create(['name' => 'Cutting group', 'tiktok_category_id' => '900009']);
-        TikTokProductGroupProduct::create([
-            'tiktok_product_group_id' => $grp->id, 'product_id' => $productId,
-            'tiktok_product_id' => 'tt-702', 'sync_status' => 'pushed',
-        ]);
-
-        $this->actingAs($this->manager())
-            ->post(route('ext.tiktok.product-groups.unlinkProduct', [$grp->id, $productId]))
-            ->assertRedirect();
-
-        $listing = TikTokListing::query()->where('product_id', $productId)->first();
-        $this->assertNull($listing->tiktok_product_id, 'the listing row lets go too');
-        $this->assertNull($listing->live_status);
         $this->assertSame(ListingState::NOT_LISTED, $this->engine()->forProducts([$productId])[$productId]->state);
     }
 
@@ -321,35 +301,16 @@ class TikTokListingStateTest extends TestCase
         $this->assertNull($this->engine()->errors([$pid])[$pid]);
     }
 
-    public function test_a_group_is_a_preset_the_product_inherits(): void
+    public function test_a_group_fills_nothing_in_at_send_time(): void
     {
-        $pid = $this->seedProduct('Inherits one', 'IN-1');
-        $listing = TikTokListing::query()->create(['product_id' => $pid]);
-        $grp = TikTokProductGroup::create(['name' => 'Preset group', 'tiktok_category_id' => '900009']);
-        TikTokProductGroupProduct::create([
-            'tiktok_product_group_id' => $grp->id, 'product_id' => $pid,
-            'sync_status' => 'pending',
-        ]);
-
-        $inherit = app(\Extensions\TikTok\Services\TikTok\TikTokInheritedSettings::class);
-        $filled = $inherit->fill($listing, $inherit->forProducts([$pid])[$pid] ?? null);
-        $this->assertSame('900009', $filled['listing']->tiktok_category_id);
-        $this->assertSame(['category' => 'Preset group'], $filled['inherited']);
+        $pid = $this->seedProduct('Grouped one', 'IN-1');
+        TikTokListing::query()->create(['product_id' => $pid]);
+        $grp = TikTokProductGroup::create(['name' => 'Preset group']);
+        TikTokProductGroupProduct::create(['tiktok_product_group_id' => $grp->id, 'product_id' => $pid, 'sync_status' => 'pending']);
 
         $codes = array_column(app(\Extensions\TikTok\Services\TikTok\TikTokListingReadiness::class)
             ->forProducts([$pid])[$pid]['gaps'], 'code');
-        $this->assertNotContains(\App\Channels\Listings\ListingState::GAP_CATEGORY, $codes);
-        $this->assertContains(\App\Channels\Listings\ListingState::GAP_SHEET, $codes, 'the inherited category is judged like its own: its sheet is still unread');
-
-        $this->assertNull(TikTokListing::query()->where('product_id', $pid)->value('tiktok_category_id'));
-        $this->assertNull($listing->tiktok_category_id);
-
-        $own = $this->seedProduct('Own one', 'OW-1');
-        $ownListing = TikTokListing::query()->create(['product_id' => $own, 'tiktok_category_id' => '900777']);
-        TikTokProductGroupProduct::create(['tiktok_product_group_id' => $grp->id, 'product_id' => $own, 'sync_status' => 'pending']);
-        $filled = $inherit->fill($ownListing, $inherit->forProducts([$own])[$own] ?? null);
-        $this->assertSame('900777', $filled['listing']->tiktok_category_id);
-        $this->assertSame([], $filled['inherited']);
+        $this->assertContains(\App\Channels\Listings\ListingState::GAP_CATEGORY, $codes, 'the group\'s category is not the listing\'s');
     }
 
     private function linkedSingle(string $name, string $sku, string $ttId): int
@@ -433,7 +394,7 @@ class TikTokListingStateTest extends TestCase
     public function test_unlink_clears_the_line(): void
     {
         $pid = $this->linkedSingle('Cut with an error', 'CE-1', 'tt-601');
-        $grp = TikTokProductGroup::create(['name' => 'Erroring group', 'tiktok_category_id' => '900009']);
+        $grp = TikTokProductGroup::create(['name' => 'Erroring group']);
         TikTokProductGroupProduct::create([
             'tiktok_product_group_id' => $grp->id, 'product_id' => $pid,
             'tiktok_product_id' => 'tt-601', 'sync_status' => 'error', 'push_error' => 'Category attribute missing.',
@@ -448,20 +409,6 @@ class TikTokListingStateTest extends TestCase
         $this->assertSame('unlinked', $pivot->sync_status, 'unlinked is kept');
         $this->assertNull($pivot->push_error);
         $this->assertNull(TikTokListing::query()->where('product_id', $pid)->value('last_push_error'));
-    }
-
-    public function test_removing_from_the_group_clears_the_line(): void
-    {
-        $pid = $this->linkedSingle('Leaves the group', 'LG-1', 'tt-611');
-        $grp = TikTokProductGroup::create(['name' => 'Leaving group', 'tiktok_category_id' => '900009']);
-        TikTokProductGroupProduct::create(['tiktok_product_group_id' => $grp->id, 'product_id' => $pid, 'tiktok_product_id' => 'tt-611', 'sync_status' => 'pushed']);
-        $this->engine()->recordOutcome($pid, 'Update refused.');
-
-        $this->actingAs($this->manager())
-            ->delete(route('ext.tiktok.product-groups.removeProduct', [$grp->id, $pid]))
-            ->assertRedirect();
-
-        $this->assertNull($this->engine()->errors([$pid])[$pid]);
     }
 
     public function test_the_error_filter_lists_exactly_the_rows_with_an_error_line(): void
@@ -494,13 +441,12 @@ class TikTokListingStateTest extends TestCase
         $this->actingAs($user)->get(route('ext.tiktok.products.index', ['sync_status' => 'error']))
             ->assertOk()->assertSee('Short a variation')->assertDontSee('Refused then fixed');
 
-        $grp = TikTokProductGroup::create(['name' => 'Filter group', 'tiktok_category_id' => '900009']);
+        $grp = TikTokProductGroup::create(['name' => 'Filter group']);
         foreach ([$short, $refused, $clean] as $pid) {
             TikTokProductGroupProduct::create(['tiktok_product_group_id' => $grp->id, 'product_id' => $pid, 'sync_status' => 'pending']);
         }
-        $this->actingAs($user)->get(route('ext.tiktok.product-groups.products', ['store' => $storeId, 'id' => $grp->id, 'sync_status' => 'error']))
-            ->assertOk()->assertSee('Short a variation')->assertDontSee('Refused then fixed')->assertDontSee('Nothing wrong here')
-            ->assertSee('>Has an error</option>', false);
+        $this->actingAs($user)->get(route('ext.tiktok.products.index', ['store' => $storeId, 'group' => $grp->id, 'sync_status' => 'error']))
+            ->assertOk()->assertSee('Short a variation')->assertDontSee('Refused then fixed')->assertDontSee('Nothing wrong here');
     }
 
     public function test_an_outcome_lands_on_the_store_it_is_about(): void
