@@ -388,7 +388,10 @@ class OrderController extends Controller
 
         $defaultCurrency = \App\Models\Currency::where('is_default', 1)->first();
 
-        return view('sales.orders.show', compact('order', 'statuses', 'history', 'products', 'orderTotals', 'catalogProducts', 'orderLineImages', 'orderProfit', 'payments', 'totalPaid', 'defaultCurrency'));
+        $invoice = \App\Models\Invoice::where('order_id', $order->order_id)->first();
+        $nextInvoice = $invoice ? null : app(\App\Services\Sales\InvoiceNumbers::class)->preview();
+
+        return view('sales.orders.show', compact('order', 'statuses', 'history', 'products', 'orderTotals', 'catalogProducts', 'orderLineImages', 'orderProfit', 'payments', 'totalPaid', 'defaultCurrency', 'invoice', 'nextInvoice'));
     }
 
     public function updateStatus(Request $request, $id)

@@ -36,12 +36,6 @@
     $balance = $orderTotal - $totalPaid;
 
 
-    $orderActions = array_values(array_filter(
-        $registry->orderActions($order),
-        fn (array $a) => empty($a['permission']) || (auth()->user()?->hasPermission($a['permission']) ?? false)
-    ));
-    $headNotes = $registry->orderHeadNotes($order);
-
     $marginTone = fn (float $pct) => $pct >= 20 ? '' : ($pct >= 10 ? 'od-warn' : 'od-neg');
 @endphp
 
@@ -151,33 +145,28 @@
                 <x-ui.badge :tone="\App\Support\OrderStatusTone::for($order->status->name ?? null)">{{ $order->status->name ?? '-' }}</x-ui.badge>
             @endif
             <x-ui.badge :tone="$chanTone" :dot="false">{{ $chanLabel }}</x-ui.badge>
-            @foreach($headNotes as $note)
-                <p class="od-head__note">{{ $note }}</p>
-            @endforeach
+            @if($invoice)
+                <p class="od-head__note">Invoice {{ $invoice->label() }} · {{ $invoice->issued_at->format('j M Y') }}</p>
+            @endif
         </div>
-        @if($canManageOrders || $orderActions !== [])
         <div class="od-head__actions">
-            @foreach($orderActions as $action)
-                @if(($action['method'] ?? 'get') === 'post')
-                    <form method="POST" action="{{ $action['url'] }}">
-                        @csrf
-                        <x-ui.button type="submit"
-                                     data-confirm="{{ $action['confirm'] ?? '' }}"
-                                     data-confirm-tone="primary"
-                                     data-confirm-verb="{{ $action['verb'] ?? $action['label'] }}">{{ $action['label'] }}</x-ui.button>
-                    </form>
-                @else
-                    <x-ui.button :href="$action['url']" :target="$action['target'] ?? null" :rel="!empty($action['target']) ? 'noopener' : null">
-                        @if(!empty($action['icon']))<x-ui.icon :name="$action['icon']" size="14" />@endif
-                        {{ $action['label'] }}
-                    </x-ui.button>
-                @endif
-            @endforeach
+            <x-ui.button :href="route('orders.pdf', $order->order_id)" target="_blank" rel="noopener">
+                <x-ui.icon name="eye" size="14" />
+                View PDF
+            </x-ui.button>
+            @if($canManageOrders && !$invoice)
+                <form method="POST" action="{{ route('orders.invoice', $order->order_id) }}">
+                    @csrf
+                    <x-ui.button type="submit"
+                                 data-confirm="Give order #{{ $order->order_id }} invoice number {{ $nextInvoice }}? Once given, it stays on this order."
+                                 data-confirm-tone="primary"
+                                 data-confirm-verb="Generate">Generate invoice number</x-ui.button>
+                </form>
+            @endif
             @if($canManageOrders)
                 <x-ui.button variant="primary" :href="route('orders.edit', $order->order_id)">Edit order</x-ui.button>
             @endif
         </div>
-        @endif
     </header>
 
     <div class="od-stamps">
