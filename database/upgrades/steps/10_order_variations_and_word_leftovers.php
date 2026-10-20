@@ -23,7 +23,7 @@ return new class extends Migration
             Schema::rename('order_options', 'order_variations');
         }
         if (Schema::hasColumn('order_variations', 'order_option_id')) {
-            Schema::table('order_variations', fn (Blueprint $t) => $t->renameColumn('order_option_id', 'order_variation_id'));
+            \App\Support\Database\ColumnRename::run('order_variations', 'order_option_id', 'order_variation_id');
         }
         DB::table('order_variations')->where('name', 'Option')->update(['name' => 'Variation']);
 
@@ -45,7 +45,7 @@ return new class extends Migration
         }
         DB::table('order_variations')->where('name', 'Variation')->update(['name' => 'Option']);
         if (Schema::hasColumn('order_variations', 'order_variation_id')) {
-            Schema::table('order_variations', fn (Blueprint $t) => $t->renameColumn('order_variation_id', 'order_option_id'));
+            \App\Support\Database\ColumnRename::run('order_variations', 'order_variation_id', 'order_option_id');
         }
         if (Schema::hasTable('order_variations') && ! Schema::hasTable('order_options')) {
             Schema::rename('order_variations', 'order_options');

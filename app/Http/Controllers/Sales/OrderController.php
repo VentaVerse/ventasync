@@ -99,6 +99,7 @@ class OrderController extends Controller
             'lastname'         => 'nullable|string|max:32',
             'email'            => 'nullable|string|max:96',
             'telephone'        => 'nullable|string|max:32',
+            'customer_tin'     => 'nullable|string|max:32',
             'payment_method'   => 'nullable|string|max:128',
             'shipping_method'  => 'nullable|string',
             'total'            => 'nullable|numeric|min:0',
@@ -128,6 +129,7 @@ class OrderController extends Controller
                 'lastname'             => $request->lastname ?? '',
                 'email'                => $request->email ?? '',
                 'telephone'            => $request->telephone ?? '',
+                'customer_tin'         => trim((string) $request->customer_tin),
                 'payment_firstname'    => $request->payment_firstname ?? $request->firstname,
                 'payment_lastname'     => $request->payment_lastname ?? ($request->lastname ?? ''),
                 'payment_company'      => $request->payment_company ?? '',
@@ -476,6 +478,7 @@ class OrderController extends Controller
             'lastname'         => 'nullable|string|max:32',
             'email'            => 'nullable|string|max:96',
             'telephone'        => 'nullable|string|max:32',
+            'customer_tin'     => 'nullable|string|max:32',
             'payment_method'   => 'nullable|string|max:128',
             'shipping_method'  => 'nullable|string',
             'total'            => 'nullable|numeric|min:0',
@@ -504,6 +507,7 @@ class OrderController extends Controller
             'lastname'           => $request->lastname ?? '',
             'email'              => $request->email ?? '',
             'telephone'          => $request->telephone ?? '',
+            'customer_tin'       => trim((string) $request->customer_tin),
             'payment_firstname'  => $request->payment_firstname ?? $request->firstname,
             'payment_lastname'   => $request->payment_lastname ?? ($request->lastname ?? ''),
             'payment_company'    => $request->payment_company ?? '',
@@ -634,7 +638,7 @@ class OrderController extends Controller
         }
 
         $changes = ActivityLogger::diff($original, $order->getAttributes(), [
-            'firstname', 'lastname', 'email', 'telephone', 'total',
+            'firstname', 'lastname', 'email', 'telephone', 'customer_tin', 'total',
             'order_status_id', 'tracking_number', 'payment_method', 'shipping_method',
         ]);
         ActivityLogger::log('updated', 'Order', (int) $id, '#' . $id . ' ' . trim($request->firstname . ' ' . ($request->lastname ?? '')), $changes);

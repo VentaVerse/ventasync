@@ -57,7 +57,7 @@ class PermissionCatalog
                 continue;
             }
 
-            $key = $this->keyFor($class);
+            $key = $route->defaults['permission_key'] ?? $this->keyFor($class);
             $isWrite = (bool) array_diff($route->methods(), ['GET', 'HEAD']);
 
             $entry = $out[$key] ?? [
@@ -183,6 +183,15 @@ class PermissionCatalog
         }
 
         return $keys;
+    }
+
+    public function keyForRoute(\Illuminate\Routing\Route $route, string $class): ?string
+    {
+        if ($this->neverGated($class)) {
+            return null;
+        }
+
+        return $route->defaults['permission_key'] ?? $this->keyFor($class);
     }
 
     public function keyForController(string $class): ?string

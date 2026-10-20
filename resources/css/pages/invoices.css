@@ -1,0 +1,15 @@
+.iv-actions {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: var(--bl-space-4);
+}
+
+.iv-rates-head {
+    align-items: center;
+    margin-top: var(--bl-space-6);
+}
+
+.iv-number {
+    font-family: var(--font-mono);
+    font-size: 14px;
+}

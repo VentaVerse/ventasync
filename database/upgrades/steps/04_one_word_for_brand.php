@@ -79,7 +79,7 @@ return new class extends Migration
             }
         }
         if (Schema::hasTable($table) && Schema::hasColumn($table, $from) && ! Schema::hasColumn($table, $to)) {
-            Schema::table($table, fn (Blueprint $t) => $t->renameColumn($from, $to));
+            \App\Support\Database\ColumnRename::run($table, $from, $to);
         }
     }
 

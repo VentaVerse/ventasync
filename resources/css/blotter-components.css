@@ -277,6 +277,8 @@
 
     .fm-head__actions {
         display: flex;
+        flex-wrap: wrap;
+        justify-content: flex-end;
         align-items: center;
         gap: 7px;
         margin-left: auto;

@@ -17,6 +17,7 @@
 @import './pages/product-suppliers.css' layer(vocabulary);
 @import './pages/product-video.css' layer(vocabulary);
 @import './pages/petty-cash.css' layer(vocabulary);
+@import './pages/invoices.css' layer(vocabulary);
 @import './pages/mobile-app.css' layer(vocabulary);
 @import './pages/reports.css' layer(vocabulary);
 @import './pages/channel-listing.css' layer(vocabulary);

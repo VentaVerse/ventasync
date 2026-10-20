@@ -29,7 +29,7 @@ class EnsureControllerPermission extends EnsurePermission
 
         [$class] = explode('@', $action);
 
-        $key = $this->catalog->keyForController($class);
+        $key = $this->catalog->keyForRoute($route, $class);
 
         if ($key === null) {
             return $next($request);

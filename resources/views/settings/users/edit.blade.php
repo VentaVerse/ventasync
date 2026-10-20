@@ -42,17 +42,16 @@
         </div>
 
         <div class="fm-head__actions">
+            @if(Route::has('ext.audit.activity-log.index'))
+                <x-ui.button :href="route('ext.audit.activity-log.index', ['user_id' => $user->id])">Activity log</x-ui.button>
+            @endif
+            @if($canDelete)
             <x-ui.menu label="{{ $user->name }} actions">
-                @if(Route::has('ext.audit.activity-log.index'))
-                    <a class="x-menu__item" href="{{ route('ext.audit.activity-log.index', ['user_id' => $user->id]) }}">Activity log</a>
-                @endif
-                @if($canDelete)
-                    @if(Route::has('ext.audit.activity-log.index'))<div class="x-menu__sep"></div>@endif
-                    <button type="button" class="x-menu__item x-menu__item--danger"
-                            data-confirm="Delete {{ $user->name }}? This cannot be undone."
-                            data-confirm-submit="st-user-delete-form">Delete user</button>
-                @endif
+                <button type="button" class="x-menu__item x-menu__item--danger"
+                        data-confirm="Delete {{ $user->name }}? This cannot be undone."
+                        data-confirm-submit="st-user-delete-form">Delete user</button>
             </x-ui.menu>
+            @endif
         </div>
     </div>
 

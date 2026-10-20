@@ -43,6 +43,10 @@
         <x-ui.field label="Telephone" for="of-telephone" name="telephone">
             <x-ui.input id="of-telephone" name="telephone" maxlength="32" value="{{ $v('telephone') }}" />
         </x-ui.field>
+
+        <x-ui.field label="Customer TIN" for="of-customer-tin" name="customer_tin">
+            <x-ui.input id="of-customer-tin" name="customer_tin" maxlength="32" class="fm-input--num" value="{{ $v('customer_tin') }}" />
+        </x-ui.field>
     </div>
 </section>
 

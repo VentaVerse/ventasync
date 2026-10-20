@@ -23,6 +23,28 @@ class SettingsHubController extends Controller
 
     public static function destinations(): array
     {
+        $groups = self::coreDestinations();
+
+        $extensions = app(\App\Extensions\ExtensionManager::class);
+        foreach ($extensions->getEnabledIds() as $id) {
+            foreach ($extensions->getManifest($id)['settings_hub'] ?? [] as $card) {
+                if (isset($card['group'], $card['label'], $card['route']) && \Illuminate\Support\Facades\Route::has($card['route'])) {
+                    $groups[$card['group']][] = [
+                        'label' => $card['label'],
+                        'description' => $card['description'] ?? '',
+                        'route' => $card['route'],
+                        'icon' => $card['icon'] ?? 'puzzle',
+                        'keywords' => $card['keywords'] ?? [],
+                    ];
+                }
+            }
+        }
+
+        return $groups;
+    }
+
+    private static function coreDestinations(): array
+    {
         return [
             'Store' => [
                 ['label' => 'General', 'description' => 'Company name and address',

@@ -36,6 +36,12 @@
     $balance = $orderTotal - $totalPaid;
 
 
+    $orderActions = array_values(array_filter(
+        $registry->orderActions($order),
+        fn (array $a) => empty($a['permission']) || (auth()->user()?->hasPermission($a['permission']) ?? false)
+    ));
+    $headNotes = $registry->orderHeadNotes($order);
+
     $marginTone = fn (float $pct) => $pct >= 20 ? '' : ($pct >= 10 ? 'od-warn' : 'od-neg');
 @endphp
 
@@ -145,10 +151,31 @@
                 <x-ui.badge :tone="\App\Support\OrderStatusTone::for($order->status->name ?? null)">{{ $order->status->name ?? '-' }}</x-ui.badge>
             @endif
             <x-ui.badge :tone="$chanTone" :dot="false">{{ $chanLabel }}</x-ui.badge>
+            @foreach($headNotes as $note)
+                <p class="od-head__note">{{ $note }}</p>
+            @endforeach
         </div>
-        @if($canManageOrders)
+        @if($canManageOrders || $orderActions !== [])
         <div class="od-head__actions">
-            <x-ui.button variant="primary" :href="route('orders.edit', $order->order_id)">Edit order</x-ui.button>
+            @foreach($orderActions as $action)
+                @if(($action['method'] ?? 'get') === 'post')
+                    <form method="POST" action="{{ $action['url'] }}">
+                        @csrf
+                        <x-ui.button type="submit"
+                                     data-confirm="{{ $action['confirm'] ?? '' }}"
+                                     data-confirm-tone="primary"
+                                     data-confirm-verb="{{ $action['verb'] ?? $action['label'] }}">{{ $action['label'] }}</x-ui.button>
+                    </form>
+                @else
+                    <x-ui.button :href="$action['url']" :target="$action['target'] ?? null" :rel="!empty($action['target']) ? 'noopener' : null">
+                        @if(!empty($action['icon']))<x-ui.icon :name="$action['icon']" size="14" />@endif
+                        {{ $action['label'] }}
+                    </x-ui.button>
+                @endif
+            @endforeach
+            @if($canManageOrders)
+                <x-ui.button variant="primary" :href="route('orders.edit', $order->order_id)">Edit order</x-ui.button>
+            @endif
         </div>
         @endif
     </header>
@@ -201,6 +228,12 @@
                         @endif
                         @if($order->email)<span><a href="mailto:{{ $order->email }}">{{ $order->email }}</a></span>@endif
                         @if($order->telephone)<span>{{ $order->telephone }}</span>@endif
+                        @if(trim((string) $order->customer_tin) !== '')
+                            <span class="od-fact">
+                                <span class="od-fact__k">TIN</span>
+                                <span class="od-fact__v">{{ $order->customer_tin }}</span>
+                            </span>
+                        @endif
                     </div>
                 </div>
             </section>

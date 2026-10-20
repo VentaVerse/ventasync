@@ -20,6 +20,7 @@ class Order extends BaseModel
         'lastname',
         'email',
         'telephone',
+        'customer_tin',
         'payment_firstname',
         'payment_lastname',
         'payment_company',
