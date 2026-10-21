@@ -111,13 +111,8 @@
 <div class="lsm-layout__main">
 
 @php
-    $canManageGroups = auth()->user()?->hasPermission('manage_tiktok/product_group') ?? false;
-    $chosenGroup = collect($statusMenu['groups'])->first(fn ($g) => $g['active'] && $g['key'] !== 'none');
-    $groupLine = ($chosenGroup && $canManageGroups) ? [
-        'manage' => route('ext.tiktok.product-groups.edit', $chosenGroup['key']),
-    ] : null;
 @endphp
-@include('partials.listing-stand-segment', ['menu' => $statusMenu, 'group' => $groupLine])
+@include('partials.listing-stand-segment', ['menu' => $statusMenu])
 
 <form method="GET" action="{{ route('ext.tiktok.products.index') }}" class="x-filters">
     @if($tiktokTab !== 'all')
@@ -166,19 +161,6 @@
 @if($canManage)
 @php
     $bulk = [
-        'move' => $canManageGroups ? [
-            'action' => route('ext.tiktok.product-groups.move'),
-            'groups' => collect($statusMenu['groups'])->reject(fn ($g) => $g['key'] === 'none')
-                ->map(fn ($g) => ['id' => $g['key'], 'name' => $g['label'], 'count' => $g['count']])->values()->all(),
-            'current' => $groupFilter ?? 'all',
-            'return' => request()->getRequestUri(),
-        ] : null,
-        'ungroup' => ($canManageGroups && $chosenGroup) ? [
-            'action' => route('ext.tiktok.product-groups.massRemove', $chosenGroup['key']),
-            'label' => 'Remove from group',
-            'confirm' => 'Take these products out of ' . $chosenGroup['label'] . '? They become ungrouped and stop taking its settings on the next push.',
-            'return' => request()->getRequestUri(),
-        ] : null,
         'push' => ['action' => route('ext.tiktok.products.bulk_push'), 'label' => 'Send to TikTok Shop',
             'confirm' => 'Send the selected products to TikTok Shop? Each goes up on its own settings, and anything not ready is named rather than sent.'],
         'switch' => [
@@ -297,7 +279,7 @@
                             <span class="co-item__sku">{{ $p->sku ?: 'No SKU' }}</span>
                             @if($p->brand_name)<span>{{ $p->brand_name }}</span>@endif
                             @if(($groupFilter ?? 'all') === 'all' && count($pGroups) > 0)
-                                <a class="co-item__var" href="{{ route('ext.tiktok.products.index', array_merge(request()->except(['page', 'sync_status', 'group']), ['group' => $pGroups[0]['id']])) }}">Product group: {{ $pGroups[0]['name'] }}</a>
+                                <a class="co-item__var" href="{{ route('ext.tiktok.product-groups.edit', ['id' => $pGroups[0]['id']]) }}">Product group: {{ $pGroups[0]['name'] }}</a>
                             @endif
                         </div>
                     </div>
@@ -397,8 +379,6 @@
         id="tiktok-add-panel"
         :search-url="route('ext.tiktok.products.catalog_search')"
         :add-url="route('ext.tiktok.products.add_to_store', ['productId' => '__PID__'])"
-        :groups="\App\Channels\Listings\StatusMenu::groupChoices($statusMenu ?? [])"
-        :group="\App\Channels\Listings\StatusMenu::chosenGroup($statusMenu ?? [])"
         sub="Search your Master Catalog. Each product you add joins this store's list, ready to configure and push to TikTok Shop."
         toggle-label="Show products already on this store"
         in-label="On this store"

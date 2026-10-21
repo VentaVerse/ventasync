@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Product groups have their own page again: its products (Add products, Remove), and the listing template it uses, applied to its products with the usual preview. Group membership changes only there; the Products page lost its group menu and Move to group / Remove from group. The listing template page switches templates from a dropdown and names the groups that use it.
 - The buyer's note (buyer note) is saved on the sales order as its Customer note. Before, it was always left empty.
 - Variation prices typed for Lazada now live with the other stores' variation prices, in the variations table on the Edit listing page. The separate "Only on Lazada" price table is gone; the upgrade moves the saved prices over. The price push now sends them too; before, only a full send did.
 - Catalog > Listing Templates, and Apply template on the Products page's selection bar. A Lazada send reads only the listing; product groups are filters with no settings or send of their own.

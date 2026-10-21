@@ -2,23 +2,13 @@
 
 namespace Extensions\TikTok\Controllers;
 
-use App\Http\Controllers\Controller;
-use App\Services\ActivityLogger;
 use Extensions\TikTok\Models\TikTokApiLog;
 use Extensions\TikTok\Models\TikTokCategory;
 use Extensions\TikTok\Models\TikTokProductGroup;
-use Extensions\TikTok\Models\TikTokProductGroupProduct;
-use Extensions\TikTok\Models\TikTokListing;
 use Extensions\TikTok\Models\TikTokStore;
 use Extensions\TikTok\Services\TikTok\TikTokClient;
-use Extensions\TikTok\Services\TikTok\TikTokStockPushService;
-use Extensions\TikTok\Services\TikTok\TikTokVariationPush;
 use Extensions\TikTok\Services\TikTok\TikTokAttributes;
-use Extensions\TikTok\Services\TikTok\TikTokProductPush;
-use Extensions\TikTok\Services\TikTok\TikTokLiveListing;
-use Extensions\TikTok\Services\TikTokStoreProducts;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 
 class TikTokProductGroupController extends \App\Http\Controllers\Channels\ProductGroupController
 {
@@ -35,18 +25,6 @@ class TikTokProductGroupController extends \App\Http\Controllers\Channels\Produc
     protected function membership(): array
     {
         return ['ch_tiktok_product_group_products', 'tiktok_product_group_id'];
-    }
-
-    private function states(int $storeId): \Extensions\TikTok\Services\TikTok\TikTokListingStates
-    {
-        return app(\Extensions\TikTok\Services\TikTok\TikTokListingStates::class)->forStore($storeId);
-    }
-
-    private function productsRedirect(int $id)
-    {
-        $fallback = route('ext.tiktok.products.index', ['group' => $id]);
-
-        return redirect(\App\Support\BackTo::safe(request()->input('_return'), $fallback));
     }
 
     private function creds(): array
@@ -135,55 +113,6 @@ class TikTokProductGroupController extends \App\Http\Controllers\Channels\Produc
         }
 
         return back()->with('status', count($categories) . ' categories synced.');
-    }
-
-    public function moveProducts(Request $request)
-    {
-        $ids = array_values(array_unique(array_filter(array_map('intval', (array) $request->input('ids', [])), fn ($v) => $v > 0)));
-        $back = \App\Support\BackTo::safe($request->input('_return'), route('ext.tiktok.products.index'));
-        if ($ids === []) {
-            return redirect($back)->with('warning', 'No products selected.');
-        }
-        $target = (string) $request->input('group', '');
-        if ($target === 'none') {
-            $removed = TikTokProductGroupProduct::query()->onStore()->whereIn('product_id', $ids)->delete();
-
-            return redirect($back)->with('status', $removed . ' ' . \Illuminate\Support\Str::plural('product', $removed) . ' ungrouped.');
-        }
-        $group = TikTokProductGroup::query()->findOrFail((int) $target);
-
-        $already = TikTokProductGroupProduct::where('tiktok_product_group_id', $group->id)->whereIn('product_id', $ids)->pluck('product_id')->map(fn ($v) => (int) $v)->all();
-        $wanted = array_values(array_diff($ids, $already));
-        $claim = \App\Channels\OneGroupRule::claim('ch_tiktok_product_group_products', 'tiktok_product_group_id', 'ch_tiktok_product_groups', 'store_id', $group->id, $wanted, $wanted);
-        $moved = 0;
-        foreach (array_merge($claim['free'], array_keys($claim['moved'])) as $pid) {
-            TikTokProductGroupProduct::create(['tiktok_product_group_id' => $group->id, 'product_id' => (int) $pid, 'sync_status' => 'pending']);
-            $moved++;
-        }
-        if ($moved === 0) {
-            return redirect($back)->with('warning', 'Those products are already in ' . $group->name . '.');
-        }
-
-        return redirect($back)->with('status', $moved . ' ' . \Illuminate\Support\Str::plural('product', $moved) . ' moved to ' . $group->name . '.');
-    }
-
-    public function massRemove(Request $request, int $id)
-    {
-        $group = TikTokProductGroup::findOrFail($id);
-        $ids = array_filter(array_map('intval', (array) $request->input('ids', [])));
-
-        if (empty($ids)) {
-            return $this->productsRedirect($id)
-                ->with('status', 'No products selected.');
-        }
-
-        $deleted = TikTokProductGroupProduct::where('tiktok_product_group_id', $group->id)
-            ->whereIn('product_id', $ids)
-            ->delete();
-        $this->states((int) $group->store_id)->clearErrors($ids);
-
-        return $this->productsRedirect($id)
-            ->with('status', $deleted . ' product(s) removed from the product group.');
     }
 
     public function fetchAttributesAjax(Request $request)

@@ -856,7 +856,7 @@ class VentaCartListingController extends Controller
         $groupBand = \App\Channels\Listings\ListingGroup::band([
             'pivot' => 'ch_ventacart_product_group_products', 'fk' => 'ventacart_product_group_id',
             'groups' => 'ch_ventacart_product_groups', 'storeFk' => 'store_id', 'storeId' => $store,
-        ], $productId, 'ext.ventacart.listings.index', ['store' => $store]);
+        ], $productId, 'ext.ventacart.product-groups.edit', ['store' => $store], 'group');
         $num = fn ($v) => $v !== null ? (float) $v : null;
 
         $shownCategoryId = VentaCartListing::categoryFor($listing instanceof VentaCartListing ? $listing : null);
@@ -916,7 +916,6 @@ class VentaCartListingController extends Controller
             'ventacart_category_id' => 'nullable|integer|min:0',
             ...\App\Channels\Listings\ListingVariations::rules(),
             ...\App\Channels\Listings\VariationPrices::rules(),
-            ...\App\Channels\Listings\ListingGroup::rules(),
         ]);
 
         $images = $request->has('image_order')
@@ -929,17 +928,6 @@ class VentaCartListingController extends Controller
         $ownCategory = ($rawCategory === null || $rawCategory === '') ? null : (int) $rawCategory;
         if ($ownCategory && ! \Illuminate\Support\Facades\DB::table('ch_ventacart_categories')->where('store_id', $store)->where('ventacart_category_id', $ownCategory)->exists()) {
             throw \Illuminate\Validation\ValidationException::withMessages(['ventacart_category_id' => 'Pick one of this store\'s categories.']);
-        }
-
-        $picked = \App\Channels\Listings\ListingGroup::submitted($request);
-        if ($picked['present']) {
-            \App\Channels\Listings\ListingGroup::assign([
-                'pivot' => 'ch_ventacart_product_group_products', 'fk' => 'ventacart_product_group_id',
-                'groups' => 'ch_ventacart_product_groups', 'storeFk' => 'store_id', 'storeId' => $store,
-            ], $productId, $picked['id'], ['created_at' => now(), 'updated_at' => now()]);
-            if ($picked['id'] === null) {
-                \Extensions\VentaCart\Services\VentaCart\VentaCartListingStates::for($store)->clearErrors([$productId]);
-            }
         }
 
         $currentDescription = VentaCartListing::query()->where('store_id', $store)->where('product_id', $productId)->value('description');

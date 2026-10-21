@@ -30,6 +30,24 @@
         </div>
     </div>
 
+    <div class="lt-switch">
+        @if($templates->isNotEmpty())
+            <x-ui.field label="Listing template" for="lt-switch">
+                <x-ui.select id="lt-switch" data-nav-select aria-label="Open another listing template">
+                    @unless($template->exists)
+                        <option value="" selected>New listing template</option>
+                    @endunless
+                    @foreach($templates as $t)
+                        <option value="{{ $t->url }}" @selected($template->exists && (int) $template->id === (int) $t->id)>{{ $t->name }}</option>
+                    @endforeach
+                </x-ui.select>
+            </x-ui.field>
+        @endif
+        @if($canManage && $template->exists)
+            <x-ui.button href="{{ $createUrl }}">New listing template</x-ui.button>
+        @endif
+    </div>
+
     <div class="fm-body">
         <div class="fm-col fm-col--main">
             <section class="fm-section">
@@ -42,6 +60,9 @@
                                     placeholder="Effects pedals" :disabled="!$canManage" />
                     </x-ui.field>
                 </div>
+                @if($usedBy->isNotEmpty())
+                    <p class="fm-section__note">Used by @foreach($usedBy as $g)<a href="{{ $g->url }}">{{ $g->name }}</a>@if(! $loop->last), @endif @endforeach</p>
+                @endif
             </section>
 
             @switch($channel)
@@ -54,24 +75,6 @@
         </div>
 
         <div class="fm-col fm-col--side">
-            <div class="fm-card">
-                <div class="fm-card__head"><h2 class="fm-card__title">Listing templates</h2></div>
-                <div class="fm-card__body">
-                    <ul class="lt-list">
-                        @foreach($templates as $t)
-                            <li>
-                                <a class="lt-list__item {{ $template->exists && (int) $template->id === (int) $t->id ? 'is-active' : '' }}"
-                                   href="{{ $t->url }}"
-                                   @if($template->exists && (int) $template->id === (int) $t->id) aria-current="page" @endif>{{ $t->name }}</a>
-                            </li>
-                        @endforeach
-                    </ul>
-                    @if($canManage && $template->exists)
-                        <x-ui.button href="{{ $createUrl }}" size="sm">New listing template</x-ui.button>
-                    @endif
-                </div>
-            </div>
-
             <div class="fm-card">
                 <div class="fm-card__head"><h2 class="fm-card__title">Price rule</h2></div>
                 <div class="fm-card__body">

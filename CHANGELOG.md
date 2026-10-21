@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- A product group remembers its listing template (`listing_template_id`). Run `php artisan migrate`.
 - Fulfillment shows the buyer's checkout note as its own line under each order's header, and the Arrange shipment packing check repeats it.
 - Each variation can have its own price per store (`ch_listing_variation_prices`). Run `php artisan migrate`; Lazada's saved variation prices move over.
 - Listing templates and one way to send. Each store has Catalog > Listing Templates: named sets of a listing's category, brand, couriers, category attributes, price rule and watermark, applied to ticked products from the Products page with a preview that keeps each product's own values unless Replace is chosen. A send reads only the listing: a product group no longer fills in a blank field, and a product group is now a name and its products, a filter on the Products page, with no settings, page or send of its own. Sending several products names any note per product (pictures left out, variation names not changed). TikTok's stock and price automations now cover linked products outside any group. Existing installs run php artisan migrate, which copies each group's values into its products' blank listing fields and into a listing template of the same name.

@@ -102,20 +102,4 @@ class AddProductsGroupChoiceTest extends TestCase
 
         $this->assertSame([], $this->holdingGroups());
     }
-
-    public function test_the_window_opens_on_the_group_the_page_stands_in(): void
-    {
-        DB::table('ch_shopee_listings')->insert(['product_id' => $this->productId, 'store_id' => $this->store->id, 'created_at' => now(), 'updated_at' => now()]);
-        DB::table('ch_shopee_product_group_products')->insert(['shopee_product_group_id' => $this->cables->id, 'product_id' => $this->productId]);
-        $user = $this->user();
-
-        $this->actingAs($user)->get(route('ext.shopee.products.index', ['group' => $this->cables->id]))
-            ->assertOk()
-            ->assertSee('data-add-panel-group', false)
-            ->assertSee('<option value="' . $this->cables->id . '" selected>Cables</option>', false);
-
-        $this->actingAs($user)->get(route('ext.shopee.products.index'))
-            ->assertOk()
-            ->assertDontSee('" selected>Cables</option>', false);
-    }
 }

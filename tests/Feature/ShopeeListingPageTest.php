@@ -219,7 +219,7 @@ class ShopeeListingPageTest extends TestCase
         $page->assertSee('Product group');
         $page->assertSee('Guitar pedals');
         $html = $page->getContent();
-        $this->assertMatchesRegularExpression('/<option value="' . $group->id . '"\s+selected/', $html);
+        $this->assertStringContainsString(e(route('ext.shopee.product-groups.edit', ['id' => $group->id])), $html);
         $this->assertDoesNotMatchRegularExpression('/id="sl-markup-pct"[^>]*value="50(\.0+)?"|value="50(\.0+)?"[^>]*id="sl-markup-pct"/', $html,
             "the group's rule is not shown as the listing's");
     }

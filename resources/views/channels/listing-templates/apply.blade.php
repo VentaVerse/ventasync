@@ -11,7 +11,7 @@
     <div class="fm-head">
         <div class="fm-head__main">
             <a class="fm-back" href="{{ $productsUrl }}">
-                <x-ui.icon name="chevron-left" size="14" /> Products
+                <x-ui.icon name="chevron-left" size="14" /> {{ $backLabel }}
             </a>
             <h1 class="fm-title">Apply a listing template to {{ number_format($count) }} {{ $count === 1 ? 'product' : 'products' }}</h1>
         </div>
@@ -19,6 +19,9 @@
 
     <form method="POST" action="{{ $previewUrl }}" class="lt-apply__pick">
         @csrf
+        @if($returnTo)
+            <input type="hidden" name="_return" value="{{ $returnTo }}">
+        @endif
         @foreach($productIds as $pid)
             <input type="hidden" name="product_ids[]" value="{{ $pid }}">
         @endforeach
@@ -34,6 +37,9 @@
 
     <form method="POST" action="{{ $applyUrl }}">
         @csrf
+        @if($returnTo)
+            <input type="hidden" name="_return" value="{{ $returnTo }}">
+        @endif
         <input type="hidden" name="template_id" value="{{ $template->id }}">
         @foreach($productIds as $pid)
             <input type="hidden" name="product_ids[]" value="{{ $pid }}">

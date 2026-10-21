@@ -401,7 +401,6 @@ class ShopeeProductController extends Controller
         $listingStates = app(\Extensions\Shopee\Services\Shopee\ShopeeListingStates::class)
             ->forProducts(array_map('intval', $pageIds));
 
-
         $allBrands = DB::table('brands')
             ->orderBy('name')
             ->pluck('name', 'brand_id');
@@ -843,7 +842,6 @@ class ShopeeProductController extends Controller
         return redirect()->back()->with($tone, $message);
     }
 
-
     public function pushReview(int $productId)
     {
         $langId = (int) config('catalog.default_language_id');
@@ -1080,7 +1078,6 @@ class ShopeeProductController extends Controller
 
         return ['ok' => true, 'message' => $flash];
     }
-
 
     public function bulkPush(Request $request, ShopeeClient $client)
     {
@@ -1731,7 +1728,6 @@ class ShopeeProductController extends Controller
     }
 
 
-
     private function parcelGapFor(array $productIds): array
     {
         $out = [];
@@ -1773,7 +1769,6 @@ class ShopeeProductController extends Controller
 
         return 0;
     }
-
 
     private function getGroupProductMapping(): array
     {
@@ -1978,7 +1973,6 @@ class ShopeeProductController extends Controller
             }
         }
 
-
         $shown = $listing ?? (new ShopeeListing())->forceFill(['product_id' => $productId]);
 
         $categoryId = (int) ($shown->shopee_category_id ?? 0);
@@ -2051,7 +2045,7 @@ class ShopeeProductController extends Controller
         return \App\Channels\Listings\ListingGroup::band([
             'pivot' => 'ch_shopee_product_group_products', 'fk' => 'shopee_product_group_id',
             'groups' => 'ch_shopee_product_groups', 'storeFk' => 'store_id', 'storeId' => $storeId,
-        ], $productId, 'ext.shopee.products.index');
+        ], $productId, 'ext.shopee.product-groups.edit');
     }
 
     public function rereadVariations(int $productId)
@@ -2170,7 +2164,6 @@ class ShopeeProductController extends Controller
             'image_order' => 'nullable|string|max:20000',
             ...\App\Channels\Listings\ListingVariations::rules(),
             ...\App\Channels\Listings\VariationPrices::rules(),
-            ...\App\Channels\Listings\ListingGroup::rules(),
         ]);
 
         $imageOrder = \App\Channels\Listings\ListingImages::submitted($productId, $data['image_order'] ?? null);
@@ -2217,15 +2210,6 @@ class ShopeeProductController extends Controller
                     : (\App\Channels\Listings\CatalogCopy::catalog([$productId])[$productId]['description'] ?? null),
                 $request->input('description_edited')
             );
-        }
-
-        $picked = \App\Channels\Listings\ListingGroup::submitted($request);
-        if ($picked['present']) {
-            \App\Channels\Listings\ListingGroup::assign([
-                'pivot' => 'ch_shopee_product_group_products', 'fk' => 'shopee_product_group_id',
-                'groups' => 'ch_shopee_product_groups', 'storeFk' => 'store_id',
-                'storeId' => (int) (ShopeeStore::defaultStore()?->id ?? 0),
-            ], $productId, $picked['id']);
         }
 
         ShopeeListing::query()->updateOrCreate(['product_id' => $productId], $fields);
@@ -2535,6 +2519,5 @@ class ShopeeProductController extends Controller
             ? 'Delisted. Customers no longer see this item on Shopee.'
             : 'Published. The item is visible on Shopee again.');
     }
-
 
 }

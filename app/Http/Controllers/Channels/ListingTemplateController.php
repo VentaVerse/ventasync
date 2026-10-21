@@ -113,7 +113,9 @@ abstract class ListingTemplateController extends Controller
             'rows' => app(\App\Channels\Listings\Templates\TemplateApply::class)->preview($this->applier(), $template, $productIds),
             'previewUrl' => $this->to('preview'),
             'applyUrl' => $this->to('apply'),
-            'productsUrl' => $this->productsUrl(),
+            'productsUrl' => $this->backTo($request),
+            'backLabel' => $request->filled('_return') ? 'Product group' : 'Products',
+            'returnTo' => $request->filled('_return') ? $this->backTo($request) : null,
         ]);
     }
 
@@ -132,9 +134,28 @@ abstract class ListingTemplateController extends Controller
         }
         $changes = $productIds === [] ? 0 : app(\App\Channels\Listings\Templates\TemplateApply::class)->apply($this->applier(), $template, $productIds, $replace, $this->channel());
 
-        return redirect($this->productsUrl())->with('status', $changes === 0
+        return redirect($this->backTo($request))->with('status', $changes === 0
             ? 'Nothing to change.'
             : $changes . ' ' . ($changes === 1 ? 'change' : 'changes') . ' applied from ' . $template->name . '.');
+    }
+
+    private function backTo(Request $request): string
+    {
+        return \App\Support\BackTo::safe($request->input('_return'), $this->productsUrl());
+    }
+
+    private function usedBy(int $templateId)
+    {
+        $ch = $this->channel();
+        $key = in_array($ch, ['woocommerce', 'ventacart'], true) ? 'group' : 'id';
+
+        return \Illuminate\Support\Facades\DB::table('ch_' . $ch . '_product_groups')
+            ->where('store_id', $this->storeId())->where('listing_template_id', $templateId)
+            ->orderBy('name')->get(['id', 'name'])
+            ->map(fn ($g) => (object) [
+                'name' => (string) $g->name,
+                'url' => route('ext.' . $ch . '.product-groups.edit', ['store' => $this->storeId(), $key => $g->id]),
+            ]);
     }
 
     private function productIds(Request $request): array
@@ -167,6 +188,7 @@ abstract class ListingTemplateController extends Controller
             'templates' => $this->query()->orderBy('name')->get(['id', 'name'])->map(fn ($t) => (object) [
                 'id' => (int) $t->id, 'name' => (string) $t->name, 'url' => $this->to('edit', ['template' => $t->id]),
             ]),
+            'usedBy' => $template->exists ? $this->usedBy((int) $template->id) : collect(),
             'saveUrl' => $template->exists ? $this->to('update', ['template' => $template->id]) : $this->to('store'),
             'createUrl' => $this->to('create'),
             'destroyUrl' => $template->exists ? $this->to('destroy', ['template' => $template->id]) : null,

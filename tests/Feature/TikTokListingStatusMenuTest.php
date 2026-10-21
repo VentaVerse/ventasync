@@ -78,7 +78,7 @@ class TikTokListingStatusMenuTest extends TestCase
         $user = $this->manager();
 
         $page = $this->actingAs($user)->get(route('ext.tiktok.products.index'))->assertOk();
-        $page->assertSee('Product group')->assertSee('Filters')->assertSee('data-lsm', false);
+        $page->assertSee('Filters')->assertSee('data-lsm', false)->assertDontSee('lsm-grp', false);
         $page->assertSee('All products')->assertSee('class="lss"', false);
         $page->assertDontSee('name="sync_status"', false);
         $page->assertSee('class="x-segment-bar"', false);
@@ -134,40 +134,5 @@ class TikTokListingStatusMenuTest extends TestCase
 
         $this->actingAs($user)->get(route('ext.tiktok.products.index', ['sync_status' => 'uploaded', 'tiktok_tab' => 'deactivated']))
             ->assertOk()->assertDontSee('Listed without a category');
-    }
-
-    public function test_a_ticked_product_moves_between_groups_from_the_listings_page(): void
-    {
-        $pid = $this->product('Movable pedal', 'TMV-1');
-        TikTokListing::query()->create(['product_id' => $pid]);
-        $groupA = \Extensions\TikTok\Models\TikTokProductGroup::create(['name' => 'Fuzz']);
-        $groupB = \Extensions\TikTok\Models\TikTokProductGroup::create(['name' => 'Delay']);
-        $manager = $this->manager();
-        $manager->userGroup->permissions()->attach(Permission::whereIn('key', ['manage_tiktok/product_group', 'view_tiktok/product_group'])->pluck('id')->all());
-        $listingOnlyGroup = UserGroup::create(['name' => 'Listings without groups']);
-        $listingOnlyGroup->permissions()->attach(Permission::whereIn('key', ['manage_tiktok/product', 'view_tiktok/product'])->pluck('id')->all());
-        $listingOnly = User::factory()->create(['user_group_id' => $listingOnlyGroup->id]);
-        $back = parse_url(route('ext.tiktok.products.index'), PHP_URL_PATH);
-        $pivot = fn () => \Illuminate\Support\Facades\DB::table('ch_tiktok_product_group_products')->where('product_id', $pid)->pluck('tiktok_product_group_id')->map(fn ($v) => (int) $v)->all();
-
-        $this->actingAs($listingOnly)->get(route('ext.tiktok.products.index'))->assertOk()->assertDontSee('Move to group');
-        $this->actingAs($listingOnly)->post(route('ext.tiktok.product-groups.move'), ['ids' => [$pid], 'group' => $groupA->id, '_return' => $back])->assertRedirect()->assertSessionHas('error');
-        $this->assertSame([], $pivot());
-
-        $this->actingAs($manager)->get(route('ext.tiktok.products.index'))->assertOk()->assertSee('Move to group');
-
-        $this->actingAs($manager)->post(route('ext.tiktok.product-groups.move'), ['ids' => [$pid], 'group' => $groupA->id, '_return' => $back])
-            ->assertRedirect($back)->assertSessionHas('status', '1 product moved to ' . $groupA->name . '.');
-        $this->assertSame([$groupA->id], $pivot());
-
-        $this->actingAs($manager)->post(route('ext.tiktok.product-groups.move'), ['ids' => [$pid], 'group' => $groupB->id, '_return' => $back])
-            ->assertRedirect($back);
-        $this->assertSame([$groupB->id], $pivot());
-
-        $this->actingAs($manager)->get(route('ext.tiktok.products.index', ['group' => $groupB->id]))->assertOk()->assertSee('Remove from group')->assertSee('Rename group');
-
-        $this->actingAs($manager)->post(route('ext.tiktok.product-groups.move'), ['ids' => [$pid], 'group' => 'none', '_return' => $back])
-            ->assertRedirect($back)->assertSessionHas('status', '1 product ungrouped.');
-        $this->assertSame([], $pivot());
     }
 }

@@ -160,27 +160,5 @@ final class StatusMenu
         ];
     }
 
-    public static function groupChoices(array $menu): array
-    {
-        $out = [];
-        foreach ((array) ($menu['groups'] ?? []) as $group) {
-            if (ctype_digit((string) $group['key'])) {
-                $out[(string) $group['key']] = (string) $group['label'];
-            }
-        }
-        asort($out, SORT_NATURAL | SORT_FLAG_CASE);
 
-        return $out;
-    }
-
-    public static function chosenGroup(array $menu): ?string
-    {
-        foreach ((array) ($menu['groups'] ?? []) as $group) {
-            if (! empty($group['active']) && ctype_digit((string) $group['key'])) {
-                return (string) $group['key'];
-            }
-        }
-
-        return null;
-    }
 }

@@ -132,13 +132,8 @@
 <div class="lsm-layout__main">
 
 @php
-    $canManageGroups = auth()->user()?->hasPermission('manage_lazada/product_group') ?? false;
-    $chosenGroup = collect($statusMenu['groups'])->first(fn ($g) => $g['active'] && $g['key'] !== 'none');
-    $groupLine = ($chosenGroup && $canManageGroups) ? [
-        'manage' => route('ext.lazada.product-groups.edit', $chosenGroup['key']),
-    ] : null;
 @endphp
-@include('partials.listing-stand-segment', ['menu' => $statusMenu, 'group' => $groupLine])
+@include('partials.listing-stand-segment', ['menu' => $statusMenu])
 
 <form method="GET" action="{{ route('ext.lazada.products.index') }}" class="x-filters" id="lazada-listings-filter">
     @if(($lazadaTab ?? 'all') !== 'all')
@@ -205,19 +200,6 @@
 @if($canManageLazada)
 @php
     $bulk = [
-        'move' => $canManageGroups ? [
-            'action' => route('ext.lazada.product-groups.move'),
-            'groups' => collect($statusMenu['groups'])->reject(fn ($g) => $g['key'] === 'none')
-                ->map(fn ($g) => ['id' => $g['key'], 'name' => $g['label'], 'count' => $g['count']])->values()->all(),
-            'current' => $groupFilter ?? 'all',
-            'return' => request()->getRequestUri(),
-        ] : null,
-        'ungroup' => ($canManageGroups && $chosenGroup) ? [
-            'action' => route('ext.lazada.product-groups.massRemove', $chosenGroup['key']),
-            'label' => 'Remove from group',
-            'confirm' => 'Take these products out of ' . $chosenGroup['label'] . '? They become ungrouped and stop taking its settings on the next push.',
-            'return' => request()->getRequestUri(),
-        ] : null,
         'push' => ['action' => route('ext.lazada.products.bulk_push'), 'label' => 'Send to Lazada',
             'confirm' => 'Send the selected products to Lazada? Each goes up on its own settings, and anything not ready is named rather than sent.'],
         'switch' => [
@@ -369,7 +351,7 @@
                                 <span>{{ $pMfg }}</span>
                             @endif
                             @if(($groupFilter ?? 'all') === 'all' && $listing && $listing->groups->count() > 0)
-                                <a class="co-item__var" href="{{ route('ext.lazada.products.index', array_merge(request()->except(['page', 'sync_status', 'group']), ['group' => $listing->groups->first()->id])) }}">Product group: {{ $listing->groups->first()->name }}</a>
+                                <a class="co-item__var" href="{{ route('ext.lazada.product-groups.edit', ['id' => $listing->groups->first()->id]) }}">Product group: {{ $listing->groups->first()->name }}</a>
                             @endif
                             @if($isUnlinked)
                                 <span>Unlinked</span>

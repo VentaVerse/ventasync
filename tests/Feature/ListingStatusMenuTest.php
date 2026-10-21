@@ -79,8 +79,8 @@ class ListingStatusMenuTest extends TestCase
         $user = $this->manager();
 
         $page = $this->actingAs($user)->get(route('ext.lazada.products.index'))->assertOk();
-        $page->assertSee('Product group')->assertSee('Filters')->assertSee('data-lsm', false);
-        $page->assertSee('All products')->assertSee('Ungrouped');
+        $page->assertSee('Filters')->assertSee('data-lsm', false)->assertDontSee('lsm-grp', false);
+        $page->assertSee('All products')->assertDontSee('Ungrouped');
         $page->assertSee('class="lss"', false);
         $page->assertDontSee('name="sync_status"', false);
 
@@ -205,8 +205,7 @@ class ListingStatusMenuTest extends TestCase
 
         $all = $this->actingAs($user)->get(route('ext.lazada.products.index', ['sync_status' => 'uploaded']))->assertOk();
         $all->assertSee('Product group: Cables');
-        $this->assertMatchesRegularExpression('/<a class="co-item__var" href="[^"]*group=' . $group->id . '"[^>]*>Product group: Cables<\/a>/', $all->getContent());
-        $this->assertDoesNotMatchRegularExpression('/href="[^"]*sync_status[^"]*"[^>]*>Product group:/', $all->getContent(), 'the group opens on All');
+        $this->assertStringContainsString(e(route('ext.lazada.product-groups.edit', ['id' => $group->id])) . '">Product group: Cables</a>', $all->getContent(), 'the chip opens the group page');
 
         $page = $this->actingAs($user)->get(route('ext.lazada.products.index', ['group' => $group->id]))->assertOk();
         $page->assertSee('Listed and fine')->assertDontSee('Not on Lazada yet')->assertSee('Cables');
@@ -217,40 +216,5 @@ class ListingStatusMenuTest extends TestCase
 
         $this->actingAs($user)->get(route('ext.lazada.products.index', ['group' => $group->id, 'lazada_tab' => 'inactive']))
             ->assertOk()->assertSee('class="x-segment-bar"', false);
-    }
-
-    public function test_a_ticked_product_moves_between_groups_from_the_listings_page(): void
-    {
-        $ids = $this->store();
-        $pid = $ids['notListed'];
-        $groupA = \Extensions\Lazada\Models\LazadaProductGroup::create(['name' => 'Fuzz']);
-        $groupB = \Extensions\Lazada\Models\LazadaProductGroup::create(['name' => 'Delay']);
-        $manager = $this->manager();
-        $manager->userGroup->permissions()->attach(Permission::whereIn('key', ['manage_lazada/product_group', 'view_lazada/product_group'])->pluck('id')->all());
-        $listingOnlyGroup = UserGroup::create(['name' => 'Listings without groups']);
-        $listingOnlyGroup->permissions()->attach(Permission::whereIn('key', ['manage_lazada/product', 'view_lazada/product'])->pluck('id')->all());
-        $listingOnly = User::factory()->create(['user_group_id' => $listingOnlyGroup->id]);
-        $back = parse_url(route('ext.lazada.products.index'), PHP_URL_PATH);
-        $pivot = fn () => \Illuminate\Support\Facades\DB::table('ch_lazada_product_group_products')->where('product_id', $pid)->pluck('lazada_product_group_id')->map(fn ($v) => (int) $v)->all();
-
-        $this->actingAs($listingOnly)->get(route('ext.lazada.products.index'))->assertOk()->assertDontSee('Move to group');
-        $this->actingAs($listingOnly)->post(route('ext.lazada.product-groups.move'), ['ids' => [$pid], 'group' => $groupA->id, '_return' => $back])->assertRedirect()->assertSessionHas('error');
-        $this->assertSame([], $pivot());
-
-        $this->actingAs($manager)->get(route('ext.lazada.products.index'))->assertOk()->assertSee('Move to group');
-
-        $this->actingAs($manager)->post(route('ext.lazada.product-groups.move'), ['ids' => [$pid], 'group' => $groupA->id, '_return' => $back])
-            ->assertRedirect($back)->assertSessionHas('status', '1 product moved to ' . $groupA->name . '.');
-        $this->assertSame([$groupA->id], $pivot());
-
-        $this->actingAs($manager)->post(route('ext.lazada.product-groups.move'), ['ids' => [$pid], 'group' => $groupB->id, '_return' => $back])
-            ->assertRedirect($back);
-        $this->assertSame([$groupB->id], $pivot());
-
-        $this->actingAs($manager)->get(route('ext.lazada.products.index', ['group' => $groupB->id]))->assertOk()->assertSee('Remove from group')->assertSee('Rename group');
-
-        $this->actingAs($manager)->post(route('ext.lazada.product-groups.move'), ['ids' => [$pid], 'group' => 'none', '_return' => $back])
-            ->assertRedirect($back)->assertSessionHas('status', '1 product ungrouped.');
-        $this->assertSame([], $pivot());
     }
 }

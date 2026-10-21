@@ -56,6 +56,7 @@ Route::middleware(['auth', \Extensions\TikTok\Http\ResolveTikTokStore::class])
         Route::delete('/tiktok/{store}/watermarks/{template}', [TikTokWatermarkTemplateController::class, 'destroy'])->whereNumber('template')->name('ext.tiktok.watermarks.destroy')->defaults('permission_tier', 'manage');
         Route::get('/tiktok/{store}/product-groups/{id}/edit', [TikTokProductGroupController::class, 'edit'])->name('ext.tiktok.product-groups.edit');
         Route::get('/tiktok/{store}/product-groups/{id}/products', [TikTokProductGroupController::class, 'products'])->name('ext.tiktok.product-groups.products');
+        Route::get('/tiktok/{store}/product-groups/{id}/products/search', [TikTokProductGroupController::class, 'productSearch'])->whereNumber('id')->name('ext.tiktok.product-groups.search');
 
         Route::get('/tiktok/{store}/coupons', [TikTokCouponController::class, 'index'])->name('ext.tiktok.coupons.index');
 
@@ -97,8 +98,7 @@ Route::middleware(['auth', \Extensions\TikTok\Http\ResolveTikTokStore::class])
         Route::post('/tiktok/{store}/product-groups', [TikTokProductGroupController::class, 'store'])->name('ext.tiktok.product-groups.store');
         Route::put('/tiktok/{store}/product-groups/{id}', [TikTokProductGroupController::class, 'update'])->name('ext.tiktok.product-groups.update');
         Route::delete('/tiktok/{store}/product-groups/{id}', [TikTokProductGroupController::class, 'destroy'])->name('ext.tiktok.product-groups.destroy');
-        Route::post('/tiktok/{store}/product-groups/{id}/mass-remove', [TikTokProductGroupController::class, 'massRemove'])->name('ext.tiktok.product-groups.massRemove');
-        Route::post('/tiktok/{store}/product-groups/move', [TikTokProductGroupController::class, 'moveProducts'])->name('ext.tiktok.product-groups.move');
+        Route::post('/tiktok/{store}/product-groups/{id}/products/remove', [TikTokProductGroupController::class, 'removeProducts'])->whereNumber('id')->name('ext.tiktok.product-groups.remove');
 
         Route::post('/tiktok/{store}/products/fetch-attributes', [TikTokProductController::class, 'fetchAttributes'])->name('ext.tiktok.products.fetchAttributes');
         Route::get('/tiktok/{store}/products/search-catalog', [TikTokProductController::class, 'searchCatalogProducts'])->name('ext.tiktok.products.search_catalog');

@@ -1926,7 +1926,7 @@ class WorkspaceInteriorsTest extends TestCase
         $this->assertDenied($this->actingAs($user)->post(route('ext.ventacart.api_log_mode', $one)), 'api_log_mode');
         $this->assertDenied($this->actingAs($user)->delete(route('ext.ventacart.clear_api_logs', $one)), 'clear_api_logs');
         $this->assertDenied($this->actingAs($user)->get(route('ext.ventacart.product-groups.create', $one)), 'product-groups.create');
-        $this->assertDenied($this->actingAs($user)->post(route('ext.ventacart.product-groups.mass-remove', [$one, $group->id]), ['ids' => [1]]), 'product-groups.mass-remove');
+        $this->assertDenied($this->actingAs($user)->post(route('ext.ventacart.product-groups.remove', [$one, $group->id]), ['ids' => [1]]), 'product-groups.remove');
     }
 
     public function test_a_ventacart_save_for_one_store_leaves_the_other_store_untouched(): void

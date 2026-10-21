@@ -399,38 +399,4 @@ class VentaCartListingsIndexTest extends TestCase
                 ->assertDontSee('Unlisted pedal');
         }
     }
-
-    public function test_a_ticked_product_moves_between_groups_from_the_listings_page(): void
-    {
-        Http::fake();
-        $store = $this->store();
-        $pid = $this->product('MV-1', 'Movable pedal');
-        VentaCartListing::create(['store_id' => $store->id, 'product_id' => $pid]);
-        $groupA = VentaCartProductGroup::create(['store_id' => $store->id, 'name' => 'Fuzz']);
-        $groupB = VentaCartProductGroup::create(['store_id' => $store->id, 'name' => 'Delay']);
-        $manager = $this->userWith(['view_ventacart/listing', 'manage_ventacart/listing', 'view_ventacart/product_group', 'manage_ventacart/product_group']);
-        $listingOnly = $this->manager();
-        $back = parse_url(route('ext.ventacart.listings.index', $store->id), PHP_URL_PATH);
-        $pivot = fn () => \Illuminate\Support\Facades\DB::table('ch_ventacart_product_group_products')->where('product_id', $pid)->pluck('ventacart_product_group_id')->map(fn ($v) => (int) $v)->all();
-
-        $this->actingAs($listingOnly)->get(route('ext.ventacart.listings.index', $store->id))->assertOk()->assertDontSee('Move to group');
-        $this->actingAs($listingOnly)->post(route('ext.ventacart.product-groups.move', $store->id), ['ids' => [$pid], 'group' => $groupA->id, '_return' => $back])->assertRedirect()->assertSessionHas('error');
-        $this->assertSame([], $pivot());
-
-        $this->actingAs($manager)->get(route('ext.ventacart.listings.index', $store->id))->assertOk()->assertSee('Move to group');
-
-        $this->actingAs($manager)->post(route('ext.ventacart.product-groups.move', $store->id), ['ids' => [$pid], 'group' => $groupA->id, '_return' => $back])
-            ->assertRedirect($back)->assertSessionHas('status', '1 product moved to ' . $groupA->name . '.');
-        $this->assertSame([$groupA->id], $pivot());
-
-        $this->actingAs($manager)->post(route('ext.ventacart.product-groups.move', $store->id), ['ids' => [$pid], 'group' => $groupB->id, '_return' => $back])
-            ->assertRedirect($back);
-        $this->assertSame([$groupB->id], $pivot());
-
-        $this->actingAs($manager)->get(route('ext.ventacart.listings.index', ['store' => $store->id, 'group' => $groupB->id]))->assertOk()->assertSee('Remove from group')->assertSee('Rename group');
-
-        $this->actingAs($manager)->post(route('ext.ventacart.product-groups.move', $store->id), ['ids' => [$pid], 'group' => 'none', '_return' => $back])
-            ->assertRedirect($back)->assertSessionHas('status', '1 product ungrouped.');
-        $this->assertSame([], $pivot());
-    }
 }
