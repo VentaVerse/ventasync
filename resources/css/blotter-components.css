@@ -2509,6 +2509,29 @@
         color: var(--bl-ink);
     }
 
+    .co-note > td {
+        padding: 8px 12px;
+        background: var(--bl-attn-wash);
+        color: var(--bl-ink);
+        white-space: pre-line;
+        overflow-wrap: anywhere;
+    }
+
+    .co-note__label {
+        margin-right: 6px;
+        font-weight: 700;
+        color: var(--bl-attn);
+    }
+
+    .co-parcel__note {
+        margin: 0;
+        padding: 9px 11px;
+        border-top: 1px solid var(--bl-rule-2);
+        background: var(--bl-attn-wash);
+        white-space: pre-line;
+        overflow-wrap: anywhere;
+    }
+
     .co-parcel__facts {
         display: flex;
         flex-wrap: wrap;

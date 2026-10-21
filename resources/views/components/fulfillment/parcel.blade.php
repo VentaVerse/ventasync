@@ -26,6 +26,11 @@
             @endforeach
         </ul>
 
+        @php $parcelNote = \App\Support\Fulfillment\BuyerNotes::of($parcel['sales_order_id'] ?? null); @endphp
+        @if($parcelNote !== '')
+            <p class="co-parcel__note"><span class="co-note__label">Buyer note</span> {{ $parcelNote }}</p>
+        @endif
+
         <dl class="co-parcel__facts">
             <div class="co-parcel__fact">
                 <dt>Units</dt>

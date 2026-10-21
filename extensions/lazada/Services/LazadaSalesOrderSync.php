@@ -145,7 +145,7 @@ class LazadaSalesOrderSync
                 'shipping_zone'         => $shippingZone,
                 'shipping_method'       => $shippingMethod,
                 'shipping_cost'         => 0,
-                'customer_note'         => '',
+                'customer_note'         => trim((string) ($raw['buyer_note'] ?? '')),
                 'total'                 => \App\Services\OrderCurrencyService::toBase($total, $rate),
                 'foreign_total'         => $isDefault ? null : round($total, \App\Services\OrderCurrencyService::MONEY_SCALE),
                 'extra_cost'            => 0,

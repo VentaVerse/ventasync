@@ -262,6 +262,7 @@
         </tr>
     </x-slot:head>
 
+    @php \App\Support\Fulfillment\BuyerNotes::prime(collect($orders)->pluck('sales_order_id')); @endphp
     @foreach($orders as $o)
         @php
             $raw = is_array($o->raw) ? $o->raw : [];
@@ -383,6 +384,7 @@
                 </div>
             </td>
         </tr>
+        <x-fulfillment.buyer-note :order="$o->sales_order_id" :colspan="7" />
         @foreach($displayItems as $idx => $it)
         <tr class="co-itemrow {{ $idx === $lineCount - 1 ? 'co-itemrow--last' : '' }}">
             <td class="tt-col-products" data-label="Products">
