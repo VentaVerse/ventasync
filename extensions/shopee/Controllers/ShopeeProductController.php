@@ -2169,6 +2169,7 @@ class ShopeeProductController extends Controller
             'attributes.*' => 'nullable|string|max:500',
             'image_order' => 'nullable|string|max:20000',
             ...\App\Channels\Listings\ListingVariations::rules(),
+            ...\App\Channels\Listings\VariationPrices::rules(),
             ...\App\Channels\Listings\ListingGroup::rules(),
         ]);
 
@@ -2231,6 +2232,9 @@ class ShopeeProductController extends Controller
 
         if (($sellHere = \App\Channels\Listings\ListingVariations::submitted($request)) !== null) {
             \App\Channels\Listings\ListingVariations::save('shopee', (int) (ShopeeStore::defaultStore()?->id ?? 0), $productId, $sellHere);
+        }
+        if (($variationPrices = \App\Channels\Listings\VariationPrices::submitted($request)) !== null) {
+            \App\Channels\Listings\VariationPrices::save('shopee', (int) (ShopeeStore::defaultStore()?->id ?? 0), $productId, $variationPrices);
         }
 
         $back = \App\Support\BackTo::safe($request->input('back'), '');

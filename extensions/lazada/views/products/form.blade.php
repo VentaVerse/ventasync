@@ -374,56 +374,6 @@
                     @include('partials.listing-parcel-card', [
                         'id' => 'lz', 'canManage' => true, 'listing' => $listing, 'catalog' => $productRow,
                     ])
-
-                    <section class="fm-section" id="lz-only">
-                        <div class="fm-section__head">
-                            <h2 class="fm-section__title">Only on Lazada</h2>
-                        </div>
-                        <div class="fm-sub">
-                            <h3 class="fm-sub__title">Variation prices</h3>
-                            @if(($variants ?? collect())->count() === 0)
-                                <p class="fm-section__note">This product has no variations, so Lazada gets it as a single SKU. Nothing to map.</p>
-                            @else
-                                <div class="fm-vars__scroll">
-                                    <table class="fm-vars__table">
-                                        <thead>
-                                            <tr>
-                                                <th scope="col" class="fm-vcol-name">Variation</th>
-                                                <th scope="col" class="fm-vcol-sku">Master Catalog SKU</th>
-                                                <th scope="col" class="fm-vcol-price fm-vcol-num">Master Catalog price</th>
-                                                <th scope="col" class="fm-vcol-qty fm-vcol-num">Master Catalog stock</th>
-                                                <th scope="col" class="fm-vcol-price fm-vcol-num">Lazada price</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            @foreach($variants as $variant)
-                                                @php
-                                                    $variantId = (string) $variant->product_variation_value_id;
-                                                    $mapped = $variantMap[$variantId] ?? null;
-                                                    $variationLabel = trim((string) ($variant->variation_type_name ?? '')) !== ''
-                                                        ? ((string) $variant->variation_type_name) . ': ' . ((string) ($variant->variation_value_name ?? ''))
-                                                        : 'Variation ' . $variantId;
-                                                @endphp
-                                                <tr>
-                                                    <td class="fm-vcol-name" data-label="Variation">{{ $variationLabel }}</td>
-                                                    <td class="fm-vcol-sku" data-label="Master Catalog SKU"><span class="x-num">{{ $variant->sku ?: 'None' }}</span></td>
-                                                    <td class="fm-vcol-price fm-num" data-label="Master Catalog price">{{ number_format((float) ($variant->absolute_price ?? 0), 2) }}</td>
-                                                    <td class="fm-vcol-qty fm-num" data-label="Master Catalog stock">{{ $variant->quantity }}</td>
-                                                    <td class="fm-vcol-price fm-vcol-num" data-label="Lazada price">
-                                                        <input class="x-input fm-num" name="variants[{{ $variantId }}][price]"
-                                                               type="number" step="0.01" min="0"
-                                                               value="{{ old('variants.' . $variantId . '.price', $mapped?->price) }}"
-                                                               placeholder="Same"
-                                                               aria-label="Lazada price for {{ $variationLabel }}">
-                                                    </td>
-                                                </tr>
-                                            @endforeach
-                                        </tbody>
-                                    </table>
-                                </div>
-                            @endif
-                        </div>
-                    </section>
                 @endif
             </x-slot:main>
 

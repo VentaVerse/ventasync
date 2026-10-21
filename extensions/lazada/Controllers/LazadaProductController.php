@@ -1882,13 +1882,6 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
                 'ovd.name as variation_value_name',
             ]);
 
-        $variantMap = LazadaListingVariation::query()
-            ->where('lazada_listing_id', $listing->id)
-            ->get()
-            ->keyBy(function ($v) {
-                return $v->product_variation_value_id === null ? 'base' : (string)$v->product_variation_value_id;
-            });
-
         $sheet = $this->attributeSheet($listing, $attributes);
         $productOwnSaved = $sheet['productOwnAttrs'];
         $groupAttrs = $sheet['groupAttrs'];
@@ -1943,7 +1936,6 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
             'attributes' => $attributes,
             'saved' => $saved,
             'variants' => $variants,
-            'variantMap' => $variantMap,
             'productRow' => $productRow,
             'suggested' => $suggested,
             'groupAttrs' => $groupAttrs,
@@ -1989,10 +1981,9 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
             'package_length' => 'nullable|numeric|min:0.01|max:99999',
             'package_width' => 'nullable|numeric|min:0.01|max:99999',
             'package_height' => 'nullable|numeric|min:0.01|max:99999',
-            'variants' => 'nullable|array',
-            'variants.*.price' => 'nullable|numeric|min:0|max:99999999',
             'image_order' => 'nullable|string|max:20000',
             ...\App\Channels\Listings\ListingVariations::rules(),
+            ...\App\Channels\Listings\VariationPrices::rules(),
             ...\App\Channels\Listings\ListingGroup::rules(),
             'push' => 'nullable|boolean',
         ]);
@@ -2057,11 +2048,11 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
         if ($request->has('attributes')) {
             $this->storeAttributes($listing, (array) ($data['attributes'] ?? []));
         }
-        if ($request->has('variants')) {
-            $this->storeVariants($listing, (array) ($data['variants'] ?? []));
-        }
         if (($sellHere = \App\Channels\Listings\ListingVariations::submitted($request)) !== null) {
             \App\Channels\Listings\ListingVariations::save('lazada', (int) ($listing->store_id ?? 0), (int) $listing->product_id, $sellHere);
+        }
+        if (($variationPrices = \App\Channels\Listings\VariationPrices::submitted($request)) !== null) {
+            \App\Channels\Listings\VariationPrices::save('lazada', (int) ($listing->store_id ?? 0), (int) $listing->product_id, $variationPrices);
         }
 
         ActivityLogger::log('updated', 'Lazada Product', $listing->id, 'product #' . (int)$listing->product_id);
@@ -2509,41 +2500,6 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
             }
         }
         return null;
-    }
-
-    public function saveVariants(Request $request, int $productId)
-    {
-        $listing = $this->listingRowFor($productId);
-
-        $data = $request->validate([
-            'variants' => 'array',
-            'variants.*.price' => 'nullable|numeric|min:0|max:99999999',
-        ]);
-
-        $this->storeVariants($listing, (array) ($data['variants'] ?? []));
-
-        return redirect()->route('ext.lazada.products.edit', $listing->product_id)->with('status', 'Variant mapping saved.');
-    }
-
-    private function storeVariants(LazadaListing $listing, array $rows): void
-    {
-        DB::transaction(function () use ($listing, $rows) {
-            foreach ($rows as $povId => $row) {
-                $povId = (string) $povId;
-                if ($povId === '' || ! is_array($row)) {
-                    continue;
-                }
-                LazadaListingVariation::query()->updateOrCreate(
-                    [
-                        'lazada_listing_id' => $listing->id,
-                        'product_variation_value_id' => ctype_digit($povId) ? (int) $povId : null,
-                    ],
-                    [
-                        'price' => isset($row['price']) && $row['price'] !== '' ? (float) $row['price'] : null,
-                    ]
-                );
-            }
-        });
     }
 
     private function region(): string

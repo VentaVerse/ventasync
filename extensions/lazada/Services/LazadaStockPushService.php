@@ -24,6 +24,9 @@ class LazadaStockPushService
         $catalogQtyByPov   = [];
         $catalogPriceByPov = [];
 
+        $own = \App\Channels\Listings\VariationPrices::forProducts('lazada', (int) ($listing->store_id ?? 0), [$productId]);
+        $priceOf = fn (?string $sku, float $catalog) => \App\Channels\Listings\VariationPrices::base($own, $productId, $sku, $catalog);
+
         $combos = DB::table('product_variations')
             ->where('product_id', $productId)
             ->get(['id', 'sku', 'quantity', 'absolute_price']);
@@ -33,7 +36,7 @@ class LazadaStockPushService
                 $sku = trim((string) ($c->sku ?? ''));
                 if ($sku !== '') {
                     $catalogQtyBySku[$sku]   = max(0, (int) ($c->quantity ?? 0));
-                    $catalogPriceBySku[$sku] = (float) ($c->absolute_price ?? $basePrice);
+                    $catalogPriceBySku[$sku] = $priceOf($sku, (float) ($c->absolute_price ?? $basePrice));
                 }
             }
         } else {
@@ -45,10 +48,10 @@ class LazadaStockPushService
                 $pov = (int) $row->product_variation_value_id;
                 $sku = trim((string) ($row->sku ?? ''));
                 $catalogQtyByPov[$pov]   = max(0, (int) ($row->quantity ?? 0));
-                $catalogPriceByPov[$pov] = (float) ($row->absolute_price ?? $basePrice);
+                $catalogPriceByPov[$pov] = $priceOf($sku, (float) ($row->absolute_price ?? $basePrice));
                 if ($sku !== '') {
                     $catalogQtyBySku[$sku]   = max(0, (int) ($row->quantity ?? 0));
-                    $catalogPriceBySku[$sku] = (float) ($row->absolute_price ?? $basePrice);
+                    $catalogPriceBySku[$sku] = $priceOf($sku, (float) ($row->absolute_price ?? $basePrice));
                 }
             }
         }

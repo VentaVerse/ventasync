@@ -9,15 +9,11 @@ class LazadaListingVariation extends Model
     protected $table = 'ch_lazada_listing_variations';
 
     protected $fillable = [
-        'lazada_listing_id', 'seller_sku', 'sku_id', 'shop_sku', 'product_variation_value_id',
-        'price', 'quantity',
+        'lazada_listing_id', 'seller_sku', 'sku_id', 'shop_sku', 'product_variation_value_id', 'quantity',
     ];
 
     /**
      * Keeps what Lazada holds for one variation: its SKU, SKU id and shop SKU.
-     *
-     * A listing holds one row per variation. Saving the listing page before the first push makes that row
-     * with a price and no SKU, so the row is found by its SKU or, failing that, by its variation.
      */
     public static function remember(int $listingId, string $sellerSku, ?int $variationValueId, array $values): void
     {

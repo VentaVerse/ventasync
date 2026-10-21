@@ -118,7 +118,6 @@ Route::middleware(['auth', \Extensions\Lazada\Http\ResolveLazadaStore::class])
         Route::post('/lazada/{store}/products/{productId}/catalog-change', [LazadaProductController::class, 'catalogChangeSave'])->whereNumber('productId')->name('ext.lazada.products.catalog_change_save');
         Route::post('/lazada/{store}/products/{productId}/catalog-change/ignore', [LazadaProductController::class, 'catalogChangeIgnore'])->whereNumber('productId')->name('ext.lazada.products.catalog_change_ignore');
         Route::post('/lazada/{store}/products/{productId}/attributes/fetch', [LazadaProductController::class, 'fetchAttributesAjax'])->whereNumber('productId')->name('ext.lazada.products.attributes_fetch');
-        Route::post('/lazada/{store}/products/{productId}/variants', [LazadaProductController::class, 'saveVariants'])->whereNumber('productId')->name('ext.lazada.products.variants_save');
         Route::post('/lazada/{store}/products/{productId}/brands/sync', [LazadaProductController::class, 'syncBrands'])->whereNumber('productId')->name('ext.lazada.products.brands_sync');
         Route::post('/lazada/{store}/products/{productId}/sync/quantity', [LazadaProductController::class, 'syncQuantity'])->whereNumber('productId')->name('ext.lazada.products.sync_quantity');
         Route::post('/lazada/{store}/products/{productId}/sync/price', [LazadaProductController::class, 'syncPrice'])->whereNumber('productId')->name('ext.lazada.products.sync_price');

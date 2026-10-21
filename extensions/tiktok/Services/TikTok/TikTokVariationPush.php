@@ -63,6 +63,7 @@ class TikTokVariationPush
             ->get(['id', 'sku', 'quantity', 'absolute_price', 'image', 'status']);
 
         $hidden = \App\Channels\Listings\ListingVariations::hidden('tiktok', (int) (\Extensions\TikTok\Models\TikTokStore::defaultStore()?->id ?? 0), [$productId]);
+        $own = \App\Channels\Listings\VariationPrices::forProducts('tiktok', (int) (\Extensions\TikTok\Models\TikTokStore::defaultStore()?->id ?? 0), [$productId]);
         if ($combos->isNotEmpty()) {
             $combos = $combos->filter(fn ($c) => \App\Channels\Listings\ListingVariations::allows($hidden, $productId, $c->sku))->values();
             if ($combos->isEmpty()) {
@@ -101,7 +102,7 @@ class TikTokVariationPush
             $keys = [];
             foreach ($combos as $combo) {
                 $sellerSku = trim((string) $combo->sku) !== '' ? trim((string) $combo->sku) : (($catalog->sku ?: $productId) . '-' . $combo->id);
-                $base = (float) $combo->absolute_price > 0 ? (float) $combo->absolute_price : $basePrice;
+                $base = \App\Channels\Listings\VariationPrices::base($own, $productId, $combo->sku, (float) $combo->absolute_price > 0 ? (float) $combo->absolute_price : $basePrice);
                 $sku = [
                     'seller_sku' => $sellerSku,
                     'sales_attributes' => array_map(
@@ -144,7 +145,7 @@ class TikTokVariationPush
                 $sku = [
                     'seller_sku' => $sellerSku,
                     'sales_attributes' => [['name' => $axisName, 'value_name' => $ov->value_name]],
-                    'price' => $money($priceFor($this->variationPrice($basePrice, $ov))),
+                    'price' => $money($priceFor(\App\Channels\Listings\VariationPrices::base($own, $productId, $ov->sku, $this->variationPrice($basePrice, $ov)))),
                     'inventory' => $inventory((int) $ov->quantity),
                 ];
                 $id = $existing[$sellerSku] ?? $existing[(string) $ov->variation_value_id] ?? $existing[(int) $ov->variation_value_id] ?? null;

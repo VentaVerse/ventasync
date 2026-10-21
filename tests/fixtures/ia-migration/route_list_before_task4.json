@@ -2166,11 +2166,6 @@
     },
     {
         "method": "POST",
-        "uri": "channels/lazada/{store}/products/{productId}/variants",
-        "name": "ext.lazada.products.variants_save"
-    },
-    {
-        "method": "POST",
         "uri": "channels/lazada/{store}/purge-raw",
         "name": "ext.lazada.purge_raw"
     },

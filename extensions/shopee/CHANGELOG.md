@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- A variation can have its own price on each store, typed on the store's Edit listing page beside the Master Catalog price. A blank uses the Master Catalog price, and the store's price rule is added on top either way.
 - Catalog > Listing Templates, and Apply template on the Products page's selection bar. A Shopee send reads only the listing; product groups are filters with no settings or send of their own.
 - The Products page shows the Shopee ID in its own column again.
 - Phone app: Shopee order lines show the ordered variation's own photo from the Master Catalog when it has one.
