@@ -138,7 +138,7 @@ class TikTokSalesOrderSync
                 'shipping_zone'         => $shippingZone,
                 'shipping_method'       => $shippingMethod,
                 'shipping_cost'         => 0,
-                'customer_note'         => '',
+                'customer_note'         => trim((string) ($raw['buyer_message'] ?? '')),
                 'total'                 => $apiTotal,
                 'extra_cost'            => 0,
                 'order_status_id'       => $statusId,

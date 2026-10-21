@@ -94,6 +94,7 @@
         </tr>
     </x-slot:head>
 
+    @php \App\Support\Fulfillment\BuyerNotes::prime(collect($orders)->pluck('order_id')); @endphp
     @foreach($orders as $o)
         @php
             $openCartCustomer = trim($o->firstname . ' ' . $o->lastname);
@@ -139,6 +140,7 @@
                 </div>
             </td>
         </tr>
+        <x-fulfillment.buyer-note :order="$o->order_id" :colspan="6" />
         @foreach($openCartRows as $openCartIdx => $openCartItem)
             @php
                 $openCartImgSrc = '';

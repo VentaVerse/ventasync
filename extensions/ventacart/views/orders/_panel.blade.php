@@ -258,6 +258,7 @@
         </tr>
     </x-slot:head>
 
+    @php \App\Support\Fulfillment\BuyerNotes::prime(collect($orders)->pluck('sales_order_id')); @endphp
     @foreach($orders as $o)
         @php
             $vtStatusRaw = (string) ($o->status ?? '');
@@ -335,6 +336,7 @@
                 </div>
             </td>
         </tr>
+        <x-fulfillment.buyer-note :order="$o->sales_order_id" :colspan="8" />
         @foreach($vtRows as $vtIdx => $vtItem)
         <tr class="co-itemrow {{ $vtIdx === $vtLineCount - 1 ? 'co-itemrow--last' : '' }}">
             <td class="vt-col-products" data-label="Products">
