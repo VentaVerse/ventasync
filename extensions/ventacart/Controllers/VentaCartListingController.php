@@ -897,8 +897,8 @@ class VentaCartListingController extends Controller
         abort_unless((bool) VentaCartProductPush::for($setting)->product($productId), 404);
 
         $data = $request->validate([
-            'markup_percent' => 'nullable|numeric|min:-100|max:1000',
-            'markup_fixed' => 'nullable|numeric|min:-1000000|max:1000000',
+            'markup_percent' => 'nullable|numeric|min:0|max:1000',
+            'markup_fixed' => 'nullable|numeric|min:0|max:1000000',
             'price' => 'nullable|numeric|min:0|max:99999999999',
             'weight' => 'nullable|numeric|min:0.001|max:99999.999',
             'package_length' => 'nullable|numeric|min:0.01|max:1000000',

@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- A listing's markup can no longer be below zero on any channel (Shopee, TikTok, WooCommerce and VentaCart used to allow it). A discount belongs to a promotion.
 - A product group remembers its listing template (`listing_template_id`). Run `php artisan migrate`.
 - Fulfillment shows the buyer's checkout note as its own line under each order's header, and the Arrange shipment packing check repeats it.
 - Each variation can have its own price per store (`ch_listing_variation_prices`). Run `php artisan migrate`; Lazada's saved variation prices move over.
