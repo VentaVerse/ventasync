@@ -915,6 +915,7 @@ class VentaCartListingController extends Controller
             'image_order' => 'nullable|string|max:20000',
             'ventacart_category_id' => 'nullable|integer|min:0',
             ...\App\Channels\Listings\ListingVariations::rules(),
+            ...\App\Channels\Listings\VariationPrices::rules(),
             ...\App\Channels\Listings\ListingGroup::rules(),
         ]);
 
@@ -976,6 +977,9 @@ class VentaCartListingController extends Controller
 
         if (($sellHere = \App\Channels\Listings\ListingVariations::submitted($request)) !== null) {
             \App\Channels\Listings\ListingVariations::save('ventacart', $store, $productId, $sellHere);
+        }
+        if (($variationPrices = \App\Channels\Listings\VariationPrices::submitted($request)) !== null) {
+            \App\Channels\Listings\VariationPrices::save('ventacart', (int) $store, $productId, $variationPrices);
         }
 
         $back = \App\Support\BackTo::safe($request->input('back'), '');

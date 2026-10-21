@@ -70,6 +70,7 @@ final class ProductDeleter
             }
         }
         \App\Channels\Listings\ListingVariations::forgetProducts([$productId]);
+        \App\Channels\Listings\VariationPrices::forgetProducts([$productId]);
     }
 
     public function delete(array $productIds): array

@@ -6,7 +6,6 @@ use Extensions\Lazada\Models\LazadaBrand;
 use Extensions\Lazada\Models\LazadaListing;
 use Extensions\Lazada\Models\LazadaCategoryTemplate;
 use Extensions\Lazada\Models\LazadaListingAttribute;
-use Extensions\Lazada\Models\LazadaListingVariation;
 use Extensions\Lazada\Models\LazadaStore;
 use Illuminate\Support\Facades\DB;
 
@@ -152,12 +151,7 @@ class LazadaPushPayload
                 'ovd.name as variation_value_name',
             ]);
 
-        $map = LazadaListingVariation::query()
-            ->where('lazada_listing_id', $listing->id)
-            ->get()
-            ->keyBy(function ($v) {
-                return $v->product_variation_value_id === null ? 'base' : (string)$v->product_variation_value_id;
-            });
+        $own = \App\Channels\Listings\VariationPrices::forProducts('lazada', (int) ($listing->store_id ?? 0), [(int) $listing->product_id]);
 
         $attrs = app(LazadaAttributes::class)->resolveMapAttributes($attrs, $product);
 
@@ -300,7 +294,7 @@ class LazadaPushPayload
                 }
                 $usedSellerSkus[$candidate] = true;
 
-                $catalogPrice = (float)($c->absolute_price ?? $basePrice);
+                $catalogPrice = \App\Channels\Listings\VariationPrices::base($own, (int) $listing->product_id, $c->sku, (float)($c->absolute_price ?? $basePrice));
                 $finalPrice = self::computeFinalPrice($catalogPrice, $effectiveFixed, $effectivePercent);
                 $skuRow = [
                     'SellerSku' => $candidate,
@@ -339,8 +333,6 @@ class LazadaPushPayload
                 ]);
             }
             foreach ($soldPov as $r) {
-                $key = (string)$r->product_variation_value_id;
-                $m = $map->get($key);
                 $candidate = trim((string)($r->sku ?? ''));
                 if ($candidate === '') {
                     $label = trim((string)($r->variation_type_name ?? ''));
@@ -360,9 +352,8 @@ class LazadaPushPayload
                     $usedSellerSkus[$candidate] = true;
                 }
 
-                $catalogPrice = (float)($r->absolute_price ?? $basePrice);
-                $finalPrice = $m && $m->price !== null ? (float)$m->price : (float)$catalogPrice;
-                $finalPrice = self::computeFinalPrice($finalPrice, $effectiveFixed, $effectivePercent);
+                $catalogPrice = \App\Channels\Listings\VariationPrices::base($own, (int) $listing->product_id, $r->sku, (float)($r->absolute_price ?? $basePrice));
+                $finalPrice = self::computeFinalPrice($catalogPrice, $effectiveFixed, $effectivePercent);
                 $skuRow = [
                     'SellerSku' => $candidate,
                     'price' => $finalPrice,

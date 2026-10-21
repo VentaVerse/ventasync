@@ -26,6 +26,7 @@ class VariationForgetService
             return [];
         }
         \App\Channels\Listings\ListingVariations::forget($productId, $removed);
+        \App\Channels\Listings\VariationPrices::forget($productId, $removed);
         foreach (app(ChannelRegistry::class)->variationForgetters() as $forgetter) {
             $forgetter->forgetVariations($productId, $removed);
         }

@@ -145,6 +145,7 @@ class TikTokListingController extends Controller
             'attributes.*' => 'nullable|string|max:500',
             'image_order' => 'nullable|string|max:20000',
             ...\App\Channels\Listings\ListingVariations::rules(),
+            ...\App\Channels\Listings\VariationPrices::rules(),
             ...\App\Channels\Listings\ListingGroup::rules(),
         ]);
 
@@ -197,6 +198,9 @@ class TikTokListingController extends Controller
 
         if (($sellHere = \App\Channels\Listings\ListingVariations::submitted($request)) !== null) {
             \App\Channels\Listings\ListingVariations::save('tiktok', (int) (TikTokStore::defaultStore()?->id ?? 0), $productId, $sellHere);
+        }
+        if (($variationPrices = \App\Channels\Listings\VariationPrices::submitted($request)) !== null) {
+            \App\Channels\Listings\VariationPrices::save('tiktok', (int) (TikTokStore::defaultStore()?->id ?? 0), $productId, $variationPrices);
         }
 
         $back = \App\Support\BackTo::safe($request->input('back'), '');

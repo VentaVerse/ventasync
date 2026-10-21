@@ -45,6 +45,12 @@ class ShopeeStockPushService
                 return $rows->keyBy(fn ($r) => trim((string) $r->sku));
             });
 
+        $own = [];
+        foreach (DB::table(\App\Channels\Listings\VariationPrices::TABLE)->where('channel', 'shopee')
+            ->whereIn('product_id', $productIds)->get(['store_id', 'product_id', 'sku', 'price']) as $r) {
+            $own[(int) $r->store_id][(int) $r->product_id][$r->sku] = (float) $r->price;
+        }
+
         $out = [];
         foreach ($links as $link) {
             $pid = (int) ($link->product_id ?? 0);
@@ -75,6 +81,9 @@ class ShopeeStockPushService
                         }
                         $matched = true;
                     }
+                }
+                if ($matched) {
+                    $price = \App\Channels\Listings\VariationPrices::base($own[(int) ($link->store_id ?? 0)] ?? [], $pid, $sku, $price);
                 }
             }
 

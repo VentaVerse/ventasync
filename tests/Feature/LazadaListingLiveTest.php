@@ -580,8 +580,8 @@ class LazadaListingLiveTest extends TestCase
     public function test_one_save_keeps_the_variation_price_and_never_a_sku_or_stock(): void
     {
         $productId = $this->seedProduct('Variant product', 'LZT-VAR');
-        $listing = LazadaListing::query()->create(['product_id' => $productId]);
-        $povId = DB::table('product_variation_values')->insertGetId([
+        $listing = LazadaListing::query()->create(['product_id' => $productId, 'store_id' => (int) LazadaStore::defaultStore()->id]);
+        DB::table('product_variation_values')->insertGetId([
             'product_variation_type_id' => 1, 'product_id' => $productId, 'variation_type_id' => 1, 'variation_value_id' => 1,
             'quantity' => 3, 'subtract_stock' => 1, 'price' => 0, 'price_prefix' => '+', 'points' => 0, 'points_prefix' => '+',
             'weight' => 0, 'weight_prefix' => '+', 'sku' => 'LZT-VAR-RED',
@@ -590,15 +590,15 @@ class LazadaListingLiveTest extends TestCase
         $this->actingAs($this->manager())
             ->put(route('ext.lazada.products.update', $productId), [
                 'primary_category_id' => 300400, 'brand_id' => 5150,
-                'variants' => [$povId => ['seller_sku' => 'LZ-RED', 'price' => '199.5', 'quantity' => '7']],
+                'variation_prices' => [['sku' => 'LZT-VAR-RED', 'price' => '199.5']],
+                'variants' => [1 => ['seller_sku' => 'LZ-RED', 'quantity' => '7']],
             ])->assertSessionHasNoErrors();
 
-        $variant = \Extensions\Lazada\Models\LazadaListingVariation::query()
-            ->where('lazada_listing_id', $listing->id)->where('product_variation_value_id', $povId)->first();
-        $this->assertNotNull($variant, 'the listing form saves the variation price');
-        $this->assertEquals(199.5, (float) $variant->price);
-        $this->assertNull($variant->seller_sku, 'a typed SKU is not saved');
-        $this->assertNull($variant->quantity, 'a typed stock count is not saved');
+        $own = \App\Channels\Listings\VariationPrices::forProducts('lazada', (int) $listing->store_id, [$productId]);
+        $this->assertEquals(199.5, $own[$productId]['lzt-var-red'] ?? null, 'the listing form saves the variation price');
+        $this->assertFalse(\Extensions\Lazada\Models\LazadaListingVariation::query()->where('lazada_listing_id', $listing->id)->exists(),
+            'a typed SKU or stock count is not saved');
+        $this->assertFalse(\Illuminate\Support\Facades\Schema::hasColumn('ch_lazada_listing_variations', 'price'));
     }
 
     public function test_a_listing_price_is_the_start_the_price_rule_is_added_to(): void
@@ -645,7 +645,7 @@ class LazadaListingLiveTest extends TestCase
         $page = $this->actingAs($this->manager())->get(route('ext.lazada.products.edit', $pid))->assertOk();
         $page->assertSee('Price rule');
         $page->assertDontSee('name="price"', false);
-        $page->assertSee('name="variants[' . $povs['Red'] . '][price]"', false);
+        $page->assertSee('name="variation_prices[1][price]"', false);
         $page->assertDontSee('[seller_sku]', false);
         $page->assertDontSee('[quantity]', false);
         $page->assertSee('name="package_length"', false);
@@ -710,8 +710,9 @@ class LazadaListingLiveTest extends TestCase
         $listing = $this->listingOn($pid, null);
         \Extensions\Lazada\Models\LazadaListingVariation::create([
             'lazada_listing_id' => $listing->id, 'product_variation_value_id' => $povs['Red'],
-            'seller_sku' => 'LZ-TYPED', 'quantity' => 99, 'price' => 150,
+            'seller_sku' => 'LZ-TYPED', 'quantity' => 99,
         ]);
+        \App\Channels\Listings\VariationPrices::set('lazada', (int) $listing->store_id, $pid, 'LZ-OVR-R', 150);
 
         $skus = collect($this->skusSent($listing))->keyBy('SellerSku');
 

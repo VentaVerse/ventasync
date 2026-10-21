@@ -39,6 +39,7 @@ class TikTokStockPushService
 
         $ownPrices = \Extensions\TikTok\Models\TikTokListing::ownPrices($productIds);
         $varied = TikTokVariationPush::withVariations($productIds);
+        $own = \App\Channels\Listings\VariationPrices::forProducts('tiktok', (int) (\Extensions\TikTok\Models\TikTokStore::defaultStore()?->id ?? 0), $productIds);
 
         $priceFor ??= fn (float $base, object $pivot) => $base;
         $out = [];
@@ -68,7 +69,7 @@ class TikTokStockPushService
                     $combo = $combosBySku->get($pid)?->get($key);
                     if ($combo !== null) {
                         $qty = (int) $combo->quantity;
-                        $base = (float) $combo->absolute_price > 0 ? (float) $combo->absolute_price : $basePrice;
+                        $base = \App\Channels\Listings\VariationPrices::base($own, $pid, $combo->sku, (float) $combo->absolute_price > 0 ? (float) $combo->absolute_price : $basePrice);
                         $matched = true;
                     } else {
                         $pov = ctype_digit($key) ? $povByOvId->get($pid)?->get($key) : null;
@@ -84,6 +85,7 @@ class TikTokStockPushService
                                     ? (float) $pov->absolute_price
                                     : ((($pov->price_prefix ?? '+') === '-') ? max(0, $basePrice - (float) $pov->price) : $basePrice + (float) $pov->price);
                             }
+                            $base = \App\Channels\Listings\VariationPrices::base($own, $pid, $pov->sku, $base);
                             $matched = true;
                         }
                     }

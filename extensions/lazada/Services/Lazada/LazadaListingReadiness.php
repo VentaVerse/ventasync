@@ -165,7 +165,8 @@ class LazadaListingReadiness
         $basePrice = (float) ($product->price ?? 0);
         $fixed = $listing->markup_fixed;
         $percent = $listing->markup_percent;
-        $priceOf = fn (?float $absolute) => LazadaPushPayload::computeFinalPrice($absolute !== null ? $absolute : $basePrice, $fixed !== null ? (float) $fixed : null, $percent !== null ? (float) $percent : null);
+        $own = \App\Channels\Listings\VariationPrices::forProducts('lazada', (int) ($listing->store_id ?? 0), [(int) $listing->product_id]);
+        $priceOf = fn (?float $absolute, ?string $sku = null) => LazadaPushPayload::computeFinalPrice(\App\Channels\Listings\VariationPrices::base($own, (int) $listing->product_id, $sku, $absolute !== null ? $absolute : $basePrice), $fixed !== null ? (float) $fixed : null, $percent !== null ? (float) $percent : null);
         $prices = [];
 
         if ($povRows->count() > 0) {
@@ -187,7 +188,7 @@ class LazadaListingReadiness
                     $gaps[] = ['code' => ListingState::GAP_VARIATIONS, 'label' => 'an SKU on every variation (' . $blank . ' without one)'];
                 }
                 foreach ($combos as $c) {
-                    $prices[] = $priceOf($c->absolute_price !== null ? (float) $c->absolute_price : null);
+                    $prices[] = $priceOf($c->absolute_price !== null ? (float) $c->absolute_price : null, $c->sku);
                 }
             } else {
                 $blank = $povRows->filter(fn ($r) => trim((string) ($r->sku ?? '')) === '')->count();
@@ -195,7 +196,7 @@ class LazadaListingReadiness
                     $gaps[] = ['code' => ListingState::GAP_VARIATIONS, 'label' => 'an SKU on every variation (' . $blank . ' without one)'];
                 }
                 foreach ($povRows as $r) {
-                    $prices[] = $priceOf($r->absolute_price !== null ? (float) $r->absolute_price : null);
+                    $prices[] = $priceOf($r->absolute_price !== null ? (float) $r->absolute_price : null, $r->sku);
                 }
             }
         } else {

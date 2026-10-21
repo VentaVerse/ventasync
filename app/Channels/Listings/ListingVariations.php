@@ -207,6 +207,8 @@ final class ListingVariations
         }
 
         $off = self::offOnStore($channel, $storeId, [$productId])[$productId] ?? [];
+        $catalogPrices = VariationPrices::catalog([$productId])[$productId] ?? [];
+        $ownPrices = VariationPrices::forProducts($channel, $storeId, [$productId])[$productId] ?? [];
         $held = $storeSkus === null ? null : array_flip(array_filter(array_map(fn ($s) => self::key($s), $storeSkus)));
 
         $rows = [];
@@ -224,6 +226,8 @@ final class ListingVariations
                 'name' => $v['name'] !== '' ? $v['name'] : $v['sku'],
                 'on' => $k === '' || ! isset($off[$k]),
                 'onStore' => $held === null || $k === '' ? null : isset($held[$k]),
+                'catalogPrice' => $catalogPrices[$k] ?? null,
+                'price' => $ownPrices[$k] ?? null,
             ];
         }
 
@@ -300,7 +304,7 @@ final class ListingVariations
         DB::table(self::STORE_SKUS)->whereIn('product_id', $productIds ?: [0])->delete();
     }
 
-    private static function key(mixed $sku): string
+    public static function key(mixed $sku): string
     {
         return strtolower(trim((string) $sku));
     }

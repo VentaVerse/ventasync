@@ -29,8 +29,9 @@ class ShopeeVariationPush
         }
 
         $base = (float) (DB::table('products')->where('product_id', $productId)->value('price') ?? 0);
-        $prices = $combos->map(function ($c) use ($base, $priceFor) {
-            $core = $c->absolute_price !== null ? (float) $c->absolute_price : $base;
+        $own = \App\Channels\Listings\VariationPrices::forProducts('shopee', $storeId, [$productId]);
+        $prices = $combos->map(function ($c) use ($base, $priceFor, $own, $productId) {
+            $core = \App\Channels\Listings\VariationPrices::base($own, $productId, $c->sku, $c->absolute_price !== null ? (float) $c->absolute_price : $base);
 
             return (float) $priceFor($core);
         })->filter(fn ($p) => $p > 0);
@@ -133,6 +134,7 @@ class ShopeeVariationPush
         }
 
         $parentPrice = (float) (DB::table('products')->where('product_id', $productId)->value('price') ?? 0);
+        $own = \App\Channels\Listings\VariationPrices::forProducts('shopee', (int) ($auth['store_id'] ?? 0), [$productId]);
         $prices = [];
         foreach ($shopeeModels as $m) {
             $existing = (float) ($m['price_info'][0]['original_price'] ?? 0);
@@ -142,7 +144,7 @@ class ShopeeVariationPush
         }
         $newModels = [];
         foreach ($missing as $combo) {
-            $core = (float) $combo->absolute_price > 0 ? (float) $combo->absolute_price : $parentPrice;
+            $core = \App\Channels\Listings\VariationPrices::base($own, $productId, $combo->sku, (float) $combo->absolute_price > 0 ? (float) $combo->absolute_price : $parentPrice);
             $prices[] = (float) $priceFor($core);
         }
         $pMin = min($prices);
@@ -189,7 +191,7 @@ class ShopeeVariationPush
                 $tierIndex[] = $found;
             }
 
-            $core = (float) $combo->absolute_price > 0 ? (float) $combo->absolute_price : $parentPrice;
+            $core = \App\Channels\Listings\VariationPrices::base($own, $productId, $combo->sku, (float) $combo->absolute_price > 0 ? (float) $combo->absolute_price : $parentPrice);
             $newModels[] = [
                 'tier_index' => $tierIndex,
                 'model_sku' => mb_substr(trim((string) $combo->sku), 0, 100),
@@ -538,6 +540,7 @@ class ShopeeVariationPush
         }
 
         $parentPrice = (float) (DB::table('products')->where('product_id', $productId)->value('price') ?? 0);
+        $own = \App\Channels\Listings\VariationPrices::forProducts('shopee', $storeId, [$productId]);
 
         $models = [];
         $modelSkus = [];
@@ -551,7 +554,7 @@ class ShopeeVariationPush
                 $tierIndex[] = $axes[$axisId]['options'][$povId]['index'];
             }
 
-            $corePrice = (float) $combo->absolute_price > 0 ? (float) $combo->absolute_price : $parentPrice;
+            $corePrice = \App\Channels\Listings\VariationPrices::base($own, $productId, $combo->sku, (float) $combo->absolute_price > 0 ? (float) $combo->absolute_price : $parentPrice);
             $sku = trim((string) ($combo->sku ?? ''));
 
             $models[] = [

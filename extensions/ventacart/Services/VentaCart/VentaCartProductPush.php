@@ -134,6 +134,7 @@ class VentaCartProductPush
             ->get();
 
         $hidden = \App\Channels\Listings\ListingVariations::hidden('ventacart', (int) $this->store->id, [$pid]);
+        $own = \App\Channels\Listings\VariationPrices::forProducts('ventacart', (int) $this->store->id, [$pid]);
 
         if ($combos->isNotEmpty()) {
             $comboValues = DB::table('product_variation_parts as pocv')
@@ -153,7 +154,7 @@ class VentaCartProductPush
                     'sku'         => $c->sku ?: ($sku . '-' . $c->id),
                     'name'        => $valueNames,
                     'option_name' => 'Option',
-                    'price'       => $price((float) $c->absolute_price),
+                    'price'       => $price(\App\Channels\Listings\VariationPrices::base($own, $pid, $c->sku, (float) $c->absolute_price)),
                     'cost'        => (float) $c->absolute_cost,
                     'quantity'    => (int) $c->quantity,
                     'weight'      => $weight,
@@ -209,7 +210,7 @@ class VentaCartProductPush
                 'sku'         => $ov->variant_sku ?: ($sku . '-' . $ov->product_variation_value_id),
                 'name'        => $ov->variation_value_name,
                 'option_name' => $ov->variation_type_name,
-                'price'       => $price($variantPrice),
+                'price'       => $price(\App\Channels\Listings\VariationPrices::base($own, $pid, $ov->variant_sku, $variantPrice)),
                 'cost'        => $variantCost,
                 'quantity'    => (int) $ov->variant_qty,
                 'weight'      => $weight,
