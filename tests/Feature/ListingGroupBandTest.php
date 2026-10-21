@@ -67,7 +67,7 @@ class ListingGroupBandTest extends TestCase
         return $pid;
     }
 
-    public function test_the_band_lists_the_stores_groups_with_the_products_own_picked(): void
+    public function test_the_listing_page_names_its_group_and_links_to_it(): void
     {
         $pid = $this->product();
         $mine = ShopeeProductGroup::create(['name' => 'Multi-effects pedals']);
@@ -77,15 +77,13 @@ class ListingGroupBandTest extends TestCase
         $html = $this->actingAs($this->user(['view_shopee/product', 'manage_shopee/product']))
             ->get(route('ext.shopee.listings.edit', $pid))
             ->assertOk()
-            ->assertSee('Product group')
-            ->assertSee('Overdrive pedals')
-            ->assertSee("Show the group's products", false)
-            ->assertSee('name="product_group_listed"', false)
+            ->assertSee('Multi-effects pedals')
+            ->assertDontSee('Overdrive pedals')
+            ->assertDontSee('name="product_group_id"', false)
+            ->assertDontSee('name="product_group_listed"', false)
             ->getContent();
 
-        $this->assertMatchesRegularExpression('/<option value="' . $mine->id . '"\s+selected/', $html, "the product's own group is picked");
-        $this->assertStringNotContainsString('100013', $html, 'a group carries no values to the listing page');
-        $this->assertStringContainsString(e(route('ext.shopee.products.index', ['group' => $mine->id])), $html, 'the group opens as a filter on the Products page');
+        $this->assertStringContainsString(e(route('ext.shopee.product-groups.edit', ['id' => $mine->id])), $html, 'the group opens its own page');
     }
 
     public function test_a_reader_sees_the_group_but_cannot_move_the_product(): void

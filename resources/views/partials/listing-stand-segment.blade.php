@@ -8,12 +8,4 @@
             </a>
         @endforeach
     </div>
-
-    @if(! empty($group))
-        <div class="lss-group">
-            @if(! empty($group['manage']))
-                <a href="{{ $group['manage'] }}" class="lss-group__manage">Rename group</a>
-            @endif
-        </div>
-    @endif
 </div>

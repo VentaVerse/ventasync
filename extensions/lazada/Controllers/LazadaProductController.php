@@ -144,7 +144,6 @@ class LazadaProductController extends Controller
 
 
 
-
 private function persistProductSyncStatus(LazadaListing $listing, string $action, array $result, ?string $pushSource = null): void
 {
     $e = $this->payload()->extractLazadaError($result);
@@ -526,7 +525,6 @@ private function persistProductSyncStatus(LazadaListing $listing, string $action
             ->whereNotNull('lazada_item_id')->where('lazada_item_id', '!=', '')
             ->whereNull('unlinked_at')->whereNotNull('product_id')
             ->distinct()->count('product_id');
-
 
 
         $allBrands = DB::table('brands')
@@ -1088,7 +1086,6 @@ private function persistProductSyncStatus(LazadaListing $listing, string $action
         if (!$store || !$store->region || !$creds['app_key'] || !$creds['app_secret'] || !$creds['access_token']) {
             return ['ok' => false, 'message' => 'Missing Lazada settings (region/app key/app secret/access token).', 'errors' => []];
         }
-
 
         $isUpdate = !empty($listing->lazada_item_id) && empty($listing->lazada_deleted_at);
 
@@ -1955,7 +1952,7 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
         return \App\Channels\Listings\ListingGroup::band([
             'pivot' => 'ch_lazada_product_group_products', 'fk' => 'lazada_product_group_id',
             'groups' => 'ch_lazada_product_groups', 'storeFk' => 'store_id', 'storeId' => (int) ($listing->store_id ?? 0),
-        ], (int) $listing->product_id, 'ext.lazada.products.index');
+        ], (int) $listing->product_id, 'ext.lazada.product-groups.edit');
     }
 
     public function update(Request $request, int $productId)
@@ -1984,7 +1981,6 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
             'image_order' => 'nullable|string|max:20000',
             ...\App\Channels\Listings\ListingVariations::rules(),
             ...\App\Channels\Listings\VariationPrices::rules(),
-            ...\App\Channels\Listings\ListingGroup::rules(),
             'push' => 'nullable|boolean',
         ]);
 
@@ -2021,18 +2017,6 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
             if ($request->has($parcelField)) {
                 $listing->{$parcelField} = $blank($data[$parcelField] ?? null);
             }
-        }
-
-        $picked = \App\Channels\Listings\ListingGroup::submitted($request);
-        if ($picked['present']) {
-            if (! $listing->exists) {
-                $listing->save();
-            }
-            \App\Channels\Listings\ListingGroup::assign([
-                'pivot' => 'ch_lazada_product_group_products', 'fk' => 'lazada_product_group_id',
-                'groups' => 'ch_lazada_product_groups', 'storeFk' => 'store_id',
-                'storeId' => (int) ($listing->store_id ?? 0),
-            ], (int) $listing->product_id, $picked['id'], ['lazada_listing_id' => $listing->id, 'created_at' => now()]);
         }
 
         if ($request->has('image_order')) {
@@ -2473,7 +2457,6 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
         return null;
     }
 
-
     private function findBrandListRecursive($node): ?array
     {
         if (!is_array($node)) {
@@ -2712,6 +2695,5 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
                 ->mapWithKeys(fn ($l) => [(int) $l->product_id => 'Lazada item ' . $l->lazada_item_id])->all();
         }));
     }
-
 
 }

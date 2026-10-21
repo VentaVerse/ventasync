@@ -2,28 +2,15 @@
 
 namespace Extensions\Lazada\Controllers;
 
-use App\Http\Controllers\Controller;
 
-use Extensions\Lazada\Models\LazadaApiLog;
 use Extensions\Lazada\Models\LazadaCategoryTemplate;
 use Extensions\Lazada\Models\LazadaCategory;
-use Extensions\Lazada\Models\LazadaListing;
-use Extensions\Lazada\Models\LazadaListingAttribute;
 use Extensions\Lazada\Models\LazadaProductGroup;
-use Extensions\Lazada\Models\LazadaProductGroupProduct;
-use Extensions\Lazada\Models\LazadaListingVariation;
 use Extensions\Lazada\Models\LazadaStore;
-use App\Services\ActivityLogger;
 use Extensions\Lazada\Services\Lazada\LazadaAttributes;
 use Extensions\Lazada\Services\Lazada\LazadaClient;
-use Extensions\Lazada\Services\Lazada\LazadaItemCache;
-use Extensions\Lazada\Services\Lazada\LazadaPushPayload;
-use Extensions\Lazada\Services\LazadaStockPushService;
-use Extensions\Lazada\Services\Lazada\LazadaLiveListing;
-use Extensions\Lazada\Services\Lazada\LazadaVariationSwitch;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Log;
 
 class LazadaProductGroupController extends \App\Http\Controllers\Channels\ProductGroupController
 {
@@ -45,70 +32,6 @@ class LazadaProductGroupController extends \App\Http\Controllers\Channels\Produc
     private function attrs(): LazadaAttributes
     {
         return app(LazadaAttributes::class);
-    }
-
-    private function states(LazadaProductGroup $group): \Extensions\Lazada\Services\Lazada\LazadaListingStates
-    {
-        return \Extensions\Lazada\Services\Lazada\LazadaListingStates::on((int) $group->store_id);
-    }
-
-    private function productsRedirect(int $id)
-    {
-        $fallback = route('ext.lazada.products.index', ['group' => $id]);
-
-        return redirect(\App\Support\BackTo::safe(request()->input('_return'), $fallback));
-    }
-
-    public function moveProducts(Request $request)
-    {
-        $ids = array_values(array_unique(array_filter(array_map('intval', (array) $request->input('ids', [])), fn ($v) => $v > 0)));
-        $back = \App\Support\BackTo::safe($request->input('_return'), route('ext.lazada.products.index'));
-        if ($ids === []) {
-            return redirect($back)->with('warning', 'No products selected.');
-        }
-        $target = (string) $request->input('group', '');
-        if ($target === 'none') {
-            $removed = LazadaProductGroupProduct::query()->onStore()->whereIn('product_id', $ids)->delete();
-
-            return redirect($back)->with('status', $removed . ' ' . \Illuminate\Support\Str::plural('product', $removed) . ' ungrouped.');
-        }
-        $group = LazadaProductGroup::query()->findOrFail((int) $target);
-        $store = LazadaStore::defaultStore();
-
-        $already = $group->groupProducts()->whereIn('product_id', $ids)->pluck('product_id')->map(fn ($v) => (int) $v)->all();
-        $wanted = array_values(array_diff($ids, $already));
-        $claim = \App\Channels\OneGroupRule::claim('ch_lazada_product_group_products', 'lazada_product_group_id', 'ch_lazada_product_groups', 'store_id', $group->id, $wanted, $wanted);
-        $moved = 0;
-        foreach (array_merge($claim['free'], array_keys($claim['moved'])) as $pid) {
-            $listingId = LazadaListing::query()->forStore($store)->where('product_id', (int) $pid)->value('id')
-                ?? LazadaListing::create(['product_id' => (int) $pid])->id;
-            LazadaProductGroupProduct::create([
-                'lazada_product_group_id' => $group->id,
-                'lazada_listing_id' => $listingId,
-                'product_id' => (int) $pid,
-                'sync_status' => 'pending',
-            ]);
-            $moved++;
-        }
-        if ($moved === 0) {
-            return redirect($back)->with('warning', 'Those products are already in ' . $group->name . '.');
-        }
-
-        return redirect($back)->with('status', $moved . ' ' . \Illuminate\Support\Str::plural('product', $moved) . ' moved to ' . $group->name . '.');
-    }
-
-    public function massRemove(Request $request, int $id)
-    {
-        $group = LazadaProductGroup::query()->findOrFail($id);
-        $ids = array_map('intval', array_filter((array) $request->input('ids', [])));
-
-        if (!empty($ids)) {
-            $group->groupProducts()->whereIn('product_id', $ids)->delete();
-            $this->states($group)->clearErrors($ids);
-        }
-
-        return $this->productsRedirect($group->id)
-            ->with('status', count($ids) . ' product(s) removed from the product group.');
     }
 
     public function refreshCategories(LazadaClient $client)

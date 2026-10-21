@@ -2,27 +2,15 @@
 
 namespace Extensions\Shopee\Controllers;
 
-use App\Http\Controllers\Controller;
 
-use Extensions\Shopee\Models\ShopeeApiLog;
 use Extensions\Shopee\Models\ShopeeBrand;
 use Extensions\Shopee\Models\ShopeeCategory;
 use Extensions\Shopee\Models\ShopeeCategoryTemplate;
-use Extensions\Shopee\Models\ShopeeItemCache;
-use Extensions\Shopee\Models\ShopeeLogistic;
 use Extensions\Shopee\Models\ShopeeProductGroup;
-use Extensions\Shopee\Models\ShopeeProductGroupProduct;
-use Extensions\Shopee\Models\ShopeeListing;
-use Extensions\Shopee\Models\ShopeeListingLink;
-use Illuminate\Support\Str;
 use Extensions\Shopee\Models\ShopeeStore;
-use App\Services\ActivityLogger;
 use Extensions\Shopee\Services\Shopee\ShopeeClient;
-use Extensions\Shopee\Services\ShopeeStockPushService;
-use Extensions\Shopee\Services\ShopeeStoreProducts;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Log;
 
 class ShopeeProductGroupController extends \App\Http\Controllers\Channels\ProductGroupController
 {
@@ -44,13 +32,6 @@ class ShopeeProductGroupController extends \App\Http\Controllers\Channels\Produc
     public function __construct(
         private readonly \Extensions\Shopee\Services\Shopee\ShopeeLinkCheck $linkCheck,
     ) {
-    }
-
-    private function productsRedirect(int $id)
-    {
-        $fallback = route('ext.shopee.products.index', ['group' => $id]);
-
-        return redirect(\App\Support\BackTo::safe(request()->input('_return'), $fallback));
     }
 
     public function attributeListFromSaved(array $savedByKey, int $categoryId): array
@@ -433,64 +414,6 @@ class ShopeeProductGroupController extends \App\Http\Controllers\Channels\Produc
             'brands' => $brands,
             'fetched' => count($collected),
         ]);
-    }
-
-    public function moveProducts(Request $request)
-    {
-        $ids = array_values(array_unique(array_filter(array_map('intval', (array) $request->input('ids', [])), fn ($v) => $v > 0)));
-        $back = \App\Support\BackTo::safe($request->input('_return'), route('ext.shopee.products.index'));
-        if ($ids === []) {
-            return redirect($back)->with('warning', 'No products selected.');
-        }
-        $target = (string) $request->input('group', '');
-        if ($target === 'none') {
-            $removed = ShopeeProductGroupProduct::query()
-                ->whereIn('shopee_product_group_id', ShopeeProductGroup::query()->select('id'))
-                ->whereIn('product_id', $ids)->delete();
-
-            return redirect($back)->with('status', $removed . ' ' . \Illuminate\Support\Str::plural('product', $removed) . ' ungrouped.');
-        }
-        $group = ShopeeProductGroup::query()->findOrFail((int) $target);
-
-        $already = $group->groupProducts()->whereIn('product_id', $ids)->pluck('product_id')->map(fn ($v) => (int) $v)->all();
-        $wanted = array_values(array_diff($ids, $already));
-        $claim = \App\Channels\OneGroupRule::claim('ch_shopee_product_group_products', 'shopee_product_group_id', 'ch_shopee_product_groups', 'store_id', $group->id, $wanted, $wanted);
-        $moved = 0;
-        foreach (array_merge($claim['free'], array_keys($claim['moved'])) as $pid) {
-            ShopeeProductGroupProduct::create(['shopee_product_group_id' => $group->id, 'product_id' => (int) $pid]);
-            $moved++;
-        }
-        if ($moved === 0) {
-            return redirect($back)->with('warning', 'Those products are already in ' . $group->name . '.');
-        }
-
-        return redirect($back)->with('status', $moved . ' ' . \Illuminate\Support\Str::plural('product', $moved) . ' moved to ' . $group->name . '.');
-    }
-
-    public function massRemove(Request $request, int $id)
-    {
-        $group = ShopeeProductGroup::query()->findOrFail($id);
-        $ids = array_map('intval', array_filter((array) $request->input('ids', [])));
-
-        if (empty($ids)) {
-            return $this->productsRedirect($group->id)->with('error', 'No products selected.');
-        }
-
-        $removed = $group->groupProducts()->whereIn('product_id', $ids)->delete();
-        $this->listingStates()->clearErrors($ids);
-
-        $summary = "{$removed} product(s) removed from the product group.";
-        if ($removed < count($ids)) {
-            $summary .= ' ' . (count($ids) - $removed) . ' were not in the product group.';
-        }
-
-        return $this->productsRedirect($group->id)
-            ->with($removed > 0 ? 'status' : 'warning', $summary);
-    }
-
-    private function listingStates(): \Extensions\Shopee\Services\Shopee\ShopeeListingStates
-    {
-        return app(\Extensions\Shopee\Services\Shopee\ShopeeListingStates::class);
     }
 
     public function refreshCategories(ShopeeClient $client)

@@ -41,6 +41,7 @@ Route::middleware(['auth'])->prefix('channels')->group(function () {
     Route::delete('/ventacart/{store}/watermarks/{template}', [VentaCartWatermarkTemplateController::class, 'destroy'])->whereNumber('template')->name('ext.ventacart.watermarks.destroy')->defaults('permission_tier', 'manage');
     Route::get('/ventacart/{store}/product-groups/{group}/edit', [VentaCartProductGroupController::class, 'edit'])->name('ext.ventacart.product-groups.edit');
     Route::get('/ventacart/{store}/product-groups/{group}/products', [VentaCartProductGroupController::class, 'products'])->name('ext.ventacart.product-groups.products');
+    Route::get('/ventacart/{store}/product-groups/{group}/products/search', [VentaCartProductGroupController::class, 'productSearch'])->whereNumber('group')->name('ext.ventacart.product-groups.search');
 
 
     Route::get('/ventacart/{store}/listings', [VentaCartListingController::class, 'index'])->name('ext.ventacart.listings.index');
@@ -91,9 +92,8 @@ Route::middleware(['auth'])->prefix('channels')->group(function () {
     Route::post('/ventacart/{store}/product-groups', [VentaCartProductGroupController::class, 'store'])->name('ext.ventacart.product-groups.store');
     Route::put('/ventacart/{store}/product-groups/{group}', [VentaCartProductGroupController::class, 'update'])->name('ext.ventacart.product-groups.update');
     Route::delete('/ventacart/{store}/product-groups/{group}', [VentaCartProductGroupController::class, 'destroy'])->name('ext.ventacart.product-groups.destroy');
+    Route::post('/ventacart/{store}/product-groups/{group}/products/remove', [VentaCartProductGroupController::class, 'removeProducts'])->whereNumber('group')->name('ext.ventacart.product-groups.remove');
 
-    Route::post('/ventacart/{store}/product-groups/{group}/mass-remove', [VentaCartProductGroupController::class, 'massRemove'])->name('ext.ventacart.product-groups.mass-remove');
-    Route::post('/ventacart/{store}/product-groups/move', [VentaCartProductGroupController::class, 'moveProducts'])->name('ext.ventacart.product-groups.move');
 
 
     Route::post('/ventacart/{store}/listings/refresh-status', [VentaCartListingController::class, 'refreshStatus'])->name('ext.ventacart.listings.refresh_status');

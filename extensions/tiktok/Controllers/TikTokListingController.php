@@ -89,7 +89,7 @@ class TikTokListingController extends Controller
         $groupBand = \App\Channels\Listings\ListingGroup::band([
             'pivot' => 'ch_tiktok_product_group_products', 'fk' => 'tiktok_product_group_id',
             'groups' => 'ch_tiktok_product_groups', 'storeFk' => 'store_id', 'storeId' => $covStoreId,
-        ], $productId, 'ext.tiktok.products.index');
+        ], $productId, 'ext.tiktok.product-groups.edit');
 
         $hasVariations = isset(\Extensions\TikTok\Services\TikTok\TikTokVariationPush::withVariations([$productId])[$productId]);
 
@@ -146,7 +146,6 @@ class TikTokListingController extends Controller
             'image_order' => 'nullable|string|max:20000',
             ...\App\Channels\Listings\ListingVariations::rules(),
             ...\App\Channels\Listings\VariationPrices::rules(),
-            ...\App\Channels\Listings\ListingGroup::rules(),
         ]);
 
         $images = $request->has('image_order')
@@ -159,14 +158,6 @@ class TikTokListingController extends Controller
             $words['title'] = \App\Channels\Listings\ListingContent::own($data['title'] ?? null);
         }
         $blank = fn ($v) => ($v === null || trim((string) $v) === '') ? null : $v;
-        $picked = \App\Channels\Listings\ListingGroup::submitted($request);
-        if ($picked['present']) {
-            \App\Channels\Listings\ListingGroup::assign([
-                'pivot' => 'ch_tiktok_product_group_products', 'fk' => 'tiktok_product_group_id',
-                'groups' => 'ch_tiktok_product_groups', 'storeFk' => 'store_id',
-                'storeId' => (int) (TikTokStore::defaultStore()?->id ?? 0),
-            ], $productId, $picked['id']);
-        }
         if ($request->has('description')) {
             $currentDescription = TikTokListing::query()->where('product_id', $productId)->value('description');
             $words['description'] = \App\Channels\Listings\ListingContent::descriptionToSave($data['description'] ?? null, $currentDescription, $request->input('description_edited'));

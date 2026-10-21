@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Product groups have their own page again: its products (Add products, Remove), and the listing template it uses, applied to its products with the usual preview. Group membership changes only there; the Products page lost its group menu and Move to group / Remove from group. The listing template page switches templates from a dropdown and names the groups that use it.
 - The buyer's note (message to seller) is saved on the sales order as its Customer note. Before, it was always left empty.
 - A variation can have its own price on each store, typed on the store's Edit listing page beside the Master Catalog price. A blank uses the Master Catalog price, and the store's price rule is added on top either way.
 - Catalog > Listing Templates, and Apply template on the Products page's selection bar. A Shopee send reads only the listing; product groups are filters with no settings or send of their own.

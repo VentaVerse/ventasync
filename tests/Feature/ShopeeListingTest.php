@@ -252,7 +252,7 @@ class ShopeeListingTest extends TestCase
         $this->assertSame(370.0, (float) $update['body']['price_list'][0]['original_price']);
     }
 
-    public function test_the_listing_saves_its_group_and_keeps_every_value_it_is_given(): void
+    public function test_the_listing_save_keeps_every_value_and_never_moves_the_group(): void
     {
         $productId = $this->seedProduct(300.0);
         $first = $this->seedCatchAllGroup();
@@ -264,16 +264,11 @@ class ShopeeListingTest extends TestCase
             'shopee_category_id' => 100200, 'markup_percent' => 25,
         ])->assertSessionHasNoErrors();
 
-        $this->assertSame([$second->id], DB::table('ch_shopee_product_group_products')->where('product_id', $productId)
-            ->pluck('shopee_product_group_id')->map(fn ($v) => (int) $v)->all(), 'moved, never in two groups');
+        $this->assertSame([$first->id], DB::table('ch_shopee_product_group_products')->where('product_id', $productId)
+            ->pluck('shopee_product_group_id')->map(fn ($v) => (int) $v)->all(), 'membership changes on the group page only');
         $listing = ShopeeListing::query()->where('product_id', $productId)->first();
         $this->assertSame(100200, (int) $listing->shopee_category_id, 'a value equal to the group is still the listing\'s own');
         $this->assertSame(25.0, (float) $listing->markup_percent);
-
-        $this->actingAs($this->manager())->post(route('ext.shopee.listings.update', $productId), [
-            'product_group_listed' => 1, 'product_group_id' => '',
-        ])->assertSessionHasNoErrors();
-        $this->assertSame(0, DB::table('ch_shopee_product_group_products')->where('product_id', $productId)->count(), 'No group takes it out');
     }
 
     public function test_a_push_sends_the_listings_own_words_not_the_catalogs(): void

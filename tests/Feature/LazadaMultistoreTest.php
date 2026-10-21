@@ -258,8 +258,8 @@ class LazadaMultistoreTest extends TestCase
         $shape = fn ($store) => ['pivot' => 'ch_lazada_product_group_products', 'fk' => 'lazada_product_group_id', 'groups' => 'ch_lazada_product_groups', 'storeFk' => 'store_id', 'storeId' => (int) $store->id];
         $extra = fn ($listing) => ['lazada_listing_id' => $listing->id, 'created_at' => now()];
 
-        \App\Channels\Listings\ListingGroup::assign($shape($one), $pid, (int) $x->id, $extra($rowOne));
-        \App\Channels\Listings\ListingGroup::assign($shape($two), $pid, (int) $onOutlet->id, $extra($rowTwo));
+        \App\Channels\OneGroupRule::place($shape($one)['pivot'], $shape($one)['fk'], $shape($one)['groups'], 'store_id', (int) $one->id, (int) $x->id, $pid, $extra($rowOne));
+        \App\Channels\OneGroupRule::place($shape($two)['pivot'], $shape($two)['fk'], $shape($two)['groups'], 'store_id', (int) $two->id, (int) $onOutlet->id, $pid, $extra($rowTwo));
 
         $this->assertSame((int) $x->id, \App\Channels\Listings\ListingGroup::current($shape($one), $pid));
         $this->assertSame((int) $onOutlet->id, \App\Channels\Listings\ListingGroup::current($shape($two), $pid), 'the other store groups it too');
@@ -267,7 +267,7 @@ class LazadaMultistoreTest extends TestCase
         $claim = \App\Channels\OneGroupRule::claim('ch_lazada_product_group_products', 'lazada_product_group_id', 'ch_lazada_product_groups', 'store_id', (int) $y->id, [$pid]);
         $this->assertSame([$pid => 'Group X'], $claim['held'], 'a second group on the same store is held');
 
-        \App\Channels\Listings\ListingGroup::assign($shape($one), $pid, null);
+        \Illuminate\Support\Facades\DB::table($shape($one)['pivot'])->where('product_id', $pid)->whereIn($shape($one)['fk'], \Illuminate\Support\Facades\DB::table($shape($one)['groups'])->where('store_id', $one->id)->select('id'))->delete();
         $this->assertNull(\App\Channels\Listings\ListingGroup::current($shape($one), $pid));
         $this->assertSame((int) $onOutlet->id, \App\Channels\Listings\ListingGroup::current($shape($two), $pid), 'No group on one store leaves the other store alone');
     }
