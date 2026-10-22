@@ -30,12 +30,22 @@ class TikTokListingTemplateController extends \App\Http\Controllers\Channels\Lis
 
     protected function fieldRules(): array
     {
-        return ['tiktok_category_id' => 'nullable|string|exists:ch_tiktok_categories,id'];
+        return [
+            'tiktok_category_id' => 'nullable|string|exists:ch_tiktok_categories,id',
+            'brand_id' => 'nullable|string|max:64',
+            'brand_name' => 'nullable|string|max:255',
+        ];
     }
 
     protected function fieldValues(Request $request, array $data): array
     {
-        return ['tiktok_category_id' => ($data['tiktok_category_id'] ?? '') !== '' ? (string) $data['tiktok_category_id'] : null];
+        $brandId = trim((string) ($data['brand_id'] ?? ''));
+
+        return [
+            'tiktok_category_id' => ($data['tiktok_category_id'] ?? '') !== '' ? (string) $data['tiktok_category_id'] : null,
+            'brand_id' => $brandId !== '' ? $brandId : null,
+            'brand_name' => $brandId !== '' ? (trim((string) ($data['brand_name'] ?? '')) ?: null) : null,
+        ];
     }
 
     protected function applier(): \App\Channels\Listings\Templates\TemplateFields

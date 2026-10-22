@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- TikTok listing templates have a Brand, searched from TikTok Shop like the Edit listing page, and applying the template gives it to the listing. Run `php artisan migrate`.
 - The listing template and the Edit listing page refresh the same lists from the store: categories on every channel, brands on Lazada, couriers on Shopee. Shopee couriers switched off in Seller Centre stay listed and say so.
 - Catalog > Listing Templates is a list with Edit and Delete, like Description Templates and Watermarks. A description template, watermark or listing template that something still uses cannot be deleted; each list shows what uses it.
 - A listing's markup can no longer be below zero on any channel (Shopee, TikTok, WooCommerce and VentaCart used to allow it). A discount belongs to a promotion.
