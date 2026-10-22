@@ -89,7 +89,7 @@ class ProductGroupPageTest extends TestCase
         $html = $this->actingAs($this->user())->get(route('ext.shopee.product-groups.edit', ['id' => $group->id]))->getContent();
         $edit = e(route('ext.shopee.listing-templates.edit', ['template' => $template->id]));
         $this->assertMatchesRegularExpression('~<select[^>]*data-pg-template~', $html, 'the dropdown carries the hook');
-        $this->assertMatchesRegularExpression('~<a href="' . preg_quote($edit, '~') . '"[^>]*target="_blank"[^>]*data-pg-template-view~', $html, 'View template opens the chosen template in a new tab');
+        $this->assertMatchesRegularExpression('~<a [^>]*href="' . preg_quote($edit, '~') . '"[^>]*target="_blank"[^>]*data-pg-template-view~', $html, 'View template opens the chosen template in a new tab');
         $this->assertStringContainsString('data-url="' . $edit . '"', $html);
 
         $this->actingAs($this->user(['view_shopee/product', 'view_shopee/product_group']))->get(route('ext.shopee.product-groups.edit', ['id' => $group->id]))
