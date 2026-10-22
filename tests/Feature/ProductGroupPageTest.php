@@ -86,6 +86,15 @@ class ProductGroupPageTest extends TestCase
             ->assertSee('name="product_ids[]" value="' . $pid . '"', false)
             ->assertSee(e(route('ext.shopee.listings.edit', ['productId' => $pid])), false);
 
+        $html = $this->actingAs($this->user())->get(route('ext.shopee.product-groups.edit', ['id' => $group->id]))->getContent();
+        $edit = e(route('ext.shopee.listing-templates.edit', ['template' => $template->id]));
+        $this->assertMatchesRegularExpression('~<select[^>]*data-pg-template~', $html, 'the dropdown carries the hook');
+        $this->assertMatchesRegularExpression('~<a href="' . preg_quote($edit, '~') . '"[^>]*target="_blank"[^>]*data-pg-template-view~', $html, 'View template opens the chosen template in a new tab');
+        $this->assertStringContainsString('data-url="' . $edit . '"', $html);
+
+        $this->actingAs($this->user(['view_shopee/product', 'view_shopee/product_group']))->get(route('ext.shopee.product-groups.edit', ['id' => $group->id]))
+            ->assertOk()->assertDontSee('data-pg-template-view', false);
+
         $this->actingAs($this->user())->get(route('ext.shopee.product-groups.index'))
             ->assertOk()->assertSee('Pedals, 10% up')
             ->assertSee(e(route('ext.shopee.product-groups.edit', ['id' => $group->id])), false);

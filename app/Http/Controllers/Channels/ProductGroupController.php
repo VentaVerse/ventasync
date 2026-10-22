@@ -197,6 +197,9 @@ abstract class ProductGroupController extends Controller
             'canApply' => auth()->user()?->hasPermission('manage_' . $ch . '/listing_template') ?? false,
             'storeName' => $this->storeName(),
             'templates' => $this->templates()->orderBy('name')->pluck('name', 'id'),
+            'templateUrls' => (auth()->user()?->hasPermission('view_' . $ch . '/listing_template') ?? false)
+                ? $this->templates()->pluck('id')->mapWithKeys(fn ($id) => [(int) $id => route('ext.' . $ch . '.listing-templates.edit', ['store' => $this->groupStoreId(), 'template' => $id])])->all()
+                : [],
             'templatesUrl' => route('ext.' . $ch . '.listing-templates.index', ['store' => $this->groupStoreId()]),
             'previewUrl' => route('ext.' . $ch . '.listing-templates.preview', ['store' => $this->groupStoreId()]),
             'members' => $members,

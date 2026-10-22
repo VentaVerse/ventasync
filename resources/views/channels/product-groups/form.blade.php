@@ -52,13 +52,20 @@
                         </div>
                         <div class="pg-template">
                             <x-ui.field label="Template for this group" for="pg-template" name="listing_template_id">
-                                <x-ui.select id="pg-template" name="listing_template_id" :disabled="! $canManage">
+                                <x-ui.select id="pg-template" name="listing_template_id" :disabled="! $canManage" data-pg-template>
                                     <option value="">None</option>
                                     @foreach($templates as $templateId => $templateName)
-                                        <option value="{{ $templateId }}" @selected((string) old('listing_template_id', $group->listing_template_id) === (string) $templateId)>{{ $templateName }}</option>
+                                        <option value="{{ $templateId }}" data-url="{{ $templateUrls[$templateId] ?? '' }}" @selected((string) old('listing_template_id', $group->listing_template_id) === (string) $templateId)>{{ $templateName }}</option>
                                     @endforeach
                                 </x-ui.select>
                             </x-ui.field>
+                            @if($templateUrls !== [])
+                                @php $chosenTemplate = (int) old('listing_template_id', $group->listing_template_id); @endphp
+                                <x-ui.button :href="$templateUrls[$chosenTemplate] ?? '#'" target="_blank" rel="noopener" data-pg-template-view
+                                             :hidden="! isset($templateUrls[$chosenTemplate])">
+                                    View template <x-ui.icon name="external-link" size="12" />
+                                </x-ui.button>
+                            @endif
                             @if($canApply && $group->listing_template_id && $members->isNotEmpty())
                                 <x-ui.button type="submit" form="pg-apply">Apply to {{ number_format($members->count()) }} {{ $members->count() === 1 ? 'product' : 'products' }}</x-ui.button>
                             @endif
