@@ -193,12 +193,6 @@ class VentaCartClient
         return $this->get('categories', $params);
     }
 
-    public function getBrands(bool $activeOnly = false): array
-    {
-        $params = $activeOnly ? ['active_only' => 1] : [];
-        return $this->get('brands', $params);
-    }
-
     public function getProducts(int $perPage = 50, ?string $updatedSince = null, ?string $sku = null): array
     {
         $params = ['per_page' => $perPage];
