@@ -39,6 +39,7 @@ abstract class WatermarkTemplateController extends Controller
             ->orderBy('name')
             ->paginate(50)
             ->withQueryString();
+        $usage = \App\Channels\Listings\TemplateUsage::watermark($this->channel(), $this->storeId(), $templates->pluck('id')->all());
 
         return view('channels.watermarks.index', [
             'templates' => $templates,
@@ -48,6 +49,7 @@ abstract class WatermarkTemplateController extends Controller
             'createUrl' => $this->url('create'),
             'editUrl' => fn (int $id) => $this->url('edit', ['template' => $id]),
             'destroyUrl' => fn (int $id) => $this->url('destroy', ['template' => $id]),
+            'usedBy' => fn (int $id) => \App\Channels\Listings\TemplateUsage::sentence($usage[$id] ?? []),
             'canManage' => $this->canManage(),
         ]);
     }
@@ -72,7 +74,7 @@ abstract class WatermarkTemplateController extends Controller
         ActivityLogger::log('created', 'Watermark template', (int) $template->id, (string) $template->name);
 
         return redirect()->to($this->url('index'))
-            ->with('status', 'Template saved. Choose it on a listing or a product group to use it.');
+            ->with('status', 'Template saved.');
     }
 
     public function edit(int $template)
@@ -96,15 +98,20 @@ abstract class WatermarkTemplateController extends Controller
 
     public function destroy(int $template)
     {
+        abort_unless($this->canManage(), 403);
         $row = $this->ownRow($template);
         $name = (string) $row->name;
+        $usedBy = \App\Channels\Listings\TemplateUsage::sentence(\App\Channels\Listings\TemplateUsage::watermark($this->channel(), $this->storeId(), [$template])[$template] ?? []);
+        if ($usedBy !== '') {
+            return redirect()->to($this->url('index'))->with('error', 'Not deleted. "' . $name . '" is used by ' . $usedBy . '.');
+        }
 
         $row->delete();
 
         ActivityLogger::log('deleted', 'Watermark template', $template, $name);
 
         return redirect()->to($this->url('index'))
-            ->with('status', 'Template deleted. Anything that used it now goes up unmarked.');
+            ->with('status', 'Template deleted.');
     }
 
     public function preview(Request $request)

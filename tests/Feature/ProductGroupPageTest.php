@@ -188,19 +188,60 @@ class ProductGroupPageTest extends TestCase
         $this->assertSame(10.0, (float) ShopeeListing::query()->where('product_id', $pid)->value('markup_percent'));
     }
 
-    public function test_the_template_page_switches_by_dropdown_and_names_its_groups(): void
+    public function test_the_templates_page_is_a_list_and_a_template_in_use_is_not_deleted(): void
     {
-        $template = ShopeeListingTemplate::create(['store_id' => $this->storeId(), 'name' => 'Pedals, 10% up']);
-        ShopeeListingTemplate::create(['store_id' => $this->storeId(), 'name' => 'Cables, 5% up']);
+        $used = ShopeeListingTemplate::create(['store_id' => $this->storeId(), 'name' => 'Pedals, 10% up', 'markup_percent' => 10]);
+        $free = ShopeeListingTemplate::create(['store_id' => $this->storeId(), 'name' => 'Cables, 5% up']);
         $group = ShopeeProductGroup::create(['name' => 'Pedals']);
-        $group->forceFill(['listing_template_id' => $template->id])->save();
+        $group->forceFill(['listing_template_id' => $used->id])->save();
 
-        $this->actingAs($this->user())->get(route('ext.shopee.listing-templates.edit', ['template' => $template->id]))
+        $this->actingAs($this->user())->get(route('ext.shopee.listing-templates.index'))
             ->assertOk()
-            ->assertSee('data-nav-select', false)
-            ->assertSee('Cables, 5% up')
-            ->assertDontSee('lt-list__item', false)
-            ->assertSee('Used by')
+            ->assertSee('Pedals, 10% up')->assertSee('Cables, 5% up')
+            ->assertSee('+10%')
+            ->assertSee('1 product group')
+            ->assertSee(e(route('ext.shopee.listing-templates.edit', ['template' => $free->id])), false)
+            ->assertDontSee('data-nav-select', false);
+
+        $this->actingAs($this->user())->get(route('ext.shopee.listing-templates.edit', ['template' => $used->id]))
+            ->assertOk()->assertDontSee('data-nav-select', false)->assertSee('Used by')
             ->assertSee(e(route('ext.shopee.product-groups.edit', ['id' => $group->id])), false);
+
+        $this->actingAs($this->user())->delete(route('ext.shopee.listing-templates.destroy', ['template' => $used->id]))
+            ->assertRedirect(route('ext.shopee.listing-templates.index'))
+            ->assertSessionHas('error', 'Not deleted. "Pedals, 10% up" is used by 1 product group.');
+        $this->assertNotNull($used->fresh());
+
+        $this->actingAs($this->user())->delete(route('ext.shopee.listing-templates.destroy', ['template' => $free->id]))
+            ->assertRedirect(route('ext.shopee.listing-templates.index'));
+        $this->assertNull($free->fresh());
+    }
+
+    public function test_a_description_template_or_watermark_in_use_is_not_deleted(): void
+    {
+        $keys = ['view_shopee/product', 'manage_shopee/product', 'view_shopee/description_template', 'manage_shopee/description_template', 'view_shopee/watermark_template', 'manage_shopee/watermark_template', 'view_shopee/listing_template', 'manage_shopee/listing_template'];
+        $store = $this->storeId();
+        $prefix = \App\Models\DescriptionTemplate::create(['channel' => 'shopee', 'store_id' => $store, 'name' => 'Shipping notice', 'body' => 'Ships in 2 days']);
+        $suffix = \App\Models\DescriptionTemplate::create(['channel' => 'shopee', 'store_id' => $store, 'name' => 'Warranty', 'body' => '1 year']);
+        $spare = \App\Models\DescriptionTemplate::create(['channel' => 'shopee', 'store_id' => $store, 'name' => 'Spare', 'body' => '']);
+        $pid = $this->product('Fuzz pedal', 'FUZZ-1');
+        ShopeeListing::query()->create(['product_id' => $pid, 'description_prefix_id' => $prefix->id, 'description_suffix_id' => $suffix->id]);
+
+        $this->actingAs($this->user($keys))->get(route('ext.shopee.description-templates.index'))
+            ->assertOk()->assertSee('1 listing')->assertSee('Not used');
+        $this->actingAs($this->user($keys))->delete(route('ext.shopee.description-templates.destroy', ['template' => $suffix->id]))
+            ->assertSessionHas('error', 'Not deleted. "Warranty" is used by 1 listing.');
+        $this->assertNotNull($suffix->fresh());
+        $this->actingAs($this->user($keys))->delete(route('ext.shopee.description-templates.destroy', ['template' => $spare->id]))
+            ->assertSessionHas('status');
+        $this->assertNull($spare->fresh());
+
+        $mark = \App\Models\WatermarkTemplate::query()->forceCreate(['channel' => 'shopee', 'store_id' => $store, 'name' => 'Logo', 'image_path' => 'catalog/x.png', 'position' => 'bottom-right', 'size_percent' => 18, 'offset_x_percent' => 0, 'offset_y_percent' => 0, 'opacity' => 1]);
+        ShopeeListingTemplate::create(['store_id' => $store, 'name' => 'Pedals', 'watermark_template_id' => $mark->id]);
+        $this->actingAs($this->user($keys))->get(route('ext.shopee.watermarks.index'))
+            ->assertOk()->assertSee('1 listing template');
+        $this->actingAs($this->user($keys))->delete(route('ext.shopee.watermarks.destroy', ['template' => $mark->id]))
+            ->assertSessionHas('error', 'Not deleted. "Logo" is used by 1 listing template.');
+        $this->assertNotNull($mark->fresh());
     }
 }

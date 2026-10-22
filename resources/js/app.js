@@ -56,7 +56,6 @@ import './pages/channel-listing-form';
 import './pages/channel-import';
 import './pages/channel-add';
 import './pages/channel-add-panel';
-import './pages/nav-select';
 import './pages/purchasing';
 import './pages/product-suppliers';
 import './pages/warehousing';
