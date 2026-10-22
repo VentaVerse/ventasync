@@ -59,17 +59,15 @@
                                     @endforeach
                                 </x-ui.select>
                             </x-ui.field>
-                            @if($templateUrls !== [])
-                                @php $chosenTemplate = (int) old('listing_template_id', $group->listing_template_id); @endphp
-                                <x-ui.button variant="ghost" size="sm" :href="$templateUrls[$chosenTemplate] ?? '#'" target="_blank" rel="noopener" data-pg-template-view
-                                             :hidden="! isset($templateUrls[$chosenTemplate])">
-                                    View template <x-ui.icon name="external-link" size="12" />
-                                </x-ui.button>
-                            @endif
                             @if($canApply && $group->listing_template_id && $members->isNotEmpty())
                                 <x-ui.button type="submit" form="pg-apply">Apply to {{ number_format($members->count()) }} {{ $members->count() === 1 ? 'product' : 'products' }}</x-ui.button>
                             @endif
                         </div>
+                        @if($templateUrls !== [])
+                            @php $chosenTemplate = (int) old('listing_template_id', $group->listing_template_id); @endphp
+                            <a class="pg-template__view" href="{{ $templateUrls[$chosenTemplate] ?? '#' }}" target="_blank" rel="noopener" data-pg-template-view
+                               @if(! isset($templateUrls[$chosenTemplate])) hidden @endif>View template <x-ui.icon name="external-link" size="11" /></a>
+                        @endif
                         @if($templates->isEmpty())
                             <p class="fm-section__note"><a href="{{ $templatesUrl }}">Create a listing template</a></p>
                         @endif

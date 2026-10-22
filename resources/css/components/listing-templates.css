@@ -142,12 +142,23 @@
     max-width: 420px;
 }
 
-.pg-template [hidden] {
-    display: none;
+.pg-template__view {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    margin-top: 6px;
+    font-size: 12px;
+    color: var(--bl-ink-2);
+    text-decoration: none;
 }
 
-.pg-template .x-btn--ghost:hover {
-    border-color: transparent;
+.pg-template__view:hover {
+    color: var(--bl-ink);
+    text-decoration: underline;
+}
+
+.pg-template__view[hidden] {
+    display: none;
 }
 
 .pg-members {
