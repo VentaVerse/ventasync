@@ -8,6 +8,11 @@ use Illuminate\Validation\Rule;
 
 class VentaCartListingTemplateController extends \App\Http\Controllers\Channels\ListingTemplateController
 {
+    protected function listingLists(): \App\Channels\Contracts\ListingLists
+    {
+        return app(\Extensions\VentaCart\Services\VentaCart\VentaCartListingLists::class);
+    }
+
     protected function channel(): string
     {
         return 'ventacart';

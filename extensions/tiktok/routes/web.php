@@ -40,6 +40,7 @@ Route::middleware(['auth', \Extensions\TikTok\Http\ResolveTikTokStore::class])
         Route::delete('/tiktok/{store}/listing-templates/{template}', [\Extensions\TikTok\Controllers\TikTokListingTemplateController::class, 'destroy'])->whereNumber('template')->name('ext.tiktok.listing-templates.destroy')->defaults('permission_tier', 'manage');
         Route::post('/tiktok/{store}/listing-templates/preview', [\Extensions\TikTok\Controllers\TikTokListingTemplateController::class, 'preview'])->name('ext.tiktok.listing-templates.preview')->defaults('permission_tier', 'manage');
         Route::post('/tiktok/{store}/listing-templates/apply', [\Extensions\TikTok\Controllers\TikTokListingTemplateController::class, 'apply'])->name('ext.tiktok.listing-templates.apply')->defaults('permission_tier', 'manage');
+        Route::post('/tiktok/{store}/listing-templates/lists/{list}', [\Extensions\TikTok\Controllers\TikTokListingTemplateController::class, 'refreshList'])->where('list', 'categories')->name('ext.tiktok.listing-templates.refresh_list')->defaults('permission_tier', 'manage');
         Route::get('/tiktok/{store}/description-templates', [TikTokDescriptionTemplateController::class, 'index'])->name('ext.tiktok.description-templates.index');
         Route::post('/tiktok/{store}/description-templates', [TikTokDescriptionTemplateController::class, 'store'])->name('ext.tiktok.description-templates.store')->defaults('permission_tier', 'manage');
         Route::put('/tiktok/{store}/description-templates/{template}', [TikTokDescriptionTemplateController::class, 'update'])->whereNumber('template')->name('ext.tiktok.description-templates.update')->defaults('permission_tier', 'manage');
@@ -69,6 +70,7 @@ Route::middleware(['auth', \Extensions\TikTok\Http\ResolveTikTokStore::class])
 
         Route::get('/tiktok/{store}/listings/{productId}', [TikTokListingController::class, 'edit'])
             ->whereNumber('productId')->name('ext.tiktok.listings.edit');
+        Route::post('/tiktok/{store}/listings/lists/{list}', [\Extensions\TikTok\Controllers\TikTokListingController::class, 'refreshList'])->where('list', 'categories')->name('ext.tiktok.listings.refresh_list')->defaults('permission_tier', 'manage');
     });
 
     Route::group([], function () {

@@ -7,7 +7,6 @@ use App\Http\Controllers\Controller;
 use Extensions\Shopee\Models\ShopeeApiLog;
 use Extensions\Shopee\Models\ShopeeCategory;
 use Extensions\Shopee\Models\ShopeeItemCache;
-use Extensions\Shopee\Models\ShopeeLogistic;
 use Extensions\Shopee\Models\ShopeeListing;
 use Extensions\Shopee\Models\ShopeeListingLink;
 use Extensions\Shopee\Models\ShopeeProductGroup;
@@ -22,6 +21,13 @@ use Illuminate\Support\Facades\Log;
 
 class ShopeeProductController extends Controller
 {
+    use \App\Http\Controllers\Channels\Concerns\RefreshesListingLists;
+
+    protected function listingLists(): \App\Channels\Contracts\ListingLists
+    {
+        return app(\Extensions\Shopee\Services\Shopee\ShopeeListingLists::class);
+    }
+
     use \App\Http\Controllers\Concerns\ServesCategoryTree;
 
     protected function categoryChannel(): string
@@ -1798,16 +1804,7 @@ class ShopeeProductController extends Controller
 
     private function fetchLogistics(): array
     {
-        return ShopeeLogistic::query()
-            ->orderByDesc('enabled')
-            ->orderBy('logistics_channel_name')
-            ->get()
-            ->map(fn($ch) => [
-                'logistic_id' => $ch->logistics_channel_id,
-                'logistic_name' => $ch->logistics_channel_name,
-                'enabled' => $ch->enabled,
-            ])
-            ->toArray();
+        return \Extensions\Shopee\Services\Shopee\ShopeeListingLists::couriers();
     }
 
     private function fetchLiveItemIds(ShopeeClient $client, array $auth): ?array

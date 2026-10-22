@@ -137,6 +137,7 @@
                     <div class="fm-section__head"><h2 class="fm-section__title">Category and brand</h2></div>
                     <div class="fm-fields">
                         @include('partials.category-tree-pick', [
+                            'refreshUrl' => (! isset($canManage) || $canManage) ? route('ext.tiktok.listings.refresh_list', ['store' => \App\Channels\Listings\ListingStore::id('tiktok'), 'list' => 'categories']) : null,
                             'name' => 'tiktok_category_id',
                             'id' => 'tl-category',
                             'label' => 'TikTok category',

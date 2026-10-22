@@ -49,6 +49,7 @@ Route::middleware(['auth', \Extensions\Lazada\Http\ResolveLazadaStore::class])
         Route::delete('/lazada/{store}/listing-templates/{template}', [\Extensions\Lazada\Controllers\LazadaListingTemplateController::class, 'destroy'])->whereNumber('template')->name('ext.lazada.listing-templates.destroy')->defaults('permission_tier', 'manage');
         Route::post('/lazada/{store}/listing-templates/preview', [\Extensions\Lazada\Controllers\LazadaListingTemplateController::class, 'preview'])->name('ext.lazada.listing-templates.preview')->defaults('permission_tier', 'manage');
         Route::post('/lazada/{store}/listing-templates/apply', [\Extensions\Lazada\Controllers\LazadaListingTemplateController::class, 'apply'])->name('ext.lazada.listing-templates.apply')->defaults('permission_tier', 'manage');
+        Route::post('/lazada/{store}/listing-templates/lists/{list}', [\Extensions\Lazada\Controllers\LazadaListingTemplateController::class, 'refreshList'])->where('list', 'categories|brands')->name('ext.lazada.listing-templates.refresh_list')->defaults('permission_tier', 'manage');
 
         Route::get('/lazada/{store}/description-templates', [LazadaDescriptionTemplateController::class, 'index'])->name('ext.lazada.description-templates.index');
         Route::post('/lazada/{store}/description-templates', [LazadaDescriptionTemplateController::class, 'store'])->name('ext.lazada.description-templates.store')->defaults('permission_tier', 'manage');
@@ -114,6 +115,7 @@ Route::middleware(['auth', \Extensions\Lazada\Http\ResolveLazadaStore::class])
 
         Route::get('/lazada/{store}/products/{productId}/edit', [LazadaProductController::class, 'edit'])->whereNumber('productId')->name('ext.lazada.products.edit')
         ->defaults('permission_tier', 'manage');
+        Route::post('/lazada/{store}/products/lists/{list}', [LazadaProductController::class, 'refreshList'])->where('list', 'categories|brands')->name('ext.lazada.products.refresh_list')->defaults('permission_tier', 'manage');
         Route::put('/lazada/{store}/products/{productId}', [LazadaProductController::class, 'update'])->whereNumber('productId')->name('ext.lazada.products.update');
         Route::post('/lazada/{store}/products/{productId}/catalog-change', [LazadaProductController::class, 'catalogChangeSave'])->whereNumber('productId')->name('ext.lazada.products.catalog_change_save');
         Route::post('/lazada/{store}/products/{productId}/catalog-change/ignore', [LazadaProductController::class, 'catalogChangeIgnore'])->whereNumber('productId')->name('ext.lazada.products.catalog_change_ignore');

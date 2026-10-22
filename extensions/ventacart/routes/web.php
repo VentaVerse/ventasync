@@ -24,6 +24,7 @@ Route::middleware(['auth'])->prefix('channels')->group(function () {
     Route::delete('/ventacart/{store}/listing-templates/{template}', [\Extensions\VentaCart\Controllers\VentaCartListingTemplateController::class, 'destroy'])->whereNumber('template')->name('ext.ventacart.listing-templates.destroy')->defaults('permission_tier', 'manage');
     Route::post('/ventacart/{store}/listing-templates/preview', [\Extensions\VentaCart\Controllers\VentaCartListingTemplateController::class, 'preview'])->name('ext.ventacart.listing-templates.preview')->defaults('permission_tier', 'manage');
     Route::post('/ventacart/{store}/listing-templates/apply', [\Extensions\VentaCart\Controllers\VentaCartListingTemplateController::class, 'apply'])->name('ext.ventacart.listing-templates.apply')->defaults('permission_tier', 'manage');
+    Route::post('/ventacart/{store}/listing-templates/lists/{list}', [\Extensions\VentaCart\Controllers\VentaCartListingTemplateController::class, 'refreshList'])->where('list', 'categories')->name('ext.ventacart.listing-templates.refresh_list')->defaults('permission_tier', 'manage');
     Route::get('/ventacart/{store}/description-templates', [VentaCartDescriptionTemplateController::class, 'index'])->name('ext.ventacart.description-templates.index');
     Route::post('/ventacart/{store}/description-templates', [VentaCartDescriptionTemplateController::class, 'store'])->name('ext.ventacart.description-templates.store')->defaults('permission_tier', 'manage');
     Route::put('/ventacart/{store}/description-templates/{template}', [VentaCartDescriptionTemplateController::class, 'update'])->whereNumber('template')->name('ext.ventacart.description-templates.update')->defaults('permission_tier', 'manage');
@@ -66,6 +67,7 @@ Route::middleware(['auth'])->prefix('channels')->group(function () {
     Route::post('/ventacart/{store}/products/remove-from-store/{productId}', [VentaCartListingController::class, 'removeFromStore'])->whereNumber('store')->whereNumber('productId')->name('ext.ventacart.products.remove_from_store');
     Route::get('/ventacart/{store}/listings/{productId}', [VentaCartListingController::class, 'edit'])
         ->whereNumber('productId')->name('ext.ventacart.listings.edit');
+    Route::post('/ventacart/{store}/listings/lists/{list}', [VentaCartListingController::class, 'refreshList'])->where('list', 'categories')->name('ext.ventacart.listings.refresh_list')->defaults('permission_tier', 'manage');
 });
 
 Route::middleware(['auth'])->prefix('channels')->group(function () {

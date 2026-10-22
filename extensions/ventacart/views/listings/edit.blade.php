@@ -148,6 +148,7 @@
                     <div class="fm-section__head"><h2 class="fm-section__title">Category on {{ $storeName }}</h2></div>
                     <div class="fm-fields">
                         @include('partials.category-tree-pick', [
+                            'refreshUrl' => (! isset($canManage) || $canManage) ? route('ext.ventacart.listings.refresh_list', ['store' => \App\Channels\Listings\ListingStore::id('ventacart'), 'list' => 'categories']) : null,
                             'name' => 'ventacart_category_id',
                             'id' => 'vl-category',
                             'label' => 'Category',

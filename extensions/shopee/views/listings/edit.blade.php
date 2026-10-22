@@ -182,6 +182,7 @@
                     </div>
                     <div class="fm-fields">
                         @include('partials.category-tree-pick', [
+                            'refreshUrl' => (! isset($canManage) || $canManage) ? route('ext.shopee.listings.refresh_list', ['store' => \App\Channels\Listings\ListingStore::id('shopee'), 'list' => 'categories']) : null,
                             'name' => 'shopee_category_id',
                             'id' => 'sl-category',
                             'label' => 'Shopee category',
@@ -280,37 +281,17 @@
                     <div class="fm-section__head">
                         <h2 class="fm-section__title">Only on Shopee</h2>
                     </div>
-                    <div class="fm-sub" id="sl-couriers">
-                        <h3 class="fm-sub__title">Couriers <span class="fm-req" aria-hidden="true">*</span><span class="x-sr">(required)</span> <x-ui.hint label="About the couriers">Which of Shopee's couriers this listing is offered on. Pick at least one.</x-ui.hint></h3>
-                        @if($errors->has('logistic_ids'))
-                            <div class="fm-error">{{ $errors->first('logistic_ids') }}</div>
-                        @endif
-                        @if(!empty($logistics))
-                            <div class="gf-checks" data-must-pick="Pick at least one courier.">
-                                @foreach($logistics as $channel)
-                                    @php
-                                        $logisticId = (int) ($channel['logistic_id'] ?? 0);
-                                        $isChecked = is_array($oldLogisticIds)
-                                            ? in_array($logisticId, array_map('intval', $oldLogisticIds), true)
-                                            : in_array($logisticId, $savedLogisticIds, true);
-                                    @endphp
-                                    <label class="gf-check">
-                                        <input type="checkbox" class="cc-check" name="logistic_ids[]" value="{{ $logisticId }}"
-                                               @checked($isChecked) @disabled(!$canManage)>
-                                        <span class="gf-check__name">{{ (string) ($channel['logistic_name'] ?? 'Channel ' . $logisticId) }}</span>
-                                        <span class="gf-check__id">{{ $logisticId }}</span>
-                                    </label>
-                                @endforeach
-                            </div>
-                        @else
-                            <x-ui.empty title="No couriers synced yet"
-                                        description="Sync Shopee's courier channels first; a listing cannot ship without one.">
-                                <x-slot:action>
-                                    <x-ui.button :href="route('ext.shopee.logistics.index')">Go to Logistics</x-ui.button>
-                                </x-slot:action>
-                            </x-ui.empty>
-                        @endif
-                    </div>
+                    @php
+                        $courierPicked = is_array($oldLogisticIds) ? array_map('intval', $oldLogisticIds) : array_map('intval', $savedLogisticIds);
+                    @endphp
+                    @include('ext-shopee::listings._couriers', [
+                        'id' => 'sl-couriers',
+                        'logistics' => $logistics ?? [],
+                        'selected' => $courierPicked,
+                        'canManage' => $canManage,
+                        'required' => true,
+                        'refreshUrl' => $canManage ? route('ext.shopee.listings.refresh_list', ['store' => \App\Channels\Listings\ListingStore::id('shopee'), 'list' => 'couriers']) : null,
+                    ])
                 </section>
 
             </x-slot:main>

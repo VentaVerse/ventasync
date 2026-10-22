@@ -4,6 +4,7 @@
     </div>
     <div class="fm-fields">
         @include('partials.category-tree-pick', [
+            'refreshUrl' => (! isset($canManage) || $canManage) ? route('ext.tiktok.listing-templates.refresh_list', ['store' => \App\Channels\Listings\ListingStore::id('tiktok'), 'list' => 'categories']) : null,
             'name' => 'tiktok_category_id',
             'id' => 'lt-category',
             'label' => 'TikTok category',
