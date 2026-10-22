@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Settings > Mail offers SMTP and PHP Mail, and a new install starts on SMTP. Run `php artisan migrate`.
 - VentaCart no longer fetches the store's brand list: a product's brand comes from the Master Catalog and the storefront creates it if it is missing. Connecting a VentaCart store runs Categories and Order statuses. `ch_ventacart_brands` is dropped; run `php artisan migrate`.
 - TikTok listing templates have a Brand, searched from TikTok Shop like the Edit listing page, and applying the template gives it to the listing. Run `php artisan migrate`.
 - The listing template and the Edit listing page refresh the same lists from the store: categories on every channel, brands on Lazada, couriers on Shopee. Shopee couriers switched off in Seller Centre stay listed and say so.
