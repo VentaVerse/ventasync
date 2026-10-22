@@ -61,7 +61,7 @@
                             </x-ui.field>
                             @if($templateUrls !== [])
                                 @php $chosenTemplate = (int) old('listing_template_id', $group->listing_template_id); @endphp
-                                <x-ui.button :href="$templateUrls[$chosenTemplate] ?? '#'" target="_blank" rel="noopener" data-pg-template-view
+                                <x-ui.button variant="ghost" size="sm" :href="$templateUrls[$chosenTemplate] ?? '#'" target="_blank" rel="noopener" data-pg-template-view
                                              :hidden="! isset($templateUrls[$chosenTemplate])">
                                     View template <x-ui.icon name="external-link" size="12" />
                                 </x-ui.button>
