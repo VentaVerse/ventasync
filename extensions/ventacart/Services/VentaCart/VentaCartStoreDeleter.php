@@ -18,7 +18,6 @@ final class VentaCartStoreDeleter
         'ch_ventacart_listing_links',
         'ch_ventacart_product_groups',
         'ch_ventacart_categories',
-        'ch_ventacart_brands',
     ];
 
     public function delete(VentaCartStore $store): array

@@ -5,7 +5,6 @@ namespace Extensions\VentaCart\Controllers;
 use App\Http\Controllers\Controller;
 use App\Services\ActivityLogger;
 use Extensions\VentaCart\Models\VentaCartApiLog;
-use Extensions\VentaCart\Models\VentaCartBrand;
 use Extensions\VentaCart\Models\VentaCartCategory;
 use Extensions\VentaCart\Models\VentaCartOrderStatusMap;
 use Extensions\VentaCart\Models\VentaCartStore;
@@ -212,7 +211,6 @@ class VentaCartController extends Controller
         }
         $out = match ($step) {
             'categories' => $setup->categories($setting),
-            'brands' => $setup->brands($setting),
             'statuses' => $setup->statuses($setting),
             default => null,
         };
@@ -242,23 +240,6 @@ class VentaCartController extends Controller
         }
 
         return response()->json(['ok' => true, 'count' => $out['count']]);
-    }
-
-    public function fetchBrands(Request $request, \Extensions\VentaCart\Services\VentaCart\VentaCartStoreSetup $setup)
-    {
-        $storeId = $request->input('store_id');
-        if (!$storeId) {
-            return response()->json(['ok' => false, 'error' => 'Store ID is required.'], 422);
-        }
-        $store = VentaCartStore::find((int) $storeId);
-        if (!$store) {
-            return response()->json(['ok' => false, 'error' => 'Store not found.'], 404);
-        }
-        $out = $setup->brands($store);
-
-        return $out['ok']
-            ? response()->json(['ok' => true, 'count' => $out['count']])
-            : response()->json(['ok' => false, 'error' => $out['message']]);
     }
 
     public function fetchVentaStatuses(Request $request)

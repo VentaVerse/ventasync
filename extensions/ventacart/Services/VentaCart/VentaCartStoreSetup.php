@@ -2,7 +2,6 @@
 
 namespace Extensions\VentaCart\Services\VentaCart;
 
-use Extensions\VentaCart\Models\VentaCartBrand;
 use Extensions\VentaCart\Models\VentaCartCategory;
 use Extensions\VentaCart\Models\VentaCartOrderStatusMap;
 use Extensions\VentaCart\Models\VentaCartStore;
@@ -30,28 +29,6 @@ class VentaCartStoreSetup
         $n = count($categories);
 
         return ['ok' => true, 'count' => $n, 'message' => number_format($n) . ' ' . ($n === 1 ? 'category' : 'categories') . ' fetched.'];
-    }
-
-    public function brands(VentaCartStore $store): array
-    {
-        $result = (new VentaCartClient($store))->getBrands();
-        if (! ($result['ok'] ?? false)) {
-            return ['ok' => false, 'count' => 0, 'message' => 'The store did not answer with its brands: ' . self::why($result)];
-        }
-        $brands = is_array($result['body']) ? $result['body'] : [];
-        VentaCartBrand::where('store_id', $store->id)->delete();
-        foreach ($brands as $b) {
-            if (! is_array($b) || ! isset($b['id'])) {
-                continue;
-            }
-            VentaCartBrand::create([
-                'store_id' => $store->id, 'ventacart_brand_id' => $b['id'],
-                'name' => $b['name'] ?? '', 'slug' => $b['slug'] ?? null, 'enabled' => $b['is_active'] ?? true,
-            ]);
-        }
-        $n = count($brands);
-
-        return ['ok' => true, 'count' => $n, 'message' => number_format($n) . ' ' . ($n === 1 ? 'brand' : 'brands') . ' fetched.'];
     }
 
     public function statuses(VentaCartStore $store): array

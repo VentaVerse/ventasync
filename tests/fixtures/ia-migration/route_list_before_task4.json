@@ -3866,11 +3866,6 @@
     },
     {
         "method": "POST",
-        "uri": "channels/ventacart/fetch-brands",
-        "name": "ext.ventacart.fetch_brands"
-    },
-    {
-        "method": "POST",
         "uri": "channels/ventacart/fetch-categories",
         "name": "ext.ventacart.fetch_categories"
     },

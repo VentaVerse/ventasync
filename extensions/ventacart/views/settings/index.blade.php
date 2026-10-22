@@ -31,11 +31,10 @@
 
     $csHasToken = \App\Support\Credentials::length($store->api_token ?? null) > 0 && trim((string) $store->base_url) !== '';
     $csCategories = \Extensions\VentaCart\Models\VentaCartCategory::query()->where('store_id', $store->id)->count();
-    $csBrands = \Extensions\VentaCart\Models\VentaCartBrand::query()->where('store_id', $store->id)->count();
     $csStatuses = $statusMap->count();
     $csSetUp = $csCategories > 0 && $csStatuses > 0;
-    $csSetupState = $csCategories > 0 || $csBrands > 0 || $csStatuses > 0
-        ? number_format($csCategories) . ' ' . \Illuminate\Support\Str::plural('category', $csCategories) . ', ' . number_format($csBrands) . ' ' . \Illuminate\Support\Str::plural('brand', $csBrands) . ' and ' . number_format($csStatuses) . ' ' . \Illuminate\Support\Str::plural('status', $csStatuses) . ' on file'
+    $csSetupState = $csCategories > 0 || $csStatuses > 0
+        ? number_format($csCategories) . ' ' . \Illuminate\Support\Str::plural('category', $csCategories) . ' and ' . number_format($csStatuses) . ' ' . \Illuminate\Support\Str::plural('status', $csStatuses) . ' on file'
         : 'Nothing fetched yet';
     $steps = [
         ['title' => 'Save the address and token', 'tone' => $csHasToken ? 'done' : 'todo',
@@ -103,7 +102,6 @@
         'run' => (bool) session('settings_setup'),
         'steps' => [
             ['label' => 'Categories', 'url' => route('ext.ventacart.setup_step', ['store' => $store->id, 'step' => 'categories'])],
-            ['label' => 'Brands', 'url' => route('ext.ventacart.setup_step', ['store' => $store->id, 'step' => 'brands'])],
             ['label' => 'Order statuses', 'url' => route('ext.ventacart.setup_step', ['store' => $store->id, 'step' => 'statuses'])],
         ],
     ])

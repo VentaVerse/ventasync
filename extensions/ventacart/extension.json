@@ -26,8 +26,7 @@
         "ch_ventacart_order_status_map",
         "ch_ventacart_sync_logs",
         "ch_ventacart_api_logs",
-        "ch_ventacart_categories",
-        "ch_ventacart_brands"
+        "ch_ventacart_categories"
     ],
     "nav": []
 }

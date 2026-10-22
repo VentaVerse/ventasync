@@ -76,7 +76,7 @@ Route::middleware(['auth'])->prefix('channels')->group(function () {
     Route::post('/ventacart/save', [VentaCartSettingsController::class, 'save'])->name('ext.ventacart.save');
     Route::delete('/ventacart/{id}', [VentaCartSettingsController::class, 'destroy'])->name('ext.ventacart.destroy');
     Route::post('/ventacart/{store}/delete', [VentaCartSettingsController::class, 'destroyStore'])->whereNumber('store')->name('ext.ventacart.stores.destroy');
-    Route::post('/ventacart/{store}/setup/{step}', [VentaCartSettingsController::class, 'setupStep'])->whereNumber('store')->whereIn('step', ['categories', 'brands', 'statuses'])->name('ext.ventacart.setup_step');
+    Route::post('/ventacart/{store}/setup/{step}', [VentaCartSettingsController::class, 'setupStep'])->whereNumber('store')->whereIn('step', ['categories', 'statuses'])->name('ext.ventacart.setup_step');
     Route::post('/ventacart/test', [VentaCartSettingsController::class, 'testConnection'])->name('ext.ventacart.test');
     Route::post('/ventacart/save-status-map', [VentaCartSettingsController::class, 'saveOrderStatusMap'])->name('ext.ventacart.save_status_map');
     Route::post('/ventacart/{id}/api-log-mode', [VentaCartSettingsController::class, 'setApiLogMode'])->name('ext.ventacart.api_log_mode');
@@ -86,7 +86,6 @@ Route::middleware(['auth'])->prefix('channels')->group(function () {
     Route::post('/ventacart/fetch-statuses', [VentaCartSettingsController::class, 'fetchVentaStatuses'])->name('ext.ventacart.fetch_statuses');
 
     Route::post('/ventacart/fetch-categories', [VentaCartSettingsController::class, 'fetchCategories'])->name('ext.ventacart.fetch_categories');
-    Route::post('/ventacart/fetch-brands', [VentaCartSettingsController::class, 'fetchBrands'])->name('ext.ventacart.fetch_brands');
 
     Route::get('/ventacart/{store}/product-groups/create', [VentaCartProductGroupController::class, 'create'])->name('ext.ventacart.product-groups.create')
         // A form page is a manage surface even though it is a GET; do not demote it to the view tier.
