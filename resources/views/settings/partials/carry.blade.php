@@ -11,7 +11,7 @@
         'from_email'                  => $setting->from_email,
         'timezone'                    => $setting->timezone ?: 'Asia/Manila',
         'activity_log_retention_days' => $setting->activity_log_retention_days ?: 90,
-        'mail_mailer'                 => $setting->mail_mailer ?: 'sendmail',
+        'mail_mailer'                 => $setting->mail_mailer ?: 'smtp',
     ];
 
     $carried = array_diff_key($required, array_flip($owned[$activeTab] ?? []));

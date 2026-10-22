@@ -1,5 +1,5 @@
 @php
-    $mailer = old('mail_mailer', $setting->mail_mailer ?? 'sendmail');
+    $mailer = old('mail_mailer', $setting->mail_mailer ?? 'smtp');
     $isSmtp = $mailer === 'smtp';
     $encryption = old('mail_encryption', $setting->mail_encryption);
     $hasStoredPassword = ! empty($setting->mail_password);
@@ -15,10 +15,10 @@
 
             <div class="fm-fields fm-fields--2">
                 <x-ui.field label="Send through" for="st-mailer" name="mail_mailer" :required="true" wide
-                            hint="The server's own mail program needs no credentials but is often filtered as spam. An SMTP account is delivered as that account.">
+                            hint="PHP Mail needs no credentials but is often filtered as spam. SMTP is delivered as that account.">
                     <x-ui.select id="st-mailer" name="mail_mailer" data-smtp-toggle="st-smtp" :disabled="$ro">
-                        <option value="sendmail" @selected($mailer === 'sendmail')>The server's mail program</option>
-                        <option value="smtp" @selected($isSmtp)>An SMTP account</option>
+                        <option value="smtp" @selected($isSmtp)>SMTP</option>
+                        <option value="sendmail" @selected($mailer === 'sendmail')>PHP Mail</option>
                     </x-ui.select>
                 </x-ui.field>
             </div>
