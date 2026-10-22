@@ -17,6 +17,13 @@ use Illuminate\Support\Facades\DB;
 
 class TikTokListingController extends Controller
 {
+    use \App\Http\Controllers\Channels\Concerns\RefreshesListingLists;
+
+    protected function listingLists(): \App\Channels\Contracts\ListingLists
+    {
+        return app(\Extensions\TikTok\Services\TikTok\TikTokListingLists::class);
+    }
+
     use \App\Http\Controllers\Concerns\ComparesWithTheCatalog;
 
     protected function catalogChangeListing(int $productId): \Illuminate\Database\Eloquent\Model

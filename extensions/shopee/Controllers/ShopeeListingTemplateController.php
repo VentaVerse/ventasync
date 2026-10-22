@@ -6,13 +6,17 @@ use Extensions\Shopee\Models\ShopeeBrand;
 use Extensions\Shopee\Models\ShopeeCategoryTemplate;
 use Extensions\Shopee\Models\ShopeeListingTemplate;
 use Extensions\Shopee\Models\ShopeeListingTemplateAttribute;
-use Extensions\Shopee\Models\ShopeeLogistic;
 use Extensions\Shopee\Services\Shopee\ShopeeCategoryAttributes;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
 
 class ShopeeListingTemplateController extends \App\Http\Controllers\Channels\ListingTemplateController
 {
+    protected function listingLists(): \App\Channels\Contracts\ListingLists
+    {
+        return app(\Extensions\Shopee\Services\Shopee\ShopeeListingLists::class);
+    }
+
     protected function channel(): string
     {
         return 'shopee';
@@ -71,8 +75,7 @@ class ShopeeListingTemplateController extends \App\Http\Controllers\Channels\Lis
             'brandName' => $template->shopee_brand_id
                 ? (string) ShopeeBrand::query()->where('category_id', (int) $template->shopee_category_id)->where('brand_id', (int) $template->shopee_brand_id)->value('name')
                 : '',
-            'logistics' => ShopeeLogistic::query()->orderByDesc('enabled')->orderBy('logistics_channel_name')->get()
-                ->map(fn ($l) => ['logistic_id' => (int) $l->logistics_channel_id, 'logistic_name' => (string) $l->logistics_channel_name])->all(),
+            'logistics' => \Extensions\Shopee\Services\Shopee\ShopeeListingLists::couriers(),
         ];
     }
 

@@ -261,6 +261,7 @@
 
                     <div class="fm-fields">
                         @include('partials.category-tree-pick', [
+                            'refreshUrl' => (! isset($canManage) || $canManage) ? route('ext.lazada.products.refresh_list', ['store' => \App\Channels\Listings\ListingStore::id('lazada'), 'list' => 'categories']) : null,
                             'name' => 'primary_category_id',
                             'id' => 'lz-category',
                             'label' => 'Lazada category',
@@ -299,7 +300,9 @@
                                 <div class="fm-hint">
                                     Matched brand ID <span class="x-num" data-brand-picked>{{ $brandId ?: 'None' }}</span>
                                     <x-ui.button type="button" size="sm" data-brand-none>No brand</x-ui.button>
+                                    <x-ui.button type="button" size="sm" data-list-refresh="{{ route('ext.lazada.products.refresh_list', ['store' => \App\Channels\Listings\ListingStore::id('lazada'), 'list' => 'brands']) }}">Refresh</x-ui.button>
                                     <a class="fm-cancel" href="{{ route('ext.lazada.brands.index') }}" target="_blank" rel="noopener">Browse the brand list</a>
+                                    <span class="list-refresh__say" role="status" aria-live="polite" data-list-refresh-say></span>
                                 </div>
                             </div>
                         </x-ui.field>

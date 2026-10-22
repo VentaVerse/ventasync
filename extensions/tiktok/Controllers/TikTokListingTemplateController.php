@@ -13,6 +13,11 @@ use Illuminate\Http\Request;
 
 class TikTokListingTemplateController extends \App\Http\Controllers\Channels\ListingTemplateController
 {
+    protected function listingLists(): \App\Channels\Contracts\ListingLists
+    {
+        return app(\Extensions\TikTok\Services\TikTok\TikTokListingLists::class);
+    }
+
     protected function channel(): string
     {
         return 'tiktok';

@@ -27,6 +27,13 @@ use Illuminate\Support\Str;
 
 class LazadaProductController extends Controller
 {
+    use \App\Http\Controllers\Channels\Concerns\RefreshesListingLists;
+
+    protected function listingLists(): \App\Channels\Contracts\ListingLists
+    {
+        return app(\Extensions\Lazada\Services\Lazada\LazadaListingLists::class);
+    }
+
     use \App\Http\Controllers\Concerns\ServesCategoryTree;
 
     protected function categoryChannel(): string

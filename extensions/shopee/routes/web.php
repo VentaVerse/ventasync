@@ -45,6 +45,7 @@ Route::middleware(['auth', \Extensions\Shopee\Http\ResolveShopeeStore::class])
         Route::delete('/shopee/{store}/listing-templates/{template}', [\Extensions\Shopee\Controllers\ShopeeListingTemplateController::class, 'destroy'])->whereNumber('template')->name('ext.shopee.listing-templates.destroy')->defaults('permission_tier', 'manage');
         Route::post('/shopee/{store}/listing-templates/preview', [\Extensions\Shopee\Controllers\ShopeeListingTemplateController::class, 'preview'])->name('ext.shopee.listing-templates.preview')->defaults('permission_tier', 'manage');
         Route::post('/shopee/{store}/listing-templates/apply', [\Extensions\Shopee\Controllers\ShopeeListingTemplateController::class, 'apply'])->name('ext.shopee.listing-templates.apply')->defaults('permission_tier', 'manage');
+        Route::post('/shopee/{store}/listing-templates/lists/{list}', [\Extensions\Shopee\Controllers\ShopeeListingTemplateController::class, 'refreshList'])->where('list', 'categories|couriers')->name('ext.shopee.listing-templates.refresh_list')->defaults('permission_tier', 'manage');
         Route::get('/shopee/{store}/description-templates', [ShopeeDescriptionTemplateController::class, 'index'])->name('ext.shopee.description-templates.index');
         Route::post('/shopee/{store}/description-templates', [ShopeeDescriptionTemplateController::class, 'store'])->name('ext.shopee.description-templates.store')->defaults('permission_tier', 'manage');
         Route::put('/shopee/{store}/description-templates/{template}', [ShopeeDescriptionTemplateController::class, 'update'])->whereNumber('template')->name('ext.shopee.description-templates.update')->defaults('permission_tier', 'manage');
@@ -80,6 +81,7 @@ Route::middleware(['auth', \Extensions\Shopee\Http\ResolveShopeeStore::class])
 
         Route::get('/shopee/{store}/listings/{productId}', [ShopeeProductController::class, 'listing'])
             ->whereNumber('productId')->name('ext.shopee.listings.edit');
+        Route::post('/shopee/{store}/listings/lists/{list}', [ShopeeProductController::class, 'refreshList'])->where('list', 'categories|couriers')->name('ext.shopee.listings.refresh_list')->defaults('permission_tier', 'manage');
     });
 
     Route::group([], function () {

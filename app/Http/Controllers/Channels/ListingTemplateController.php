@@ -12,6 +12,8 @@ use Illuminate\Validation\Rule;
 
 abstract class ListingTemplateController extends Controller
 {
+    use Concerns\RefreshesListingLists;
+
     abstract protected function channel(): string;
 
     abstract protected function model(): string;

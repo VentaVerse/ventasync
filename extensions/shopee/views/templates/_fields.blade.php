@@ -11,6 +11,7 @@
     </div>
     <div class="fm-fields">
         @include('partials.category-tree-pick', [
+            'refreshUrl' => (! isset($canManage) || $canManage) ? route('ext.shopee.listing-templates.refresh_list', ['store' => \App\Channels\Listings\ListingStore::id('shopee'), 'list' => 'categories']) : null,
             'name' => 'shopee_category_id',
             'id' => 'lt-category',
             'label' => 'Shopee category',
@@ -73,27 +74,14 @@
 
 <section class="fm-section">
     <div class="fm-section__head">
-        <h2 class="fm-section__title">Delivery options</h2>
+        <h2 class="fm-section__title">Only on Shopee</h2>
     </div>
-    @if($errors->has('logistic_ids'))
-        <div class="fm-error">{{ $errors->first('logistic_ids') }}</div>
-    @endif
-    @if(! empty($logistics))
-        <div class="gf-checks">
-            @foreach($logistics as $l)
-                <label class="gf-check">
-                    <input type="checkbox" class="cc-check" name="logistic_ids[]" value="{{ $l['logistic_id'] }}"
-                           @checked(in_array($l['logistic_id'], $selectedLogisticIds, true)) @disabled(! $canManage)>
-                    <span class="gf-check__name">{{ $l['logistic_name'] }}</span>
-                    <span class="gf-check__id">{{ $l['logistic_id'] }}</span>
-                </label>
-            @endforeach
-        </div>
-    @else
-        <x-ui.empty title="No delivery options cached">
-            <x-slot:action>
-                <x-ui.button :href="route('ext.shopee.logistics.index')">Go to Logistics</x-ui.button>
-            </x-slot:action>
-        </x-ui.empty>
-    @endif
+    @include('ext-shopee::listings._couriers', [
+        'id' => 'lt-couriers',
+        'logistics' => $logistics ?? [],
+        'selected' => $selectedLogisticIds,
+        'canManage' => $canManage,
+        'required' => false,
+        'refreshUrl' => $canManage ? route('ext.shopee.listing-templates.refresh_list', ['store' => \App\Channels\Listings\ListingStore::id('shopee'), 'list' => 'couriers']) : null,
+    ])
 </section>

@@ -13,6 +13,11 @@ use Illuminate\Http\Request;
 
 class LazadaListingTemplateController extends \App\Http\Controllers\Channels\ListingTemplateController
 {
+    protected function listingLists(): \App\Channels\Contracts\ListingLists
+    {
+        return app(\Extensions\Lazada\Services\Lazada\LazadaListingLists::class);
+    }
+
     protected function channel(): string
     {
         return 'lazada';

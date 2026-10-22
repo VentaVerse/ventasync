@@ -17,6 +17,13 @@ use Illuminate\Support\Str;
 
 class VentaCartListingController extends Controller
 {
+    use \App\Http\Controllers\Channels\Concerns\RefreshesListingLists;
+
+    protected function listingLists(): \App\Channels\Contracts\ListingLists
+    {
+        return app(\Extensions\VentaCart\Services\VentaCart\VentaCartListingLists::class);
+    }
+
     use \App\Http\Controllers\Concerns\ServesCategoryTree;
 
     protected function categoryChannel(): string

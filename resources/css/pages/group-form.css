@@ -292,3 +292,21 @@
 @media (prefers-reduced-motion: reduce) {
     .gf-combo__bar::after { animation: none; transform: none; width: 100%; opacity: .6; }
 }
+
+.gf-check__off {
+    flex: none;
+    font-size: 11px;
+    color: var(--bl-attn);
+}
+
+.sc-couriers__head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--bl-space-2);
+}
+
+.list-refresh__say {
+    font-size: 12px;
+    color: var(--bl-ink-2);
+}
