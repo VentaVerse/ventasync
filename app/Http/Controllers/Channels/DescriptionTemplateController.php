@@ -30,16 +30,19 @@ abstract class DescriptionTemplateController extends Controller
     {
         $ch = $this->channel();
         $store = $this->storeId();
+        $rows = DescriptionTemplate::forStore($ch, $store);
+        $usage = \App\Channels\Listings\TemplateUsage::description($ch, $store, $rows->pluck('id')->all());
 
         return view('channels.description-templates.index', [
             'richText' => $ch !== 'shopee',
             'channelName' => app(\App\Channels\ChannelRegistry::class)->resolveChannelLabel($ch)
                 ?? \Illuminate\Support\Str::headline($ch),
             'createUrl' => route('ext.' . $ch . '.description-templates.store', ['store' => $store]),
-            'templates' => DescriptionTemplate::forStore($ch, $store)->map(fn ($t) => (object) [
+            'templates' => $rows->map(fn ($t) => (object) [
                 'id' => (int) $t->id,
                 'name' => (string) $t->name,
                 'body' => (string) $t->body,
+                'used_by' => \App\Channels\Listings\TemplateUsage::sentence($usage[(int) $t->id] ?? []),
                 'update_url' => route('ext.' . $ch . '.description-templates.update', ['store' => $store, 'template' => $t->id]),
                 'destroy_url' => route('ext.' . $ch . '.description-templates.destroy', ['store' => $store, 'template' => $t->id]),
             ]),
@@ -86,12 +89,19 @@ abstract class DescriptionTemplateController extends Controller
 
     public function destroy(int $template)
     {
+        abort_unless($this->canManage(), 403);
         $row = $this->ownRow($template);
         $name = (string) $row->name;
+        $usedBy = \App\Channels\Listings\TemplateUsage::sentence(\App\Channels\Listings\TemplateUsage::description($this->channel(), $this->storeId(), [$template])[$template] ?? []);
+        if ($usedBy !== '') {
+            return redirect()
+                ->route('ext.' . $this->channel() . '.description-templates.index', ['store' => $this->storeId()])
+                ->with('error', 'Not deleted. "' . $name . '" is used by ' . $usedBy . '.');
+        }
         $row->delete();
         ActivityLogger::log('deleted', 'Description Template', $template, $name);
 
-        return $this->backToIndex('Template "' . e($name) . '" deleted.');
+        return $this->backToIndex('Template "' . $name . '" deleted.');
     }
 
     private function validated(Request $request): array

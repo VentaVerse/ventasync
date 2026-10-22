@@ -23,29 +23,11 @@
 
     <div class="fm-head">
         <div class="fm-head__main">
-            <a class="fm-back" href="{{ $productsUrl }}">
-                <x-ui.icon name="chevron-left" size="14" /> Products
+            <a class="fm-back" href="{{ $indexUrl }}">
+                <x-ui.icon name="chevron-left" size="14" /> Listing Templates
             </a>
             <h1 class="fm-title">{{ $template->exists ? $template->name : 'New listing template' }}</h1>
         </div>
-    </div>
-
-    <div class="lt-switch">
-        @if($templates->isNotEmpty())
-            <x-ui.field label="Listing template" for="lt-switch">
-                <x-ui.select id="lt-switch" data-nav-select aria-label="Open another listing template">
-                    @unless($template->exists)
-                        <option value="" selected>New listing template</option>
-                    @endunless
-                    @foreach($templates as $t)
-                        <option value="{{ $t->url }}" @selected($template->exists && (int) $template->id === (int) $t->id)>{{ $t->name }}</option>
-                    @endforeach
-                </x-ui.select>
-            </x-ui.field>
-        @endif
-        @if($canManage && $template->exists)
-            <x-ui.button href="{{ $createUrl }}">New listing template</x-ui.button>
-        @endif
     </div>
 
     <div class="fm-body">
@@ -105,7 +87,7 @@
         </div>
     </div>
 
-    <x-ui.form-bar :cancel="$productsUrl" :cancel-label="$canManage ? 'Cancel' : 'Back'">
+    <x-ui.form-bar :cancel="$indexUrl" :cancel-label="$canManage ? 'Cancel' : 'Back'">
         <x-slot:primary>
             @if($canManage)
                 <x-ui.button type="submit" variant="primary">{{ $template->exists ? 'Save listing template' : 'Create listing template' }}</x-ui.button>
@@ -119,7 +101,7 @@
           data-confirm="Delete the listing template &quot;{{ $template->name }}&quot;? Listings it was applied to keep their values." data-confirm-verb="Delete">
         @csrf
         @method('DELETE')
-        <x-ui.button type="submit" variant="danger" size="sm">Delete listing template</x-ui.button>
+        <x-ui.button type="submit" variant="danger" size="sm" :disabled="$usedBy->isNotEmpty()">Delete listing template</x-ui.button>
     </form>
 @endif
 @endsection

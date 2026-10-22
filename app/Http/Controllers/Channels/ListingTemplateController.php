@@ -43,11 +43,22 @@ abstract class ListingTemplateController extends Controller
 
     public function index()
     {
-        $first = $this->query()->orderBy('name')->first();
+        $rows = $this->query()->orderBy('name')->get(['id', 'name', 'markup_percent', 'markup_fixed']);
+        $usage = \App\Channels\Listings\TemplateUsage::listingTemplate($this->channel(), $this->storeId(), $rows->pluck('id')->all());
 
-        return $first
-            ? redirect($this->to('edit', ['template' => $first->id]))
-            : redirect($this->to('create'));
+        return view('channels.listing-templates.index', [
+            'channelName' => $this->channelName(),
+            'templates' => $rows->map(fn ($t) => (object) [
+                'id' => (int) $t->id,
+                'name' => (string) $t->name,
+                'price_rule' => $this->priceRule($t),
+                'used_by' => \App\Channels\Listings\TemplateUsage::sentence($usage[(int) $t->id] ?? []),
+                'edit_url' => $this->to('edit', ['template' => $t->id]),
+                'destroy_url' => $this->to('destroy', ['template' => $t->id]),
+            ]),
+            'createUrl' => $this->to('create'),
+            'canManage' => $this->canManage(),
+        ]);
     }
 
     public function create()
@@ -70,7 +81,7 @@ abstract class ListingTemplateController extends Controller
         $this->saveAttributes($template, (array) $request->input('attributes', []));
         ActivityLogger::log('created', 'Listing template', $template->id, $template->name);
 
-        return redirect($this->to('edit', ['template' => $template->id]))->with('status', 'Listing template created.');
+        return redirect($this->to('index'))->with('status', 'Listing template created.');
     }
 
     public function update(Request $request)
@@ -81,7 +92,7 @@ abstract class ListingTemplateController extends Controller
         $this->saveAttributes($row, (array) $request->input('attributes', []));
         ActivityLogger::log('updated', 'Listing template', $row->id, $row->name);
 
-        return redirect($this->to('edit', ['template' => $row->id]))->with('status', 'Listing template saved.');
+        return redirect($this->to('index'))->with('status', 'Listing template saved.');
     }
 
     public function destroy()
@@ -89,6 +100,10 @@ abstract class ListingTemplateController extends Controller
         $row = $this->own($this->templateId());
         abort_unless($this->canManage(), 403);
         $name = (string) $row->name;
+        $usedBy = \App\Channels\Listings\TemplateUsage::sentence(\App\Channels\Listings\TemplateUsage::listingTemplate($this->channel(), $this->storeId(), [(int) $row->id])[(int) $row->id] ?? []);
+        if ($usedBy !== '') {
+            return redirect($this->to('index'))->with('error', 'Not deleted. "' . $name . '" is used by ' . $usedBy . '.');
+        }
         $row->delete();
         ActivityLogger::log('deleted', 'Listing template', (int) $row->id, $name);
 
@@ -185,18 +200,26 @@ abstract class ListingTemplateController extends Controller
             'channel' => $ch,
             'channelName' => $this->channelName(),
             'template' => $template,
-            'templates' => $this->query()->orderBy('name')->get(['id', 'name'])->map(fn ($t) => (object) [
-                'id' => (int) $t->id, 'name' => (string) $t->name, 'url' => $this->to('edit', ['template' => $t->id]),
-            ]),
             'usedBy' => $template->exists ? $this->usedBy((int) $template->id) : collect(),
             'saveUrl' => $template->exists ? $this->to('update', ['template' => $template->id]) : $this->to('store'),
-            'createUrl' => $this->to('create'),
-            'destroyUrl' => $template->exists ? $this->to('destroy', ['template' => $template->id]) : null,
+            'indexUrl' => $this->to('index'),
             'fields' => $this->fieldsData($template),
             'canManage' => $this->canManage(),
             'storeId' => $this->storeId(),
-            'productsUrl' => $this->productsUrl(),
         ]);
+    }
+
+    private function priceRule(Model $t): string
+    {
+        $parts = [];
+        if ((float) $t->markup_percent > 0) {
+            $parts[] = '+' . rtrim(rtrim(number_format((float) $t->markup_percent, 2), '0'), '.') . '%';
+        }
+        if ((float) $t->markup_fixed > 0) {
+            $parts[] = '+' . number_format((float) $t->markup_fixed, 2);
+        }
+
+        return $parts === [] ? 'None' : implode(' and ', $parts);
     }
 
     private function validated(Request $request, ?Model $row): array

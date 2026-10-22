@@ -27,6 +27,7 @@
             <tr>
                 <th scope="col">Name</th>
                 <th scope="col">Description</th>
+                <th scope="col">Used by</th>
                 <th scope="col" class="x-td-actions"><span class="x-sr">Actions</span></th>
             </tr>
         </x-slot:head>
@@ -34,6 +35,7 @@
             <tr>
                 <td data-label="Name">{{ $t->name }}</td>
                 <td data-label="Description">{{ \Illuminate\Support\Str::limit(trim(strip_tags((string) $t->body)), 120) }}</td>
+                <td data-label="Used by">{{ $t->used_by !== '' ? $t->used_by : 'Not used' }}</td>
                 <td class="x-td-actions">
                     @if($canManage)
                         <x-ui.button size="sm" data-dt-edit
@@ -41,9 +43,9 @@
                                      data-dt-name="{{ $t->name }}"
                                      data-dt-body="{{ $t->body }}">Edit</x-ui.button>
                         <form method="POST" action="{{ $t->destroy_url }}"
-                              data-confirm="Delete the template &quot;{{ $t->name }}&quot;? Listings pointing at it stop carrying its words on their next push." data-confirm-verb="Delete">
+                              data-confirm="Delete the template &quot;{{ $t->name }}&quot;?" data-confirm-verb="Delete">
                             @csrf @method('DELETE')
-                            <x-ui.button type="submit" size="sm">Delete</x-ui.button>
+                            <x-ui.button type="submit" size="sm" :disabled="$t->used_by !== ''">Delete</x-ui.button>
                         </form>
                     @endif
                 </td>

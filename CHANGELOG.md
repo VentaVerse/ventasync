@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Catalog > Listing Templates is a list with Edit and Delete, like Description Templates and Watermarks. A description template, watermark or listing template that something still uses cannot be deleted; each list shows what uses it.
 - A listing's markup can no longer be below zero on any channel (Shopee, TikTok, WooCommerce and VentaCart used to allow it). A discount belongs to a promotion.
 - A product group remembers its listing template (`listing_template_id`). Run `php artisan migrate`.
 - Fulfillment shows the buyer's checkout note as its own line under each order's header, and the Arrange shipment packing check repeats it.

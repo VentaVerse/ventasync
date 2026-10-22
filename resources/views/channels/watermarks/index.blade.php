@@ -35,6 +35,7 @@
                 <th scope="col">Name</th>
                 <th scope="col">Where</th>
                 <th scope="col" class="x-td-num">Size</th>
+                <th scope="col">Used by</th>
                 <th scope="col"></th>
             </tr>
         </thead>
@@ -53,14 +54,15 @@
                     </td>
                     <td data-label="Where">{{ ucfirst(str_replace('-', ' ', (string) $t->position)) }}</td>
                     <td data-label="Size" class="x-td-num">{{ rtrim(rtrim(number_format((float) $t->size_percent, 2), '0'), '.') }}%</td>
+                    <td data-label="Used by">{{ $usedBy($t->id) !== '' ? $usedBy($t->id) : 'Not used' }}</td>
                     <td class="x-td-actions">
                         @if($canManage)
                             <form method="POST" action="{{ $destroyUrl($t->id) }}"
-                                  data-confirm="Delete the template &quot;{{ $t->name }}&quot;? Any listing or product group using it goes up unmarked from then on."
+                                  data-confirm="Delete the template &quot;{{ $t->name }}&quot;?"
                                   data-confirm-verb="Delete" data-confirm-tone="danger">
                                 @csrf
                                 @method('DELETE')
-                                <x-ui.button type="submit" size="sm" variant="danger">Delete</x-ui.button>
+                                <x-ui.button type="submit" size="sm" variant="danger" :disabled="$usedBy($t->id) !== ''">Delete</x-ui.button>
                             </form>
                         @endif
                     </td>
