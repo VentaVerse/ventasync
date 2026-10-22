@@ -146,6 +146,10 @@
     display: none;
 }
 
+.pg-template .x-btn--ghost:hover {
+    border-color: transparent;
+}
+
 .pg-members {
     margin-top: 20px;
 }
