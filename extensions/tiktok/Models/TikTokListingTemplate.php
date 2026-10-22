@@ -12,7 +12,7 @@ class TikTokListingTemplate extends Model
     protected $table = 'ch_tiktok_listing_templates';
 
     protected $fillable = [
-        'store_id', 'name', 'tiktok_category_id', 'markup_percent', 'markup_fixed', 'watermark_template_id',
+        'store_id', 'name', 'tiktok_category_id', 'brand_id', 'brand_name', 'markup_percent', 'markup_fixed', 'watermark_template_id',
     ];
 
     public function templateAttributes()

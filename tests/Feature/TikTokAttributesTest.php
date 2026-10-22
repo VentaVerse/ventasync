@@ -200,6 +200,25 @@ class TikTokAttributesTest extends TestCase
         $this->assertSame('TikTok only description.', $creates[0]['body']['description']);
     }
 
+    public function test_a_template_saves_its_brand_and_gives_it_to_a_listing(): void
+    {
+        $store = \Extensions\TikTok\Models\TikTokStore::defaultStore();
+        $this->actingAs($this->manager())->post(route('ext.tiktok.listing-templates.store'), [
+            'name' => 'Boss pedals', 'tiktok_category_id' => '900009', 'brand_id' => 'b-7', 'brand_name' => 'Boss',
+        ])->assertSessionHasNoErrors();
+        $template = \Extensions\TikTok\Models\TikTokListingTemplate::query()->where('name', 'Boss pedals')->firstOrFail();
+        $this->assertSame(['b-7', 'Boss'], [$template->brand_id, $template->brand_name]);
+
+        $this->actingAs($this->manager())->get(route('ext.tiktok.listing-templates.edit', ['template' => $template->id]))
+            ->assertOk()->assertSee('Category and brand')->assertSee('name="brand_id" data-combo-value value="b-7"', false);
+
+        $productId = $this->seedProduct();
+        $this->actingAs($this->manager())->post(route('ext.tiktok.listing-templates.apply'), ['product_ids' => [$productId], 'template_id' => $template->id])
+            ->assertSessionHas('status');
+        $listing = TikTokListing::query()->where('store_id', $store->id)->where('product_id', $productId)->firstOrFail();
+        $this->assertSame(['b-7', 'Boss'], [$listing->brand_id, $listing->brand_name]);
+    }
+
     public function test_a_push_keeps_the_listings_own_brand(): void
     {
         $productId = $this->seedProduct();
