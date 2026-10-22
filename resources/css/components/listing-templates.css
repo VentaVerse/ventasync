@@ -142,6 +142,10 @@
     max-width: 420px;
 }
 
+.pg-template [hidden] {
+    display: none;
+}
+
 .pg-members {
     margin-top: 20px;
 }
