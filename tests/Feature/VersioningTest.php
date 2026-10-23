@@ -11,7 +11,7 @@ class VersioningTest extends TestCase
 {
     use RefreshDatabase;
 
-    private const SEMVER = '/^\d+\.\d+\.\d+$/';
+    private const SEMVER = '/^\d+\.\d+\.\d+(?:-[0-9A-Za-z.]+)?$/';
 
     public function test_the_core_changelog_opens_with_the_current_version(): void
     {
