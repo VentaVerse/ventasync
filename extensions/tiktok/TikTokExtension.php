@@ -61,6 +61,7 @@ class TikTokExtension extends ExtensionProvider implements ChannelProvider, SkuS
             \Extensions\TikTok\Commands\TikTokSyncOrders::class,
             \Extensions\TikTok\Commands\TikTokSyncPayouts::class,
             \Extensions\TikTok\Commands\TikTokBackfillPayouts::class,
+            \Extensions\TikTok\Commands\TikTokFixOrderTimes::class,
         ]);
 
         $this->app->make(ChannelRegistry::class)->register($this);

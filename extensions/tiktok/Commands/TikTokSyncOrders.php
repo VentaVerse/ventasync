@@ -192,8 +192,8 @@ class TikTokSyncOrders extends Command implements \App\Channels\Contracts\Steppa
             if ($orderId === '') continue;
 
             $status = $o['status'] ?? null;
-            $createdAt = isset($o['create_time']) ? \Carbon\Carbon::createFromTimestamp((int) $o['create_time']) : null;
-            $updatedAt = isset($o['update_time']) ? \Carbon\Carbon::createFromTimestamp((int) $o['update_time']) : null;
+            $createdAt = isset($o['create_time']) ? \Carbon\Carbon::createFromTimestamp((int) $o['create_time'], config('app.timezone')) : null;
+            $updatedAt = isset($o['update_time']) ? \Carbon\Carbon::createFromTimestamp((int) $o['update_time'], config('app.timezone')) : null;
             $customer = $o['recipient_address']['name'] ?? '';
 
             $existing = TikTokOrder::where('order_id', $orderId)->first();

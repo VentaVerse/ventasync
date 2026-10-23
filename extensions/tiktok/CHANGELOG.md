@@ -1,5 +1,11 @@
 # TikTok Shop changelog
 
+## Unreleased
+
+### Bug fixes
+
+- Orders and returns showed a time 8 hours earlier than they were placed.
+
 ## 0.31.0 (2026-10-23)
 
 ### New features

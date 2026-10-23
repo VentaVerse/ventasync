@@ -75,7 +75,7 @@ class LazadaPayoutSync
 
         $byOrderId = $waiting->keyBy(fn ($o) => (string) $o->order_id);
         $creditedOn = [];
-        $start = Carbon::createFromTimestamp((int) $waiting->min(fn ($o) => $o->order_created_at?->getTimestamp() ?? time()))->subDay()->startOfDay();
+        $start = Carbon::createFromTimestamp((int) $waiting->min(fn ($o) => $o->order_created_at?->getTimestamp() ?? time()), config('app.timezone'))->subDay()->startOfDay();
         $end = now()->addDay()->startOfDay();
 
         for ($from = $start->copy(); $from->lt($end) && count($creditedOn) < $byOrderId->count(); $from->addDays(self::WINDOW_DAYS)) {

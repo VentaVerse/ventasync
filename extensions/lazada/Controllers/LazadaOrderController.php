@@ -135,7 +135,7 @@ class LazadaOrderController extends Controller
             }
             $returnCreatedAt = $openedStamps === []
                 ? null
-                : \Illuminate\Support\Carbon::createFromTimestamp(min($openedStamps));
+                : \Illuminate\Support\Carbon::createFromTimestamp(min($openedStamps), config('app.timezone'));
 
             $payload = [
                 'region' => $store->region,

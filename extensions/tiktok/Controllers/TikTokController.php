@@ -45,13 +45,13 @@ class TikTokController extends Controller
 
         if (is_numeric($expiresIn)) {
             $dt = (int) $expiresIn > 1_000_000_000
-                ? \Carbon\Carbon::createFromTimestamp((int) $expiresIn)
+                ? \Carbon\Carbon::createFromTimestamp((int) $expiresIn, config('app.timezone'))
                 : now()->addSeconds((int) $expiresIn);
             $raw->$expiresCol = $dt->greaterThan($maxTs) ? $maxTs : $dt;
         }
         if (is_numeric($refreshExpiresIn)) {
             $dt = (int) $refreshExpiresIn > 1_000_000_000
-                ? \Carbon\Carbon::createFromTimestamp((int) $refreshExpiresIn)
+                ? \Carbon\Carbon::createFromTimestamp((int) $refreshExpiresIn, config('app.timezone'))
                 : now()->addSeconds((int) $refreshExpiresIn);
             $raw->$refreshExpiresCol = $dt->greaterThan($maxTs) ? $maxTs : $dt;
         }
