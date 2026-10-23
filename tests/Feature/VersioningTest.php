@@ -62,7 +62,7 @@ class VersioningTest extends TestCase
         return array_values(array_filter(AppVersion::changelog($file), fn ($r) => $r['version'] !== 'Unreleased'));
     }
 
-    public function test_the_edition_file_says_pro_and_its_absence_says_community(): void
+    public function test_pro_says_pro_and_community_links_to_pricing(): void
     {
         $file = base_path('EDITION');
         $original = is_file($file) ? file_get_contents($file) : null;
@@ -71,10 +71,16 @@ class VersioningTest extends TestCase
             file_put_contents($file, "Pro\n");
             AppVersion::forget();
             $this->assertSame('VentaSync Pro ' . AppVersion::current(), AppVersion::label());
+            $this->actingAs(User::factory()->create());
+            $this->get(route('dashboard'))->assertOk()->assertDontSee('Get Pro');
 
             unlink($file);
             AppVersion::forget();
-            $this->assertSame('VentaSync Community ' . AppVersion::current(), AppVersion::label());
+            $this->assertSame('VentaSync ' . AppVersion::current(), AppVersion::label());
+            $this->actingAs(User::factory()->create());
+            $this->get(route('dashboard'))->assertOk()
+                ->assertSee('href="' . config('licensing.pricing_url') . '"', false)
+                ->assertSee('Get Pro');
 
             file_put_contents($file, "Enterprise\n");
             AppVersion::forget();

@@ -4066,6 +4066,17 @@
         color: var(--bl-side-ink);
     }
 
+    .bl-version__pro {
+        margin-left: 6px;
+        color: inherit;
+        text-decoration: underline;
+        text-underline-offset: 2px;
+    }
+
+    .bl-version__pro:hover {
+        color: #fff;
+    }
+
     .auth__logo {
         max-width: 100%;
         height: auto;

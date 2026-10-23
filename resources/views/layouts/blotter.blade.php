@@ -37,7 +37,7 @@
             @include('partials.nav-blotter', ['navGroups' => \App\Support\Navigation::groups()])
         </div>
 
-        <p class="bl-version">{{ \App\Support\AppVersion::label() }}</p>
+        <p class="bl-version">{{ \App\Support\AppVersion::label() }}@unless(\App\Support\AppVersion::isPro()) <a class="bl-version__pro" href="{{ config('licensing.pricing_url') }}" target="_blank" rel="noopener">Get Pro</a>@endunless</p>
 
     </aside>
 
