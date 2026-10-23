@@ -2,7 +2,7 @@
 
 ## Unreleased
 
-- More improvements.
+- Some minor improvements.
 
 ## 2.0.0-beta.1 (2026-10-23)
 
@@ -27,12 +27,11 @@
 - VentaCart takes a product's brand from the Master Catalog and no longer fetches the store's brand list.
 - Profit counts the shipping the customer paid on own-store orders.
 - Changing a password signs that person out everywhere else.
-- Mail offers SMTP and PHP Mail, and a new install starts on SMTP.
 - On a hosted server, store addresses must be public https addresses. Self-hosted installs are unchanged.
 - The AI Assistant extension is now the MCP Server.
 - Plain table names and one word for each thing (Customer, Sales order, Note, Telephone, Stock, Channel). The REST API and phone app keep the old field names and addresses until 2.0.0.
 - The one-time command orders:normalize-marketplace-fees is removed.
-- More improvements.
+- Some minor improvements.
 
 ### Bug fixes
 

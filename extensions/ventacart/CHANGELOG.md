@@ -13,9 +13,8 @@
 
 - A send reads only the listing; product groups are filters with no settings of their own.
 - A product's brand comes from the Master Catalog; the store's brand list is no longer fetched.
-- The Products page shows the VentaCart ID in its own column again.
 - On a hosted server, store addresses must be public https addresses. Self-hosted installs are unchanged.
-- More improvements.
+- Some minor improvements.
 
 ## 0.30.0 (2026-10-07)
 
