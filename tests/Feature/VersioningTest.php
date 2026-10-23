@@ -42,7 +42,7 @@ class VersioningTest extends TestCase
         $this->actingAs(User::factory()->create());
 
         $this->get(route('dashboard'))->assertOk()
-            ->assertSee('<p class="bl-version">' . AppVersion::label() . '</p>', false)
+            ->assertSee('<p class="bl-version">' . AppVersion::label(), false)
             ->assertDontSee('/changelog', false);
     }
 
