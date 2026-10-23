@@ -124,11 +124,10 @@ class ListingTemplatesMigrationTest extends TestCase
         $this->assertSame('International', DB::table('ch_lazada_listing_attributes')->where('lazada_listing_id', $l2)->value('value'));
     }
 
-    public function test_tiktok_and_woocommerce_groups_hand_over_category_and_rule(): void
+    public function test_tiktok_groups_hand_over_category_and_rule(): void
     {
         $migration = $this->migration();
         $tt = DB::table('ch_tiktok_stores')->insertGetId(['store_name' => 'Main store', 'mode' => 'production']);
-        $woo = DB::table('ch_woocommerce_stores')->insertGetId(['store_name' => 'Woo One', 'base_url' => 'https://woo.test', 'consumer_key' => 'ck', 'consumer_secret' => 'cs', 'enabled' => true]);
         $pid = $this->product('TT-1');
 
         $tg = DB::table('ch_tiktok_product_groups')->insertGetId(['store_id' => $tt, 'name' => 'Pedals', 'tiktok_category_id' => '600001', 'markup_percent' => 12]);
@@ -136,13 +135,25 @@ class ListingTemplatesMigrationTest extends TestCase
         DB::table('ch_tiktok_product_group_products')->insert(['tiktok_product_group_id' => $tg, 'product_id' => $pid]);
         DB::table('ch_tiktok_listings')->insert(['store_id' => $tt, 'product_id' => $pid]);
 
-        $wg = DB::table('ch_woocommerce_product_groups')->insertGetId(['store_id' => $woo, 'name' => 'Pedals', 'woo_category_id' => 15, 'markup_percent' => 0, 'markup_fixed' => 0]);
-        DB::table('ch_woocommerce_product_group_products')->insert(['woocommerce_product_group_id' => $wg, 'product_id' => $pid]);
-
         $migration->copyGroups();
 
         $t = DB::table('ch_tiktok_listings')->where('product_id', $pid)->first();
         $this->assertSame(['600001', '12.00', ['100392' => 'Yes']], [(string) $t->tiktok_category_id, $t->markup_percent, json_decode($t->attribute_values, true)]);
+    }
+
+    public function test_woocommerce_groups_hand_over_category_and_rule(): void
+    {
+        if (! $this->ships('woocommerce')) {
+            $this->markTestSkipped('this edition has no WooCommerce');
+        }
+        $migration = $this->migration();
+        $woo = DB::table('ch_woocommerce_stores')->insertGetId(['store_name' => 'Woo One', 'base_url' => 'https://woo.test', 'consumer_key' => 'ck', 'consumer_secret' => 'cs', 'enabled' => true]);
+        $pid = $this->product('WOO-1');
+
+        $wg = DB::table('ch_woocommerce_product_groups')->insertGetId(['store_id' => $woo, 'name' => 'Pedals', 'woo_category_id' => 15, 'markup_percent' => 0, 'markup_fixed' => 0]);
+        DB::table('ch_woocommerce_product_group_products')->insert(['woocommerce_product_group_id' => $wg, 'product_id' => $pid]);
+
+        $migration->copyGroups();
 
         $w = DB::table('ch_woocommerce_listings')->where('store_id', $woo)->where('product_id', $pid)->first();
         $this->assertSame(15, (int) $w->woo_category_id);
@@ -160,5 +171,10 @@ class ListingTemplatesMigrationTest extends TestCase
         $migration->copyGroups();
 
         $this->assertSame(['Pedals', 'Pedals (2)'], DB::table('ch_ventacart_listing_templates')->where('store_id', $store)->orderBy('id')->pluck('name')->all());
+    }
+
+    private function ships(string $channel): bool
+    {
+        return is_dir(base_path('extensions/' . $channel));
     }
 }
