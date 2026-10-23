@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+### Bug fixes
+
+- TikTok Shop orders and returns showed a time 8 hours earlier than they were placed.
+
+### Updates
+
 - Some minor improvements.
 
 ## 2.0.0-beta.1 (2026-10-23)

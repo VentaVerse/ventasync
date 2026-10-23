@@ -19,7 +19,7 @@
     // Shopee sends Unix timestamps on this payload, not dates.
     $stamp = function ($ts) {
         if (!$ts) return null;
-        try { return \Carbon\Carbon::createFromTimestamp((int) $ts)->format('Y-m-d H:i'); }
+        try { return \Carbon\Carbon::createFromTimestamp((int) $ts, config('app.timezone'))->format('Y-m-d H:i'); }
         catch (\Throwable $e) { return null; }
     };
 

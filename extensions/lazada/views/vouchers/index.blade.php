@@ -7,7 +7,7 @@
     $canManage = auth()->user()?->hasPermission('manage_lazada/voucher') ?? false;
     $statusMap = \Extensions\Lazada\Controllers\LazadaVoucherController::STATUS_MAP;
     $money = fn ($v) => is_numeric($v) ? number_format((float) $v, 2) : (string) $v;
-    $when = fn ($ms) => $ms ? \Illuminate\Support\Carbon::createFromTimestampMs((int) $ms)->format('M j, Y H:i') : null;
+    $when = fn ($ms) => $ms ? \Illuminate\Support\Carbon::createFromTimestampMs((int) $ms, config('app.timezone'))->format('M j, Y H:i') : null;
 @endphp
 
 <div class="cc-page">

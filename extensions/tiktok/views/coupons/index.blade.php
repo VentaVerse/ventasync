@@ -96,8 +96,8 @@
             </td>
             <td data-label="Window">
                 @if(!empty($window['start_time']))
-                    {{ \Illuminate\Support\Carbon::createFromTimestamp((int) $window['start_time'])->format('M j, Y H:i') }}
-                    to {{ \Illuminate\Support\Carbon::createFromTimestamp((int) ($window['end_time'] ?? 0))->format('M j, Y H:i') }}
+                    {{ \Illuminate\Support\Carbon::createFromTimestamp((int) $window['start_time'], config('app.timezone'))->format('M j, Y H:i') }}
+                    to {{ \Illuminate\Support\Carbon::createFromTimestamp((int) ($window['end_time'] ?? 0), config('app.timezone'))->format('M j, Y H:i') }}
                 @else
                     <span class="x-cell-muted">Not set</span>
                 @endif

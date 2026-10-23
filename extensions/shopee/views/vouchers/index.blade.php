@@ -92,8 +92,8 @@
                 <span class="x-num">{{ (int) ($v['current_usage'] ?? 0) }} of {{ (int) ($v['usage_quantity'] ?? 0) }}</span>
             </td>
             <td data-label="Window">
-                {{ \Illuminate\Support\Carbon::createFromTimestamp((int) ($v['start_time'] ?? 0))->format('M j, Y H:i') }}
-                to {{ \Illuminate\Support\Carbon::createFromTimestamp((int) ($v['end_time'] ?? 0))->format('M j, Y H:i') }}
+                {{ \Illuminate\Support\Carbon::createFromTimestamp((int) ($v['start_time'] ?? 0), config('app.timezone'))->format('M j, Y H:i') }}
+                to {{ \Illuminate\Support\Carbon::createFromTimestamp((int) ($v['end_time'] ?? 0), config('app.timezone'))->format('M j, Y H:i') }}
             </td>
             <td data-label="Status"><x-ui.badge :tone="$stateTone">{{ $stateLabel }}</x-ui.badge></td>
             <td class="x-td-actions">

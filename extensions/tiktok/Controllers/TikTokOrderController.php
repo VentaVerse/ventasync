@@ -190,8 +190,8 @@ class TikTokOrderController extends Controller
                 'region' => $c['setting']->region ?? 'PH',
                 'order_id' => $orderId,
                 'status' => $status,
-                'order_created_at' => isset($o['create_time']) ? \Carbon\Carbon::createFromTimestamp((int) $o['create_time']) : null,
-                'order_updated_at' => isset($o['update_time']) ? \Carbon\Carbon::createFromTimestamp((int) $o['update_time']) : null,
+                'order_created_at' => isset($o['create_time']) ? \Carbon\Carbon::createFromTimestamp((int) $o['create_time'], config('app.timezone')) : null,
+                'order_updated_at' => isset($o['update_time']) ? \Carbon\Carbon::createFromTimestamp((int) $o['update_time'], config('app.timezone')) : null,
                 'raw' => $o,
                 'customer_name' => $o['recipient_address']['name'] ?? '',
             ];
@@ -294,7 +294,7 @@ class TikTokOrderController extends Controller
             if (!$dbOrder) continue;
 
             $newStatus = $o['status'] ?? $dbOrder->status;
-            $updatedAt = isset($o['update_time']) ? \Carbon\Carbon::createFromTimestamp((int) $o['update_time']) : null;
+            $updatedAt = isset($o['update_time']) ? \Carbon\Carbon::createFromTimestamp((int) $o['update_time'], config('app.timezone')) : null;
             $customer = $o['recipient_address']['name'] ?? $dbOrder->customer_name;
 
             $dbOrder->update([

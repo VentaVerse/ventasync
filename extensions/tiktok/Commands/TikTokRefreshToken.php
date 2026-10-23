@@ -74,10 +74,10 @@ class TikTokRefreshToken extends Command
                 }
                 if (is_numeric($expiresIn)) {
                     // TikTok returns Unix timestamps, not seconds from now.
-                    $raw->{$prefix . 'expires_at'} = \Carbon\Carbon::createFromTimestamp((int) $expiresIn);
+                    $raw->{$prefix . 'expires_at'} = \Carbon\Carbon::createFromTimestamp((int) $expiresIn, config('app.timezone'));
                 }
                 if (is_numeric($refreshExpiresIn)) {
-                    $raw->{$prefix . 'refresh_expires_at'} = \Carbon\Carbon::createFromTimestamp((int) $refreshExpiresIn);
+                    $raw->{$prefix . 'refresh_expires_at'} = \Carbon\Carbon::createFromTimestamp((int) $refreshExpiresIn, config('app.timezone'));
                 }
                 $raw->save();
 
