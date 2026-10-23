@@ -1,7 +1,7 @@
 {
     "id": "opencart",
     "name": "OpenCart",
-    "version": "0.30.0",
+    "version": "0.31.0",
     "description": "OpenCart store channel: product sync, order sync, product groups, and marketplace reviews",
     "shipping_paid_to_seller": true,
     "logs": {

@@ -1,6 +1,6 @@
 # Lazada changelog
 
-## Unreleased
+## 0.31.0 (2026-10-23)
 
 - Product groups have their own page again: its products (Add products, Remove), and the listing template it uses, applied to its products with the usual preview. Group membership changes only there; the Products page lost its group menu and Move to group / Remove from group. The listing template page switches templates from a dropdown and names the groups that use it.
 - The buyer's note (buyer note) is saved on the sales order as its Customer note. Before, it was always left empty.

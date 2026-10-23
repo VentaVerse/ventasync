@@ -1,7 +1,7 @@
 {
     "id": "shopee",
     "name": "Shopee",
-    "version": "0.30.0",
+    "version": "0.31.0",
     "description": "Shopee marketplace channel: OAuth, products, product groups, orders, returns, logistics, reviews",
     "logs": {
         "ch_shopee_api_logs": {
