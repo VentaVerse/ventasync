@@ -1,7 +1,7 @@
 {
     "id": "tiktok",
     "name": "TikTok Shop",
-    "version": "0.30.0",
+    "version": "0.31.0",
     "description": "TikTok Shop channel: OAuth, product sync, API explorer",
     "logs": {
         "ch_tiktok_api_logs": {

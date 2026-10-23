@@ -1,6 +1,6 @@
 # OpenCart changelog
 
-## Unreleased
+## 0.31.0 (2026-10-23)
 
 - The order list draws the same header row as every channel: Customer, Order, the sales order beside it, and Created on the right; the Date column is gone and the total column is Total.
 - On a hosted (cloud) server, store addresses must be public https addresses; private and local addresses are refused, and requests do not follow redirects. Self-hosted installs are unchanged.

@@ -1,7 +1,7 @@
 {
     "id": "ventacart",
     "name": "VentaCart",
-    "version": "0.30.0",
+    "version": "0.31.0",
     "description": "VentaCart ecommerce channel: multi-store order sync, inventory push, product groups, categories",
     "shipping_paid_to_seller": true,
     "logs": {

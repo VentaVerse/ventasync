@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.31.0 (2026-10-23)
 
 - Settings > Mail offers SMTP and PHP Mail, and a new install starts on SMTP. Run `php artisan migrate`.
 - VentaCart no longer fetches the store's brand list: a product's brand comes from the Master Catalog and the storefront creates it if it is missing. Connecting a VentaCart store runs Categories and Order statuses. `ch_ventacart_brands` is dropped; run `php artisan migrate`.
