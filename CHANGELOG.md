@@ -2,7 +2,7 @@
 
 ## Unreleased
 
-- Community shows "VentaSync <version>" at the bottom of the menu with a Get Pro link to ventasync.com/pricing; Pro still shows "VentaSync Pro <version>".
+- More improvements.
 
 ## 2.0.0-beta.1 (2026-10-23)
 
