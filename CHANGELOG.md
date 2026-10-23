@@ -30,14 +30,12 @@
 - On a hosted server, store addresses must be public https addresses. Self-hosted installs are unchanged.
 - The AI Assistant extension is now the MCP Server.
 - Plain table names and one word for each thing (Customer, Sales order, Note, Telephone, Stock, Channel). The REST API and phone app keep the old field names and addresses until 2.0.0.
-- The one-time command orders:normalize-marketplace-fees is removed.
 - Some minor improvements.
 
 ### Bug fixes
 
 - Editing an order keeps stock correct when items are added, removed or changed, or the status changes in the same save.
 - A listing's markup can no longer go below zero.
-- The error log no longer fills with notices that aren't real problems.
 
 ## 0.30.0 (2026-10-07)
 
