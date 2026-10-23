@@ -47,3 +47,15 @@ An option and a variation are the same thing. "Option" is OpenCart's word, carri
 7. **Class names spell each brand its own way:** `TikTok`, `WooCommerce`, `OpenCart`, `VentaCart`.
 
 A test reads the database layout and fails on retired words (marketplace outside the three marketplaces, `oc_`, inventory, variant, vendor, manufacturer, fulfilment and the dropped OpenCart columns), so a synonym cannot come back unnoticed.
+
+## Changelog
+
+Each release in `CHANGELOG.md`, and in each extension's own `CHANGELOG.md`, has up to three sections. Leave out a section that is empty.
+
+- **New features**: something a person can do that they could not do before. Examples: a new page, action, setting, report, channel or API endpoint.
+- **Updates**: something that already existed now works differently, and a person who does not read about it would be surprised or would need to act. Examples: a page moved, a rule changed, a number is calculated differently, something was removed or renamed in the API or the database.
+- **Bug fixes**: something gave a wrong result, lost data or failed, and now works as intended.
+
+Everything else is one line, `- Some minor improvements.`, with nothing listed. That covers labels, wording, layout, a default that only a new install sees, a column put back, tests and internal code.
+
+Write each line for the person using VentaSync, in one sentence. Do not add upgrade or install steps.

@@ -14,8 +14,7 @@
 
 - A send reads only the listing; product groups are filters with no settings of their own.
 - The order list shows the store's own status. A status the status map does not know no longer turns a sales order into Pending, and the map marks unmapped statuses.
-- The Products page shows the Shopee ID in its own column again.
-- More improvements.
+- Some minor improvements.
 
 ### Bug fixes
 
