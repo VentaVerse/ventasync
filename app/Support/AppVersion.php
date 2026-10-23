@@ -29,9 +29,14 @@ final class AppVersion
         return self::$edition;
     }
 
+    public static function isPro(): bool
+    {
+        return self::edition() === 'Pro';
+    }
+
     public static function label(): string
     {
-        return 'VentaSync ' . self::edition() . ' ' . self::current();
+        return 'VentaSync ' . (self::isPro() ? 'Pro ' : '') . self::current();
     }
 
     public static function forget(): void

@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Community shows "VentaSync <version>" at the bottom of the menu with a Get Pro link to ventasync.com/pricing; Pro still shows "VentaSync Pro <version>".
+
 ## 2.0.0-beta.1 (2026-10-23)
 
 - 2.0.0 is the first public release; 1.x ran privately as the alpha.
