@@ -592,14 +592,16 @@ class WorkspaceInteriorsTest extends TestCase
         Http::assertNothingSent();
     }
 
-    public function test_the_redirect_uri_is_shown_but_not_submittable(): void
+    public function test_the_redirect_url_domain_is_shown_but_not_submittable(): void
     {
         $this->seedSetting();
 
         $html = $this->actingAs($this->manager())
             ->get(route('ext.shopee.settings.show'))->assertOk()->getContent();
 
-        $redirect = preg_replace('/^http:/i', 'https:', route('ext.shopee.index'));
+        $url = parse_url(preg_replace('/^http:/i', 'https:', route('ext.shopee.index')));
+        $redirect = $url['scheme'].'://'.$url['host'].(isset($url['port']) ? ':'.$url['port'] : '');
+        $this->assertStringNotContainsString('value="'.e($redirect).'/shopee"', $html, 'Shopee takes the scheme and host only');
 
         $this->assertStringContainsString(e($redirect), $html);
         $this->assertSame(2, substr_count($html, 'value="'.e($redirect).'"'));
