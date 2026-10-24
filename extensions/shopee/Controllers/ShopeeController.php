@@ -205,7 +205,7 @@ public function index(Request $request = null, ShopeeClient $client = null)
 
         return view('ext-shopee::index', [
             'setting' => $store?->decrypted(),
-            'defaultRedirect' => $this->computedRedirectUri(),
+            'redirectDomain' => $this->redirectDomain(),
             'webhookUrl' => preg_replace('/^http:/i', 'https:', route('channels.webhooks.receive', ['channel' => 'shopee'])),
             'result' => session('shopee_result'),
             'orderStatusMap' => $orderStatusMap,
@@ -418,6 +418,13 @@ public function index(Request $request = null, ShopeeClient $client = null)
     private function computedRedirectUri(): string
     {
         return preg_replace('/^http:/i', 'https:', route('ext.shopee.index'));
+    }
+
+    private function redirectDomain(): string
+    {
+        $url = parse_url($this->computedRedirectUri());
+
+        return $url['scheme'] . '://' . $url['host'] . (isset($url['port']) ? ':' . $url['port'] : '');
     }
 
     public function redirectToShopeeAuth(ShopeeClient $client)

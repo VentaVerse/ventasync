@@ -189,9 +189,9 @@
                         :can-reveal="$canManageShopee"
                         :disabled="!$canManageShopee" />
 
-                    <x-ui.field label="Redirect URI" for="sp-redirect" wide
-                                hint="Register this exact URL in your Shopee Open Platform production app. To change it, edit APP_URL in the environment file.">
-                        <x-ui.input id="sp-redirect" type="text" readonly value="{{ $defaultRedirect }}" data-select-on-click />
+                    <x-ui.field label="Redirect URL Domain" for="sp-redirect" wide
+                                hint="Enter this as the app's Live Redirect URL Domain on Shopee Open Platform. It comes from APP_URL in the environment file.">
+                        <x-ui.input id="sp-redirect" type="text" readonly value="{{ $redirectDomain }}" data-select-on-click />
                     </x-ui.field>
 
                     <x-ui.field label="Webhook URL" for="sp-webhook" wide>
@@ -375,9 +375,9 @@
                         :can-reveal="$canManageShopee"
                         :disabled="!$canManageShopee" />
 
-                    <x-ui.field label="Redirect URI" for="sp-sb-redirect" wide
-                                hint="Register this exact URL in your Shopee Open Platform sandbox app. To change it, edit APP_URL in the environment file.">
-                        <x-ui.input id="sp-sb-redirect" type="text" readonly value="{{ $defaultRedirect }}" data-select-on-click />
+                    <x-ui.field label="Redirect URL Domain" for="sp-sb-redirect" wide
+                                hint="Enter this as the app's Test Redirect URL Domain on Shopee Open Platform. It comes from APP_URL in the environment file.">
+                        <x-ui.input id="sp-sb-redirect" type="text" readonly value="{{ $redirectDomain }}" data-select-on-click />
                     </x-ui.field>
 
                     <x-ui.field label="Webhook URL" for="sp-sb-webhook" wide>
