@@ -5345,6 +5345,16 @@
         "name": "ext.reports.stock.export"
     },
     {
+        "method": "GET|HEAD",
+        "uri": "reset-login/{user}",
+        "name": "login.reset"
+    },
+    {
+        "method": "POST",
+        "uri": "reset-login/{user}",
+        "name": "login.reset.store"
+    },
+    {
         "method": "POST",
         "uri": "reset-password",
         "name": "password.store"
