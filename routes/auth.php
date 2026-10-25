@@ -8,6 +8,7 @@ use App\Http\Controllers\Auth\NewPasswordController;
 use App\Http\Controllers\Auth\PasswordController;
 use App\Http\Controllers\Auth\PasswordResetLinkController;
 use App\Http\Controllers\Auth\FirstAccountController;
+use App\Http\Controllers\Auth\ResetLoginController;
 use App\Http\Controllers\Auth\VerifyEmailController;
 use Illuminate\Support\Facades\Route;
 
@@ -33,6 +34,14 @@ Route::middleware('guest')->group(function () {
 
     Route::post('reset-password', [NewPasswordController::class, 'store'])
                 ->name('password.store');
+
+    Route::get('reset-login/{user}', [ResetLoginController::class, 'create'])
+                ->middleware('throttle:10,1')
+                ->name('login.reset');
+
+    Route::post('reset-login/{user}', [ResetLoginController::class, 'store'])
+                ->middleware('throttle:10,1')
+                ->name('login.reset.store');
 });
 
 Route::middleware('auth')->group(function () {

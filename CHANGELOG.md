@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### New features
+
+- `php artisan ventasync:reset-link <username>` prints a one-time link, valid for 30 minutes, where that user sets a new username and password. It needs no email, for a forgotten administrator password on a server without mail.
+
 ### Bug fixes
 
 - TikTok Shop orders and returns showed a time 8 hours earlier than they were placed.
