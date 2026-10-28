@@ -18,7 +18,7 @@ class AmericanSpellingTest extends TestCase
         $files = [];
         foreach (self::DIRECTORIES as $directory) {
             $this->assertDirectoryExists(base_path($directory));
-            foreach (File::allFiles(base_path($directory)) as $file) {
+            foreach (\Tests\SourceFiles::in(base_path($directory)) as $file) {
                 if (in_array($file->getExtension(), ['php', 'js', 'css', 'json', 'md'], true)) {
                     $files[] = $file->getPathname();
                 }

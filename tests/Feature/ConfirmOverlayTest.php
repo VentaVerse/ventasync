@@ -11,7 +11,7 @@ class ConfirmOverlayTest extends TestCase
     {
         $found = [];
 
-        foreach (File::allFiles(resource_path('js')) as $file) {
+        foreach (\Tests\SourceFiles::in(resource_path('js')) as $file) {
             if ($file->getExtension() !== 'js') {
                 continue;
             }

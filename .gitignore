@@ -73,3 +73,15 @@ temp_for_delete/
 /public/mockup-*.html
 /storage/*.csv
 /storage/*.sql
+
+# Pro extensions: their own private repos, symlinked in for development
+/extensions/audit
+/extensions/finance
+/extensions/mcp
+/extensions/mobileapp
+/extensions/pedallion
+/extensions/purchasing
+/extensions/reports
+/extensions/shopify
+/extensions/warehousing
+/extensions/woocommerce

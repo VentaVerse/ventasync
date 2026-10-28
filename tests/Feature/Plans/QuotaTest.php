@@ -38,7 +38,7 @@ class QuotaTest extends TestCase
     {
         $found = [];
         foreach ([app_path(), base_path('extensions')] as $root) {
-            foreach (File::allFiles($root) as $file) {
+            foreach (\Tests\SourceFiles::in($root) as $file) {
                 if ($file->getExtension() === 'php' && preg_match($pattern, $file->getContents())) {
                     $found[$file->getPathname()] = $file->getContents();
                 }

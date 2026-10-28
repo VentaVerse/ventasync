@@ -143,7 +143,7 @@ class FoundationTest extends TestCase
             if (! File::isDirectory($root)) {
                 continue;
             }
-            foreach (File::allFiles($root) as $file) {
+            foreach (\Tests\SourceFiles::in($root) as $file) {
                 if ($file->getExtension() !== 'php') {
                     continue;
                 }
@@ -189,7 +189,7 @@ class FoundationTest extends TestCase
                 continue;
             }
 
-            foreach (File::allFiles($root) as $file) {
+            foreach (\Tests\SourceFiles::in($root) as $file) {
                 if (! str_ends_with($file->getFilename(), '.blade.php')) {
                     continue;
                 }
@@ -791,7 +791,7 @@ class FoundationTest extends TestCase
         return array_map(
             fn ($file) => $file->getPathname(),
             array_filter(
-                File::allFiles(resource_path('css')),
+                \Tests\SourceFiles::in(resource_path('css')),
                 fn ($file) => $file->getExtension() === 'css'
             )
         );

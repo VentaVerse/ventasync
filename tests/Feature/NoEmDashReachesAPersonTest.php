@@ -22,7 +22,7 @@ class NoEmDashReachesAPersonTest extends TestCase
             if (! is_dir($dir)) {
                 continue;
             }
-            foreach (File::allFiles($dir) as $file) {
+            foreach (\Tests\SourceFiles::in($dir) as $file) {
                 $path = $file->getPathname();
                 $text = File::get($path);
                 $files++;

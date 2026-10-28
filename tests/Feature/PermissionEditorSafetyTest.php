@@ -268,7 +268,7 @@ class PermissionEditorSafetyTest extends TestCase
         $offenders = [];
 
         $scan = function (string $dir) use (&$offenders) {
-            $it = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator(base_path($dir)));
+            $it = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator(base_path($dir), \FilesystemIterator::SKIP_DOTS | \FilesystemIterator::FOLLOW_SYMLINKS));
             foreach ($it as $file) {
                 if (! preg_match('/\.(php)$/', (string) $file) || str_contains((string) $file, '/vendor/')) {
                     continue;

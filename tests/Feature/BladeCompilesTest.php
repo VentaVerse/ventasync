@@ -19,7 +19,7 @@ class BladeCompilesTest extends TestCase
             if (! is_dir($root)) {
                 continue;
             }
-            foreach (File::allFiles($root) as $file) {
+            foreach (\Tests\SourceFiles::in($root) as $file) {
                 if (str_ends_with($file->getFilename(), '.blade.php')) {
                     $views[] = $file->getPathname();
                 }

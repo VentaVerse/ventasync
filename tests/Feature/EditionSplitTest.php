@@ -41,7 +41,7 @@ class EditionSplitTest extends TestCase
         $offenders = [];
 
         foreach (self::COMMUNITY as $id) {
-            foreach (File::allFiles(base_path('extensions/' . $id)) as $file) {
+            foreach (\Tests\SourceFiles::in(base_path('extensions/' . $id)) as $file) {
                 $source = strtolower((string) file_get_contents($file->getPathname()));
                 foreach ($pro as $other) {
                     if (str_contains($source, 'extensions\\' . $other . '\\') || str_contains($source, 'ext-' . $other . '::')) {

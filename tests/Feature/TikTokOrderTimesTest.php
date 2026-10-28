@@ -39,7 +39,7 @@ class TikTokOrderTimesTest extends TestCase
     {
         $found = 0;
         foreach (['app', 'extensions'] as $root) {
-            $files = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator(base_path($root), \FilesystemIterator::SKIP_DOTS));
+            $files = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator(base_path($root), \FilesystemIterator::SKIP_DOTS | \FilesystemIterator::FOLLOW_SYMLINKS));
             foreach ($files as $file) {
                 if ($file->getExtension() !== 'php') {
                     continue;

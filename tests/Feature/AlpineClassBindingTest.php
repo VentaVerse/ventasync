@@ -98,7 +98,7 @@ class AlpineClassBindingTest extends TestCase
                 continue;
             }
 
-            $it = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($root));
+            $it = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($root, \FilesystemIterator::SKIP_DOTS | \FilesystemIterator::FOLLOW_SYMLINKS));
 
             foreach ($it as $f) {
                 if ($f->isFile() && str_ends_with($f->getFilename(), '.blade.php')) {

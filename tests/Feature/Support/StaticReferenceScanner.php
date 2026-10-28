@@ -24,7 +24,7 @@ final class StaticReferenceScanner
             }
 
             $iterator = new \RecursiveIteratorIterator(
-                new \RecursiveDirectoryIterator($path, \FilesystemIterator::SKIP_DOTS)
+                new \RecursiveDirectoryIterator($path, \FilesystemIterator::SKIP_DOTS | \FilesystemIterator::FOLLOW_SYMLINKS)
             );
 
             foreach ($iterator as $file) {

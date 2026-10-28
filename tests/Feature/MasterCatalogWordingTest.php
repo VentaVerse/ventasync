@@ -24,7 +24,7 @@ class MasterCatalogWordingTest extends TestCase
             }
             $root = base_path("extensions/{$channel}/views");
             $this->assertDirectoryExists($root);
-            foreach (File::allFiles($root) as $file) {
+            foreach (\Tests\SourceFiles::in($root) as $file) {
                 $files[] = $file->getPathname();
             }
         }
