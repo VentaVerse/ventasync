@@ -12,8 +12,9 @@ class ListingTemplatesMigrationTest extends TestCase
 
     protected function tearDown(): void
     {
-        $migration = require database_path('migrations/2026_10_21_000001_listing_templates.php');
-        $migration->dropGroupSettings();
+        foreach ($this->parts() as $part) {
+            $part->dropGroupSettings();
+        }
         DB::statement('SET FOREIGN_KEY_CHECKS=0');
         foreach (['shopee', 'lazada', 'tiktok', 'woocommerce', 'ventacart'] as $channel) {
             foreach (["ch_{$channel}_listing_template_attributes", "ch_{$channel}_listing_templates", "ch_{$channel}_product_group_products", "ch_{$channel}_product_groups", "ch_{$channel}_listings", "ch_{$channel}_stores"] as $table) {
@@ -29,12 +30,37 @@ class ListingTemplatesMigrationTest extends TestCase
         parent::tearDown();
     }
 
+    private function parts(): array
+    {
+        $parts = [];
+        foreach (['shopee', 'lazada', 'tiktok', 'woocommerce', 'ventacart'] as $channel) {
+            $file = base_path("extensions/{$channel}/migrations/2026_10_21_000001_{$channel}_listing_templates.php");
+            if (is_file($file)) {
+                $parts[] = require $file;
+            }
+        }
+
+        return $parts;
+    }
+
     private function migration(): object
     {
-        $migration = require database_path('migrations/2026_10_21_000001_listing_templates.php');
-        $migration->restoreGroupSettings();
+        $parts = $this->parts();
+        foreach ($parts as $part) {
+            $part->restoreGroupSettings();
+        }
 
-        return $migration;
+        return new class($parts)
+        {
+            public function __construct(private array $parts) {}
+
+            public function copyGroups(): void
+            {
+                foreach ($this->parts as $part) {
+                    $part->copyGroups();
+                }
+            }
+        };
     }
 
     private function product(string $sku): int

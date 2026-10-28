@@ -11,15 +11,5 @@
     "author": "VentaSync",
     "tier": "community",
     "license_required": false,
-    "tables": [
-        "ch_tiktok_stores",
-        "ch_tiktok_api_logs",
-        "ch_tiktok_categories",
-        "ch_tiktok_product_groups",
-        "ch_tiktok_product_group_products",
-        "ch_tiktok_orders",
-        "ch_tiktok_order_products",
-        "ch_tiktok_order_status_map"
-    ],
     "nav": []
 }

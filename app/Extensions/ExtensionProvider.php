@@ -39,7 +39,6 @@ abstract class ExtensionProvider extends ServiceProvider
         $this->bootRoutes();
         $this->app->make(McpToolRegistry::class)->add($this->mcpTools());
         $this->bootViews();
-        $this->bootMigrations();
         $this->bootTranslations();
         ExtensionImages::publish($this->id);
     }
@@ -75,14 +74,6 @@ abstract class ExtensionProvider extends ServiceProvider
         $viewsPath = $this->basePath . '/views';
         if (is_dir($viewsPath)) {
             parent::loadViewsFrom($viewsPath, 'ext-' . $this->id);
-        }
-    }
-
-    protected function bootMigrations(): void
-    {
-        $migrationsPath = $this->basePath . '/migrations';
-        if (is_dir($migrationsPath)) {
-            parent::loadMigrationsFrom($migrationsPath);
         }
     }
 

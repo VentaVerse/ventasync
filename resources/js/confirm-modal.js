@@ -6,10 +6,16 @@ document.addEventListener('DOMContentLoaded', function () {
     var okBtn = document.getElementById('x-confirm-modal-ok');
     var cancelBtn = document.getElementById('x-confirm-modal-cancel');
     var closeBtn = document.getElementById('x-confirm-modal-close');
+    var linesEl = document.getElementById('x-confirm-modal-lines');
+    var typeEl = document.getElementById('x-confirm-modal-type');
+    var typeLabel = document.getElementById('x-confirm-modal-type-label');
+    var typeInput = document.getElementById('x-confirm-modal-input');
+    var expected = null;
     var resolver = null;
     var lastTrigger = null;
 
     function close(result) {
+        if (result && expected !== null && typeInput.value !== expected) return;
         backdrop.classList.remove('active');
         if (lastTrigger && typeof lastTrigger.focus === 'function') {
             lastTrigger.focus();
@@ -73,12 +79,45 @@ document.addEventListener('DOMContentLoaded', function () {
         okBtn.textContent = confirmAttr(trigger, 'data-confirm-verb') || 'Confirm';
     }
 
+    function showLines(trigger) {
+        var body = linesEl.querySelector('tbody');
+        body.textContent = '';
+        var lines = [];
+        try { lines = JSON.parse(confirmAttr(trigger, 'data-confirm-lines') || '[]'); } catch (err) { lines = []; }
+        lines.forEach(function (line) {
+            var row = body.insertRow();
+            row.insertCell().textContent = line[0];
+            row.insertCell().textContent = line[1];
+        });
+        linesEl.hidden = lines.length === 0;
+    }
+
+    function askToType(trigger) {
+        expected = confirmAttr(trigger, 'data-confirm-type');
+        typeEl.hidden = expected === null;
+        typeInput.value = '';
+        if (expected !== null) {
+            typeLabel.textContent = 'Type ' + expected + ' to confirm';
+        }
+        okBtn.disabled = expected !== null;
+    }
+
+    typeInput.addEventListener('input', function () {
+        okBtn.disabled = typeInput.value !== expected;
+    });
+
     function confirmModal(message, trigger) {
         lastTrigger = trigger || document.activeElement;
         applyTone(trigger);
         msgEl.textContent = message;
+        showLines(trigger);
+        askToType(trigger);
         backdrop.classList.add('active');
-        cancelBtn.focus();
+        if (expected !== null) {
+            typeInput.focus();
+        } else {
+            cancelBtn.focus();
+        }
         // Click on body so Alpine's click.outside closes the menu that holds the trigger.
         document.body.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
         return new Promise(function (resolve) { resolver = resolve; });
@@ -127,6 +166,8 @@ document.addEventListener('DOMContentLoaded', function () {
 
             if (submitId) {
                 var f = document.getElementById(submitId);
+                var typed = f && f.querySelector('input[name="confirm"]');
+                if (typed) typed.value = typeInput.value;
                 if (f) {
                     f._confirmed = true;
                     f.requestSubmit ? f.requestSubmit() : f.submit();

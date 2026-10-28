@@ -16,17 +16,5 @@
     "author": "VentaSync",
     "tier": "community",
     "license_required": false,
-    "tables": [
-        "ch_ventacart_stores",
-        "ch_ventacart_product_groups",
-        "ch_ventacart_product_group_products",
-        "ch_ventacart_listing_links",
-        "ch_ventacart_orders",
-        "ch_ventacart_order_products",
-        "ch_ventacart_order_status_map",
-        "ch_ventacart_sync_logs",
-        "ch_ventacart_api_logs",
-        "ch_ventacart_categories"
-    ],
     "nav": []
 }

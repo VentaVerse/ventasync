@@ -660,6 +660,31 @@
         overflow-y: auto;
     }
 
+    .x-confirm__lines {
+        width: 100%;
+        margin: -6px 0 16px;
+        border-collapse: collapse;
+        font-size: 13px;
+    }
+
+    .x-confirm__lines td {
+        padding: 6px 0;
+        border-bottom: 1px solid var(--bl-rule);
+    }
+
+    .x-confirm__lines td + td {
+        text-align: right;
+        font-family: var(--font-mono);
+        color: var(--bl-ink-2);
+    }
+
+    .x-confirm__type {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        margin-bottom: 16px;
+    }
+
     .modal .d-flex {
         display: flex;
     }

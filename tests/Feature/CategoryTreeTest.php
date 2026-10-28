@@ -103,26 +103,26 @@ class CategoryTreeTest extends TestCase
 
     public function test_a_stores_own_categories_are_scoped_and_their_leaves_counted(): void
     {
-        $first = DB::table('ch_woocommerce_stores')->insertGetId(['store_name' => 'First store', 'base_url' => 'https://one.test']);
-        $second = DB::table('ch_woocommerce_stores')->insertGetId(['store_name' => 'Second store', 'base_url' => 'https://two.test']);
+        $first = DB::table('ch_ventacart_stores')->insertGetId(['store_name' => 'First store', 'base_url' => 'https://one.test', 'api_token' => 'one']);
+        $second = DB::table('ch_ventacart_stores')->insertGetId(['store_name' => 'Second store', 'base_url' => 'https://two.test', 'api_token' => 'two']);
 
         foreach ([
             [$first, 10, 0, 'Pedals'],
             [$first, 11, 10, 'Overdrive'],
             [$second, 20, 0, 'Another store only'],
         ] as [$store, $id, $parent, $name]) {
-            DB::table('ch_woocommerce_categories')->insert([
-                'store_id' => $store, 'woo_category_id' => $id,
-                'parent_id' => $parent, 'name' => $name, 'slug' => strtolower($name),
+            DB::table('ch_ventacart_categories')->insert([
+                'store_id' => $store, 'ventacart_category_id' => $id,
+                'parent_id' => $parent, 'name' => $name,
             ]);
         }
 
-        $roots = CategoryTree::children('woocommerce', $first);
+        $roots = CategoryTree::children('ventacart', $first);
 
         $this->assertSame(['Pedals'], array_column($roots, 'name'), 'one store never sees another store\'s categories');
         $this->assertFalse($roots[0]['leaf'], 'something sits under it, so it is not a leaf');
-        $this->assertSame([['id' => 11, 'name' => 'Overdrive', 'leaf' => true]], CategoryTree::children('woocommerce', $first, 10));
-        $this->assertSame(['Another store only'], array_column(CategoryTree::children('woocommerce', $second), 'name'));
+        $this->assertSame([['id' => 11, 'name' => 'Overdrive', 'leaf' => true]], CategoryTree::children('ventacart', $first, 10));
+        $this->assertSame(['Another store only'], array_column(CategoryTree::children('ventacart', $second), 'name'));
     }
 
     public function test_a_null_parent_is_a_root_too(): void

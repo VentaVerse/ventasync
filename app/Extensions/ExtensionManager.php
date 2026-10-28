@@ -62,6 +62,15 @@ class ExtensionManager
         return $manifests[$id] ?? null;
     }
 
+    public function getInstalledIds(): array
+    {
+        try {
+            return Schema::hasTable('extensions') ? Extension::pluck('id')->all() : [];
+        } catch (\Throwable) {
+            return [];
+        }
+    }
+
     public function getEnabledIds(): array
     {
         if ($this->enabledCache !== null) {
@@ -137,6 +146,8 @@ class ExtensionManager
         $existing = Extension::find($id);
         $enabled = $existing ? $existing->enabled : false;
 
+        ExtensionData::migrate($id);
+
         Extension::updateOrCreate(
             ['id' => $id],
             [
@@ -161,16 +172,6 @@ class ExtensionManager
     {
         $this->removePermissions($id);
 
-        $manifest = $this->getManifest($id);
-        $tables = $manifest['tables'] ?? [];
-        DB::statement('SET FOREIGN_KEY_CHECKS=0');
-        foreach ($tables as $table) {
-            if (Schema::hasTable($table)) {
-                DB::table($table)->truncate();
-            }
-        }
-        DB::statement('SET FOREIGN_KEY_CHECKS=1');
-
         $extension = Extension::find($id);
 
         if ($extension) {
@@ -186,6 +187,18 @@ class ExtensionManager
             }
         }
 
+        $this->clearCache();
+
+        return true;
+    }
+
+    public function deleteData(string $id): bool
+    {
+        if ($this->getManifest($id) === null || Extension::find($id) !== null) {
+            return false;
+        }
+
+        ExtensionData::delete($id);
         $this->clearCache();
 
         return true;

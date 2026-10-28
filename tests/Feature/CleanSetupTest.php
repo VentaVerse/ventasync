@@ -8,12 +8,28 @@ use Tests\TestCase;
 
 class CleanSetupTest extends TestCase
 {
+    private function setupFile(string $name): ?string
+    {
+        return (glob(database_path("migrations/{$name}.php")) ?: glob(base_path("extensions/*/migrations/{$name}.php")) ?: [null])[0];
+    }
+
+    // A setup file that left core lives in its extension, which a Community checkout may not have.
+    private function absentExtension(string $name): bool
+    {
+        $id = preg_match('/create_channel_([a-z]+)_tables$/', $name, $m) ? $m[1]
+            : ['2026_10_11_000008_create_purchasing_tables' => 'purchasing', '2026_10_11_000009_create_finance_tables' => 'finance', '2026_10_11_000010_create_mobile_app_tables' => 'mobileapp'][$name] ?? null;
+
+        return $id !== null && ! is_dir(base_path("extensions/{$id}"));
+    }
+
     public function test_the_baseline_list_names_the_setup_files_that_exist(): void
     {
         $baseline = require database_path('upgrades/baseline.php');
         $this->assertCount(20, $baseline);
         foreach ($baseline as $name) {
-            $this->assertFileExists(database_path("migrations/{$name}.php"));
+            if (! $this->absentExtension($name)) {
+                $this->assertNotNull($this->setupFile($name), "{$name} is in neither core nor its extension");
+            }
         }
     }
 
@@ -31,12 +47,16 @@ class CleanSetupTest extends TestCase
         $target = json_decode((string) file_get_contents(database_path('upgrades/schema.json')), true);
         $this->assertIsArray($target);
         $created = [];
-        foreach (require database_path('upgrades/baseline.php') as $name) {
-            preg_match_all("/Schema::create\('([a-z0-9_]+)'/", (string) file_get_contents(database_path("migrations/{$name}.php")), $m);
+        foreach (array_merge(glob(database_path('migrations/2026_10_11_*.php')), glob(base_path('extensions/*/migrations/2026_10_11_*.php')) ?: []) as $file) {
+            preg_match_all("/Schema::create\('([a-z0-9_]+)'/", (string) file_get_contents($file), $m);
             array_push($created, ...$m[1]);
         }
         sort($created);
-        $this->assertSame(array_keys($target), $created);
+        $this->assertSame([], array_values(array_diff($created, array_keys($target))), 'a setup file creates a table the upgrade target does not describe');
+        $complete = array_filter(require database_path('upgrades/baseline.php'), fn ($name) => $this->absentExtension($name)) === [];
+        if ($complete) {
+            $this->assertSame(array_keys($target), $created);
+        }
     }
 
     public function test_an_aligned_database_needs_no_statements(): void

@@ -82,6 +82,7 @@
                 <th scope="col" class="st-col-ver">Version</th>
                 <th scope="col" class="st-col-author">Author</th>
                 <th scope="col" class="st-col-stat">State</th>
+                <th scope="col" class="st-col-data x-num">Data</th>
                 <th scope="col" class="x-td-actions"><span class="x-sr">Actions</span></th>
             </tr>
         </x-slot:head>
@@ -111,6 +112,8 @@
                 <td class="st-col-stat" data-label="State">
                     <x-ui.badge :tone="$state['tone']">{{ $state['label'] }}</x-ui.badge>
                 </td>
+                @php $rowCount = array_sum($ext['data']); @endphp
+                <td class="st-col-data x-num x-cell-muted" data-label="Data">{{ $rowCount > 0 ? number_format($rowCount) . ' ' . Str::plural('row', $rowCount) : 'None' }}</td>
                 <td class="x-td-actions">
                     @php $settingsAt = $settingsRoute($ext); @endphp
                     @if(! $ext['locked'] && ($canManage || $settingsAt))
@@ -131,12 +134,21 @@
                             @endif
                             <div class="x-menu__sep"></div>
                             <button type="button" class="x-menu__item x-menu__item--danger"
-                                    data-confirm="Uninstall {{ $ext['name'] }}? Every row in the tables it declares is deleted and its permissions are removed. The files stay on disk so it can be installed again."
+                                    data-confirm="Uninstall {{ $ext['name'] }}? Its pages and permissions are removed. Its data is kept for when it is installed again."
                                     data-confirm-submit="st-ext-uninstall-{{ $ext['id'] }}">Uninstall</button>
                         @elseif($canManage)
                             <button type="button" class="x-menu__item" data-confirm-tone="primary"
                                     data-confirm="Install {{ $ext['name'] }}? Its database migrations run now. It arrives disabled, so enable it afterwards to switch it on."
                                     data-confirm-submit="st-ext-install-{{ $ext['id'] }}">Install</button>
+                            @if($rowCount > 0)
+                                <div class="x-menu__sep"></div>
+                                <button type="button" class="x-menu__item x-menu__item--danger"
+                                        data-confirm="Delete {{ $ext['name'] }}'s data? This cannot be undone."
+                                        data-confirm-verb="Delete data"
+                                        data-confirm-type="{{ $ext['name'] }}"
+                                        data-confirm-lines="{{ json_encode(collect($ext['data'])->map(fn ($rows, $label) => [$label, number_format($rows)])->values()) }}"
+                                        data-confirm-submit="st-ext-delete-data-{{ $ext['id'] }}">Delete its data</button>
+                            @endif
                         @endif
                     </x-ui.menu>
                     @endif
@@ -155,6 +167,12 @@
                 </form>
             @else
                 <form id="st-ext-install-{{ $ext['id'] }}" method="POST" action="{{ route('extensions.reinstall', $ext['id']) }}" class="x-sr">@csrf</form>
+                @if(array_sum($ext['data']) > 0)
+                    <form id="st-ext-delete-data-{{ $ext['id'] }}" method="POST" action="{{ route('extensions.delete_data', $ext['id']) }}" class="x-sr">
+                        @csrf
+                        <input type="hidden" name="confirm" value="">
+                    </form>
+                @endif
             @endif
         @endforeach
     @endif

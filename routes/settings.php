@@ -45,6 +45,7 @@ Route::prefix('settings')->group(function () {
         Route::post('/extensions/{extension}/toggle', [ExtensionController::class, 'toggle'])->name('extensions.toggle');
         Route::post('/extensions/{extension}/reinstall', [ExtensionController::class, 'reinstall'])->name('extensions.reinstall');
         Route::delete('/extensions/{extension}', [ExtensionController::class, 'uninstall'])->name('extensions.uninstall');
+        Route::post('/extensions/{extension}/delete-data', [ExtensionController::class, 'deleteData'])->name('extensions.delete_data');
     });
 
     Route::group([], function () {

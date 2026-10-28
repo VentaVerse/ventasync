@@ -47,7 +47,7 @@ class VariationPricesMigrationTest extends TestCase
             ['lazada_listing_id' => $listing, 'product_variation_value_id' => $blue, 'price' => null],
         ]);
 
-        (require database_path('migrations/2026_10_21_000002_listing_variation_prices.php'))->up();
+        (require base_path('extensions/lazada/migrations/2026_10_21_000002_move_lazada_variation_prices.php'))->up();
 
         $this->assertSame([$pid => ['mig-red' => 210.0]], VariationPrices::forProducts('lazada', 7, [$pid]));
         $this->assertFalse(Schema::hasColumn('ch_lazada_listing_variations', 'price'));

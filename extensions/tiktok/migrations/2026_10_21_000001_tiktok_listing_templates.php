@@ -9,6 +9,10 @@ return new class extends Migration
 {
     public function up(): void
     {
+        if (Schema::hasTable('ch_tiktok_listing_templates')) {
+            return;
+        }
+
         $common = function (Blueprint $table, string $stores, string $channel) {
             $table->id();
             $table->unsignedBigInteger('store_id');
@@ -21,57 +25,27 @@ return new class extends Migration
             $table->foreign('store_id', "ch_{$channel}_listing_templates_store_foreign")->references('id')->on($stores)->cascadeOnDelete();
         };
 
-        Schema::create('ch_shopee_listing_templates', function (Blueprint $table) use ($common) {
-            $common($table, 'ch_shopee_stores', 'shopee');
-            $table->unsignedBigInteger('shopee_category_id')->nullable();
-            $table->unsignedBigInteger('shopee_brand_id')->nullable();
-            $table->json('logistic_ids')->nullable();
-        });
-
-        Schema::create('ch_lazada_listing_templates', function (Blueprint $table) use ($common) {
-            $common($table, 'ch_lazada_stores', 'lazada');
-            $table->unsignedBigInteger('primary_category_id')->nullable();
-            $table->unsignedBigInteger('brand_id')->nullable();
-            $table->string('brand_name_override', 255)->nullable();
-        });
-
         Schema::create('ch_tiktok_listing_templates', function (Blueprint $table) use ($common) {
             $common($table, 'ch_tiktok_stores', 'tiktok');
             $table->string('tiktok_category_id', 255)->nullable();
         });
 
-        Schema::create('ch_woocommerce_listing_templates', function (Blueprint $table) use ($common) {
-            $common($table, 'ch_woocommerce_stores', 'woocommerce');
-            $table->unsignedBigInteger('woo_category_id')->nullable();
+        Schema::create('ch_tiktok_listing_template_attributes', function (Blueprint $table) {
+            $table->id();
+            $table->unsignedBigInteger('listing_template_id');
+            $table->string('attribute_key', 191);
+            $table->text('value')->nullable();
+            $table->timestamps();
+            $table->unique(['listing_template_id', 'attribute_key'], 'ch_tiktok_lt_attributes_unique');
+            $table->foreign('listing_template_id', 'ch_tiktok_lt_attributes_template_foreign')->references('id')->on('ch_tiktok_listing_templates')->cascadeOnDelete();
         });
-
-        Schema::create('ch_ventacart_listing_templates', function (Blueprint $table) use ($common) {
-            $common($table, 'ch_ventacart_stores', 'ventacart');
-            $table->unsignedBigInteger('ventacart_category_id')->nullable();
-        });
-
-        foreach (['shopee', 'lazada', 'tiktok'] as $channel) {
-            Schema::create("ch_{$channel}_listing_template_attributes", function (Blueprint $table) use ($channel) {
-                $table->id();
-                $table->unsignedBigInteger('listing_template_id');
-                $table->string('attribute_key', 191);
-                $table->text('value')->nullable();
-                $table->timestamps();
-                $table->unique(['listing_template_id', 'attribute_key'], "ch_{$channel}_lt_attributes_unique");
-                $table->foreign('listing_template_id', "ch_{$channel}_lt_attributes_template_foreign")->references('id')->on("ch_{$channel}_listing_templates")->cascadeOnDelete();
-            });
-        }
 
         $this->copyGroups();
         $this->dropGroupSettings();
     }
 
     public const GROUP_SETTINGS = [
-        'shopee' => ['shopee_category_id', 'shopee_brand_id', 'logistic_ids', 'markup_fixed', 'markup_percent', 'watermark_template_id'],
-        'lazada' => ['lazada_category_id', 'brand_id', 'brand_name_override', 'markup_fixed', 'markup_percent', 'watermark_template_id'],
         'tiktok' => ['tiktok_category_id', 'markup_percent', 'markup_fixed', 'watermark_template_id'],
-        'woocommerce' => ['woo_category_id', 'markup_percent', 'markup_fixed', 'watermark_template_id'],
-        'ventacart' => ['ventacart_category_id', 'ventacart_brand_id', 'markup_percent', 'markup_fixed', 'watermark_template_id'],
     ];
 
     public function dropGroupSettings(): void
@@ -95,11 +69,7 @@ return new class extends Migration
             }
             Schema::table($table, function (Blueprint $t) use ($channel) {
                 match ($channel) {
-                    'shopee' => [$t->unsignedBigInteger('shopee_category_id')->nullable(), $t->unsignedBigInteger('shopee_brand_id')->nullable(), $t->json('logistic_ids')->nullable()],
-                    'lazada' => [$t->unsignedBigInteger('lazada_category_id')->nullable(), $t->unsignedBigInteger('brand_id')->nullable(), $t->string('brand_name_override', 255)->nullable()],
                     'tiktok' => [$t->string('tiktok_category_id', 255)->nullable()],
-                    'woocommerce' => [$t->unsignedBigInteger('woo_category_id')->nullable()],
-                    'ventacart' => [$t->unsignedBigInteger('ventacart_category_id')->nullable(), $t->unsignedBigInteger('ventacart_brand_id')->nullable()],
                 };
                 $t->decimal('markup_fixed', 12, 2)->nullable();
                 $t->decimal('markup_percent', 8, 2)->nullable();
@@ -118,35 +88,11 @@ return new class extends Migration
     }
 
     public const CHANNELS = [
-        'shopee' => [
-            'model' => \Extensions\Shopee\Models\ShopeeListing::class,
-            'key' => 'shopee_product_group_id',
-            'fields' => ['shopee_category_id' => 'shopee_category_id', 'shopee_brand_id' => 'shopee_brand_id', 'logistic_ids' => 'logistic_ids'],
-            'attributes' => 'json',
-        ],
-        'lazada' => [
-            'model' => \Extensions\Lazada\Models\LazadaListing::class,
-            'key' => 'lazada_product_group_id',
-            'fields' => ['lazada_category_id' => 'primary_category_id', 'brand_id' => 'brand_id', 'brand_name_override' => 'brand_name_override'],
-            'attributes' => 'table',
-        ],
         'tiktok' => [
             'model' => \Extensions\TikTok\Models\TikTokListing::class,
             'key' => 'tiktok_product_group_id',
             'fields' => ['tiktok_category_id' => 'tiktok_category_id'],
             'attributes' => 'json',
-        ],
-        'woocommerce' => [
-            'model' => \Extensions\WooCommerce\Models\WooCommerceListing::class,
-            'key' => 'woocommerce_product_group_id',
-            'fields' => ['woo_category_id' => 'woo_category_id'],
-            'attributes' => null,
-        ],
-        'ventacart' => [
-            'model' => \Extensions\VentaCart\Models\VentaCartListing::class,
-            'key' => 'ventacart_product_group_id',
-            'fields' => ['ventacart_category_id' => 'ventacart_category_id'],
-            'attributes' => null,
         ],
     ];
 
@@ -240,17 +186,6 @@ return new class extends Migration
             }
         }
         $listing->save();
-
-        if ($c['attributes'] === 'table') {
-            $own = DB::table('ch_lazada_listing_attributes')->where('lazada_listing_id', $listing->id)->pluck('value', 'attribute_key')->all();
-            foreach ($answers as $key => $value) {
-                if (! array_key_exists($key, $own)) {
-                    DB::table('ch_lazada_listing_attributes')->insert(['lazada_listing_id' => $listing->id, 'attribute_key' => $key, 'value' => $value, 'created_at' => now(), 'updated_at' => now()]);
-                } elseif (trim((string) $own[$key]) === '') {
-                    DB::table('ch_lazada_listing_attributes')->where('lazada_listing_id', $listing->id)->where('attribute_key', $key)->update(['value' => $value, 'updated_at' => now()]);
-                }
-            }
-        }
     }
 
     private function markup(object $group): array
@@ -264,11 +199,7 @@ return new class extends Migration
     public function down(): void
     {
         $this->restoreGroupSettings();
-        foreach (['shopee', 'lazada', 'tiktok'] as $channel) {
-            Schema::dropIfExists("ch_{$channel}_listing_template_attributes");
-        }
-        foreach (['shopee', 'lazada', 'tiktok', 'woocommerce', 'ventacart'] as $channel) {
-            Schema::dropIfExists("ch_{$channel}_listing_templates");
-        }
+        Schema::dropIfExists('ch_tiktok_listing_template_attributes');
+        Schema::dropIfExists('ch_tiktok_listing_templates');
     }
 };

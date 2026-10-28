@@ -18,22 +18,6 @@ return new class extends Migration
         [11, 'Unpaid', 1, 0],
     ];
 
-    private const SHOPEE_STATUSES = [
-        'UNPAID' => 11, 'READY_TO_SHIP' => 1, 'PROCESSED' => 2, 'SHIPPED' => 3, 'COMPLETED' => 9, 'CANCELLED' => 5,
-        'IN_CANCEL' => 1, 'RETRY_SHIP' => 3, 'TO_CONFIRM_RECEIVE' => 9, 'TO_RETURN' => 3, 'INVOICE_PENDING' => 1,
-    ];
-
-    private const LAZADA_STATUSES = [
-        'unpaid' => 11, 'pending' => 1, 'packed' => 2, 'repacked' => 2, 'ready_to_ship' => 2, 'shipped' => 3,
-        'lost_by_3pl' => 3, 'damaged_by_3pl' => 3, 'delivered' => 9, 'confirmed' => 10, 'canceled' => 5, 'cancelled' => 5,
-        'failed_delivery' => 8,
-    ];
-
-    private const TIKTOK_STATUSES = [
-        'UNPAID' => 11, 'ON_HOLD' => 1, 'AWAITING_SHIPMENT' => 1, 'AWAITING_COLLECTION' => 2, 'IN_TRANSIT' => 3,
-        'DELIVERED' => 9, 'COMPLETED' => 10, 'CANCELLED' => 5,
-    ];
-
     private const ADMINISTRATOR_PERMISSIONS = [
         'manage_api_v1/inventory',
         'manage_api_v1/product',
@@ -137,8 +121,6 @@ return new class extends Migration
         'view_ventacart/dashboard',
     ];
 
-    private const PETTY_CASH_CATEGORIES = ['Gas/Fuel', 'Shipping/Courier', 'Tools & Supplies', 'Office Supplies', 'Food/Meals', 'Transportation', 'Miscellaneous'];
-
     public function up(): void
     {
         $now = now();
@@ -157,27 +139,11 @@ return new class extends Migration
             'order_status_id' => $s[0], 'language_id' => 1, 'name' => $s[1], 'subtract_stock' => $s[2], 'add_revenue' => $s[3],
         ], self::ORDER_STATUSES));
 
-        foreach (['ch_shopee_order_status_map' => ['shopee_status', self::SHOPEE_STATUSES],
-            'ch_lazada_order_status_map' => ['lazada_status', self::LAZADA_STATUSES],
-            'ch_tiktok_order_status_map' => ['tiktok_status', self::TIKTOK_STATUSES]] as $table => [$column, $map]) {
-            DB::table($table)->insert(array_map(fn ($status, $id) => [
-                $column => $status, 'context' => 'order', 'order_status_id' => $id, 'created_at' => $now, 'updated_at' => $now,
-            ], array_keys($map), $map));
-        }
-
         DB::table('currencies')->insert([
             ['code' => 'PHP', 'name' => 'Philippine Peso', 'symbol' => '₱', 'exchange_rate' => 1, 'is_default' => true, 'status' => 1, 'created_at' => $now, 'updated_at' => $now],
             ['code' => 'USD', 'name' => 'US Dollar', 'symbol' => '$', 'exchange_rate' => 56.5, 'is_default' => false, 'status' => 1, 'created_at' => $now, 'updated_at' => $now],
             ['code' => 'CNY', 'name' => 'Chinese Yuan', 'symbol' => '¥', 'exchange_rate' => 7.8, 'is_default' => false, 'status' => 1, 'created_at' => $now, 'updated_at' => $now],
         ]);
-
-        DB::table('warehouses')->insert([
-            'name' => 'Main Store', 'code' => 'STORE', 'is_default' => true, 'is_sellable' => true, 'sort_order' => 0, 'created_at' => $now, 'updated_at' => $now,
-        ]);
-
-        DB::table('petty_cash_categories')->insert(array_map(fn ($name, $i) => [
-            'name' => $name, 'sort_order' => $i + 1, 'status' => true, 'created_at' => $now, 'updated_at' => $now,
-        ], self::PETTY_CASH_CATEGORIES, array_keys(self::PETTY_CASH_CATEGORIES)));
 
         DB::table('scheduled_jobs')->insert([
             'command' => 'webhooks:process', 'display_name' => 'Process Channel Webhooks', 'extension' => 'core', 'store_id' => null,

@@ -11,22 +11,5 @@
     "author": "VentaSync",
     "tier": "community",
     "license_required": false,
-    "tables": [
-        "ch_shopee_stores",
-        "ch_shopee_api_logs",
-        "ch_shopee_categories",
-        "ch_shopee_category_templates",
-        "ch_shopee_logistics",
-        "ch_shopee_item_cache",
-        "ch_shopee_orders",
-        "ch_shopee_order_products",
-        "ch_shopee_order_status_map",
-        "ch_shopee_product_groups",
-        "ch_shopee_product_group_products",
-        "ch_shopee_product_group_attributes",
-        "ch_shopee_listing_links",
-        "ch_shopee_returns",
-        "shopee_unmatched_items"
-    ],
     "nav": []
 }

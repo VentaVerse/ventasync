@@ -4,7 +4,6 @@ namespace App\Console\Commands;
 
 use App\Extensions\ExtensionManager;
 use Illuminate\Console\Command;
-use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Process;
 use ZipArchive;
@@ -78,12 +77,6 @@ class ExtensionInstall extends Command
         if (!$manager->install($id)) {
             $this->error("Failed to register extension '{$id}' in database.");
             return self::FAILURE;
-        }
-
-        Artisan::call('migrate', ['--force' => true]);
-        $migrateOutput = trim(Artisan::output());
-        if ($migrateOutput) {
-            $this->line($migrateOutput);
         }
 
         Process::run('composer dump-autoload -d ' . base_path());

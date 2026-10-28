@@ -7,7 +7,7 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
-    private const CHANNELS = ['shopee', 'lazada', 'tiktok', 'woocommerce', 'ventacart'];
+    private const CHANNELS = ['ventacart'];
 
     public function up(): void
     {

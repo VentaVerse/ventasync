@@ -5,6 +5,7 @@
 ### New features
 
 - `php artisan ventasync:reset-link <username>` prints a one-time link, valid for 30 minutes, where that user sets a new username and password. It needs no email, for a forgotten administrator password on a server without mail.
+- **Settings > Extensions** shows how much data each extension holds. An uninstalled extension's data can be deleted there, after typing its name.
 
 ### Bug fixes
 
@@ -12,6 +13,8 @@
 
 ### Updates
 
+- Uninstalling an extension keeps its data; installing it again brings it back.
+- An extension creates its own tables when it is installed, so a server holds only the tables of the extensions it uses.
 - Some minor improvements.
 
 ## 2.0.0-beta.1 (2026-10-23)

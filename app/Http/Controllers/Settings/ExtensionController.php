@@ -3,12 +3,12 @@
 namespace App\Http\Controllers\Settings;
 
 use App\Http\Controllers\Controller;
+use App\Extensions\ExtensionData;
 use App\Extensions\ExtensionManager;
 use App\Models\Extension;
 use App\Services\ActivityLogger;
 use App\Plans\Plan;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\File;
 use ZipArchive;
 
@@ -39,7 +39,7 @@ class ExtensionController extends Controller
 
     public function index(ExtensionManager $manager)
     {
-        $extensions = collect($manager->all())->all();
+        $extensions = collect($manager->all())->map(fn (array $ext) => $ext + ['data' => ExtensionData::counts($ext['id'])])->all();
 
         return view('settings.extensions.index', [
             'extensions' => $extensions,
@@ -174,8 +174,6 @@ class ExtensionController extends Controller
 
         $manager->install($extensionId);
 
-        Artisan::call('migrate', ['--force' => true]);
-
         return back()->with('success', "Extension '{$manifest['name']}' installed successfully.");
     }
 
@@ -184,8 +182,6 @@ class ExtensionController extends Controller
         if (!$manager->install($extension)) {
             return back()->with('error', "Extension '{$extension}' is not in your plan.");
         }
-
-        Artisan::call('migrate', ['--force' => true]);
 
         return back()->with('success', "Extension '{$extension}' installed.");
     }
@@ -205,6 +201,16 @@ class ExtensionController extends Controller
         $manager->uninstall($extension, false);
 
         return back()->with('success', "Extension '{$name}' uninstalled.");
+    }
+
+    public function deleteData(Request $request, ExtensionManager $manager, string $extension)
+    {
+        $name = $manager->getManifest($extension)['name'] ?? null;
+        if ($name === null || $request->string('confirm')->toString() !== $name || ! $manager->deleteData($extension)) {
+            return back()->with('error', "{$extension} data was not deleted.");
+        }
+
+        return back()->with('success', "{$name} data deleted.");
     }
 
 }

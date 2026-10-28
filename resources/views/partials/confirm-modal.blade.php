@@ -7,6 +7,11 @@
             <button class="modal-close" type="button" id="x-confirm-modal-close" aria-label="Close">&times;</button>
         </div>
         <p class="x-confirm__message" id="x-confirm-modal-message"></p>
+        <table class="x-confirm__lines" id="x-confirm-modal-lines" hidden><tbody></tbody></table>
+        <div class="x-confirm__type" id="x-confirm-modal-type" hidden>
+            <label class="fm-label" for="x-confirm-modal-input" id="x-confirm-modal-type-label"></label>
+            <input class="x-input" id="x-confirm-modal-input" type="text" autocomplete="off" spellcheck="false">
+        </div>
         <div class="d-flex justify-end gap-8">
             <x-ui.button variant="secondary" id="x-confirm-modal-cancel">Cancel</x-ui.button>
             <x-ui.button variant="danger" id="x-confirm-modal-ok">Confirm</x-ui.button>

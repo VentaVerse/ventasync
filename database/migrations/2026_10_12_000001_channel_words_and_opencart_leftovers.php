@@ -7,10 +7,6 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
-    private const TABLES = [
-        ['warehouse_inventory', 'warehouse_stock'],
-    ];
-
     private const COLUMNS = [
         ['orders', 'marketplace_order_id', 'channel_order_id'],
         ['order_products', 'model', 'sku'],
@@ -21,24 +17,11 @@ return new class extends Migration
         ['ch_marketplace_reviews', 'oc_review_id', 'opencart_review_id'],
         ['ch_marketplace_reviews', 'oc_pushed_at', 'opencart_pushed_at'],
         ['ch_marketplace_reviews', 'oc_push_error', 'opencart_push_error'],
-        ['ch_opencart_listing_links', 'oc_product_id', 'opencart_product_id'],
-        ['ch_opencart_order_status_map', 'oc_status_id', 'opencart_status_id'],
-        ['ch_opencart_order_status_map', 'oc_status_name', 'opencart_status_name'],
-        ['ch_ventacart_order_products', 'variant_label', 'variation_label'],
-        ['ch_woocommerce_order_products', 'variant_label', 'variation_label'],
-        ['ch_shopee_order_products', 'item_id', 'shopee_item_id'],
-        ['ch_shopee_order_products', 'model_id', 'shopee_model_id'],
-        ['ch_shopify_stores', 'primary_location_id', 'shopify_location_id'],
-        ['ch_shopify_listing_links', 'inventory_item_id', 'shopify_inventory_item_id'],
-        ['ch_shopify_order_products', 'variant_title', 'variation_label'],
-        ['ch_shopify_order_products', 'shopify_order_id_local', 'order_id'],
     ];
 
     private const INDEXES = [
         ['orders', 'orders_marketplace_order_id_index', 'orders_channel_order_id_index'],
         ['ch_marketplace_reviews', 'ch_marketplace_reviews_oc_sync_status_index', 'ch_marketplace_reviews_opencart_sync_status_index'],
-        ['warehouse_stock', 'warehouse_inventory_product_id_index', 'warehouse_stock_product_id_index'],
-        ['warehouse_stock', 'warehouse_inventory_unique', 'warehouse_stock_unique'],
     ];
 
     private const FEE_CODES = [
@@ -52,8 +35,6 @@ return new class extends Migration
     private const PERMISSIONS = [
         ['view_settings/fulfilment', 'view_settings/fulfillment'],
         ['manage_settings/fulfilment', 'manage_settings/fulfillment'],
-        ['view_warehousing/warehouse_inventory', 'view_warehousing/warehouse_stock'],
-        ['manage_warehousing/warehouse_inventory', 'manage_warehousing/warehouse_stock'],
     ];
 
     private const DROPPED_COLUMNS = [
@@ -74,19 +55,12 @@ return new class extends Migration
 
     public function up(): void
     {
-        foreach (self::TABLES as [$from, $to]) {
-            if (Schema::hasTable($from) && ! Schema::hasTable($to)) {
-                Schema::rename($from, $to);
-            }
-        }
         foreach (self::COLUMNS as [$table, $from, $to]) {
             $this->renameColumn($table, $from, $to);
         }
         foreach (self::INDEXES as [$table, $from, $to]) {
             $this->renameIndex($table, $from, $to);
         }
-        $this->renameWarehouseForeignKey('warehouse_inventory_warehouse_id_foreign', 'warehouse_stock_warehouse_id_foreign');
-        $this->renameShopifyLineForeignKey('order_id', 'ch_shopify_order_products_shopify_order_id_local_foreign', 'ch_shopify_order_products_order_id_foreign');
 
         foreach (self::FEE_CODES as [$from, $to]) {
             DB::table('order_totals')->where('code', $from)->update(['code' => $to]);
@@ -112,18 +86,11 @@ return new class extends Migration
         foreach (self::FEE_CODES as [$from, $to]) {
             DB::table('order_totals')->where('code', $to)->update(['code' => $from]);
         }
-        $this->renameShopifyLineForeignKey('order_id', 'ch_shopify_order_products_order_id_foreign', 'ch_shopify_order_products_shopify_order_id_local_foreign');
-        $this->renameWarehouseForeignKey('warehouse_stock_warehouse_id_foreign', 'warehouse_inventory_warehouse_id_foreign');
         foreach (self::INDEXES as [$table, $from, $to]) {
             $this->renameIndex($table, $to, $from);
         }
         foreach (array_reverse(self::COLUMNS) as [$table, $from, $to]) {
             $this->renameColumn($table, $to, $from);
-        }
-        foreach (self::TABLES as [$from, $to]) {
-            if (Schema::hasTable($to) && ! Schema::hasTable($from)) {
-                Schema::rename($to, $from);
-            }
         }
     }
 
@@ -142,28 +109,7 @@ return new class extends Migration
         }
     }
 
-    private function renameWarehouseForeignKey(string $from, string $to): void
-    {
-        $table = Schema::hasTable('warehouse_stock') ? 'warehouse_stock' : 'warehouse_inventory';
-        if (! Schema::hasTable($table) || ! in_array($from, array_column(Schema::getForeignKeys($table), 'name'), true)) {
-            return;
-        }
-        Schema::table($table, function (Blueprint $t) use ($from, $to) {
-            $t->dropForeign($from);
-            $t->foreign('warehouse_id', $to)->references('id')->on('warehouses');
-        });
-    }
 
-    private function renameShopifyLineForeignKey(string $column, string $from, string $to): void
-    {
-        $table = 'ch_shopify_order_products';
-        if (! Schema::hasTable($table) || ! Schema::hasColumn($table, $column) || ! in_array($from, array_column(Schema::getForeignKeys($table), 'name'), true)) {
-            return;
-        }
-        Schema::table($table, fn (Blueprint $t) => $t->dropForeign($from));
-        $this->renameIndex($table, $from, $to);
-        Schema::table($table, fn (Blueprint $t) => $t->foreign($column, $to)->references('id')->on('ch_shopify_orders')->onDelete('cascade'));
-    }
 
     private function movePermission(string $from, string $to): void
     {

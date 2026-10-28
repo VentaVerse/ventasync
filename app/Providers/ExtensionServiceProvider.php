@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use App\Extensions\ExtensionData;
 use App\Extensions\ExtensionManager;
 use Illuminate\Support\ServiceProvider;
 
@@ -18,6 +19,12 @@ class ExtensionServiceProvider extends ServiceProvider
     {
         $manager = $this->app->make(ExtensionManager::class);
         $manifests = $manager->getManifests();
+
+        foreach ($this->app->runningUnitTests() ? array_keys($manifests) : $manager->getInstalledIds() as $id) {
+            if (is_dir(ExtensionData::path($id))) {
+                $this->loadMigrationsFrom(ExtensionData::path($id));
+            }
+        }
 
         foreach ($manifests as $id => $manifest) {
             if (!($manifest['system'] ?? false)) {
