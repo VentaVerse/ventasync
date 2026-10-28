@@ -59,7 +59,6 @@ import './pages/channel-import';
 import './pages/channel-add';
 import './pages/channel-add-panel';
 import './pages/purchasing';
-import './pages/product-suppliers';
 import './pages/warehousing';
 import './pages/reports';
 import './pages/reviews';

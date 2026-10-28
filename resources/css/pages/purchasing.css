@@ -28,6 +28,12 @@
 .po-col-telephone { width: 132px; }
 .po-col-mail  { width: 200px; }
 
+.sp-col-sku   { width: 168px; }
+.sp-col-num   { width: 112px; }
+.sp-col-cur   { width: 104px; }
+.sp-col-last  { width: 168px; }
+.sp-last      { display: grid; }
+
 .po-check { width: 14px; height: 14px; accent-color: var(--bl-brand-deep); cursor: pointer; }
 
 .po-link {
