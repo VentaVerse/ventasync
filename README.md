@@ -11,7 +11,7 @@ Website: [ventasync.com](https://ventasync.com) · Documentation: [docs.ventasyn
 ## What is included
 
 - Master Catalog with variations, pictures and per-store listings
-- Shopee, Lazada and TikTok Shop, several shops each: listings, orders, returns, reviews, fulfilment and payouts
+- Shopee, Lazada and TikTok Shop, several shops each: listings, orders, returns, reviews, fulfillment and payouts
 - OpenCart and VentaCart storefronts
 - Users, user groups and permissions
 - A REST API for your own tools and a sign-in API for your own mobile app
