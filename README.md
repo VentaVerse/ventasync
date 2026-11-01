@@ -6,7 +6,7 @@ One catalog pushed to every store, every order in one list with its profit, and 
 
 ![VentaSync dashboard](.github/images/dashboard.png)
 
-Website: [ventasync.com](https://ventasync.com)
+Website: [ventasync.com](https://ventasync.com) · Documentation: [docs.ventasync.com](https://docs.ventasync.com)
 
 ## What is included
 
