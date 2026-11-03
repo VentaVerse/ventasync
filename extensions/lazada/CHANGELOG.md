@@ -4,6 +4,7 @@
 
 ### Updates
 
+- Sync stock and Sync price are back on each listing's menu and on the selection bar.
 - Its CSS and JavaScript now ship inside the extension and load only while it is enabled.
 
 ## 0.31.0 (2026-10-23)

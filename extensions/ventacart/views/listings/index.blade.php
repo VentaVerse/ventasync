@@ -154,6 +154,8 @@
     $bulk = [
         'push' => ['action' => route('ext.ventacart.listings.bulk_push', $setting->id), 'label' => 'Send to ' . $storeName,
             'confirm' => "Send the selected products to {$storeName}? Each goes up on its own settings, and anything not ready is named rather than sent."],
+        'stock' => ['action' => route('ext.ventacart.listings.bulk_push_stock', $setting->id), 'confirm' => "Send the stock of the selected products to {$storeName}?"],
+        'price' => ['action' => route('ext.ventacart.listings.bulk_push_prices', $setting->id), 'confirm' => "Send the price of the selected products to {$storeName}?"],
         'switch' => [
             ['action' => route('ext.ventacart.listings.bulk_toggle', $setting->id), 'verb' => 'unlist', 'codes' => 'active', 'label' => 'Unlist :n on ' . $storeName, 'button' => 'Unlist on ' . $storeName, 'fields' => ['action' => 'unlist'], 'confirm' => "Unlist the selected products on {$storeName}? Customers stop seeing them. They can be relisted at any time."],
             ['action' => route('ext.ventacart.listings.bulk_toggle', $setting->id), 'verb' => 'relist', 'codes' => 'inactive', 'label' => 'Relist :n on ' . $storeName, 'button' => 'Relist on ' . $storeName, 'fields' => ['action' => 'relist'], 'confirm' => "Relist the selected products on {$storeName}? Customers see them again at once."],
@@ -293,6 +295,8 @@
                             $menu['link'] = ['action' => route('ext.ventacart.listings.check', $setting->id), 'fields' => ['product_ids[]' => $pid]];
                         } else {
                             $menu['update'] = ['action' => route('ext.ventacart.listings.push', [$setting->id, $pid]), 'label' => 'Send to ' . $storeName, 'confirm' => "Send this listing's content and price rule to the live {$storeName} product? Name, description, price, stock, images and variations are updated in place.", 'verb' => 'Send', 'tone' => 'primary'];
+                            $menu['stock'] = ['action' => route('ext.ventacart.listings.push_stock', [$setting->id, $pid]), 'label' => 'Sync stock'];
+                            $menu['price'] = ['action' => route('ext.ventacart.listings.push_price', [$setting->id, $pid]), 'label' => 'Sync price'];
                             if ($rowLiveStatus === \Extensions\VentaCart\Models\VentaCartListing::STATUS_ACTIVE) {
                                 $menu['switch'] = ['action' => route('ext.ventacart.listings.toggle', [$setting->id, $pid]), 'label' => 'Unlist on ' . $storeName, 'fields' => ['action' => 'unlist'], 'confirm' => "Unlist this product on {$storeName}? Customers stop seeing it. It can be relisted at any time.", 'verb' => 'Unlist'];
                             } elseif ($rowLiveStatus === \Extensions\VentaCart\Models\VentaCartListing::STATUS_INACTIVE) {

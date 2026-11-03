@@ -28,6 +28,8 @@
     <div class="cc-bulkbar__actions">
         @if(! empty($b['template'])){!! $bulkForm($b['template'], $b['template']['label'] ?? 'Apply template', 'secondary', ' data-bulk-plain') !!}@endif
         @if(! empty($b['push'])){!! $bulkForm($b['push'], $b['push']['label'] ?? 'Push') !!}@endif
+        @if(! empty($b['stock'])){!! $bulkForm($b['stock'], $b['stock']['label'] ?? 'Sync stock') !!}@endif
+        @if(! empty($b['price'])){!! $bulkForm($b['price'], $b['price']['label'] ?? 'Sync price') !!}@endif
         @if(! $isGroup)
             {!! $switches !!}
         @endif

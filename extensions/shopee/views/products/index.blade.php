@@ -148,6 +148,8 @@
     $bulk = [
         'push' => ['action' => route('ext.shopee.products.bulk_push'), 'label' => 'Send to Shopee',
             'confirm' => 'Send the selected products to Shopee? Each goes up on its own settings, and anything not ready is named rather than sent.'],
+        'stock' => ['action' => route('ext.shopee.products.bulk_sync_quantity'), 'confirm' => 'Send the stock of the selected products to Shopee?'],
+        'price' => ['action' => route('ext.shopee.products.bulk_sync_price'), 'confirm' => 'Send the price of the selected products to Shopee?'],
         'switch' => [
             ['action' => route('ext.shopee.products.bulk_toggle'), 'verb' => 'unlist', 'codes' => 'NORMAL', 'label' => 'Delist :n from Shopee', 'button' => 'Delist from Shopee', 'fields' => ['action' => 'unlist'], 'confirm' => 'Delist the selected items from Shopee? Customers stop seeing them immediately. They stay here and can be published again at any time.'],
             ['action' => route('ext.shopee.products.bulk_toggle'), 'verb' => 'list', 'codes' => 'UNLIST', 'label' => 'Publish :n on Shopee', 'button' => 'Publish on Shopee', 'fields' => ['action' => 'list'], 'confirm' => 'Publish the selected items on Shopee? Customers see them again immediately.'],
@@ -355,6 +357,8 @@
                             $menu['link'] = ['action' => route('ext.shopee.products.check'), 'fields' => ['product_ids[]' => $p->product_id]];
                         } else {
                             $menu['update'] = ['action' => route('ext.shopee.listings.push_update', $p->product_id), 'label' => 'Send to Shopee', 'confirm' => "Send this listing's content and settings to the live Shopee item? Title, description, package, category, couriers, attributes, price and stock are updated.", 'verb' => 'Send', 'tone' => 'primary'];
+                            $menu['stock'] = ['action' => route('ext.shopee.products.sync_quantity', $p->product_id), 'label' => 'Sync stock'];
+                            $menu['price'] = ['action' => route('ext.shopee.products.sync_price', $p->product_id), 'label' => 'Sync price'];
                             if ($rowState?->state === \App\Channels\Listings\ListingState::LIVE) {
                                 $menu['switch'] = ['action' => route('ext.shopee.listings.toggle', $p->product_id), 'label' => 'Delist from Shopee', 'fields' => ['action' => 'unlist'], 'confirm' => 'Delist this item from Shopee? Customers stop seeing it immediately. It can be published again at any time.', 'verb' => 'Delist'];
                             } elseif ($rowState?->state === \App\Channels\Listings\ListingState::INACTIVE) {

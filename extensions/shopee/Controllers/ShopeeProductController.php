@@ -1145,7 +1145,7 @@ class ShopeeProductController extends Controller
 
         $msg = $results['ok'] > 0
             ? "Stock synced to Shopee ({$results['ok']} model(s))." . $clause
-            : 'Sync qty failed: ' . (($results['last_error'] ?: null) ?? 'Unknown error') . $clause;
+            : 'Sync stock failed: ' . (($results['last_error'] ?: null) ?? 'Unknown error') . $clause;
 
         return redirect()->back()->with($results['ok'] > 0 ? 'status' : 'error', $msg);
     }
@@ -1604,7 +1604,7 @@ class ShopeeProductController extends Controller
         $ok = $results['ok'];
         $err = $results['err'];
 
-        $msg = "Bulk Sync Qty: {$ok} success, {$err} error, {$skip} skipped (not linked)";
+        $msg = "Sync stock: {$ok} success, {$err} error, {$skip} skipped (not linked)";
         if ($disabledCount > 0) {
             $msg .= ", {$disabledCount} skipped (disabled)";
         }
@@ -1633,7 +1633,7 @@ class ShopeeProductController extends Controller
         $results = app(\Extensions\Shopee\Services\Shopee\ShopeeStockPricePush::class)
             ->push('price', $auth, $links, \Extensions\Shopee\Commands\ShopeePushPrice::priceRule($ids));
 
-        $summary = "Bulk Sync Price: {$results['ok']} success, {$results['err']} error, {$skip} skipped (not linked).";
+        $summary = "Sync price: {$results['ok']} success, {$results['err']} error, {$skip} skipped (not linked).";
 
         if (!empty($results['skipped_products'])) {
             $summary .= ' ' . count($results['skipped_products']) . ' without a listing price rule: '

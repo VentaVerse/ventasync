@@ -216,6 +216,24 @@ class VentaCartListingsIndexTest extends TestCase
         Http::assertSentCount(1);
     }
 
+    public function test_only_a_linked_row_offers_sync_stock_and_sync_price_and_the_selection_bar_always_does(): void
+    {
+        $store = $this->store();
+        $this->scope($store);
+        $linked = $this->product('S-1', 'Linked pedal');
+        $unlinked = $this->product('S-2', 'Unlinked pedal');
+        VentaCartListingLink::create(['store_id' => $store->id, 'product_id' => $linked, 'ventacart_product_id' => 14, 'sku' => 'S-1']);
+        Http::fake([self::BASE . '/api/v1/products/S-1' => Http::response(['id' => 14, 'sku' => 'S-1', 'status' => true, 'price' => 500, 'quantity' => 2])]);
+
+        $html = $this->actingAs($this->manager())->get(route('ext.ventacart.listings.index', $store->id))->assertOk()->getContent();
+
+        $this->assertStringContainsString(route('ext.ventacart.listings.push_stock', [$store->id, $linked]), $html);
+        $this->assertStringContainsString(route('ext.ventacart.listings.push_price', [$store->id, $linked]), $html);
+        $this->assertStringNotContainsString(route('ext.ventacart.listings.push_stock', [$store->id, $unlinked]), $html);
+        $this->assertStringContainsString(route('ext.ventacart.listings.bulk_push_stock', $store->id), $html);
+        $this->assertStringContainsString(route('ext.ventacart.listings.bulk_push_prices', $store->id), $html);
+    }
+
     public function test_refresh_walks_the_stores_product_list_and_files_the_absent_as_missing(): void
     {
         $store = $this->store();

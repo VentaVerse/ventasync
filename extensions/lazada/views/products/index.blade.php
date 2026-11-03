@@ -202,6 +202,8 @@
     $bulk = [
         'push' => ['action' => route('ext.lazada.products.bulk_push'), 'label' => 'Send to Lazada',
             'confirm' => 'Send the selected products to Lazada? Each goes up on its own settings, and anything not ready is named rather than sent.'],
+        'stock' => ['action' => route('ext.lazada.products.bulk_sync_quantity'), 'confirm' => 'Send the stock of the selected products to Lazada?'],
+        'price' => ['action' => route('ext.lazada.products.bulk_sync_price'), 'confirm' => 'Send the price of the selected products to Lazada?'],
         'switch' => [
             ['action' => route('ext.lazada.products.bulk_toggle'), 'verb' => 'deactivate', 'codes' => 'active', 'label' => 'Deactivate :n on Lazada', 'button' => 'Deactivate on Lazada', 'fields' => ['action' => 'deactivate'], 'confirm' => 'Deactivate the selected items on Lazada? Customers stop seeing them. They stay here and can be activated again at any time.'],
             ['action' => route('ext.lazada.products.bulk_toggle'), 'verb' => 'activate', 'codes' => 'inactive', 'label' => 'Activate :n on Lazada', 'button' => 'Activate on Lazada', 'fields' => ['action' => 'activate'], 'confirm' => 'Activate the selected items on Lazada? Customers see them again once Lazada applies it.'],
@@ -420,6 +422,8 @@
                             $menu['update'] = ['action' => route('ext.lazada.products.upload', $pid), 'label' => 'Send to Lazada', 'confirm' => $listing->lazada_deleted_at
                                 ? "Lazada last reported item {$listing->lazada_item_id} as gone. Sending asks Lazada first: if the item is still there it is updated, and only if it is gone is the product listed again as a new item."
                                 : "Send this listing's content and settings to the live Lazada item? Name, description, package, category, brand, attributes, price and stock are updated.", 'verb' => 'Send', 'tone' => 'primary'];
+                            $menu['stock'] = ['action' => route('ext.lazada.products.sync_quantity', $pid), 'label' => 'Sync stock'];
+                            $menu['price'] = ['action' => route('ext.lazada.products.sync_price', $pid), 'label' => 'Sync price'];
                             if ($rowState?->state === $stateClass::LIVE) {
                                 $menu['switch'] = ['action' => route('ext.lazada.listings.toggle', $pid), 'label' => 'Deactivate on Lazada', 'fields' => ['action' => 'deactivate'], 'confirm' => "Deactivate {$rowLabel} on Lazada? Customers stop seeing it. It can be activated again at any time.", 'verb' => 'Deactivate'];
                             } elseif ($rowState?->state === $stateClass::INACTIVE) {

@@ -57,6 +57,12 @@
     @if(! empty($m['update']))
         {!! $formOf($m['update'], $m['update']['label'] ?? 'Update on ' . $storeWord) !!}
     @endif
+    @if(! empty($m['stock']))
+        {!! $formOf($m['stock'], $m['stock']['label'] ?? 'Sync stock') !!}
+    @endif
+    @if(! empty($m['price']))
+        {!! $formOf($m['price'], $m['price']['label'] ?? 'Sync price') !!}
+    @endif
     @if(! empty($m['switch']))
         @if(! empty($m['switch']['href']))
             {!! $linkOf($m['switch'], $m['switch']['label']) !!}

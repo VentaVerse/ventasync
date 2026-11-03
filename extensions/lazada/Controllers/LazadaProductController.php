@@ -889,7 +889,7 @@ private function persistProductSyncStatus(LazadaListing $listing, string $action
 
         $msg = $results['ok'] > 0
             ? 'Stock synced to Lazada.' . $clause
-            : 'Sync qty failed: ' . (($results['last_error'] ?: null) ?? 'Unknown error') . $clause;
+            : 'Sync stock failed: ' . (($results['last_error'] ?: null) ?? 'Unknown error') . $clause;
 
         return redirect()->to(url()->previous(route('ext.lazada.products.index')))
             ->with(\App\Channels\Push\PushLedger::batchTone($results['ok'], $results['err']), $msg);
@@ -1592,7 +1592,7 @@ public function bulkSyncQuantity(Request $request, LazadaClient $client)
     $ids = $this->listingIdsFor((array) $request->input('product_ids', []));
 
     if (empty($ids)) {
-        return redirect()->to(url()->previous(route('ext.lazada.products.index')))->with('status', 'Bulk Sync Qty: no listings selected.');
+        return redirect()->to(url()->previous(route('ext.lazada.products.index')))->with('status', 'Sync stock: no listings selected.');
     }
 
     $store = LazadaStore::defaultStore()?->decrypted();
@@ -1606,7 +1606,7 @@ public function bulkSyncQuantity(Request $request, LazadaClient $client)
     $results = app(\Extensions\Lazada\Services\Lazada\LazadaStockPricePush::class)
         ->push('stock', $store, $creds, $listings);
 
-    $msg = "Bulk Sync Qty: {$results['ok']} ok, {$results['err']} failed"
+    $msg = "Sync stock: {$results['ok']} ok, {$results['err']} failed"
         . ($results['skipped'] > 0 ? ", {$results['skipped']} skipped (disabled)" : '') . '.'
         . \Extensions\Lazada\Services\Lazada\LazadaStockPricePush::ledgerClause($results);
 
@@ -1619,7 +1619,7 @@ public function bulkSyncPrice(Request $request, LazadaClient $client)
     $ids = $this->listingIdsFor((array) $request->input('product_ids', []));
 
     if (empty($ids)) {
-        return redirect()->to(url()->previous(route('ext.lazada.products.index')))->with('status', 'Bulk Sync Price: no listings selected.');
+        return redirect()->to(url()->previous(route('ext.lazada.products.index')))->with('status', 'Sync price: no listings selected.');
     }
 
     $store = LazadaStore::defaultStore()?->decrypted();
@@ -1643,7 +1643,7 @@ public function bulkSyncPrice(Request $request, LazadaClient $client)
                 return \Extensions\Lazada\Services\Lazada\LazadaPushPayload::computeFinalPrice($base, (float) ($fixed ?? 0), (float) ($pct ?? 0));
             });
 
-    $msg = "Bulk Sync Price: {$results['ok']} ok, {$results['err']} failed"
+    $msg = "Sync price: {$results['ok']} ok, {$results['err']} failed"
         . ($results['skipped'] > 0 ? ", {$results['skipped']} skipped (disabled)" : '') . '.'
         . \Extensions\Lazada\Services\Lazada\LazadaStockPricePush::ledgerClause($results);
 
