@@ -33,7 +33,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
 
-class LazadaExtension extends ExtensionProvider implements ChannelProvider, SkuResolver, SkuSyncContributor, DashboardContributor, OrderImagesContributor, OrderFeesContributor, \App\Channels\Contracts\ChannelFeeSource, MobileMarketplaceProvider, \App\Channels\Contracts\MobileFulfillmentProvider, LayoutBannerContributor, ChannelOptionsProvider, CredentialRevealer, ListingStateSource, \App\Channels\Contracts\StoreOptionsProvider, \App\Channels\Contracts\ProductRemover, \App\Channels\Contracts\VariationForgetter, \App\Channels\Contracts\ChannelOrderRefRenderer, \App\Channels\Contracts\SaleLinesSource
+class LazadaExtension extends ExtensionProvider implements ChannelProvider, SkuResolver, SkuSyncContributor, DashboardContributor, OrderImagesContributor, OrderFeesContributor, \App\Channels\Contracts\ChannelFeeSource, MobileMarketplaceProvider, \App\Channels\Contracts\MobileFulfillmentProvider, LayoutBannerContributor, ChannelOptionsProvider, CredentialRevealer, ListingStateSource, \App\Channels\Contracts\StoreOptionsProvider, \App\Channels\Contracts\ProductRemover, \App\Channels\Contracts\VariationForgetter, \App\Channels\Contracts\VariationChangeListener, \App\Channels\Contracts\ChannelOrderRefRenderer, \App\Channels\Contracts\SaleLinesSource
 {
     private const MOBILE_TAB_STATUS_MAP = [
         'UNPAID'              => ['unpaid'],
@@ -84,6 +84,21 @@ class LazadaExtension extends ExtensionProvider implements ChannelProvider, SkuR
     public function forgetVariations(int $productId, array $skus): void
     {
         \Extensions\Lazada\Services\Lazada\LazadaVariationForgetter::forget($productId, $skus);
+    }
+
+    public function variationSkuRenamed(int $productId, string $oldSku, string $newSku): void
+    {
+        \Extensions\Lazada\Models\LazadaListingVariation::query()
+            ->whereIn('lazada_listing_id', \Extensions\Lazada\Models\LazadaListing::query()->withoutGlobalScopes()->where('product_id', $productId)->select('id'))
+            ->where('seller_sku', $oldSku)
+            ->update(['seller_sku' => $newSku]);
+    }
+
+    public function variationValuesDeleted(int $productId, array $productVariationValueIds): void
+    {
+        \Extensions\Lazada\Models\LazadaListingVariation::query()
+            ->whereIn('product_variation_value_id', $productVariationValueIds)
+            ->update(['product_variation_value_id' => null]);
     }
 
 

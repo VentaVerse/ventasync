@@ -156,13 +156,7 @@ class ProductVariationController extends Controller
                     $oldSku = trim((string) ($existing->sku ?? ''));
                     $newSku = $data['sku'];
                     if ($oldSku !== '' && $newSku !== $oldSku) {
-                        DB::table('ch_shopee_listing_links')
-                            ->where('product_id', $id)->where('sku', $oldSku)
-                            ->update(['sku' => $newSku]);
-                        DB::table('ch_lazada_listing_variations')
-                            ->whereIn('lazada_listing_id', fn($q) => $q->select('id')->from('ch_lazada_listings')->where('product_id', $id))
-                            ->where('seller_sku', $oldSku)
-                            ->update(['seller_sku' => $newSku]);
+                        \App\Services\Catalog\VariationChanges::skuRenamed($id, $oldSku, (string) $newSku);
                         $skuChanges['variation_skus'][(int) $existing->product_variation_value_id] = ['old' => $oldSku, 'new' => $newSku];
                     }
 
@@ -209,9 +203,7 @@ class ProductVariationController extends Controller
             }
 
             if (!empty($deletedPovIds)) {
-                DB::table('ch_lazada_listing_variations')
-                    ->whereIn('product_variation_value_id', $deletedPovIds)
-                    ->update(['product_variation_value_id' => null]);
+                \App\Services\Catalog\VariationChanges::valuesDeleted($id, $deletedPovIds);
                 $this->deleteCombinationsForPovIds($deletedPovIds);
             }
 
@@ -326,9 +318,7 @@ class ProductVariationController extends Controller
             DB::table('product_variation_types')->where('product_id', $id)->delete();
 
             if (!empty($oldPovIds)) {
-                DB::table('ch_lazada_listing_variations')
-                    ->whereIn('product_variation_value_id', $oldPovIds)
-                    ->update(['product_variation_value_id' => null]);
+                \App\Services\Catalog\VariationChanges::valuesDeleted($id, $oldPovIds);
                 $this->deleteCombinationsForPovIds($oldPovIds);
             }
 
@@ -615,9 +605,7 @@ class ProductVariationController extends Controller
         DB::table('product_variation_values')->where('product_variation_type_id', $productVariationTypeId)->delete();
 
         if (!empty($povIds)) {
-            DB::table('ch_lazada_listing_variations')
-                ->whereIn('product_variation_value_id', $povIds)
-                ->update(['product_variation_value_id' => null]);
+            \App\Services\Catalog\VariationChanges::valuesDeleted($productId, $povIds);
             $this->deleteCombinationsForPovIds($povIds);
         }
     }
@@ -637,9 +625,7 @@ class ProductVariationController extends Controller
                 DB::table('product_variation_types')->whereIn('product_variation_type_id', $poIds)->delete();
 
                 if (!empty($povIds)) {
-                    DB::table('ch_lazada_listing_variations')
-                        ->whereIn('product_variation_value_id', $povIds)
-                        ->update(['product_variation_value_id' => null]);
+                    \App\Services\Catalog\VariationChanges::valuesDeleted($id, $povIds);
                     $this->deleteCombinationsForPovIds($povIds);
                 }
             }

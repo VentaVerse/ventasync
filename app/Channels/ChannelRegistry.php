@@ -439,6 +439,11 @@ class ChannelRegistry
         return $this->providersImplementing(\App\Channels\Contracts\VariationForgetter::class);
     }
 
+    public function variationChangeListeners(): array
+    {
+        return $this->providersImplementing(\App\Channels\Contracts\VariationChangeListener::class);
+    }
+
     public function webhookReceiverFor(string $segment): ?\App\Channels\Contracts\WebhookReceiver
     {
         foreach ($this->providersImplementing(\App\Channels\Contracts\WebhookReceiver::class) as $receiver) {

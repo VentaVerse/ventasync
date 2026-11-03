@@ -33,7 +33,7 @@ use App\Channels\Contracts\CredentialRevealer;
 use App\Channels\Contracts\ListingStateSource;
 use App\Channels\Concerns\RevealsCredentials;
 
-class ShopeeExtension extends ExtensionProvider implements ListingStateSource, ChannelProvider, SkuSyncContributor, DashboardContributor, OrderFeesContributor, \App\Channels\Contracts\ChannelFeeSource, MobileMarketplaceProvider, \App\Channels\Contracts\MobileFulfillmentProvider, LayoutBannerContributor, ChannelOptionsProvider, RootRouteHandler, CredentialRevealer, \App\Channels\Contracts\WebhookReceiver, \App\Channels\Contracts\StoreOptionsProvider, \App\Channels\Contracts\ProductRemover, \App\Channels\Contracts\VariationForgetter, \App\Channels\Contracts\ChannelOrderRefRenderer, \App\Channels\Contracts\SaleLinesSource
+class ShopeeExtension extends ExtensionProvider implements ListingStateSource, ChannelProvider, SkuSyncContributor, DashboardContributor, OrderFeesContributor, \App\Channels\Contracts\ChannelFeeSource, MobileMarketplaceProvider, \App\Channels\Contracts\MobileFulfillmentProvider, LayoutBannerContributor, ChannelOptionsProvider, RootRouteHandler, CredentialRevealer, \App\Channels\Contracts\WebhookReceiver, \App\Channels\Contracts\StoreOptionsProvider, \App\Channels\Contracts\ProductRemover, \App\Channels\Contracts\VariationForgetter, \App\Channels\Contracts\VariationChangeListener, \App\Channels\Contracts\ChannelOrderRefRenderer, \App\Channels\Contracts\SaleLinesSource
 {
     private const MOBILE_TAB_STATUS_MAP = [
         'UNPAID'              => ['UNPAID'],
@@ -95,6 +95,17 @@ class ShopeeExtension extends ExtensionProvider implements ListingStateSource, C
     public function forgetVariations(int $productId, array $skus): void
     {
         \Extensions\Shopee\Services\Shopee\ShopeeVariationForgetter::forget($productId, $skus);
+    }
+
+    public function variationSkuRenamed(int $productId, string $oldSku, string $newSku): void
+    {
+        \Extensions\Shopee\Models\ShopeeListingLink::query()->withoutGlobalScopes()
+            ->where('product_id', $productId)->where('sku', $oldSku)
+            ->update(['sku' => $newSku]);
+    }
+
+    public function variationValuesDeleted(int $productId, array $productVariationValueIds): void
+    {
     }
 
 

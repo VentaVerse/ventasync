@@ -1373,17 +1373,7 @@ if ($q !== '') {
                     $oldSku = trim((string) ($existingPov[$key]->sku ?? ''));
                     $newSku = $data['sku'];
                     if ($oldSku !== '' && $newSku !== $oldSku) {
-                        DB::table('ch_shopee_listing_links')
-                            ->where('product_id', $productId)
-                            ->where('sku', $oldSku)
-                            ->update(['sku' => $newSku]);
-
-                        DB::table('ch_lazada_listing_variations')
-                            ->whereIn('lazada_listing_id', function ($q) use ($productId) {
-                                $q->select('id')->from('ch_lazada_listings')->where('product_id', $productId);
-                            })
-                            ->where('seller_sku', $oldSku)
-                            ->update(['seller_sku' => $newSku]);
+                        \App\Services\Catalog\VariationChanges::skuRenamed($productId, $oldSku, (string) $newSku);
 
                         $povId = (int) $existingPov[$key]->product_variation_value_id;
                         $skuChanges['variation_skus'][$povId] = ['old' => $oldSku, 'new' => $newSku];
@@ -1428,9 +1418,7 @@ if ($q !== '') {
         }
 
         if (!empty($deletedPovIds)) {
-            DB::table('ch_lazada_listing_variations')
-                ->whereIn('product_variation_value_id', $deletedPovIds)
-                ->update(['product_variation_value_id' => null]);
+            \App\Services\Catalog\VariationChanges::valuesDeleted($productId, $deletedPovIds);
         }
     }
 

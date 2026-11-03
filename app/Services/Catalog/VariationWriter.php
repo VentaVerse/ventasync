@@ -186,9 +186,7 @@ class VariationWriter
         DB::table('product_variation_types')->where('product_id', $productId)->delete();
 
         if (!empty($deletedPovIds)) {
-            DB::table('ch_lazada_listing_variations')
-                ->whereIn('product_variation_value_id', $deletedPovIds)
-                ->update(['product_variation_value_id' => null]);
+            \App\Services\Catalog\VariationChanges::valuesDeleted($productId, $deletedPovIds);
         }
     }
 
@@ -247,9 +245,7 @@ class VariationWriter
             DB::table('product_variation_types')->whereIn('product_variation_type_id', $stalePos)->delete();
 
             if (!empty($stalePovIds)) {
-                DB::table('ch_lazada_listing_variations')
-                    ->whereIn('product_variation_value_id', $stalePovIds)
-                    ->update(['product_variation_value_id' => null]);
+                \App\Services\Catalog\VariationChanges::valuesDeleted($productId, $stalePovIds);
             }
         }
 
@@ -360,9 +356,7 @@ class VariationWriter
             }
         }
         if (!empty($deletedPovIds)) {
-            DB::table('ch_lazada_listing_variations')
-                ->whereIn('product_variation_value_id', $deletedPovIds)
-                ->update(['product_variation_value_id' => null]);
+            \App\Services\Catalog\VariationChanges::valuesDeleted($productId, $deletedPovIds);
         }
 
         DB::table('product_variation_parts')
@@ -439,9 +433,7 @@ class VariationWriter
             DB::table('product_variation_types')->whereIn('product_variation_type_id', $stalePos)->delete();
 
             if (!empty($stalePovIds)) {
-                DB::table('ch_lazada_listing_variations')
-                    ->whereIn('product_variation_value_id', $stalePovIds)
-                    ->update(['product_variation_value_id' => null]);
+                \App\Services\Catalog\VariationChanges::valuesDeleted($productId, $stalePovIds);
             }
         }
 
