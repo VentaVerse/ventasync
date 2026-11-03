@@ -2,32 +2,53 @@
 
 ## Unreleased
 
+### Updates
+
+- The Products page tabs read All, Live, then Not live, and the page opens on Live.
+- The dashboard shows revenue and orders as bars side by side, like a channel's overview.
+- The logo at the top of the menu goes to the dashboard.
+
+### Bug fixes
+
+- Saving variations in the Master Catalog failed once Shopee's or Lazada's data had been deleted from Settings > Extensions.
+
+## 2.0.0-beta.3 (2026-11-03)
+
 ### New features
 
 - Edit listing can fill its fields from a listing template for a single product.
-- `php artisan ventasync:reset-link <username>` prints a one-time link, valid for 30 minutes, where that user sets a new username and password. It needs no email, for a forgotten administrator password on a server without mail.
-- **Settings > Extensions** shows how much data each extension holds. An uninstalled extension's data can be deleted there, after typing its name.
 
 ### Updates
 
 - The row menu and selection bar can show Sync stock and Sync price for a channel that offers them.
 - A product group is a name and its products, with no listing template of its own.
-- A listing template can be deleted at any time; listings it was applied to keep their values.
+- A listing template can be deleted at any time, and listings it was applied to keep their values.
 - The Products page lists the store's product groups in its left menu again, as a filter.
-- The Products page tabs read All, Live, then Not live, and the page opens on Live.
-- A channel's overview and the dashboard show revenue and orders as bars side by side.
-- The logo at the top of the menu goes to the dashboard.
-- Uninstalling an extension keeps its data; installing it again brings it back.
+- A channel's overview shows revenue and orders as bars side by side.
+- An extension carries its own CSS and JavaScript in an `assets` folder, loaded only while it is enabled.
+
+### Bug fixes
+
+- Delete listing template on a template's page did not delete it.
+- Saving one category wrote its name, description and meta title onto every category.
+- Edit listing on Lazada logged a PHP warning on every load.
+
+## 2.0.0-beta.2 (2026-10-28)
+
+### New features
+
+- `php artisan ventasync:reset-link <username>` prints a one-time link, valid for 30 minutes, where that user sets a new username and password without needing email.
+- Settings > Extensions shows how much data each extension holds, and an uninstalled extension's data can be deleted there after typing its name.
+
+### Updates
+
+- Uninstalling an extension keeps its data, and installing it again brings it back.
 - An extension creates its own tables when it is installed, so a server holds only the tables of the extensions it uses.
-- An extension carries its own CSS and JavaScript in an `assets` folder, and they load only while it is enabled.
 - Some minor improvements.
 
 ### Bug fixes
 
 - TikTok Shop orders and returns showed a time 8 hours earlier than they were placed.
-- Delete listing template on a template's page did not delete it.
-- Saving one category wrote its name, description and meta title onto every category.
-- Edit listing on Lazada logged a PHP warning on every load.
 
 ## 2.0.0-beta.1 (2026-10-23)
 
