@@ -1147,7 +1147,7 @@ class ShopeeListingPageTest extends TestCase
         \Extensions\Shopee\Models\ShopeeCategoryTemplate::query()->firstOrCreate(['category_id' => 100013], ['attributes' => []]);
 
         $this->actingAs($this->manager())
-            ->get(route('ext.shopee.products.index'))
+            ->get(route('ext.shopee.products.index', ['sync_status' => 'all']))
             ->assertSee(route('ext.shopee.products.push_direct', $productId), false)
             ->assertSee('data-push-review="' . route('ext.shopee.products.push_review', $productId) . '"', false);
     }
@@ -1162,7 +1162,7 @@ class ShopeeListingPageTest extends TestCase
             ['ok' => true, 'status' => 200, 'body' => ['response' => ['item_list' => []]]];
 
         $this->actingAs($this->manager())
-            ->get(route('ext.shopee.products.index'))
+            ->get(route('ext.shopee.products.index', ['sync_status' => 'all']))
             ->assertDontSee(route('ext.shopee.products.push_direct', $productId), false)
             ->assertSee('Not ready yet - the listing page names what is still missing', false);
     }
@@ -1248,7 +1248,7 @@ class ShopeeListingPageTest extends TestCase
         }
         $user = $this->userWith(['manage_shopee/product', 'view_shopee/product', 'view_shopee/product_group']);
 
-        foreach ([route('ext.shopee.products.index'), route('ext.shopee.products.index', ['group' => $group->id])] as $url) {
+        foreach ([route('ext.shopee.products.index', ['sync_status' => 'all']), route('ext.shopee.products.index', ['sync_status' => 'all', 'group' => $group->id])] as $url) {
             $this->actingAs($user)->get($url)->assertOk()
                 ->assertSee('Qable IC50 Pro')
                 ->assertSee('Plain catalog pedal')
@@ -1256,7 +1256,7 @@ class ShopeeListingPageTest extends TestCase
                 ->assertDontSee('Qable elsewhere');
         }
 
-        foreach ([route('ext.shopee.products.index', ['q' => 'Qable']), route('ext.shopee.products.index', ['group' => $group->id, 'q' => 'Qable'])] as $url) {
+        foreach ([route('ext.shopee.products.index', ['sync_status' => 'all', 'q' => 'Qable']), route('ext.shopee.products.index', ['sync_status' => 'all', 'group' => $group->id, 'q' => 'Qable'])] as $url) {
             $this->actingAs($user)->get($url)->assertOk()
                 ->assertSee('Qable IC50 Pro')
                 ->assertDontSee('Plain catalog pedal');

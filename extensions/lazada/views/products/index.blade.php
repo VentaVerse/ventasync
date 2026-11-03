@@ -17,13 +17,16 @@
     $dir = (string) ($dir ?? 'desc');
 
     $hasFilters = $q !== ''
-        || $syncStatus !== 'all'
+        || $syncStatus !== \App\Channels\Listings\StatusMenu::DEFAULT
         || ($lazadaTab ?? 'all') !== 'all'
         || ($failedFlag ?? false)
         || ($changeFlag ?? false)
         || $brandFilter !== 'all'
         || $groupFilter !== 'all'
         || $catalogStatus !== 'all';
+    $nothingLive = ! $hasFilters && $products->count() === 0 && $syncStatus === \App\Channels\Listings\StatusMenu::DEFAULT && ($statusMenu['everything']['count'] ?? 0) > 0
+        ? collect($statusMenu['stand'] ?? [])->firstWhere('key', 'not_uploaded')
+        : null;
 
     $toggleDir = function (string $col) use ($sort, $dir) {
         if ($sort !== $col) return 'asc';
@@ -139,7 +142,7 @@
     @if(($lazadaTab ?? 'all') !== 'all')
         <input type="hidden" name="lazada_tab" value="{{ $lazadaTab }}">
     @endif
-    @if($syncStatus !== 'all')
+    @if($syncStatus !== \App\Channels\Listings\StatusMenu::DEFAULT)
         <input type="hidden" name="sync_status" value="{{ $syncStatus }}">
     @endif
     @if(($groupFilter ?? 'all') !== 'all')
@@ -217,7 +220,13 @@
 @include('partials.channel-bulk-bar', ['bulk' => $bulk])
 @endif
 
-@if($products->count() === 0)
+@if($nothingLive)
+    <x-ui.empty title="Nothing live on this store yet">
+        <x-slot:action>
+            <x-ui.button :href="$nothingLive['url']">{{ $nothingLive['label'] }}</x-ui.button>
+        </x-slot:action>
+    </x-ui.empty>
+@elseif($products->count() === 0)
     <x-ui.empty title="{{ $hasFilters ? 'Nothing matches those filters' : (($lazadaTab ?? 'all') !== 'all' ? 'Nothing holds this status' : 'No products on this store yet') }}"
                 :description="$hasFilters
                     ? 'Try clearing the search, or widening the product group and status filters.'

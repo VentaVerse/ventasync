@@ -155,7 +155,7 @@ class ShopeeCatalogChangeTest extends TestCase
         ShopeeListing::query()->create(['product_id' => $pid]);
         $this->editCatalog($pid, ['name' => 'Plug v2']);
 
-        $this->actingAs($this->user(false))->get(route('ext.shopee.products.index'))
+        $this->actingAs($this->user(false))->get(route('ext.shopee.products.index', ['sync_status' => 'all']))
             ->assertOk()
             ->assertSee('Catalog change')
             ->assertSee('compare=1', false);
@@ -172,7 +172,7 @@ class ShopeeCatalogChangeTest extends TestCase
         $manager = $this->user(false);
         $manager->userGroup->permissions()->attach(Permission::whereIn('key', ['manage_shopee/product_group', 'view_shopee/product_group'])->pluck('id')->all());
 
-        $this->actingAs($manager)->get(route('ext.shopee.products.index', ['group' => $group->id]))
+        $this->actingAs($manager)->get(route('ext.shopee.products.index', ['sync_status' => 'all', 'group' => $group->id]))
             ->assertOk()
             ->assertSee('Catalog change')
             ->assertSee(e(route('ext.shopee.listings.edit', [$pid, 'compare' => 1])), false);

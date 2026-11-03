@@ -88,7 +88,7 @@ class ShopeeAddToStoreTest extends TestCase
         $this->onStore($onStore);
         ShopeeListingLink::create(['store_id' => $this->store->id, 'product_id' => $linkedOnly, 'shopee_item_id' => '777', 'sku' => 'LNK-1']);
 
-        $html = $this->actingAs($this->manager())->get($this->base())->assertOk()->getContent();
+        $html = $this->actingAs($this->manager())->get($this->base() . '?sync_status=all')->assertOk()->getContent();
 
         $this->assertStringContainsString('On store widget', $html);
         $this->assertStringContainsString('Linked only widget', $html);
@@ -190,7 +190,7 @@ class ShopeeAddToStoreTest extends TestCase
         $this->assertSame($this->store->id, (int) $row->store_id, 'the record is stamped with this store');
         $this->assertNull($row->shopee_category_id, 'blank: the listing editor fills it in, readiness says what is missing');
 
-        $html = $this->actingAs($this->manager())->get($this->base())->assertOk()->getContent();
+        $html = $this->actingAs($this->manager())->get($this->base() . '?sync_status=all')->assertOk()->getContent();
         $this->assertStringContainsString('Catalog only widget', $html);
     }
 

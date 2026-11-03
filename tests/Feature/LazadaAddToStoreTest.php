@@ -72,7 +72,7 @@ class LazadaAddToStoreTest extends TestCase
         $this->seedProduct('Catalog only widget', 'OFF-1');
         LazadaListing::create(['store_id' => $this->store->id, 'product_id' => $onStore]);
 
-        $html = $this->actingAs($this->manager())->get($this->base())->assertOk()->getContent();
+        $html = $this->actingAs($this->manager())->get($this->base() . '?sync_status=all')->assertOk()->getContent();
 
         $this->assertStringContainsString('On store widget', $html);
         $this->assertStringNotContainsString('Catalog only widget', $html, 'a catalog product not on this store must not appear on This store');
@@ -168,7 +168,7 @@ class LazadaAddToStoreTest extends TestCase
         $this->assertNotNull($row);
         $this->assertSame($this->store->id, (int) $row->store_id, 'the row is stamped with this store');
 
-        $html = $this->actingAs($this->manager())->get($this->base())->assertOk()->getContent();
+        $html = $this->actingAs($this->manager())->get($this->base() . '?sync_status=all')->assertOk()->getContent();
         $this->assertStringContainsString('Catalog only widget', $html);
     }
 

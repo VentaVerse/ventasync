@@ -95,7 +95,7 @@ class TikTokAddToStoreTest extends TestCase
         $this->onStore($onStore);
         TikTokProductGroupProduct::create(['tiktok_product_group_id' => $this->group()->id, 'product_id' => $legacy, 'tiktok_product_id' => 'tt-legacy', 'sync_status' => 'synced']);
 
-        $html = $this->actingAs($this->manager())->get($this->base())->assertOk()->getContent();
+        $html = $this->actingAs($this->manager())->get($this->base() . '?sync_status=all')->assertOk()->getContent();
 
         $this->assertStringContainsString('On store widget', $html);
         $this->assertStringContainsString('Legacy pivot widget', $html);
@@ -183,7 +183,7 @@ class TikTokAddToStoreTest extends TestCase
         $this->assertSame($this->store->id, (int) $row->store_id);
         $this->assertNull($row->tiktok_category_id, 'blank: the listing page fills it in');
 
-        $html = $this->actingAs($this->manager())->get($this->base())->assertOk()->getContent();
+        $html = $this->actingAs($this->manager())->get($this->base() . '?sync_status=all')->assertOk()->getContent();
         $this->assertStringContainsString('Catalog only widget', $html);
 
         $this->actingAs($this->manager())

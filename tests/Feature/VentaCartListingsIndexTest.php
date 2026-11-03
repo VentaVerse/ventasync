@@ -106,7 +106,7 @@ class VentaCartListingsIndexTest extends TestCase
         Http::fake();
 
         $html = $this->actingAs($this->manager())
-            ->get(route('ext.ventacart.listings.index', $store->id))
+            ->get(route('ext.ventacart.listings.index', ['store' => $store->id, 'sync_status' => 'all']))
             ->assertOk()
             ->getContent();
 

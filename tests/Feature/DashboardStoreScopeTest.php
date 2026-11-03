@@ -49,6 +49,9 @@ class DashboardStoreScopeTest extends TestCase
         $all->assertSee('Gone store', 'a deleted store still ranks under the name it sold under');
         $all->assertSee('<optgroup label="Shopee">', false);
         $all->assertSee('name="store"', false);
+        $all->assertSee('<svg class="cw-bars__svg"', false)->assertDontSee('bl-trace', false);
+        $all->assertSee('aria-label="Revenue and orders over the period, each against its own peak"', false);
+        $all->assertSee('<a href="' . route('dashboard') . '" class="bl-brand__link">', false);
         $this->assertSame(3, $all->viewData('totalOrders'));
         $this->assertSame(450.0, (float) $all->viewData('totalRevenue'));
 

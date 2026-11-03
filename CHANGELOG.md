@@ -14,8 +14,9 @@
 - A product group is a name and its products, with no listing template of its own.
 - A listing template can be deleted at any time; listings it was applied to keep their values.
 - The Products page lists the store's product groups in its left menu again, as a filter.
-- The Products page tabs read Live, Not live, then All.
-- A channel's overview shows revenue and orders per day as a pair of bars.
+- The Products page tabs read All, Live, then Not live, and the page opens on Live.
+- A channel's overview and the dashboard show revenue and orders as bars side by side.
+- The logo at the top of the menu goes to the dashboard.
 - Uninstalling an extension keeps its data; installing it again brings it back.
 - An extension creates its own tables when it is installed, so a server holds only the tables of the extensions it uses.
 - An extension carries its own CSS and JavaScript in an `assets` folder, and they load only while it is enabled.

@@ -254,7 +254,7 @@ class WorkspaceInteriorsTest extends TestCase
             route('ext.shopee.categories.index') => ['<script>alert(1)</script>', '&lt;script&gt;alert(1)&lt;/script&gt;'],
             route('ext.shopee.logistics.index') => ['<img src=x onerror=alert(2)>', '&lt;img src=x onerror=alert(2)&gt;'],
             route('ext.shopee.product-groups.index') => ['<b>bold group</b>', '&lt;b&gt;bold group&lt;/b&gt;'],
-            route('ext.shopee.products.index') => ['<svg onload=alert(4)>', '&lt;svg onload=alert(4)&gt;'],
+            route('ext.shopee.products.index', ['sync_status' => 'all']) => ['<svg onload=alert(4)>', '&lt;svg onload=alert(4)&gt;'],
             route('ext.shopee.settings.show') => ['<i>alert(5)</i>', '&lt;i&gt;alert(5)&lt;/i&gt;'],
         ] as $url => [$raw, $escaped]) {
             $html = $this->actingAs($user)->get($url)->assertOk()->getContent();

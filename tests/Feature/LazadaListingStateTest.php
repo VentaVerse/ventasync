@@ -444,7 +444,7 @@ class LazadaListingStateTest extends TestCase
         ])->pluck('id')->all());
         $user = User::factory()->create(['user_group_id' => $ug->id]);
 
-        foreach ([route('ext.lazada.products.index'), route('ext.lazada.products.index', ['group' => $grp->id])] as $url) {
+        foreach ([route('ext.lazada.products.index', ['sync_status' => 'all']), route('ext.lazada.products.index', ['sync_status' => 'all', 'group' => $grp->id])] as $url) {
             $this->actingAs($user)->get($url)->assertOk()
                 ->assertSee('Qable IC50 Pro')
                 ->assertSee('Plain catalog pedal')
@@ -452,7 +452,7 @@ class LazadaListingStateTest extends TestCase
                 ->assertDontSee('Qable elsewhere');
         }
 
-        foreach ([route('ext.lazada.products.index', ['q' => 'Qable']), route('ext.lazada.products.index', ['group' => $grp->id, 'q' => 'Qable'])] as $url) {
+        foreach ([route('ext.lazada.products.index', ['sync_status' => 'all', 'q' => 'Qable']), route('ext.lazada.products.index', ['sync_status' => 'all', 'group' => $grp->id, 'q' => 'Qable'])] as $url) {
             $this->actingAs($user)->get($url)->assertOk()
                 ->assertSee('Qable IC50 Pro')
                 ->assertDontSee('Plain catalog pedal');

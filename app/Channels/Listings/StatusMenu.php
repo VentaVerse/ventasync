@@ -4,9 +4,11 @@ namespace App\Channels\Listings;
 
 final class StatusMenu
 {
-    public const TREE = ['uploaded' => 'Live on %s', 'not_uploaded' => 'Not live on %s', 'all' => 'All'];
+    public const TREE = ['all' => 'All', 'uploaded' => 'Live on %s', 'not_uploaded' => 'Not live on %s'];
 
     public const VALUES = ['all', 'not_uploaded', 'uploaded'];
+
+    public const DEFAULT = 'uploaded';
 
     public const EVERYTHING = 'All products';
 
@@ -21,10 +23,10 @@ final class StatusMenu
 
     public static function stand(?string $candidate): string
     {
-        $value = is_string($candidate) ? trim($candidate) : 'all';
+        $value = is_string($candidate) ? trim($candidate) : '';
         $value = self::RETIRED[$value] ?? $value;
 
-        return in_array($value, self::VALUES, true) ? $value : 'all';
+        return in_array($value, self::VALUES, true) ? $value : self::DEFAULT;
     }
 
     public static function group(?string $candidate): string
@@ -41,7 +43,7 @@ final class StatusMenu
     {
         $query = $spec['query'];
         unset($query['page']);
-        $stand = self::stand($spec['sync'] ?? 'all');
+        $stand = ($spec['sync'] ?? null) === 'error' ? 'all' : self::stand($spec['sync'] ?? null);
         $failed = ($spec['failed'] ?? false) || ($spec['sync'] ?? '') === 'error';
         $change = (bool) ($spec['change'] ?? false);
         $counts = $spec['counts'] ?? [];
@@ -123,13 +125,13 @@ final class StatusMenu
                 'label' => $key === 'all' ? $label : sprintf($label, $store),
                 'count' => (int) ($counts[$key] ?? 0),
                 'on' => $stand === $key,
-                'url' => $to(['sync_status' => $key === 'all' ? null : $key]),
+                'url' => $to(['sync_status' => $key === self::DEFAULT ? null : $key]),
             ];
         }
 
         $flags = [
             ['key' => 'failed', 'label' => 'Push failed', 'count' => (int) ($counts['failed'] ?? 0), 'tone' => 'bad', 'on' => $failed,
-                'url' => $to(['failed' => $failed ? null : 1, 'sync_status' => $stand === 'all' ? null : $stand])],
+                'url' => $to(['failed' => $failed ? null : 1, 'sync_status' => $stand === self::DEFAULT ? null : $stand])],
             ['key' => 'change', 'label' => 'Master Catalog change', 'count' => (int) ($counts['change'] ?? 0), 'tone' => 'attn', 'on' => $change,
                 'url' => $to(['change' => $change ? null : 1])],
         ];

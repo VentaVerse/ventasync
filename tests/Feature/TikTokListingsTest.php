@@ -145,7 +145,7 @@ class TikTokListingsTest extends TestCase
         $bare = $this->seedProduct('B');
         TikTokListing::create(['product_id' => $bare]);
 
-        $r = $this->actingAs($this->manager())->get(route('ext.tiktok.products.index'));
+        $r = $this->actingAs($this->manager())->get(route('ext.tiktok.products.index', ['sync_status' => 'all']));
 
         $r->assertOk();
         $r->assertSee('lss__label">All<', false);
@@ -534,7 +534,7 @@ class TikTokListingsTest extends TestCase
         $group = TikTokProductGroup::query()->where('name', 'Scope group')->firstOrFail();
         $user = $this->userWith(['manage_tiktok/product', 'view_tiktok/product', 'view_tiktok/product_group']);
 
-        foreach ([route('ext.tiktok.products.index'), route('ext.tiktok.products.index', ['group' => $group->id])] as $url) {
+        foreach ([route('ext.tiktok.products.index', ['sync_status' => 'all']), route('ext.tiktok.products.index', ['sync_status' => 'all', 'group' => $group->id])] as $url) {
             $this->actingAs($user)->get($url)->assertOk()
                 ->assertSee('Qable IC50 Pro')
                 ->assertSee('TikTok listing product P')
@@ -542,7 +542,7 @@ class TikTokListingsTest extends TestCase
                 ->assertDontSee('Qable elsewhere');
         }
 
-        foreach ([route('ext.tiktok.products.index', ['q' => 'Qable']), route('ext.tiktok.products.index', ['group' => $group->id, 'q' => 'Qable'])] as $url) {
+        foreach ([route('ext.tiktok.products.index', ['sync_status' => 'all', 'q' => 'Qable']), route('ext.tiktok.products.index', ['sync_status' => 'all', 'group' => $group->id, 'q' => 'Qable'])] as $url) {
             $this->actingAs($user)->get($url)->assertOk()
                 ->assertSee('Qable IC50 Pro')
                 ->assertDontSee('TikTok listing product P');

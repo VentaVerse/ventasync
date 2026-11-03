@@ -83,6 +83,10 @@ class ListingStatusMenuTest extends TestCase
         $page->assertSee('All products')->assertDontSee('Ungrouped');
         $page->assertSee('class="lss"', false);
         $page->assertDontSee('name="sync_status"', false);
+        $page->assertSee('Listed and fine')->assertSee('Listed but failed')->assertDontSee('Not on Lazada yet');
+
+        $this->actingAs($user)->get(route('ext.lazada.products.index', ['sync_status' => 'all']))
+            ->assertOk()->assertSee('Listed and fine')->assertSee('Not on Lazada yet');
 
         $this->actingAs($user)->get(route('ext.lazada.products.index', ['sync_status' => 'uploaded']))
             ->assertOk()->assertSee('Listed and fine')->assertSee('Listed but failed')->assertDontSee('Not on Lazada yet');
@@ -168,13 +172,16 @@ class ListingStatusMenuTest extends TestCase
             'counts' => ['all' => 10, 'store' => 10],
             'groups' => [['id' => '7', 'name' => 'Cables', 'count' => 2]],
         ]);
-        $this->assertStringNotContainsString('sync_status', $onLive['groups'][0]['url'], 'a group opens on All');
-        $this->assertStringNotContainsString('sync_status', $onLive['everything']['url'], 'All products opens on All');
+        $this->assertStringNotContainsString('sync_status', $onLive['groups'][0]['url'], 'a group opens on Live');
+        $this->assertStringNotContainsString('sync_status', $onLive['everything']['url'], 'All products opens on Live');
         $this->assertStringContainsString('q=cable', $onLive['groups'][0]['url'], 'the search still rides along');
 
-        $this->assertSame(['Live on Lazada', 'Not live on Lazada', 'All'], array_column($menu['stand'], 'label'));
-        $this->assertSame([6, 4, 10], array_column($menu['stand'], 'count'));
-        $this->assertStringContainsString('sync_status=uploaded', $menu['stand'][0]['url']);
+        $this->assertSame(['All', 'Live on Lazada', 'Not live on Lazada'], array_column($menu['stand'], 'label'));
+        $this->assertSame([10, 6, 4], array_column($menu['stand'], 'count'));
+        $this->assertSame([true, false, false], array_column($menu['stand'], 'on'), 'an old error link shows everything');
+        $this->assertStringContainsString('sync_status=all', $menu['stand'][0]['url']);
+        $this->assertStringNotContainsString('sync_status', $menu['stand'][1]['url'], 'Live is the default');
+        $this->assertStringContainsString('sync_status=not_uploaded', $menu['stand'][2]['url']);
         $this->assertStringNotContainsString('failed=1', $menu['flags'][0]['url'], 'pressing an on switch turns it off');
     }
 
@@ -184,7 +191,9 @@ class ListingStatusMenuTest extends TestCase
         $this->assertSame('uploaded', StatusMenu::stand('listed_not_ready'));
         $this->assertSame('not_uploaded', StatusMenu::stand('ready'));
         $this->assertSame('not_uploaded', StatusMenu::stand('not_ready'));
-        $this->assertSame('all', StatusMenu::stand('something else'));
+        $this->assertSame('uploaded', StatusMenu::stand('something else'));
+        $this->assertSame('uploaded', StatusMenu::stand(null));
+        $this->assertSame('all', StatusMenu::stand('all'));
 
         $this->store();
         $this->actingAs($this->manager())->get(route('ext.lazada.products.index', ['sync_status' => 'listed_not_ready']))
@@ -215,7 +224,7 @@ class ListingStatusMenuTest extends TestCase
         $page->assertDontSee('Product group: ');
         $page->assertDontSee('Move to group')->assertDontSee('Remove from group');
 
-        $this->actingAs($user)->get(route('ext.lazada.products.index', ['group' => 'none']))
+        $this->actingAs($user)->get(route('ext.lazada.products.index', ['group' => 'none', 'sync_status' => 'all']))
             ->assertOk()->assertSee('Not on Lazada yet')->assertDontSee('Listed and fine');
 
         $this->actingAs($user)->get(route('ext.lazada.products.index', ['group' => $group->id, 'lazada_tab' => 'inactive']))

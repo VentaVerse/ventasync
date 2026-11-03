@@ -233,7 +233,7 @@ private function persistProductSyncStatus(LazadaListing $listing, string $action
         }
 
         $q = trim((string) $request->query('q', ''));
-        $syncStatus = (string) $request->query('sync_status', 'all');
+        $syncStatus = (string) $request->query('sync_status', \App\Channels\Listings\StatusMenu::DEFAULT);
         if (!in_array($syncStatus, ['deleted', 'error'], true)) {
             $syncStatus = \App\Channels\Listings\StatusMenu::stand($syncStatus);
         }

@@ -184,7 +184,7 @@ class ShopeeReadinessTest extends TestCase
         $bare = $this->seedProduct('Bare index product', 'RDY-IDX-2', '');
         ShopeeListing::query()->create(['product_id' => $bare]);
 
-        $r = $this->actingAs($this->manager())->get(route('ext.shopee.products.index'));
+        $r = $this->actingAs($this->manager())->get(route('ext.shopee.products.index', ['sync_status' => 'all']));
 
         $r->assertOk();
         $this->assertSame(1, substr_count($r->getContent(), 'cc-err-row--warn'));
@@ -202,14 +202,14 @@ class ShopeeReadinessTest extends TestCase
 
         foreach (['ready', 'not_ready', 'not_uploaded'] as $address) {
             $this->actingAs($this->manager())
-                ->get(route('ext.shopee.products.index', ['sync_status' => $address]))
+                ->get(route('ext.shopee.products.index', ['sync_status' => 'all', 'sync_status' => $address]))
                 ->assertOk()
                 ->assertSee('Ready filter product')
                 ->assertSee('Bare filter product');
         }
 
         $this->actingAs($this->manager())
-            ->get(route('ext.shopee.products.index'))
+            ->get(route('ext.shopee.products.index', ['sync_status' => 'all']))
             ->assertOk()
             ->assertSee('Needs details');
     }

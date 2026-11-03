@@ -31,7 +31,7 @@ class TikTokProductController extends Controller
     {
         $langId = (int) config('catalog.default_language_id');
         $q = trim((string) $request->get('q', ''));
-        $syncStatus = (string) $request->get('sync_status', 'all');
+        $syncStatus = (string) $request->get('sync_status', \App\Channels\Listings\StatusMenu::DEFAULT);
         $syncStatus = ['listed' => 'uploaded', 'not_listed' => 'not_uploaded'][$syncStatus] ?? $syncStatus;
         if ($syncStatus !== 'error') {
             $syncStatus = \App\Channels\Listings\StatusMenu::stand($syncStatus);

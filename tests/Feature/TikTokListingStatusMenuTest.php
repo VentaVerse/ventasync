@@ -101,7 +101,7 @@ class TikTokListingStatusMenuTest extends TestCase
         $user = $this->manager();
 
         $this->actingAs($user)->get(route('ext.tiktok.products.index', ['sync_status' => 'listed']))
-            ->assertOk()->assertSee('Listed and fine')->assertDontSee('Not on TikTok yet')->assertSee('products match: Live on TikTok Shop', false);
+            ->assertOk()->assertSee('Listed and fine')->assertDontSee('Not on TikTok yet')->assertSee('Listed but failed');
 
         $this->actingAs($user)->get(route('ext.tiktok.products.index', ['sync_status' => 'not_listed']))
             ->assertOk()->assertSee('Not on TikTok yet')->assertDontSee('Listed and fine');

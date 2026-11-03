@@ -227,7 +227,7 @@ class CatalogChangeTest extends TestCase
         LazadaListing::query()->create(['product_id' => $pid]);
         $this->editCatalog($pid, ['name' => 'Plug v2']);
 
-        $this->actingAs($this->user(false))->get(route('ext.lazada.products.index'))
+        $this->actingAs($this->user(false))->get(route('ext.lazada.products.index', ['sync_status' => 'all']))
             ->assertOk()
             ->assertSee('Catalog change')
             ->assertSee('compare=1', false);

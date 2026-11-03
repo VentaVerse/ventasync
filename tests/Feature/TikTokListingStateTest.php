@@ -237,7 +237,7 @@ class TikTokListingStateTest extends TestCase
         $pid = $this->seedProduct('My very first product', 'FIRST-1');
         TikTokListing::create(['product_id' => $pid]);
 
-        $page = $this->actingAs($this->manager())->get(route('ext.tiktok.products.index'))->assertOk();
+        $page = $this->actingAs($this->manager())->get(route('ext.tiktok.products.index', ['sync_status' => 'all']))->assertOk();
         $page->assertSee('My very first product');
         $page->assertSee('Not listed');
 

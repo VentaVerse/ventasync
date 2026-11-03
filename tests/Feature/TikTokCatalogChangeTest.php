@@ -87,7 +87,7 @@ class TikTokCatalogChangeTest extends TestCase
             ->assertSee('data-lcx-panel', false)
             ->assertSee('Catalog words.');
 
-        $this->actingAs($user)->get(route('ext.tiktok.products.index'))
+        $this->actingAs($user)->get(route('ext.tiktok.products.index', ['sync_status' => 'all']))
             ->assertOk()
             ->assertSee('Catalog change')
             ->assertSee('compare=1', false);

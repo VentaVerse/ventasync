@@ -24,9 +24,11 @@
         <div class="flex items-center gap-2.5 border-b border-side-rule px-4 py-3">
             @php $blCompany = $appSetting->company_name ?? config('app.name', 'VentaSync'); @endphp
             @php $blLogo = \App\Services\Media\LogoImage::show($appSetting->logo_path ?? null, \App\Services\Media\LogoImage::NAV); @endphp
-            <img class="bl-brand__logo" src="{{ $blLogo['url'] }}"
-                 width="{{ $blLogo['width'] }}" height="{{ $blLogo['height'] }}"
-                 alt="{{ $blCompany }}">
+            <a href="{{ route('dashboard') }}" class="bl-brand__link">
+                <img class="bl-brand__logo" src="{{ $blLogo['url'] }}"
+                     width="{{ $blLogo['width'] }}" height="{{ $blLogo['height'] }}"
+                     alt="{{ $blCompany }}, Dashboard">
+            </a>
             <button type="button" @click="nav = false"
                     class="ml-auto text-side-ink hover:text-white lg:hidden" aria-label="Close navigation">
                 <x-ui.icon name="x" size="16" />

@@ -8,8 +8,11 @@
     $canEditCatalog = auth()->user()?->hasPermission('manage_catalog/product') ?? false;
     $storeName = $setting->store_name;
 
-    $hasFilters = $q !== '' || $groupFilter !== 'all' || $catalogStatus !== 'all' || $syncStatus !== 'all'
+    $hasFilters = $q !== '' || $groupFilter !== 'all' || $catalogStatus !== 'all' || $syncStatus !== \App\Channels\Listings\StatusMenu::DEFAULT
         || $ventaCartTab !== 'all' || ($failedFlag ?? false) || ($changeFlag ?? false);
+    $nothingLive = ! $hasFilters && $products->count() === 0 && $syncStatus === \App\Channels\Listings\StatusMenu::DEFAULT && ($statusMenu['everything']['count'] ?? 0) > 0
+        ? collect($statusMenu['stand'] ?? [])->firstWhere('key', 'not_uploaded')
+        : null;
     $toggleDir = fn (string $col) => $sort !== $col ? 'asc' : ($dir === 'asc' ? 'desc' : 'asc');
     $sortUrl = function (string $col) use ($toggleDir) {
         $qp = request()->query();
@@ -118,7 +121,7 @@
     @if($ventaCartTab !== 'all')
         <input type="hidden" name="ventacart_tab" value="{{ $ventaCartTab }}">
     @endif
-    @if($syncStatus !== 'all')
+    @if($syncStatus !== \App\Channels\Listings\StatusMenu::DEFAULT)
         <input type="hidden" name="sync_status" value="{{ $syncStatus }}">
     @endif
     @if(($groupFilter ?? 'all') !== 'all')
@@ -169,7 +172,13 @@
 @include('partials.channel-bulk-bar', ['bulk' => $bulk])
 @endif
 
-@if($products->count() === 0)
+@if($nothingLive)
+    <x-ui.empty title="Nothing live on this store yet">
+        <x-slot:action>
+            <x-ui.button :href="$nothingLive['url']">{{ $nothingLive['label'] }}</x-ui.button>
+        </x-slot:action>
+    </x-ui.empty>
+@elseif($products->count() === 0)
     <x-ui.empty title="{{ $hasFilters ? 'Nothing matches those filters' : 'Nothing on this store yet' }}">
         <x-slot:action>
             @if($hasFilters)

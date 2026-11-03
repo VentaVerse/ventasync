@@ -47,7 +47,7 @@
 
         <div class="cw-bars__wrap" data-bars-wrap>
             <svg class="cw-bars__svg" viewBox="0 0 {{ $n * $slot }} {{ $ph }}" preserveAspectRatio="none" role="img"
-                 aria-label="Revenue and orders per day, each against its own peak">
+                 aria-label="{{ $ariaLabel ?? 'Revenue and orders per day, each against its own peak' }}">
                 @foreach([0.25, 0.5, 0.75] as $g)
                     <line class="cw-bars__grid" x1="0" x2="{{ $n * $slot }}" y1="{{ $ph * $g }}" y2="{{ $ph * $g }}"></line>
                 @endforeach

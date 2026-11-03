@@ -3965,6 +3965,13 @@
         text-align: center;
     }
 
+    .bl-brand__link {
+        display: inline-flex;
+        min-width: 0;
+        border-radius: 4px;
+    }
+    .bl-brand__link:focus-visible { outline: 2px solid var(--bl-brand); outline-offset: 3px; }
+
     .bl-brand__logo {
         max-width: 100%;
         height: auto;

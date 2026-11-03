@@ -142,7 +142,7 @@ class ShopeeListingStateTest extends TestCase
         $group = \App\Models\Admin\UserGroup::create(['name' => 'Shopee push readers']);
         $group->permissions()->attach(\App\Models\Admin\Permission::whereIn('key', ['view_shopee/product', 'manage_shopee/product'])->pluck('id')->all());
         $user = \App\Models\User::factory()->create(['user_group_id' => $group->id]);
-        $html = $this->actingAs($user)->get(route('ext.shopee.products.index'))->assertOk()->getContent();
+        $html = $this->actingAs($user)->get(route('ext.shopee.products.index', ['sync_status' => 'all']))->assertOk()->getContent();
         $this->assertStringContainsString('<tr class="cc-err-row">', $html);
         $this->assertStringContainsString('between 1 and 9', $html);
 
@@ -393,7 +393,7 @@ class ShopeeListingStateTest extends TestCase
         $page->assertDontSee('WELL');
     }
 
-    public function test_a_groupless_never_pushed_product_on_the_store_is_visible_by_default(): void
+    public function test_a_groupless_never_pushed_product_on_the_store_is_visible_under_all(): void
     {
         $pid = $this->product('FIRSTEVER');
         DB::table('product_descriptions')->where('product_id', $pid)->update([
@@ -408,11 +408,11 @@ class ShopeeListingStateTest extends TestCase
         );
         $user = \App\Models\User::factory()->create(['user_group_id' => $group->id]);
 
-        $page = $this->actingAs($user)->get(route('ext.shopee.products.index'))->assertOk();
+        $page = $this->actingAs($user)->get(route('ext.shopee.products.index', ['sync_status' => 'all']))->assertOk();
         $page->assertSee('My very first product');
         $page->assertSee('Not listed');
 
-        $this->actingAs($user)->get(route('ext.shopee.products.index').'?sync_status=not_listed')
+        $this->actingAs($user)->get(route('ext.shopee.products.index', ['sync_status' => 'not_listed']))
             ->assertOk()->assertSee('My very first product');
     }
 

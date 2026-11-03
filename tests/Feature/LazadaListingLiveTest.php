@@ -1072,7 +1072,7 @@ class LazadaListingLiveTest extends TestCase
         $listing = LazadaListing::query()->create(['product_id' => $productId]);
         \Extensions\Lazada\Models\LazadaCategory::create(['category_id' => 222, 'name' => 'Pedals', 'leaf' => true, 'var' => false, 'parent_id' => null, 'level' => 0]);
 
-        $r = $this->actingAs($this->manager())->get(route('ext.lazada.products.index'));
+        $r = $this->actingAs($this->manager())->get(route('ext.lazada.products.index', ['sync_status' => 'all']));
         $r->assertOk();
         $r->assertSee('cc-err-row--warn', false);
         $r->assertSee('Needs details:');

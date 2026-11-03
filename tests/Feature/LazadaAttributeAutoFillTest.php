@@ -336,9 +336,9 @@ class LazadaAttributeAutoFillTest extends TestCase
             '*' => \Illuminate\Support\Facades\Http::response(['code' => '0', 'data' => ['item_id' => 4242, 'sku_list' => []]], 200),
         ]);
         $user = $this->manager();
-        $search = '/channels/lazada/' . LazadaStore::query()->value('id') . '/products?q=valeton&status=all';
+        $search = '/channels/lazada/' . LazadaStore::query()->value('id') . '/products?sync_status=all&q=valeton&status=all';
 
-        $index = $this->actingAs($user)->get(route('ext.lazada.products.index', ['q' => 'valeton', 'status' => 'all']))->assertOk()->getContent();
+        $index = $this->actingAs($user)->get(route('ext.lazada.products.index', ['sync_status' => 'all', 'q' => 'valeton', 'status' => 'all']))->assertOk()->getContent();
         $this->assertStringContainsString('back=' . urlencode($search), $index);
         $page = $this->actingAs($user)->get(route('ext.lazada.products.edit', ['productId' => $listing->product_id, 'back' => $search]))->assertOk()->getContent();
         $this->assertStringContainsString('href="' . e($search) . '"', $page, 'Cancel returns to the search');

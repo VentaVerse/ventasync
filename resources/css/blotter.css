@@ -1506,14 +1506,6 @@
 }
 
 @layer components {
-    .bl-plot { display: block; width: 100%; height: 140px; }
-
-    .bl-plot__grid { stroke: var(--bl-rule); stroke-width: 1; vector-effect: non-scaling-stroke; }
-    .bl-plot__line { fill: none; stroke-width: 2; vector-effect: non-scaling-stroke; stroke-linejoin: round; stroke-linecap: round; }
-    .bl-plot__area { stroke: none; }
-    .bl-plot__now  { stroke-width: 1; stroke-dasharray: 3 3; vector-effect: non-scaling-stroke; }
-    .bl-plot__hit  { fill: transparent; }
-
     .bl-axis {
         display: flex;
         justify-content: space-between;
@@ -1531,25 +1523,6 @@
     @media (max-width: 640px) {
         .bl-axis > span:nth-child(even):not(:last-child) { display: none; }
     }
-    .bl-plot__hit:hover { fill: color-mix(in srgb, var(--bl-ink) 6%, transparent); }
-
-    .bl-plot--dual { height: 190px; }
-
-    .bl-trace {
-        fill: none;
-        stroke-width: 2;
-        vector-effect: non-scaling-stroke;
-        stroke-linejoin: round;
-        stroke-linecap: round;
-    }
-
-    .bl-trace--money { stroke: var(--bl-a-cyan); }
-    .bl-trace--count { stroke: var(--bl-a-violet); }
-    .bl-trace__area  { stroke: none; }
-
-    .bl-plot__from { stop-color: var(--bl-a-cyan); stop-opacity: .30; }
-    .bl-plot__to   { stop-color: var(--bl-a-cyan); stop-opacity: 0; }
-
     .bl-key {
         display: flex;
         flex-wrap: wrap;
@@ -1561,16 +1534,10 @@
     }
 
     .bl-key__item { display: inline-flex; align-items: center; gap: 8px; }
-    .bl-key__sw { display: inline-block; flex: none; }
-    .bl-key__money { fill: var(--bl-a-cyan); }
-    .bl-key__count { fill: var(--bl-a-violet); }
     .bl-key__peak { color: var(--bl-ink-3); font-weight: 500; font-variant-numeric: tabular-nums; }
 
     .bl-plotcard { position: relative; }
-    .bl-plotwrap { position: relative; }
 
-    .bl-guide,
-    .bl-dot,
     .bl-readout {
         position: absolute;
         top: 0;
@@ -1579,26 +1546,7 @@
         pointer-events: none;
     }
 
-    .bl-plotcard.is-reading .bl-guide,
-    .bl-plotcard.is-reading .bl-dot,
     .bl-plotcard.is-reading .bl-readout { opacity: 1; }
-
-    .bl-guide {
-        width: 1px;
-        height: 190px;
-        background: var(--bl-rule-2);
-    }
-
-    .bl-dot {
-        width: 9px;
-        height: 9px;
-        margin: -4.5px 0 0 -4.5px;
-        border: 2px solid var(--bl-sheet);
-        border-radius: 50%;
-    }
-
-    .bl-dot--money { background: var(--bl-a-cyan); }
-    .bl-dot--count { background: var(--bl-a-violet); }
 
     .bl-readout {
         top: 6px;
@@ -1629,8 +1577,6 @@
 
     .bl-readout__k--money { background: var(--bl-a-cyan); }
     .bl-readout__k--count { background: var(--bl-a-violet); }
-
-    .bl-plot--dual .bl-plot__hit:hover { fill: transparent; }
 
     .bl-slice-0 { stroke: var(--bl-a-cyan); }
     .bl-slice-1 { stroke: var(--bl-a-violet); }

@@ -70,7 +70,7 @@ class DisabledProductsStayOutTest extends TestCase
         \Extensions\Shopee\Models\ShopeeListing::create(['product_id' => $plain]);
 
         $user = $this->operator();
-        $page = $this->actingAs($user)->get(route('ext.shopee.products.index'))->assertOk()->getContent();
+        $page = $this->actingAs($user)->get(route('ext.shopee.products.index', ['sync_status' => 'all']))->assertOk()->getContent();
 
         $this->assertStringNotContainsString('Disabled and nowhere', $page,
             'a disabled product the channel does not hold is noise the pushes skip anyway');
@@ -78,7 +78,7 @@ class DisabledProductsStayOutTest extends TestCase
             'a disabled product still listed needs eyes - it wants unlisting, not hiding');
         $this->assertStringContainsString('Enabled and plain', $page);
 
-        $filtered = $this->actingAs($user)->get(route('ext.shopee.products.index') . '?catalog_status=disabled')->assertOk()->getContent();
+        $filtered = $this->actingAs($user)->get(route('ext.shopee.products.index', ['sync_status' => 'all', 'catalog_status' => 'disabled']))->assertOk()->getContent();
         $this->assertStringContainsString('Disabled and nowhere', $filtered,
             'the Disabled filter still shows the hidden ones on purpose');
     }

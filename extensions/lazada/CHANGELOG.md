@@ -10,6 +10,7 @@
 
 - Sync stock and Sync price are back on each listing's menu and on the selection bar.
 - A product group no longer holds a listing template; a template is applied from the Products page selection bar.
+- The Products page opens on Live, with the tabs in the order All, Live, Not live.
 - Its CSS and JavaScript now ship inside the extension and load only while it is enabled.
 
 ## 0.31.0 (2026-10-23)
