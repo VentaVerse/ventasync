@@ -11,17 +11,17 @@
     $ordPeak = $ord === [] ? 0.0 : max($ord);
     $hasPlot = $n > 1 && ($revPeak > 0 || $ordPeak > 0);
 
-    $slot = 10; $bar = 7; $ph = 100;
-    $height = fn (float $v, float $peak) => $peak <= 0 ? 0.0 : round(max(0.0, $v) / $peak * $ph, 2);
+    $slot = 10; $bar = 3.6; $ph = 100; $top = 4;
+    $height = fn (float $v, float $peak) => $peak <= 0 ? 0.0 : round(max(0.0, $v) / $peak * ($ph - $top), 2);
 
     $tickStep = max(1, (int) ceil(($n - 1) / 7));
     $ticks = [];
     for ($t = 0; $t < $n; $t += $tickStep) { $ticks[] = $t; }
     if ($ticks !== [] && end($ticks) !== $n - 1) { $ticks[] = $n - 1; }
 
-    $rows = [
-        ['key' => 'money', 'label' => 'Revenue', 'values' => $rev, 'peak' => $revPeak, 'peakText' => Money::base($revPeak)],
-        ['key' => 'count', 'label' => 'Orders', 'values' => $ord, 'peak' => $ordPeak, 'peakText' => number_format($ordPeak)],
+    $series = [
+        ['key' => 'money', 'values' => $rev, 'peak' => $revPeak, 'x' => 1.2],
+        ['key' => 'count', 'values' => $ord, 'peak' => $ordPeak, 'x' => 5.2],
     ];
 @endphp
 
@@ -32,28 +32,38 @@
              'money'  => array_map(fn ($v) => Money::base((float) $v), $rev),
              'counts' => array_map(fn ($v) => number_format($v) . ' ' . Str::plural('order', $v), $ord),
          ]) }}">
+        <div class="bl-key">
+            <span class="bl-key__item">
+                <i class="cw-bars__sw cw-bars__sw--money" aria-hidden="true"></i>
+                Revenue
+                <b class="bl-key__peak">peak {{ Money::base($revPeak) }}</b>
+            </span>
+            <span class="bl-key__item">
+                <i class="cw-bars__sw cw-bars__sw--count" aria-hidden="true"></i>
+                Orders
+                <b class="bl-key__peak">peak {{ number_format($ordPeak) }}</b>
+            </span>
+        </div>
+
         <div class="cw-bars__wrap" data-bars-wrap>
-            @foreach($rows as $row)
-                <div class="cw-bars__row">
-                    <div class="cw-bars__head">
-                        <span class="cw-bars__k">{{ $row['label'] }}</span>
-                        <span class="cw-bars__peak">peak {{ $row['peakText'] }}</span>
-                    </div>
-                    <svg class="cw-bars__svg cw-bars__svg--{{ $row['key'] }}" viewBox="0 0 {{ $n * $slot }} {{ $ph }}"
-                         preserveAspectRatio="none" role="img" aria-label="{{ $row['label'] }} per day">
-                        <line class="cw-bars__base" x1="0" x2="{{ $n * $slot }}" y1="{{ $ph }}" y2="{{ $ph }}"></line>
-                        @foreach($row['values'] as $i => $v)
-                            @php $h = $height($v, $row['peak']); @endphp
-                            @if($h > 0)
-                                <rect class="cw-bars__bar" data-i="{{ $i }}" x="{{ $i * $slot + ($slot - $bar) / 2 }}" y="{{ $ph - $h }}"
-                                      width="{{ $bar }}" height="{{ $h }}">
-                                    <title>{{ $labels[$i] ?? '' }} &middot; {{ $row['key'] === 'money' ? Money::base($v) : number_format($v) . ' ' . Str::plural('order', $v) }}</title>
-                                </rect>
-                            @endif
-                        @endforeach
-                    </svg>
-                </div>
-            @endforeach
+            <svg class="cw-bars__svg" viewBox="0 0 {{ $n * $slot }} {{ $ph }}" preserveAspectRatio="none" role="img"
+                 aria-label="Revenue and orders per day, each against its own peak">
+                @foreach([0.25, 0.5, 0.75] as $g)
+                    <line class="cw-bars__grid" x1="0" x2="{{ $n * $slot }}" y1="{{ $ph * $g }}" y2="{{ $ph * $g }}"></line>
+                @endforeach
+                <line class="cw-bars__base" x1="0" x2="{{ $n * $slot }}" y1="{{ $ph }}" y2="{{ $ph }}"></line>
+                @for($i = 0; $i < $n; $i++)
+                    @foreach($series as $s)
+                        @php $h = $height($s['values'][$i], $s['peak']); @endphp
+                        @if($h > 0)
+                            <rect class="cw-bars__bar cw-bars__bar--{{ $s['key'] }}" data-i="{{ $i }}"
+                                  x="{{ $i * $slot + $s['x'] }}" y="{{ $ph - $h }}" width="{{ $bar }}" height="{{ $h }}">
+                                <title>{{ $labels[$i] ?? '' }} &middot; {{ $s['key'] === 'money' ? Money::base($s['values'][$i]) : number_format($s['values'][$i]) . ' ' . Str::plural('order', $s['values'][$i]) }}</title>
+                            </rect>
+                        @endif
+                    @endforeach
+                @endfor
+            </svg>
 
             <div class="bl-readout" data-bars-readout aria-hidden="true">
                 <span class="bl-readout__d" data-bars-date></span>

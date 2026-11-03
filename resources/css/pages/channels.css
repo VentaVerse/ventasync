@@ -695,34 +695,33 @@
 
 .cw-bars__wrap {
     position: relative;
-    display: flex;
-    flex-direction: column;
-    gap: 14px;
     touch-action: pan-y;
 }
 
-.cw-bars__head {
-    display: flex;
-    align-items: baseline;
-    gap: 8px;
-    padding-bottom: 6px;
-    font-size: 12.5px;
+.cw-bars__svg { display: block; width: 100%; height: 210px; overflow: visible; }
+
+.cw-bars__grid { stroke: var(--bl-rule); stroke-width: 1; vector-effect: non-scaling-stroke; }
+.cw-bars__base { stroke: var(--bl-rule-2); stroke-width: 1; vector-effect: non-scaling-stroke; }
+
+.cw-bars__sw {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    flex: none;
+    border-radius: 2px;
 }
 
-.cw-bars__k { color: var(--bl-ink-2); font-weight: 600; }
-.cw-bars__peak { color: var(--bl-ink-3); font-variant-numeric: tabular-nums; }
-
-.cw-bars__svg { display: block; width: 100%; overflow: visible; }
-.cw-bars__svg--money { height: 130px; }
-.cw-bars__svg--count { height: 80px; }
-
-.cw-bars__base { stroke: var(--bl-rule); stroke-width: 1; vector-effect: non-scaling-stroke; }
+.cw-bars__sw--money,
+.cw-bars__bar--money { background: var(--bl-a-cyan); fill: var(--bl-a-cyan); }
+.cw-bars__sw--count,
+.cw-bars__bar--count { background: var(--bl-a-violet); fill: var(--bl-a-violet); }
 
 .cw-bars__bar { transition: opacity .15s ease; }
-.cw-bars__svg--money .cw-bars__bar { fill: var(--bl-a-cyan); }
-.cw-bars__svg--count .cw-bars__bar { fill: var(--bl-a-violet); }
+.cw-bars.is-reading .cw-bars__bar:not(.is-on) { opacity: .35; }
 
-.cw-bars.is-reading .cw-bars__bar:not(.is-on) { opacity: .4; }
+@media (max-width: 560px) {
+    .cw-bars__svg { height: 180px; }
+}
 
 @media (prefers-reduced-motion: reduce) {
     .cw-bars__bar { transition: none; }

@@ -9,7 +9,7 @@ class ChannelTrendBarsTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_revenue_and_orders_each_get_their_own_row_of_bars(): void
+    public function test_each_day_gets_a_revenue_and_an_orders_bar_side_by_side(): void
     {
         $html = view('partials._trend-bars', [
             'labels' => ['Nov 1', 'Nov 2', 'Nov 3'],
@@ -17,8 +17,9 @@ class ChannelTrendBarsTest extends TestCase
             'orders' => [2, 0, 1],
         ])->render();
 
-        $this->assertSame(2, substr_count($html, '<svg class="cw-bars__svg'));
-        $this->assertSame(4, substr_count($html, 'class="cw-bars__bar"'), 'a day with nothing draws no bar');
+        $this->assertSame(1, substr_count($html, '<svg class="cw-bars__svg'), 'one chart');
+        $this->assertSame(2, substr_count($html, 'cw-bars__bar--money" data-i='));
+        $this->assertSame(2, substr_count($html, 'cw-bars__bar--count" data-i='), 'a day with nothing draws no bar');
         $this->assertStringContainsString('peak ' . \App\Support\Money::base(1200), $html);
         $this->assertStringContainsString('peak 2', $html);
         $this->assertStringContainsString('data-bars-readout', $html);
