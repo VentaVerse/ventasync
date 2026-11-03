@@ -10,6 +10,7 @@ import './channel-order-fetch';
 import './automation-run';
 import './thumb-fallback';
 import './plot-readout';
+import './bar-readout';
 import './list-filters';
 import './nav-progress';
 import './order-selection';

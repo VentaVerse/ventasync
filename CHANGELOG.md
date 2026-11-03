@@ -12,6 +12,7 @@
 - The row menu and selection bar can show Sync stock and Sync price for a channel that offers them.
 - The Products page lists the store's product groups in its left menu again, as a filter.
 - The Products page tabs read Live, Not live, then All.
+- A channel's overview shows revenue and orders per day as bars, each on its own row.
 - Uninstalling an extension keeps its data; installing it again brings it back.
 - An extension creates its own tables when it is installed, so a server holds only the tables of the extensions it uses.
 - An extension carries its own CSS and JavaScript in an `assets` folder, and they load only while it is enabled.

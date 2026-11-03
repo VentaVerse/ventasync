@@ -65,7 +65,7 @@
                         </div>
                     </div>
 
-                    @include('partials._trend-plot', [
+                    @include('partials._trend-bars', [
                         'labels' => $tr['labels'],
                         'revenue' => $tr['revenue'],
                         'orders' => $tr['orders'],
