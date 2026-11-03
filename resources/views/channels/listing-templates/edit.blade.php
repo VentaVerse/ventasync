@@ -42,9 +42,6 @@
                                     placeholder="Effects pedals" :disabled="!$canManage" />
                     </x-ui.field>
                 </div>
-                @if($usedBy->isNotEmpty())
-                    <p class="fm-section__note">Used by @foreach($usedBy as $g)<a href="{{ $g->url }}">{{ $g->name }}</a>@if(! $loop->last), @endif @endforeach</p>
-                @endif
             </section>
 
             @switch($channel)
@@ -101,7 +98,7 @@
           data-confirm="Delete the listing template &quot;{{ $template->name }}&quot;? Listings it was applied to keep their values." data-confirm-verb="Delete">
         @csrf
         @method('DELETE')
-        <x-ui.button type="submit" variant="danger" size="sm" :disabled="$usedBy->isNotEmpty()">Delete listing template</x-ui.button>
+        <x-ui.button type="submit" variant="danger" size="sm">Delete listing template</x-ui.button>
     </form>
 @endif
 @endsection

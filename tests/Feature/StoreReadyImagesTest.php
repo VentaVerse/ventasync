@@ -29,7 +29,7 @@ class StoreReadyImagesTest extends TestCase
         ob_start();
         imagejpeg($image, null, 100);
         Storage::disk('public')->put($path, (string) ob_get_clean());
-        imagedestroy($image);
+        unset($image);
     }
 
     private function smallPicture(string $path, string $kind): void
@@ -39,7 +39,7 @@ class StoreReadyImagesTest extends TestCase
         ob_start();
         $kind === 'webp' ? imagewebp($image, null, 80) : imagejpeg($image, null, 85);
         Storage::disk('public')->put($path, (string) ob_get_clean());
-        imagedestroy($image);
+        unset($image);
     }
 
     public function test_a_picture_over_lazadas_size_goes_up_as_a_fitted_jpeg_and_the_original_stays(): void

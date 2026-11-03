@@ -30,10 +30,9 @@ abstract class ProductGroupController extends Controller
     public function index()
     {
         [$table, $fk] = $this->membership();
-        $groups = $this->groups()->orderBy('name')->get(['id', 'name', 'listing_template_id']);
+        $groups = $this->groups()->orderBy('name')->get(['id', 'name']);
         $counts = DB::table($table)->whereIn($fk, $groups->pluck('id')->all() ?: [0])
             ->selectRaw($fk . ' as g, COUNT(*) as n')->groupBy($fk)->pluck('n', 'g');
-        $templateNames = $this->templates()->pluck('name', 'id');
 
         return view('channels.product-groups.index', [
             'channelName' => $this->channelName(),
@@ -41,7 +40,6 @@ abstract class ProductGroupController extends Controller
                 'id' => (int) $g->id,
                 'name' => (string) $g->name,
                 'count' => (int) ($counts[$g->id] ?? 0),
-                'template' => $g->listing_template_id ? (string) ($templateNames[$g->listing_template_id] ?? '') : '',
                 'editUrl' => $this->groupRoute('edit', (int) $g->id),
                 'destroyUrl' => $this->groupRoute('destroy', (int) $g->id),
             ]),
@@ -78,11 +76,8 @@ abstract class ProductGroupController extends Controller
     {
         abort_unless($this->canManageGroups(), 403);
         $group = $this->ownGroup();
-        $data = $request->validate([
-            'name' => 'required|string|max:128',
-            'listing_template_id' => ['nullable', 'integer', \Illuminate\Validation\Rule::in($this->templates()->pluck('id')->all())],
-        ]);
-        $group->forceFill(['name' => trim($data['name']), 'listing_template_id' => $data['listing_template_id'] ?? null])->save();
+        $data = $request->validate(['name' => 'required|string|max:128']);
+        $group->forceFill(['name' => trim($data['name'])])->save();
         ActivityLogger::log('updated', 'Product group', (int) $group->id, $group->name, ['channel' => $this->channel()]);
 
         return redirect($this->groupRoute('edit', (int) $group->id))->with('status', 'Product group saved.');
@@ -194,24 +189,12 @@ abstract class ProductGroupController extends Controller
             'saveUrl' => $group->exists ? $this->groupRoute('update', (int) $group->id) : $this->groupRoute('store'),
             'backUrl' => $this->groupRoute('index'),
             'canManage' => $this->canManageGroups(),
-            'canApply' => auth()->user()?->hasPermission('manage_' . $ch . '/listing_template') ?? false,
             'storeName' => $this->storeName(),
-            'templates' => $this->templates()->orderBy('name')->pluck('name', 'id'),
-            'templateUrls' => (auth()->user()?->hasPermission('view_' . $ch . '/listing_template') ?? false)
-                ? $this->templates()->pluck('id')->mapWithKeys(fn ($id) => [(int) $id => route('ext.' . $ch . '.listing-templates.edit', ['store' => $this->groupStoreId(), 'template' => $id])])->all()
-                : [],
-            'templatesUrl' => route('ext.' . $ch . '.listing-templates.index', ['store' => $this->groupStoreId()]),
-            'previewUrl' => route('ext.' . $ch . '.listing-templates.preview', ['store' => $this->groupStoreId()]),
             'members' => $members,
             'removeUrl' => $group->exists ? $this->groupRoute('remove', (int) $group->id) : null,
             'searchUrl' => $group->exists ? $this->groupRoute('search', (int) $group->id) : null,
             'addUrl' => route('ext.' . $ch . '.products.add_to_store', ['store' => $this->groupStoreId(), 'productId' => '__PID__']),
         ]);
-    }
-
-    private function templates()
-    {
-        return DB::table('ch_' . $this->channel() . '_listing_templates')->where('store_id', $this->groupStoreId());
     }
 
     private function listingUrl(int $productId): ?string

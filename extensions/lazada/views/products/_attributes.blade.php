@@ -11,9 +11,6 @@
         @continue(\Extensions\Lazada\Services\Lazada\LazadaAttributes::isAutoFilledAttributeKey($key)
             && (trim((string) $rawSaved) === '' || str_starts_with((string) $rawSaved, '__map:')))
         @php
-            $fromGroup = !array_key_exists($key, ($productOwnAttrs ?? []))
-                && array_key_exists($key, ($groupAttrs ?? []));
-
             $value = old('attributes.' . $key, $saved[$key] ?? ($suggestion ?? ''));
             $options = $attribute['options'] ?? [];
             $isSelect = is_array($options) && count($options) > 0;
@@ -104,10 +101,6 @@
                             Currently reads <strong data-attr-resolved-text>{{ $resolvedValue }}</strong>
                         </div>
                     </div>
-                @endif
-
-                @if($fromGroup)
-                    <p class="gf-attr__note">Inherited from the product group. Saving here overrides it for this listing.</p>
                 @endif
 
                 @if(!$isSelect && !$isMapped && empty($saved[$key] ?? null) && empty(old('attributes.' . $key)) && !empty($suggestion))

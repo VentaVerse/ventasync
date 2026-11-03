@@ -865,6 +865,11 @@ class VentaCartListingController extends Controller
             'groups' => 'ch_ventacart_product_groups', 'storeFk' => 'store_id', 'storeId' => $store,
         ], $productId, 'ext.ventacart.product-groups.edit', ['store' => $store], 'group');
         $num = fn ($v) => $v !== null ? (float) $v : null;
+        $fill = \App\Channels\Listings\Templates\TemplateFill::onto(
+            new \Extensions\VentaCart\Services\VentaCart\VentaCartTemplateFields($store), $listing instanceof VentaCartListing ? $listing : null,
+            \Extensions\VentaCart\Models\VentaCartListingTemplate::class, $store,
+            (auth()->user()?->hasPermission('manage_ventacart/listing') ?? false) ? request('fill') : null
+        );
 
         $shownCategoryId = VentaCartListing::categoryFor($listing instanceof VentaCartListing ? $listing : null);
         $markupPercent = $num($listing?->markup_percent);
@@ -886,6 +891,7 @@ class VentaCartListingController extends Controller
                 ($live['state'] ?? '') === 'found' ? collect($live['variants'] ?? [])->pluck('sku')->all() : ($link ? null : [])
             ),
             'groupBand' => $groupBand,
+            'fill' => $fill,
             'storeCategories' => \Extensions\VentaCart\Models\VentaCartCategory::query()->where('store_id', $store)
                 ->orderBy('name')->get(['ventacart_category_id', 'name']),
             'shownCategoryId' => $shownCategoryId,

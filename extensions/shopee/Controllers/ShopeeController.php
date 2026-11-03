@@ -77,7 +77,7 @@ public function root(Request $request, ShopeeClient $client)
     ]);
 }
 
-public function index(Request $request = null, ShopeeClient $client = null)
+public function index(?Request $request = null, ?ShopeeClient $client = null)
     {
         $request = $request ?? request();
         $client = $client ?? app(ShopeeClient::class);

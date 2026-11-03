@@ -39,7 +39,7 @@ class ImageCacheTest extends TestCase
         ob_start();
         imagepng($image);
         Storage::disk('public')->put($path, (string) ob_get_clean());
-        imagedestroy($image);
+        unset($image);
 
         return $path;
     }
@@ -56,7 +56,7 @@ class ImageCacheTest extends TestCase
         ob_start();
         imagejpeg($image, null, 100);
         Storage::disk('public')->put($path, (string) ob_get_clean());
-        imagedestroy($image);
+        unset($image);
 
         return $path;
     }

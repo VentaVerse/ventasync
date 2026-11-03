@@ -49,7 +49,7 @@ class TikTokAttributesTest extends TestCase
         $this->imageFile = $dir . '/__tt-attr-test.png';
         $im = imagecreatetruecolor(4, 4);
         imagepng($im, $this->imageFile);
-        imagedestroy($im);
+        unset($im);
 
         $this->callResponses['GET /product/202309/categories/900009/attributes'] = [
             'ok' => true, 'status' => 200, 'body' => ['code' => 0, 'message' => 'Success', 'data' => ['attributes' => [

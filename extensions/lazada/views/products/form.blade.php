@@ -195,6 +195,8 @@
         <x-channel.listing-body>
             <x-slot:main>
                 @if($mode === 'edit')
+                    @include('partials.listing-template-fill', ['canManage' => auth()->user()?->hasPermission('manage_lazada/product') ?? false])
+
                     @include('partials.listing-group-band', [
                         'canManage' => true,
                     ])
@@ -345,7 +347,6 @@
                                     'attributes' => $attributes,
                                     'saved' => $saved,
                                     'suggested' => $suggested,
-                                    'groupAttrs' => $groupAttrs,
                                     'productOwnAttrs' => $productOwnAttrs,
                                     'catalogSourceFields' => $catalogSourceFields,
                                 ])

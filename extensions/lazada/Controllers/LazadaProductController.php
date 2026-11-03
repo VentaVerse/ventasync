@@ -1842,6 +1842,12 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
         $attributes = [];
         $selectedBrandName = '';
         $shown = $listing;
+        $fillStoreId = (int) ($listing->store_id ?? 0);
+        $fill = \App\Channels\Listings\Templates\TemplateFill::onto(
+            new \Extensions\Lazada\Services\Lazada\LazadaTemplateFields($fillStoreId), $listing,
+            \Extensions\Lazada\Models\LazadaListingTemplate::class, $fillStoreId,
+            (auth()->user()?->hasPermission('manage_lazada/product') ?? false) ? request('fill') : null
+        );
         if (!empty($shown->brand_id)) {
             $b = LazadaBrand::query()
                 ->where('region', $this->region())
@@ -1886,9 +1892,8 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
                 'ovd.name as variation_value_name',
             ]);
 
-        $sheet = $this->attributeSheet($listing, $attributes);
+        $sheet = $this->attributeSheet($listing, $attributes, $fill['attributes']);
         $productOwnSaved = $sheet['productOwnAttrs'];
-        $groupAttrs = $sheet['groupAttrs'];
         $saved = $sheet['saved'];
         $productRow = $sheet['productRow'];
         $suggested = $sheet['suggested'];
@@ -1927,6 +1932,7 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
                 !empty($listing->lazada_item_id) ? $listing->variants->pluck('seller_sku')->all() : []
             ),
             'groupBand' => $groupBand,
+            'fill' => $fill,
             'storeId' => (int) (LazadaStore::defaultStore()?->id ?? 0),
             'descriptionTemplates' => \App\Models\DescriptionTemplate::forStore('lazada', (int) (LazadaStore::defaultStore()?->id ?? 0)),
             'mode' => $listing->exists ? 'edit' : 'create',
@@ -1942,7 +1948,6 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
             'variants' => $variants,
             'productRow' => $productRow,
             'suggested' => $suggested,
-            'groupAttrs' => $groupAttrs,
             'productOwnAttrs' => $productOwnSaved,
             'productImageUrl' => $productImageUrl,
             'brands' => collect(),
@@ -2107,7 +2112,7 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
         });
     }
 
-    private function attributeSheet(LazadaListing $listing, array $attributes): array
+    private function attributeSheet(LazadaListing $listing, array $attributes, ?array $filled = null): array
     {
         $langId = (int) config('catalog.default_language_id');
 
@@ -2116,7 +2121,7 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
             ->pluck('value', 'attribute_key')
             ->toArray();
 
-        $saved = $productOwnSaved;
+        $saved = $filled ?? $productOwnSaved;
 
         $productRow = DB::table('products as p')
             ->leftJoin('product_descriptions as pd', function ($j) use ($langId) {
@@ -2135,7 +2140,6 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
 
         return [
             'productOwnAttrs' => $productOwnSaved,
-            'groupAttrs' => $groupAttrs,
             'saved' => $saved,
             'productRow' => $productRow,
             'suggested' => $this->attrs()->suggestForAttributes($attributes, $productRow, $saved),
@@ -2176,7 +2180,6 @@ public function bulkDeleteFromLazada(Request $request, LazadaClient $client)
             'attributes' => $attributes,
             'saved' => $sheet['saved'],
             'suggested' => $sheet['suggested'],
-            'groupAttrs' => $sheet['groupAttrs'],
             'productOwnAttrs' => $sheet['productOwnAttrs'],
             'catalogSourceFields' => LazadaAttributes::CATALOG_SOURCE_FIELDS,
         ])->render();

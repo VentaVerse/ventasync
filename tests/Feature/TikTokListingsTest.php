@@ -51,7 +51,7 @@ class TikTokListingsTest extends TestCase
         $this->imageFile = $dir . '/__tt-listing-test.png';
         $im = imagecreatetruecolor(4, 4);
         imagepng($im, $this->imageFile);
-        imagedestroy($im);
+        unset($im);
 
         $this->callResponses['POST /product/202309/products/search'] = ['ok' => true, 'status' => 200, 'body' => ['code' => 0, 'message' => 'Success',
             'data' => ['products' => [['id' => 'tt-live', 'status' => 'ACTIVATE'], ['id' => 'tt-off', 'status' => 'SELLER_DEACTIVATED']]]]];

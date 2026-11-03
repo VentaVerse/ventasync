@@ -179,7 +179,7 @@ class CatalogImageImporter
         $newAbs = $disk->path($newRel);
 
         imagejpeg($im, $newAbs, 90);
-        imagedestroy($im);
+        unset($im);
 
         if ($newAbs !== $absPath) {
             @unlink($absPath);

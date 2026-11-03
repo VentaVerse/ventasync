@@ -102,6 +102,8 @@
         @method('PUT')
         <x-channel.listing-body>
             <x-slot:main>
+                @include('partials.listing-template-fill', ['canManage' => $canManage])
+
                 @include('partials.listing-group-band', [
                     'canManage' => $canManage,
                 ])

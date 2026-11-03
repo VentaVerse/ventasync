@@ -46,7 +46,6 @@ abstract class ListingTemplateController extends Controller
     public function index()
     {
         $rows = $this->query()->orderBy('name')->get(['id', 'name', 'markup_percent', 'markup_fixed']);
-        $usage = \App\Channels\Listings\TemplateUsage::listingTemplate($this->channel(), $this->storeId(), $rows->pluck('id')->all());
 
         return view('channels.listing-templates.index', [
             'channelName' => $this->channelName(),
@@ -54,7 +53,6 @@ abstract class ListingTemplateController extends Controller
                 'id' => (int) $t->id,
                 'name' => (string) $t->name,
                 'price_rule' => $this->priceRule($t),
-                'used_by' => \App\Channels\Listings\TemplateUsage::sentence($usage[(int) $t->id] ?? []),
                 'edit_url' => $this->to('edit', ['template' => $t->id]),
                 'destroy_url' => $this->to('destroy', ['template' => $t->id]),
             ]),
@@ -102,10 +100,6 @@ abstract class ListingTemplateController extends Controller
         $row = $this->own($this->templateId());
         abort_unless($this->canManage(), 403);
         $name = (string) $row->name;
-        $usedBy = \App\Channels\Listings\TemplateUsage::sentence(\App\Channels\Listings\TemplateUsage::listingTemplate($this->channel(), $this->storeId(), [(int) $row->id])[(int) $row->id] ?? []);
-        if ($usedBy !== '') {
-            return redirect($this->to('index'))->with('error', 'Not deleted. "' . $name . '" is used by ' . $usedBy . '.');
-        }
         $row->delete();
         ActivityLogger::log('deleted', 'Listing template', (int) $row->id, $name);
 
@@ -131,7 +125,7 @@ abstract class ListingTemplateController extends Controller
             'previewUrl' => $this->to('preview'),
             'applyUrl' => $this->to('apply'),
             'productsUrl' => $this->backTo($request),
-            'backLabel' => $request->filled('_return') ? 'Product group' : 'Products',
+            'backLabel' => 'Products',
             'returnTo' => $request->filled('_return') ? $this->backTo($request) : null,
         ]);
     }
@@ -161,20 +155,6 @@ abstract class ListingTemplateController extends Controller
         return \App\Support\BackTo::safe($request->input('_return'), $this->productsUrl());
     }
 
-    private function usedBy(int $templateId)
-    {
-        $ch = $this->channel();
-        $key = in_array($ch, ['woocommerce', 'ventacart'], true) ? 'group' : 'id';
-
-        return \Illuminate\Support\Facades\DB::table('ch_' . $ch . '_product_groups')
-            ->where('store_id', $this->storeId())->where('listing_template_id', $templateId)
-            ->orderBy('name')->get(['id', 'name'])
-            ->map(fn ($g) => (object) [
-                'name' => (string) $g->name,
-                'url' => route('ext.' . $ch . '.product-groups.edit', ['store' => $this->storeId(), $key => $g->id]),
-            ]);
-    }
-
     private function productIds(Request $request): array
     {
         $ids = array_values(array_unique(array_filter(array_map('intval', (array) $request->input('product_ids', [])), fn ($v) => $v > 0)));
@@ -202,7 +182,6 @@ abstract class ListingTemplateController extends Controller
             'channel' => $ch,
             'channelName' => $this->channelName(),
             'template' => $template,
-            'usedBy' => $template->exists ? $this->usedBy((int) $template->id) : collect(),
             'saveUrl' => $template->exists ? $this->to('update', ['template' => $template->id]) : $this->to('store'),
             'indexUrl' => $this->to('index'),
             'destroyUrl' => $template->exists ? $this->to('destroy', ['template' => $template->id]) : null,

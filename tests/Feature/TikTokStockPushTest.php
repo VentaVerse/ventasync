@@ -48,7 +48,7 @@ class TikTokStockPushTest extends TestCase
         $this->imageFile = $dir . '/__tt-stock-test.png';
         $im = imagecreatetruecolor(4, 4);
         imagepng($im, $this->imageFile);
-        imagedestroy($im);
+        unset($im);
 
         $test = $this;
         $fake = new class($test) extends TikTokClient {

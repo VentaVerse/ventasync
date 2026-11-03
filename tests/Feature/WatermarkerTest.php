@@ -29,7 +29,7 @@ class WatermarkerTest extends TestCase
         imagefill($im, 0, 0, imagecolorallocate($im, ...$rgb));
         $path = $this->dir . '/photo-' . $w . 'x' . $h . '.jpg';
         imagejpeg($im, $path, 95);
-        imagedestroy($im);
+        unset($im);
 
         return $path;
     }
@@ -44,7 +44,7 @@ class WatermarkerTest extends TestCase
         imagefilledrectangle($im, 0, 0, (int) ($w / 2) - 1, $h - 1, $red);
         $path = $this->dir . '/mark.png';
         imagepng($im, $path);
-        imagedestroy($im);
+        unset($im);
 
         return $path;
     }
@@ -53,7 +53,7 @@ class WatermarkerTest extends TestCase
     {
         $im = imagecreatefromstring($bytes);
         $rgba = imagecolorat($im, $x, $y);
-        imagedestroy($im);
+        unset($im);
 
         return [($rgba >> 16) & 0xFF, ($rgba >> 8) & 0xFF, $rgba & 0xFF];
     }

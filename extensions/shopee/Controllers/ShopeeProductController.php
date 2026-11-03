@@ -1971,6 +1971,12 @@ class ShopeeProductController extends Controller
         }
 
         $shown = $listing ?? (new ShopeeListing())->forceFill(['product_id' => $productId]);
+        $fillStoreId = (int) (ShopeeStore::defaultStore()?->id ?? 0);
+        $fill = \App\Channels\Listings\Templates\TemplateFill::onto(
+            new \Extensions\Shopee\Services\Shopee\ShopeeTemplateFields($fillStoreId), $listing,
+            \Extensions\Shopee\Models\ShopeeListingTemplate::class, $fillStoreId,
+            (auth()->user()?->hasPermission('manage_shopee/product') ?? false) ? request('fill') : null
+        );
 
         $categoryId = (int) ($shown->shopee_category_id ?? 0);
         $groupController = app(ShopeeProductGroupController::class);
@@ -2032,6 +2038,7 @@ class ShopeeProductController extends Controller
             'shown' => $shown,
             'hasVariations' => ShopeeListing::hasVariations($productId),
             'groupBand' => $this->groupBandFor($productId, $shopeeStoreId),
+            'fill' => $fill,
             'storeId' => (int) (\Extensions\Shopee\Models\ShopeeStore::defaultStore()?->id ?? 0),
             'descriptionTemplates' => \App\Models\DescriptionTemplate::forStore('shopee', (int) (\Extensions\Shopee\Models\ShopeeStore::defaultStore()?->id ?? 0)),
         ]);

@@ -99,16 +99,16 @@ final class StoreReadyImages
                     imagejpeg($canvas, null, $quality);
                     $out = (string) ob_get_clean();
                     if (strlen($out) <= (int) $rules['max_bytes']) {
-                        imagedestroy($canvas);
+                        unset($canvas);
 
                         return $out;
                     }
                 }
-                imagedestroy($canvas);
+                unset($canvas);
                 $side = (int) floor($side * 0.8);
             }
         } finally {
-            imagedestroy($source);
+            unset($source);
         }
 
         return null;

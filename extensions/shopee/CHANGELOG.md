@@ -2,9 +2,14 @@
 
 ## 0.31.1 (2026-11-02)
 
+### New features
+
+- Edit listing can fill its fields from a listing template, and nothing is saved until Save listing.
+
 ### Updates
 
 - Sync stock and Sync price are back on each listing's menu and on the selection bar.
+- A product group no longer holds a listing template; a template is applied from the Products page selection bar.
 - Its CSS and JavaScript now ship inside the extension and load only while it is enabled.
 
 ### Bug fixes

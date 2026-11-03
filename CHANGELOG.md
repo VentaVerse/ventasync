@@ -4,12 +4,15 @@
 
 ### New features
 
+- Edit listing can fill its fields from a listing template for a single product.
 - `php artisan ventasync:reset-link <username>` prints a one-time link, valid for 30 minutes, where that user sets a new username and password. It needs no email, for a forgotten administrator password on a server without mail.
 - **Settings > Extensions** shows how much data each extension holds. An uninstalled extension's data can be deleted there, after typing its name.
 
 ### Updates
 
 - The row menu and selection bar can show Sync stock and Sync price for a channel that offers them.
+- A product group is a name and its products, with no listing template of its own.
+- A listing template can be deleted at any time; listings it was applied to keep their values.
 - The Products page lists the store's product groups in its left menu again, as a filter.
 - The Products page tabs read Live, Not live, then All.
 - A channel's overview shows revenue and orders per day as a pair of bars.
@@ -22,6 +25,8 @@
 
 - TikTok Shop orders and returns showed a time 8 hours earlier than they were placed.
 - Delete listing template on a template's page did not delete it.
+- Saving one category wrote its name, description and meta title onto every category.
+- Edit listing on Lazada logged a PHP warning on every load.
 
 ## 2.0.0-beta.1 (2026-10-23)
 

@@ -26,7 +26,6 @@
         <x-slot:head>
             <tr>
                 <th scope="col">Product group</th>
-                <th scope="col">Listing template</th>
                 <th scope="col" class="cc-col-count x-td-num">Products</th>
                 <th scope="col" class="x-td-actions"><span class="x-sr">Actions</span></th>
             </tr>
@@ -34,7 +33,6 @@
         @foreach($groups as $g)
             <tr>
                 <td data-label="Product group"><a class="x-row-link" href="{{ $g->editUrl }}">{{ $g->name }}</a></td>
-                <td data-label="Listing template">@if($g->template !== ''){{ $g->template }}@else<span class="x-cell-muted">None</span>@endif</td>
                 <td class="cc-col-count x-td-num" data-label="Products"><span class="x-num">{{ number_format($g->count) }}</span></td>
                 <td class="x-td-actions">
                     @if($canManage)

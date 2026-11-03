@@ -67,11 +67,10 @@ class ProductGroupPageTest extends TestCase
         DB::table('ch_shopee_product_group_products')->insert(['shopee_product_group_id' => $group->id, 'product_id' => $pid]);
     }
 
-    public function test_the_group_page_lists_its_products_its_template_and_the_add_panel(): void
+    public function test_the_group_page_holds_its_name_and_products_and_no_template(): void
     {
-        $template = ShopeeListingTemplate::create(['store_id' => $this->storeId(), 'name' => 'Pedals, 10% up', 'markup_percent' => 10]);
+        ShopeeListingTemplate::create(['store_id' => $this->storeId(), 'name' => 'Pedals, 10% up', 'markup_percent' => 10]);
         $group = ShopeeProductGroup::create(['name' => 'Pedals']);
-        $group->forceFill(['listing_template_id' => $template->id])->save();
         $pid = $this->product('Fuzz pedal', 'FUZZ-1');
         $this->member($group, $pid);
 
@@ -80,39 +79,27 @@ class ProductGroupPageTest extends TestCase
             ->assertSee('Fuzz pedal')
             ->assertSee('FUZZ-1')
             ->assertSee('Products in this group')
-            ->assertSee('Apply to 1 product')
             ->assertSee('data-add-panel-open', false)
             ->assertSee('data-add-panel-group value="' . $group->id . '"', false)
-            ->assertSee('name="product_ids[]" value="' . $pid . '"', false)
-            ->assertSee(e(route('ext.shopee.listings.edit', ['productId' => $pid])), false);
-
-        $html = $this->actingAs($this->user())->get(route('ext.shopee.product-groups.edit', ['id' => $group->id]))->getContent();
-        $edit = e(route('ext.shopee.listing-templates.edit', ['template' => $template->id]));
-        $this->assertMatchesRegularExpression('~<select[^>]*data-pg-template~', $html, 'the dropdown carries the hook');
-        $this->assertMatchesRegularExpression('~<a [^>]*href="' . preg_quote($edit, '~') . '"[^>]*target="_blank"[^>]*data-pg-template-view~', $html, 'View template opens the chosen template in a new tab');
-        $this->assertStringContainsString('data-url="' . $edit . '"', $html);
-
-        $this->actingAs($this->user(['view_shopee/product', 'view_shopee/product_group']))->get(route('ext.shopee.product-groups.edit', ['id' => $group->id]))
-            ->assertOk()->assertDontSee('data-pg-template-view', false);
+            ->assertSee(e(route('ext.shopee.listings.edit', ['productId' => $pid])), false)
+            ->assertDontSee('Listing template')
+            ->assertDontSee('Pedals, 10% up')
+            ->assertDontSee('Apply to 1 product');
 
         $this->actingAs($this->user())->get(route('ext.shopee.product-groups.index'))
-            ->assertOk()->assertSee('Pedals, 10% up')
+            ->assertOk()->assertDontSee('Listing template')
             ->assertSee(e(route('ext.shopee.product-groups.edit', ['id' => $group->id])), false);
     }
 
-    public function test_the_group_keeps_a_template_of_its_own_store_only(): void
+    public function test_saving_a_group_keeps_only_its_name(): void
     {
         $group = ShopeeProductGroup::create(['name' => 'Pedals']);
-        $mine = ShopeeListingTemplate::create(['store_id' => $this->storeId(), 'name' => 'Mine']);
-        $outlet = ShopeeStore::query()->create(['mode' => 'live', 'partner_id' => '1', 'partner_key' => 'k', 'shop_id' => '3', 'access_token' => 't', 'refresh_token' => 'r', 'store_name' => 'Outlet']);
-        $other = ShopeeListingTemplate::create(['store_id' => $outlet->id, 'name' => 'Other store']);
 
-        $this->actingAs($this->user())->put(route('ext.shopee.product-groups.update', ['id' => $group->id]), ['name' => 'Pedals', 'listing_template_id' => $other->id])
-            ->assertSessionHasErrors('listing_template_id');
-        $this->actingAs($this->user())->put(route('ext.shopee.product-groups.update', ['id' => $group->id]), ['name' => 'Pedals', 'listing_template_id' => $mine->id])
+        $this->actingAs($this->user())->put(route('ext.shopee.product-groups.update', ['id' => $group->id]), ['name' => 'Fuzz pedals', 'listing_template_id' => 5])
             ->assertRedirect(route('ext.shopee.product-groups.edit', ['id' => $group->id]));
 
-        $this->assertSame($mine->id, (int) $group->fresh()->listing_template_id);
+        $this->assertSame('Fuzz pedals', $group->fresh()->name);
+        $this->assertFalse(\Illuminate\Support\Facades\Schema::hasColumn('ch_shopee_product_groups', 'listing_template_id'));
     }
 
     public function test_the_search_says_where_each_product_stands(): void
@@ -180,53 +167,27 @@ class ProductGroupPageTest extends TestCase
         $this->assertTrue(DB::table('ch_shopee_product_group_products')->where('product_id', $pid)->exists());
     }
 
-    public function test_applying_from_the_group_returns_to_the_group(): void
+    public function test_the_templates_page_is_a_list_and_any_template_can_be_deleted(): void
     {
-        $template = ShopeeListingTemplate::create(['store_id' => $this->storeId(), 'name' => 'Pedals, 10% up', 'markup_percent' => 10]);
-        $group = ShopeeProductGroup::create(['name' => 'Pedals']);
-        $pid = $this->product('Fuzz pedal', 'FUZZ-1');
-        $this->member($group, $pid);
-        ShopeeListing::query()->create(['product_id' => $pid]);
-        $back = route('ext.shopee.product-groups.edit', ['id' => $group->id], false);
-
-        $this->actingAs($this->user())->post(route('ext.shopee.listing-templates.preview'), ['template_id' => $template->id, 'product_ids' => [$pid], '_return' => $back])
-            ->assertOk()->assertSee('name="_return" value="' . $back . '"', false)->assertSee('Product group');
-
-        $this->actingAs($this->user())->post(route('ext.shopee.listing-templates.apply'), ['template_id' => $template->id, 'product_ids' => [$pid], '_return' => $back])
-            ->assertRedirect($back);
-        $this->assertSame(10.0, (float) ShopeeListing::query()->where('product_id', $pid)->value('markup_percent'));
-    }
-
-    public function test_the_templates_page_is_a_list_and_a_template_in_use_is_not_deleted(): void
-    {
-        $used = ShopeeListingTemplate::create(['store_id' => $this->storeId(), 'name' => 'Pedals, 10% up', 'markup_percent' => 10]);
+        $first = ShopeeListingTemplate::create(['store_id' => $this->storeId(), 'name' => 'Pedals, 10% up', 'markup_percent' => 10]);
         $free = ShopeeListingTemplate::create(['store_id' => $this->storeId(), 'name' => 'Cables, 5% up']);
-        $group = ShopeeProductGroup::create(['name' => 'Pedals']);
-        $group->forceFill(['listing_template_id' => $used->id])->save();
+        ShopeeProductGroup::create(['name' => 'Pedals']);
 
         $this->actingAs($this->user())->get(route('ext.shopee.listing-templates.index'))
             ->assertOk()
             ->assertSee('Pedals, 10% up')->assertSee('Cables, 5% up')
             ->assertSee('+10%')
-            ->assertSee('1 product group')
+            ->assertDontSee('Used by')
             ->assertSee(e(route('ext.shopee.listing-templates.edit', ['template' => $free->id])), false)
             ->assertDontSee('data-nav-select', false);
 
-        $this->actingAs($this->user())->get(route('ext.shopee.listing-templates.edit', ['template' => $used->id]))
-            ->assertOk()->assertDontSee('data-nav-select', false)->assertSee('Used by')
-            ->assertSee(e(route('ext.shopee.product-groups.edit', ['id' => $group->id])), false);
-
         $this->actingAs($this->user())->get(route('ext.shopee.listing-templates.edit', ['template' => $free->id]))
-            ->assertOk()->assertSee('action="' . e(route('ext.shopee.listing-templates.destroy', ['template' => $free->id])) . '"', false);
+            ->assertOk()->assertDontSee('Used by')
+            ->assertSee('action="' . e(route('ext.shopee.listing-templates.destroy', ['template' => $free->id])) . '"', false);
 
-        $this->actingAs($this->user())->delete(route('ext.shopee.listing-templates.destroy', ['template' => $used->id]))
-            ->assertRedirect(route('ext.shopee.listing-templates.index'))
-            ->assertSessionHas('error', 'Not deleted. "Pedals, 10% up" is used by 1 product group.');
-        $this->assertNotNull($used->fresh());
-
-        $this->actingAs($this->user())->delete(route('ext.shopee.listing-templates.destroy', ['template' => $free->id]))
+        $this->actingAs($this->user())->delete(route('ext.shopee.listing-templates.destroy', ['template' => $first->id]))
             ->assertRedirect(route('ext.shopee.listing-templates.index'));
-        $this->assertNull($free->fresh());
+        $this->assertNull($first->fresh());
     }
 
     public function test_a_description_template_or_watermark_in_use_is_not_deleted(): void

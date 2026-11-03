@@ -20,6 +20,7 @@
 
         var saved = snapshot(form);
         if (saved === null) return;
+        if (document.querySelector('[data-guard-filled]')) saved = '';
         var leaving = false;
 
         var exits = Array.prototype.slice.call(document.querySelectorAll('[data-guard-leave]'));

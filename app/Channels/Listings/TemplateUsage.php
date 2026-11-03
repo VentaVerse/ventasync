@@ -41,18 +41,6 @@ final class TemplateUsage
         ]);
     }
 
-    public static function listingTemplate(string $channel, int $storeId, array $ids): array
-    {
-        $ids = self::ids($ids);
-        if ($ids === []) {
-            return [];
-        }
-
-        return self::shape($ids, [
-            'product group' => self::counts('ch_' . $channel . '_product_groups', 'listing_template_id', $storeId, $ids),
-        ]);
-    }
-
     public static function sentence(array $usage): string
     {
         $parts = [];

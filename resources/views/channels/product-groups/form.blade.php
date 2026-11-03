@@ -44,35 +44,6 @@
                         </x-ui.field>
                     </div>
                 </section>
-
-                @if($group->exists)
-                    <section class="fm-section">
-                        <div class="fm-section__head">
-                            <h2 class="fm-section__title">Listing template</h2>
-                        </div>
-                        <div class="pg-template">
-                            <x-ui.field label="Template for this group" for="pg-template" name="listing_template_id">
-                                <x-ui.select id="pg-template" name="listing_template_id" :disabled="! $canManage" data-pg-template>
-                                    <option value="">None</option>
-                                    @foreach($templates as $templateId => $templateName)
-                                        <option value="{{ $templateId }}" data-url="{{ $templateUrls[$templateId] ?? '' }}" @selected((string) old('listing_template_id', $group->listing_template_id) === (string) $templateId)>{{ $templateName }}</option>
-                                    @endforeach
-                                </x-ui.select>
-                            </x-ui.field>
-                            @if($templateUrls !== [])
-                                @php $chosenTemplate = (int) old('listing_template_id', $group->listing_template_id); @endphp
-                                <a class="pg-template__view" href="{{ $templateUrls[$chosenTemplate] ?? '#' }}" target="_blank" rel="noopener" data-pg-template-view
-                                   @if(! isset($templateUrls[$chosenTemplate])) hidden @endif>View template <x-ui.icon name="external-link" size="11" /></a>
-                            @endif
-                            @if($canApply && $group->listing_template_id && $members->isNotEmpty())
-                                <x-ui.button type="submit" form="pg-apply">Apply to {{ number_format($members->count()) }} {{ $members->count() === 1 ? 'product' : 'products' }}</x-ui.button>
-                            @endif
-                        </div>
-                        @if($templates->isEmpty())
-                            <p class="fm-section__note"><a href="{{ $templatesUrl }}">Create a listing template</a></p>
-                        @endif
-                    </section>
-                @endif
             </div>
         </div>
 
@@ -86,17 +57,6 @@
     </form>
 
     @if($group->exists)
-        @if($canApply && $group->listing_template_id)
-            <form method="POST" id="pg-apply" action="{{ $previewUrl }}" hidden>
-                @csrf
-                <input type="hidden" name="template_id" value="{{ $group->listing_template_id }}">
-                <input type="hidden" name="_return" value="{{ request()->getRequestUri() }}">
-                @foreach($members as $member)
-                    <input type="hidden" name="product_ids[]" value="{{ $member->id }}">
-                @endforeach
-            </form>
-        @endif
-
         <section class="fm-section pg-members">
             <div class="fm-section__head pg-members__head">
                 <h2 class="fm-section__title">Products in this group <span class="x-num">{{ number_format($members->count()) }}</span></h2>

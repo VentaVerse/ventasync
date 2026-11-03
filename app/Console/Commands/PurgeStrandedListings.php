@@ -54,6 +54,6 @@ class PurgeStrandedListings extends Command
         }
         $this->info("{$forgotten} forgotten.");
 
-        return $refused > 0 ? self::FAILURE : self::SUCCESS;
+        return self::SUCCESS;
     }
 }

@@ -134,6 +134,7 @@
         </main>
     </div>
 </div>
+@stack('forms')
 @include('partials.confirm-modal')
 <x-ui.palette />
 @stack('scripts')

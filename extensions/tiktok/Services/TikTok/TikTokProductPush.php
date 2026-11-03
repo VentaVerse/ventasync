@@ -307,11 +307,11 @@ class TikTokProductPush
         $white = imagecolorallocate($canvas, 255, 255, 255);
         imagefill($canvas, 0, 0, $white);
         imagecopyresampled($canvas, $src, (int) (($size - $w) / 2), (int) (($size - $h) / 2), 0, 0, $w, $h, $w, $h);
-        imagedestroy($src);
+        unset($src);
         ob_start();
         imagejpeg($canvas, null, 90);
         $data = ob_get_clean();
-        imagedestroy($canvas);
+        unset($canvas);
 
         return $data ?: null;
     }

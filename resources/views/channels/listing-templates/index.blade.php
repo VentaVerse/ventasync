@@ -27,7 +27,6 @@
             <tr>
                 <th scope="col">Name</th>
                 <th scope="col">Price rule</th>
-                <th scope="col">Used by</th>
                 <th scope="col" class="x-td-actions"><span class="x-sr">Actions</span></th>
             </tr>
         </x-slot:head>
@@ -35,14 +34,13 @@
             <tr>
                 <td data-label="Name"><a href="{{ $t->edit_url }}">{{ $t->name }}</a></td>
                 <td data-label="Price rule"><span class="x-num">{{ $t->price_rule }}</span></td>
-                <td data-label="Used by">{{ $t->used_by !== '' ? $t->used_by : 'Not used' }}</td>
                 <td class="x-td-actions">
                     <x-ui.button size="sm" :href="$t->edit_url">{{ $canManage ? 'Edit' : 'View' }}</x-ui.button>
                     @if($canManage)
                         <form method="POST" action="{{ $t->destroy_url }}"
                               data-confirm="Delete the listing template &quot;{{ $t->name }}&quot;? Listings it was applied to keep their values." data-confirm-verb="Delete">
                             @csrf @method('DELETE')
-                            <x-ui.button type="submit" size="sm" :disabled="$t->used_by !== ''">Delete</x-ui.button>
+                            <x-ui.button type="submit" size="sm">Delete</x-ui.button>
                         </form>
                     @endif
                 </td>

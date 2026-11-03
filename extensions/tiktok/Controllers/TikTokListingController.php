@@ -68,6 +68,12 @@ class TikTokListingController extends Controller
         }
 
         $shown = $listing ?? (new TikTokListing())->forceFill(['product_id' => $productId]);
+        $fillStoreId = (int) (TikTokStore::defaultStore()?->id ?? 0);
+        $fill = \App\Channels\Listings\Templates\TemplateFill::onto(
+            new \Extensions\TikTok\Services\TikTok\TikTokTemplateFields($fillStoreId), $listing,
+            \Extensions\TikTok\Models\TikTokListingTemplate::class, $fillStoreId,
+            (auth()->user()?->hasPermission('manage_tiktok/listing') ?? false) ? request('fill') : null
+        );
 
         $attributes = app(TikTokAttributes::class);
         $template = ($shown->tiktok_category_id && $c)
@@ -122,6 +128,7 @@ class TikTokListingController extends Controller
             'readinessMissing' => $readiness['missing'],
             'readiness' => $readiness,
             'groupBand' => $groupBand,
+            'fill' => $fill,
             'storeId' => (int) (TikTokStore::defaultStore()?->id ?? 0),
             'descriptionTemplates' => \App\Models\DescriptionTemplate::forStore('tiktok', (int) (TikTokStore::defaultStore()?->id ?? 0)),
         ]);
