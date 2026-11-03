@@ -7,17 +7,20 @@
 - `php artisan ventasync:reset-link <username>` prints a one-time link, valid for 30 minutes, where that user sets a new username and password. It needs no email, for a forgotten administrator password on a server without mail.
 - **Settings > Extensions** shows how much data each extension holds. An uninstalled extension's data can be deleted there, after typing its name.
 
-### Bug fixes
-
-- TikTok Shop orders and returns showed a time 8 hours earlier than they were placed.
-
 ### Updates
 
 - The row menu and selection bar can show Sync stock and Sync price for a channel that offers them.
+- The Products page lists the store's product groups in its left menu again, as a filter.
+- The Products page tabs read Live, Not live, then All.
 - Uninstalling an extension keeps its data; installing it again brings it back.
 - An extension creates its own tables when it is installed, so a server holds only the tables of the extensions it uses.
 - An extension carries its own CSS and JavaScript in an `assets` folder, and they load only while it is enabled.
 - Some minor improvements.
+
+### Bug fixes
+
+- TikTok Shop orders and returns showed a time 8 hours earlier than they were placed.
+- Delete listing template on a template's page did not delete it.
 
 ## 2.0.0-beta.1 (2026-10-23)
 

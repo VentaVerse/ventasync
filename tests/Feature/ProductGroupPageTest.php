@@ -216,6 +216,9 @@ class ProductGroupPageTest extends TestCase
             ->assertOk()->assertDontSee('data-nav-select', false)->assertSee('Used by')
             ->assertSee(e(route('ext.shopee.product-groups.edit', ['id' => $group->id])), false);
 
+        $this->actingAs($this->user())->get(route('ext.shopee.listing-templates.edit', ['template' => $free->id]))
+            ->assertOk()->assertSee('action="' . e(route('ext.shopee.listing-templates.destroy', ['template' => $free->id])) . '"', false);
+
         $this->actingAs($this->user())->delete(route('ext.shopee.listing-templates.destroy', ['template' => $used->id]))
             ->assertRedirect(route('ext.shopee.listing-templates.index'))
             ->assertSessionHas('error', 'Not deleted. "Pedals, 10% up" is used by 1 product group.');

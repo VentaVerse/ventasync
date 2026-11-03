@@ -205,6 +205,7 @@ abstract class ListingTemplateController extends Controller
             'usedBy' => $template->exists ? $this->usedBy((int) $template->id) : collect(),
             'saveUrl' => $template->exists ? $this->to('update', ['template' => $template->id]) : $this->to('store'),
             'indexUrl' => $this->to('index'),
+            'destroyUrl' => $template->exists ? $this->to('destroy', ['template' => $template->id]) : null,
             'fields' => $this->fieldsData($template),
             'canManage' => $this->canManage(),
             'storeId' => $this->storeId(),

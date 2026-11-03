@@ -4,7 +4,7 @@ namespace App\Channels\Listings;
 
 final class StatusMenu
 {
-    public const TREE = ['all' => 'All', 'not_uploaded' => 'Not live on %s', 'uploaded' => 'Live on %s'];
+    public const TREE = ['uploaded' => 'Live on %s', 'not_uploaded' => 'Not live on %s', 'all' => 'All'];
 
     public const VALUES = ['all', 'not_uploaded', 'uploaded'];
 

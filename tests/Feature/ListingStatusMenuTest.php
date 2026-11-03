@@ -172,9 +172,9 @@ class ListingStatusMenuTest extends TestCase
         $this->assertStringNotContainsString('sync_status', $onLive['everything']['url'], 'All products opens on All');
         $this->assertStringContainsString('q=cable', $onLive['groups'][0]['url'], 'the search still rides along');
 
-        $this->assertSame(['All', 'Not live on Lazada', 'Live on Lazada'], array_column($menu['stand'], 'label'));
-        $this->assertSame([10, 4, 6], array_column($menu['stand'], 'count'));
-        $this->assertStringContainsString('sync_status=uploaded', $menu['stand'][2]['url']);
+        $this->assertSame(['Live on Lazada', 'Not live on Lazada', 'All'], array_column($menu['stand'], 'label'));
+        $this->assertSame([6, 4, 10], array_column($menu['stand'], 'count'));
+        $this->assertStringContainsString('sync_status=uploaded', $menu['stand'][0]['url']);
         $this->assertStringNotContainsString('failed=1', $menu['flags'][0]['url'], 'pressing an on switch turns it off');
     }
 
@@ -207,9 +207,13 @@ class ListingStatusMenuTest extends TestCase
         $all->assertSee('Product group: Cables');
         $this->assertStringContainsString(e(route('ext.lazada.product-groups.edit', ['id' => $group->id])) . '">Product group: Cables</a>', $all->getContent(), 'the chip opens the group page');
 
+        $all->assertSee('lsm-grp', false)->assertSee('Ungrouped');
+        $this->assertStringContainsString(e(route('ext.lazada.products.index', ['group' => $group->id])), $all->getContent(), 'the menu filters by the group');
+
         $page = $this->actingAs($user)->get(route('ext.lazada.products.index', ['group' => $group->id]))->assertOk();
         $page->assertSee('Listed and fine')->assertDontSee('Not on Lazada yet')->assertSee('Cables');
         $page->assertDontSee('Product group: ');
+        $page->assertDontSee('Move to group')->assertDontSee('Remove from group');
 
         $this->actingAs($user)->get(route('ext.lazada.products.index', ['group' => 'none']))
             ->assertOk()->assertSee('Not on Lazada yet')->assertDontSee('Listed and fine');
