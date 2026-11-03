@@ -1,3 +1,4 @@
+{
 document.addEventListener('DOMContentLoaded', function () {
     var page = document.getElementById('shopee-orders-page');
     var returnsPage = document.getElementById('shopee-returns-page');
@@ -552,3 +553,18 @@ document.addEventListener('DOMContentLoaded', function () {
         }, true);
     }
 });
+}
+
+{
+const { initChannelListings } = window.VentaSync;
+
+document.addEventListener('DOMContentLoaded', function () {
+    initChannelListings({
+        overlaySelector: '#shopee-listings-progress',
+        bulkField: 'product_ids[]',
+        slowTitle: 'Talking to Shopee',
+        bulkTitle: (count) => 'Working on ' + count + (count === 1 ? ' product' : ' products'),
+        emptyMessage: 'Select at least one product first.',
+    });
+});
+}

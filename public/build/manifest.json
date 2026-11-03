@@ -1,6 +1,6 @@
 {
   "resources/css/blotter.css": {
-    "file": "assets/blotter-DCjDXz55.css",
+    "file": "assets/blotter-CvZrOsWW.css",
     "src": "resources/css/blotter.css",
     "isEntry": true,
     "name": "blotter",
@@ -20,8 +20,14 @@
     "file": "assets/JetBrainsMono-CA-Os4ii.woff2",
     "src": "resources/fonts/JetBrainsMono.woff2"
   },
+  "resources/js/alpine-start.js": {
+    "file": "assets/alpine-start-CMQ2mnRs.js",
+    "name": "alpine-start",
+    "src": "resources/js/alpine-start.js",
+    "isEntry": true
+  },
   "resources/js/app.js": {
-    "file": "assets/app-Cg6WX8rs.js",
+    "file": "assets/app-DRoBvBqV.js",
     "name": "app",
     "src": "resources/js/app.js",
     "isEntry": true

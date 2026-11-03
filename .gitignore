@@ -16,6 +16,7 @@
 /public/hot
 /public/storage
 /public/images/extensions
+/public/extension-assets
 /storage/*.key
 /storage/oauth-keys.lock
 /storage/pail

@@ -25,13 +25,3 @@
     font-variant-numeric: tabular-nums;
     text-align: right;
 }
-
-.x-inline-input.is-invalid {
-    border-color: var(--bl-bad);
-    background: color-mix(in srgb, var(--bl-bad) 8%, transparent);
-}
-
-.x-inline-input.is-invalid:focus {
-    border-color: var(--bl-bad);
-    box-shadow: 0 0 0 3px color-mix(in srgb, var(--bl-bad) 20%, transparent);
-}

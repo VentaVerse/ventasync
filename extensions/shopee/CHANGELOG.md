@@ -1,5 +1,15 @@
 # Shopee changelog
 
+## 0.31.1 (2026-11-02)
+
+### Updates
+
+- Its CSS and JavaScript now ship inside the extension and load only while it is enabled.
+
+### Bug fixes
+
+- The connection page shows the Redirect URL Domain Shopee asks for.
+
 ## 0.31.0 (2026-10-23)
 
 ### New features

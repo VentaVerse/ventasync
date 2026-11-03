@@ -8,6 +8,9 @@
     @endphp
     <title>@yield('title', 'Print') - {{ $__companyName }}</title>
     @vite(['resources/css/blotter.css'])
+    @foreach(\App\Extensions\ExtensionAssets::styles() as $url)
+        <link rel="stylesheet" href="{{ $url }}">
+    @endforeach
 </head>
 <body class="pl-doc">
 @yield('content')

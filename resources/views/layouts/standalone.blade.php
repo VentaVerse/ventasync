@@ -15,7 +15,7 @@
     <link rel="shortcut icon" href="{{ $__faviconUrl }}">
     <link rel="apple-touch-icon" href="{{ $__faviconUrl }}">
     @include('partials.theme-boot')
-    @vite(['resources/css/blotter.css', 'resources/js/app.js'])
+    @include('partials.app-assets')
     @stack('styles')
 </head>
 <body class="x-app">

@@ -71,6 +71,7 @@
 
 @source '../views';
 @source '../../extensions/**/views';
+@source '../../extensions/**/assets';
 
 @font-face {
     font-family: 'Archivo';

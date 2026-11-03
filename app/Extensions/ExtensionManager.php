@@ -163,6 +163,7 @@ class ExtensionManager
         $this->registerProviderNow($id);
         $this->syncPermissions();
         ExtensionImages::publish($id);
+        ExtensionAssets::publish($id);
         $this->clearCache();
 
         return true;
@@ -179,6 +180,7 @@ class ExtensionManager
         }
 
         ExtensionImages::remove($id);
+        ExtensionAssets::remove($id);
 
         if ($deleteFiles) {
             $dir = $this->extensionsPath . '/' . $id;
@@ -217,6 +219,7 @@ class ExtensionManager
         $this->registerProviderNow($id);
         $this->syncPermissions();
         ExtensionImages::publish($id);
+        ExtensionAssets::publish($id);
         $this->clearCache();
 
         return true;

@@ -8,7 +8,7 @@ class VentaCartBookingChoicesTest extends TestCase
 {
     private function js(): string
     {
-        return (string) file_get_contents(base_path('resources/js/pages/ventacart-orders.js'));
+        return (string) file_get_contents(base_path('extensions/ventacart/assets/ventacart.js'));
     }
 
     public function test_the_parcel_and_schedule_start_at_choose_one(): void

@@ -9,7 +9,7 @@
     @endif
     <title>@yield('title', config('app.name', 'VentaSync'))</title>
     @include('partials.theme-boot')
-    @vite(['resources/css/blotter.css', 'resources/js/app.js'])
+    @include('partials.app-assets')
     @stack('styles')
 </head>
 <body class="bl-app min-h-screen @yield('body-class')" @hasSection('body-attrs')@yield('body-attrs')@endif>

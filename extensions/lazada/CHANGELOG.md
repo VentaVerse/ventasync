@@ -1,5 +1,11 @@
 # Lazada changelog
 
+## 0.31.1 (2026-11-02)
+
+### Updates
+
+- Its CSS and JavaScript now ship inside the extension and load only while it is enabled.
+
 ## 0.31.0 (2026-10-23)
 
 ### New features

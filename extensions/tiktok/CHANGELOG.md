@@ -1,6 +1,10 @@
 # TikTok Shop changelog
 
-## Unreleased
+## 0.31.1 (2026-11-02)
+
+### Updates
+
+- Its CSS and JavaScript now ship inside the extension and load only while it is enabled.
 
 ### Bug fixes
 

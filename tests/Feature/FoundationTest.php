@@ -788,12 +788,14 @@ class FoundationTest extends TestCase
 
     private function stylesheets(): array
     {
-        return array_map(
+        $core = array_map(
             fn ($file) => $file->getPathname(),
             array_filter(
                 \Tests\SourceFiles::in(resource_path('css')),
                 fn ($file) => $file->getExtension() === 'css'
             )
         );
+
+        return array_merge($core, glob(base_path('extensions/*/assets/*.css')) ?: []);
     }
 }

@@ -94,62 +94,6 @@
 
 .cl-json:empty { display: none; }
 
-.cl-summary {
-    display: flex;
-    align-items: center;
-    gap: var(--bl-space-3);
-    min-width: 0;
-}
-
-.cl-summary__thumb {
-    flex: none;
-    width: 56px;
-    height: 56px;
-    object-fit: cover;
-    border-radius: var(--bl-r-dot);
-    background: var(--bl-chrome);
-    border: 1px solid var(--bl-rule);
-}
-
-.cl-summary__none {
-    display: flex;
-    flex: none;
-    align-items: center;
-    justify-content: center;
-    width: 56px;
-    height: 56px;
-    border-radius: var(--bl-r-dot);
-    background: var(--bl-chrome);
-    border: 1px solid var(--bl-rule);
-    color: var(--bl-ink-3);
-    font-size: 10px;
-    text-align: center;
-}
-
-.cl-summary__body { min-width: 0; }
-
-.cl-summary__name {
-    display: block;
-    font-size: 14px;
-    font-weight: 500;
-    color: var(--bl-ink);
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-.cl-summary__meta {
-    display: block;
-    margin-top: 2px;
-    font-family: var(--font-mono);
-    font-variant-numeric: tabular-nums;
-    font-size: 11px;
-    color: var(--bl-ink-3);
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
 @media (max-width: 640px) {
     .cl-images { grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); }
     .cl-image__thumb { height: 80px; }

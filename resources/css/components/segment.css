@@ -148,15 +148,6 @@
 
 .x-segment--sub .x-segment__item.is-active .x-segment__count { color: var(--bl-ink-2); }
 
-.x-segment-bar__aside-group {
-    display: inline-flex;
-    align-items: center;
-    gap: var(--bl-space-3);
-    flex: none;
-}
-
-.x-segment-bar__aside-group form { display: inline-flex; }
-
 .x-segment-bar__aside {
     display: inline-flex;
     align-items: center;
@@ -178,8 +169,7 @@
         gap: var(--bl-space-2);
     }
 
-    .x-segment-bar__aside,
-    .x-segment-bar__aside-group { align-self: flex-start; }
+    .x-segment-bar__aside { align-self: flex-start; }
 }
 
 @media (pointer: coarse) {

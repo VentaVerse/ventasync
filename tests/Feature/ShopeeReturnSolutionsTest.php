@@ -81,7 +81,7 @@ class ShopeeReturnSolutionsTest extends TestCase
 
     public function test_the_panel_only_draws_what_shopee_permits(): void
     {
-        $js = File::get(resource_path('js/pages/shopee-orders.js'));
+        $js = File::get(base_path('extensions/shopee/assets/shopee.js'));
 
         $this->assertStringContainsString('return s.eligible;', $js,
             'only eligible solutions may be drawn');

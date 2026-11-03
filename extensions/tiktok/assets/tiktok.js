@@ -1,3 +1,4 @@
+{
 document.addEventListener('DOMContentLoaded', function () {
     var page = document.getElementById('tiktok-orders-page');
     var detailPage = document.getElementById('tiktok-order-detail-page');
@@ -263,3 +264,18 @@ document.addEventListener('DOMContentLoaded', function () {
         }, true);
     }
 });
+}
+
+{
+const { initChannelListings } = window.VentaSync;
+
+document.addEventListener('DOMContentLoaded', function () {
+    initChannelListings({
+        overlaySelector: '#tiktok-listings-progress',
+        bulkField: 'product_ids[]',
+        slowTitle: 'Talking to TikTok Shop',
+        bulkTitle: (count) => 'Working on ' + count + (count === 1 ? ' product' : ' products'),
+        emptyMessage: 'Select at least one product first.',
+    });
+});
+}

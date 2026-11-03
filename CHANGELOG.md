@@ -15,6 +15,7 @@
 
 - Uninstalling an extension keeps its data; installing it again brings it back.
 - An extension creates its own tables when it is installed, so a server holds only the tables of the extensions it uses.
+- An extension carries its own CSS and JavaScript in an `assets` folder, and they load only while it is enabled.
 - Some minor improvements.
 
 ## 2.0.0-beta.1 (2026-10-23)

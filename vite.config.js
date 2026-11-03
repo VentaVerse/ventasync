@@ -7,6 +7,7 @@ const candidateInputs = [
     'resources/css/blotter.css',
     'extensions/installer/assets/install.css',
     'resources/js/app.js',
+    'resources/js/alpine-start.js',
 ];
 
 export default defineConfig({

@@ -1,25 +1,3 @@
-.wc-status-form {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: var(--bl-space-2);
-}
-
-.wc-status-form .x-select-wrap { flex: 0 0 auto; }
-.wc-status-form .x-select-wrap .x-input { min-width: 11.5em; }
-.wc-status-form > .x-input { flex: 1 1 8em; min-width: 8em; max-width: 12em; }
-
-.x-selectbar__select { flex: 0 0 auto; }
-.x-selectbar__select .x-input { min-width: 11.5em; }
-
-@media (max-width: 720px) {
-    .wc-status-form { width: 100%; }
-    .wc-status-form .x-select-wrap,
-    .wc-status-form > .x-input { flex: 1 1 100%; max-width: none; }
-    .wc-status-form .x-btn { width: 100%; }
-    .x-selectbar__select { flex: 1 1 100%; }
-}
-
 #woocommerce-orders-page .vt-col-products { width: 36%; }
 #woocommerce-orders-page .vt-col-qty      { width: 4%; }
 #woocommerce-orders-page .vt-col-price    { width: 7%; }

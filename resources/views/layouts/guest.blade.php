@@ -18,7 +18,7 @@
     <title>{{ $company }}</title>
     <link rel="icon" type="image/png" href="{{ $favicon }}">
     @include('partials.theme-boot')
-    @vite(['resources/css/blotter.css', 'resources/js/app.js'])
+    @include('partials.app-assets')
 </head>
 <body class="bl-app">
 <div class="auth">

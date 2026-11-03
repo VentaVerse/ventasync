@@ -1,5 +1,3 @@
-import { initLazadaExplorer } from './lazada-explorer';
-
 function initTabs(root) {
     const prefix = root.getAttribute('data-tab-prefix') || '';
     const storageKey = root.getAttribute('data-tab-storage-key') || '';
@@ -298,5 +296,5 @@ document.addEventListener('DOMContentLoaded', function () {
     initSelectOnClick(root);
 
     initExplorer(root);
-    initLazadaExplorer(root);
+    window.VentaSync.initLazadaExplorer?.(root);
 });

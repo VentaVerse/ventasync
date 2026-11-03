@@ -33,25 +33,13 @@
 .cc-col-price   { width: 104px; }
 .cc-col-stat    { width: 104px; }
 .cc-col-sync    { width: 112px; }
-.cc-col-group   { width: 132px; }
 .cc-col-count   { width: 88px; }
 .cc-col-lvl     { width: 72px; }
 .cc-col-leaf    { width: 108px; }
 .cc-col-flag    { width: 130px; }
 .cc-col-flag--sm { width: 96px; }
 .cc-col-when    { width: 168px; }
-.cc-col-limit   { width: 148px; }
 .cc-col-markup  { width: 156px; }
-
-.lz-col-region { width: 88px; }
-.lz-col-var    { width: 118px; }
-
-.cc-page .x-table td.lz-col-region {
-    font-family: var(--font-mono);
-    font-variant-numeric: tabular-nums;
-}
-
-.tt-col-perms { width: 190px; }
 
 
 .cc-tree { display: block; min-width: 0; }

@@ -1003,8 +1003,7 @@
         font-weight: 640;
     }
 
-    .rp-fact__note,
-    .rp-basis {
+    .rp-fact__note {
         display: flex;
         flex-wrap: wrap;
         align-items: center;
@@ -1013,14 +1012,6 @@
         font-size: 11.5px;
         color: var(--bl-ink-3);
     }
-
-    .rp-basis__code {
-        font-variant-numeric: tabular-nums;
-        font-weight: 600;
-        color: var(--bl-ink-2);
-    }
-
-    .rp-basis__caveat { flex: 1 1 100%; }
 
     .rp-scroll { overflow-x: auto; }
     .rp-total { font-weight: 650; }
@@ -1663,9 +1654,6 @@
     .od-section__head { border-bottom: 0; padding-bottom: 4px; }
 
     .od-field > .x-btn { margin-top: auto; }
-}
-
-@layer components {
 }
 
 @layer components {

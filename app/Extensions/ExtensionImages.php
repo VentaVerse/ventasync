@@ -61,11 +61,14 @@ final class ExtensionImages
         if (! self::validId($id)) {
             return;
         }
-        $source = base_path('extensions/' . $id . '/images');
+        self::mirror(base_path('extensions/' . $id . '/images'), self::publicDir($id));
+    }
+
+    public static function mirror(string $source, string $target): void
+    {
         if (! File::isDirectory($source)) {
             return;
         }
-        $target = self::publicDir($id);
         foreach (File::allFiles($source) as $file) {
             $to = $target . '/' . $file->getRelativePathname();
             if (is_file($to) && filemtime($to) >= $file->getMTime()) {

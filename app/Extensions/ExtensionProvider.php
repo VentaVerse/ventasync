@@ -41,6 +41,7 @@ abstract class ExtensionProvider extends ServiceProvider
         $this->bootViews();
         $this->bootTranslations();
         ExtensionImages::publish($this->id);
+        ExtensionAssets::publish($this->id);
     }
 
     protected function mcpTools(): array

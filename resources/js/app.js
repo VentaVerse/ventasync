@@ -18,20 +18,8 @@ import './field-a11y';
 import './hint-place';
 import './desk-tools';
 import './legacy-flash';
-import './pages/shopee-orders';
-import './pages/lazada-orders';
-import './pages/tiktok-orders';
-import './pages/shopify-orders';
-import './pages/ventacart-orders';
-import './pages/pedallion';
-import './pages/pedallion-listings';
 import './pages/order-detail';
 import './pages/product-form';
-import './pages/shopee-listings';
-import './pages/lazada-listings';
-import './pages/tiktok-listings';
-import './pages/ventacart-listings';
-import './pages/woocommerce-listings';
 import './pages/channel-settings';
 import './pages/channel-setup';
 import './pages/store-settings';
@@ -58,18 +46,14 @@ import './pages/channel-listing-form';
 import './pages/channel-import';
 import './pages/channel-add';
 import './pages/channel-add-panel';
-import './pages/purchasing';
-import './pages/warehousing';
-import './pages/reports';
 import './pages/reviews';
 import './pages/settings';
-import './pages/ai-tools';
 import './pages/order-form';
 import './pages/push-review';
 
 import { initNavGroups } from './nav-groups';
 import ventasyncPalette from './palette';
-import pettyCash from './pages/petty-cash';
+import { initChannelListings } from './pages/channel-listings';
 import credentialField from './credential-field';
 
 import Alpine from 'alpinejs';
@@ -77,11 +61,6 @@ import Alpine from 'alpinejs';
 initNavGroups();
 
 window.Alpine = Alpine;
+window.VentaSync = { initChannelListings };
 Alpine.data('ventasyncPalette', ventasyncPalette);
-Alpine.data('pettyCash', pettyCash);
 Alpine.data('credentialField', credentialField);
-Alpine.start();
-
-requestAnimationFrame(() => {
-    requestAnimationFrame(() => document.querySelector('.bl-app')?.classList.add('is-ready'));
-});
