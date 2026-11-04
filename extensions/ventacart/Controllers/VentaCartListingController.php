@@ -809,7 +809,7 @@ class VentaCartListingController extends Controller
                 continue;
             }
             $listing = VentaCartListing::query()->firstOrNew(['store_id' => $store, 'product_id' => $productId]);
-            $listing->mirror($active ? VentaCartListing::STATUS_ACTIVE : VentaCartListing::STATUS_INACTIVE, $listing->live_price, $listing->live_quantity);
+            $listing->mirror($active ? VentaCartListing::STATUS_ACTIVE : VentaCartListing::STATUS_INACTIVE);
             $done++;
         }
 
@@ -846,7 +846,7 @@ class VentaCartListingController extends Controller
                 $live = null;
             } else {
                 $mirror = $listing ?? new VentaCartListing(['store_id' => $store, 'product_id' => $productId]);
-                $mirror->mirror($live['status'], $live['price'], $live['quantity']);
+                $mirror->mirror($live['status']);
                 $listing = $mirror;
                 if ($live['state'] === 'found') {
                     $push->rememberHeld($productId, array_column($live['variants'], 'sku'));
@@ -1047,11 +1047,7 @@ class VentaCartListingController extends Controller
                 'images' => $outcome['images'],
             ],
         ])->save();
-        $listing->mirror(
-            ! empty($payload['status']) ? VentaCartListing::STATUS_ACTIVE : VentaCartListing::STATUS_INACTIVE,
-            isset($payload['price']) ? (float) $payload['price'] : null,
-            isset($payload['quantity']) ? (int) $payload['quantity'] : null
-        );
+        $listing->mirror(! empty($payload['status']) ? VentaCartListing::STATUS_ACTIVE : VentaCartListing::STATUS_INACTIVE);
 
         ActivityLogger::log('pushed', 'VentaCartListing', (int) $listing->id,
             ucfirst($outcome['state']) . ' product #' . $productId . ' on ' . $setting->store_name,
@@ -1102,7 +1098,7 @@ class VentaCartListingController extends Controller
         }
 
         $listing = VentaCartListing::query()->firstOrNew(['store_id' => $store, 'product_id' => $productId]);
-        $listing->mirror($active ? VentaCartListing::STATUS_ACTIVE : VentaCartListing::STATUS_INACTIVE, $listing->live_price, $listing->live_quantity);
+        $listing->mirror($active ? VentaCartListing::STATUS_ACTIVE : VentaCartListing::STATUS_INACTIVE);
 
         ActivityLogger::log($active ? 'relisted' : 'unlisted', 'VentaCartListing', (int) $listing->id,
             ($active ? 'Relisted' : 'Unlisted') . ' product #' . $productId . ' on ' . $setting->store_name);

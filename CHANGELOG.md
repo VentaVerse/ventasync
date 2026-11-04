@@ -7,6 +7,7 @@
 - The Products page tabs read All, Live, then Not live, and the page opens on Live.
 - The dashboard shows revenue and orders as bars side by side, like a channel's overview.
 - The logo at the top of the menu goes to the dashboard.
+- Leftover copies of a store's stock and price, no longer shown anywhere, are removed from the channels' tables.
 
 ### Bug fixes
 

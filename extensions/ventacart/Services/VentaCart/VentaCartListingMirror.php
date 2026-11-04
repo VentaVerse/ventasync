@@ -62,11 +62,7 @@ class VentaCartListingMirror
                 $status = array_key_exists('status', $item)
                     ? ($item['status'] ? VentaCartListing::STATUS_ACTIVE : VentaCartListing::STATUS_INACTIVE)
                     : null;
-                $facts = [
-                    'status' => $status,
-                    'price' => isset($item['price']) ? (float) $item['price'] : null,
-                    'quantity' => isset($item['quantity']) ? (int) $item['quantity'] : null,
-                ];
+                $facts = ['status' => $status];
                 if (! empty($item['id'])) {
                     $byId[(int) $item['id']] = $facts;
                 }
@@ -98,8 +94,6 @@ class VentaCartListingMirror
                 [
                     'live_status' => $status,
                     'live_checked_at' => $now,
-                    'live_price' => $facts['price'] ?? null,
-                    'live_quantity' => $facts['quantity'] ?? null,
                 ]
             );
             $counts[$status] = ($counts[$status] ?? 0) + 1;
@@ -134,7 +128,7 @@ class VentaCartListingMirror
             }
 
             $row = VentaCartListing::query()->firstOrNew(['store_id' => $store, 'product_id' => (int) $productId]);
-            $row->mirror($live['status'], $live['price'], $live['quantity']);
+            $row->mirror($live['status']);
             if ($live['state'] === 'found') {
                 $push->rememberHeld((int) $productId, array_column($live['variants'], 'sku'));
             }

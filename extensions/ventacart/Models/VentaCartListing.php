@@ -22,7 +22,7 @@ class VentaCartListing extends Model
         'markup_percent', 'markup_fixed', 'price',
         'weight', 'package_length', 'package_width', 'package_height',
         'name', 'description', 'meta_title', 'meta_description', 'image_order',
-        'live_status', 'live_checked_at', 'live_price', 'live_quantity',
+        'live_status', 'live_checked_at',
         'last_pushed_at', 'last_push_source', 'last_push_settings',
     ];
 
@@ -35,8 +35,6 @@ class VentaCartListing extends Model
         'package_length' => 'integer',
         'package_width' => 'integer',
         'package_height' => 'integer',
-        'live_price' => 'float',
-        'live_quantity' => 'integer',
         'live_checked_at' => 'datetime',
         'last_pushed_at' => 'datetime',
         'last_push_settings' => 'array',
@@ -112,13 +110,11 @@ class VentaCartListing extends Model
         ], fn ($v) => $v !== null && trim((string) $v) !== '');
     }
 
-    public function mirror(?string $status, ?float $price = null, ?int $quantity = null): void
+    public function mirror(?string $status): void
     {
         $this->forceFill([
             'live_status' => $status,
             'live_checked_at' => now(),
-            'live_price' => $price,
-            'live_quantity' => $quantity,
         ])->save();
     }
     public function contentOverrides(): array

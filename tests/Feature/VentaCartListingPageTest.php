@@ -338,8 +338,6 @@ class VentaCartListingPageTest extends TestCase
         $listing = VentaCartListing::where('store_id', $store->id)->where('product_id', $pid)->first();
         $this->assertNotNull($listing);
         $this->assertSame(VentaCartListing::STATUS_ACTIVE, $listing->live_status);
-        $this->assertSame(1150.0, $listing->live_price);
-        $this->assertSame(6, $listing->live_quantity);
     }
 
     public function test_a_product_the_store_no_longer_has_reads_as_missing_and_drops_nothing_by_itself(): void
@@ -364,7 +362,8 @@ class VentaCartListingPageTest extends TestCase
         $store = $this->store();
         $pid = $this->product();
         VentaCartListingLink::create(['store_id' => $store->id, 'product_id' => $pid, 'ventacart_product_id' => 5001, 'sku' => 'GP-200']);
-        VentaCartListing::create(['store_id' => $store->id, 'product_id' => $pid, 'live_status' => 'active', 'live_price' => 999, 'live_checked_at' => now()->subHour()]);
+        $checked = now()->subHour()->startOfSecond();
+        VentaCartListing::create(['store_id' => $store->id, 'product_id' => $pid, 'live_status' => 'active', 'live_checked_at' => $checked]);
 
         Http::fake([self::BASE . '/api/v1/products/GP-200' => Http::response(['error' => 'boom'], 500)]);
 
@@ -375,7 +374,9 @@ class VentaCartListingPageTest extends TestCase
 
         $this->assertStringNotContainsString('live state is simply unknown', $html);
         $this->assertStringNotContainsString('Read from Gear Depot as this page loaded', $html);
-        $this->assertSame(999.0, VentaCartListing::where('product_id', $pid)->first()->live_price);
+        $kept = VentaCartListing::where('product_id', $pid)->first();
+        $this->assertSame('active', $kept->live_status);
+        $this->assertTrue($kept->live_checked_at->equalTo($checked));
     }
 
     public function test_an_unlinked_product_the_store_already_holds_is_linked_on_sight(): void

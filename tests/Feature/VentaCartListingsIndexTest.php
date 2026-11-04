@@ -254,7 +254,6 @@ class VentaCartListingsIndexTest extends TestCase
         $this->assertStringContainsString('1 unlisted', session('status'));
         $this->assertStringContainsString('1 not on the store', session('status'));
         $this->assertSame('inactive', VentaCartListing::where('product_id', $ids['A-1'])->value('live_status'));
-        $this->assertSame(510.0, VentaCartListing::where('product_id', $ids['A-1'])->first()->live_price);
         $this->assertSame('missing', VentaCartListing::where('product_id', $ids['U-1'])->value('live_status'));
     }
 
