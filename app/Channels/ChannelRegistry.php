@@ -441,7 +441,29 @@ class ChannelRegistry
 
     public function variationChangeListeners(): array
     {
-        return $this->providersImplementing(\App\Channels\Contracts\VariationChangeListener::class);
+        return $this->installedImplementing(\App\Channels\Contracts\VariationChangeListener::class);
+    }
+
+    protected function installedImplementing(string $contract): array
+    {
+        $manager = app(ExtensionManager::class);
+        $matches = [];
+
+        foreach ($manager->getInstalledIds() as $id) {
+            $provider = $this->providers[$id] ?? null;
+            if ($provider === null) {
+                $class = $manager->getProviderClass($id);
+                if ($class === null || !is_subclass_of($class, $contract)) {
+                    continue;
+                }
+                $provider = new $class(app());
+            }
+            if ($provider instanceof $contract) {
+                $matches[$id] = $provider;
+            }
+        }
+
+        return $matches;
     }
 
     public function webhookReceiverFor(string $segment): ?\App\Channels\Contracts\WebhookReceiver

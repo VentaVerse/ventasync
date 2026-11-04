@@ -105,7 +105,35 @@ class CatalogVariationChangesReachChannelsTest extends TestCase
         $this->assertNull($small->fresh()->product_variation_value_id, 'removing every variation unlinks the rest');
     }
 
-    public function test_with_the_channels_switched_off_the_catalog_never_touches_their_tables(): void
+    public function test_a_switched_off_channel_still_follows_a_renamed_sku(): void
+    {
+        $user = $this->editor();
+        $pid = $this->product();
+        $this->save($user, $pid, [
+            ['name' => 'Small', 'sku' => 'AMP-S', 'quantity' => 2, 'absolute_price' => 1000],
+        ]);
+        $ids = $this->valueIds($pid);
+
+        $shopee = ShopeeStore::query()->create(['partner_id' => 1, 'partner_key' => 'k', 'shop_id' => 2, 'access_token' => 't', 'refresh_token' => 'r', 'mode' => 'production']);
+        ShopeeListingLink::query()->withoutGlobalScopes()->create(['store_id' => $shopee->id, 'product_id' => $pid, 'shopee_item_id' => '900', 'shopee_model_id' => '901', 'sku' => 'AMP-S']);
+        $lazada = LazadaStore::query()->create(['store_name' => 'Main', 'region' => 'PH', 'app_key' => 'k', 'app_secret' => 's']);
+        $listing = LazadaListing::query()->withoutGlobalScopes()->create(['store_id' => $lazada->id, 'product_id' => $pid]);
+        $small = LazadaListingVariation::query()->create(['lazada_listing_id' => $listing->id, 'product_variation_value_id' => $this->povId($pid, 'AMP-S'), 'seller_sku' => 'AMP-S']);
+
+        $manager = $this->app->make(ExtensionManager::class);
+        $manager->disable('shopee');
+        $manager->disable('lazada');
+        $this->app->instance(\App\Channels\ChannelRegistry::class, new \App\Channels\ChannelRegistry);
+
+        $this->save($user, $pid, [
+            ['name' => 'Small', 'sku' => 'AMP-SMALL', 'quantity' => 2, 'absolute_price' => 1000, 'variation_value_id' => $ids['AMP-S']],
+        ]);
+
+        $this->assertSame('AMP-SMALL', ShopeeListingLink::query()->withoutGlobalScopes()->value('sku'));
+        $this->assertSame('AMP-SMALL', $small->fresh()->seller_sku);
+    }
+
+    public function test_with_the_channels_uninstalled_the_catalog_never_touches_their_tables(): void
     {
         $user = $this->editor();
         $pid = $this->product();
@@ -116,8 +144,9 @@ class CatalogVariationChangesReachChannelsTest extends TestCase
         $ids = $this->valueIds($pid);
 
         $manager = $this->app->make(ExtensionManager::class);
-        $manager->disable('shopee');
-        $manager->disable('lazada');
+        $manager->uninstall('shopee');
+        $manager->uninstall('lazada');
+        $this->app->instance(\App\Channels\ChannelRegistry::class, new \App\Channels\ChannelRegistry);
 
         $queries = [];
         DB::listen(function ($q) use (&$queries) {
@@ -130,6 +159,6 @@ class CatalogVariationChangesReachChannelsTest extends TestCase
         $this->save($user, $pid, []);
 
         $touched = array_values(array_filter($queries, fn ($sql) => preg_match('/`?ch_(shopee|lazada)_/', $sql)));
-        $this->assertSame([], $touched, 'saving the Master Catalog must not read or write a switched-off channel');
+        $this->assertSame([], $touched, 'saving the Master Catalog must not read or write an uninstalled channel');
     }
 }
