@@ -58,6 +58,10 @@ class ChannelStatusTone
         ],
 
         'pedallion.orders' => [
+            'UNPAID'             => 'warning',
+            'TO_SHIP'            => 'warning',
+            'SHIPPING'           => 'info',
+            'OTHER'              => 'neutral',
             'PENDING'            => 'warning',
             'PROCESSING'         => 'warning',
             'AWAITING_SHIPMENT'  => 'warning',
@@ -267,6 +271,10 @@ class ChannelStatusTone
         ],
 
         'pedallion.orders' => [
+            'UNPAID'             => 'Unpaid',
+            'TO_SHIP'            => 'To ship',
+            'SHIPPING'           => 'Shipping',
+            'OTHER'              => 'Other',
             'PENDING'            => 'To process',
             'PROCESSING'         => 'Processing',
             'AWAITING_SHIPMENT'  => 'To pack',
@@ -277,7 +285,7 @@ class ChannelStatusTone
             'PAID'               => 'Paid',
             'CANCELLED'          => 'Canceled',
             'REFUNDED'           => 'Refunded',
-            'FAILED'             => 'Failed',
+            'FAILED'             => 'Failed delivery',
         ],
 
         'shopify.payment' => [

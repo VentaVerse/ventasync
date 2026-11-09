@@ -368,10 +368,6 @@ class ChannelWorkspace
             return $this->storeFigures($channelId, $storeId);
         }
 
-        if ($channelId === 'pedallion') {
-            return $this->pedallionFigures();
-        }
-
         if (! in_array($channelId, ['shopee', 'lazada', 'tiktok'], true)) {
             return ['hasToken' => null, 'tokenExpiresAt' => null, 'lastSyncAt' => null, 'errors24h' => null];
         }
@@ -417,6 +413,7 @@ class ChannelWorkspace
             'ventacart' => 'api_token',
             'opencart' => 'api_key',
             'shopify' => 'access_token',
+            'pedallion' => 'api_key',
             default => null,
         };
 
@@ -452,6 +449,14 @@ class ChannelWorkspace
                     ->where('ok', 0)
                     ->count()
                 : null;
+        } elseif ($row && $channelId === 'pedallion') {
+            $errors24h = ((($row->api_log_mode ?? 'off') !== 'off'))
+                ? DB::table('ch_pedallion_api_logs')
+                    ->where('store_id', $row->id)
+                    ->where('created_at', '>=', $since)
+                    ->where('status_code', '>=', 400)
+                    ->count()
+                : null;
         }
 
         return [
@@ -459,24 +464,6 @@ class ChannelWorkspace
             'tokenExpiresAt' => null,
             'lastSyncAt' => $lastSyncRaw ? Carbon::parse($lastSyncRaw) : null,
             'errors24h' => $errors24h,
-        ];
-    }
-
-    private function pedallionFigures(): array
-    {
-        $row = DB::table('ch_pedallion_stores')->first();
-        $lastSyncRaw = $row?->last_order_sync_at;
-
-        return [
-            'hasToken' => $row ? ! empty($row->api_key) : false,
-            'tokenExpiresAt' => null,
-            'lastSyncAt' => $lastSyncRaw ? Carbon::parse($lastSyncRaw) : null,
-            'errors24h' => ((($row?->api_log_mode ?? 'off') !== 'off'))
-                ? DB::table('ch_pedallion_api_logs')
-                    ->where('created_at', '>=', Carbon::now()->subHours(24))
-                    ->where('status_code', '>=', 400)
-                    ->count()
-                : null,
         ];
     }
 

@@ -22,7 +22,7 @@ class ChannelController extends Controller
         'woocommerce' => \Extensions\WooCommerce\Services\WooCommerceOrdersPanel::class,
     ];
 
-    private const ORDER_PANEL_STORE_SCOPED = ['ventacart', 'opencart', 'shopify', 'shopee', 'lazada', 'tiktok', 'woocommerce'];
+    private const ORDER_PANEL_STORE_SCOPED = ['ventacart', 'opencart', 'shopify', 'shopee', 'lazada', 'tiktok', 'woocommerce', 'pedallion'];
 
     private const RETURNS_PANEL_SERVICES = [
         'shopee' => \Extensions\Shopee\Services\ShopeeReturnsPanel::class,
@@ -375,7 +375,7 @@ class ChannelController extends Controller
                             : null;
                     } elseif ($row && $baseId === 'pedallion') {
                         $errors24h = ((($row->api_log_mode ?? 'off') !== 'off'))
-                            ? DB::table('ch_pedallion_api_logs')->where('created_at', '>=', $staleAfter)->where('status_code', '>=', 400)->count()
+                            ? DB::table('ch_pedallion_api_logs')->where('store_id', $row->id)->where('created_at', '>=', $staleAfter)->where('status_code', '>=', 400)->count()
                             : null;
                     }
 

@@ -293,7 +293,7 @@
         <div class="x-fh-panel co-page" data-desk-scope id="pedallion-orders-page">
             @include('ext-pedallion::orders._panel', [
                 'panelBaseUrl' => route('channels.fulfillment'),
-                'panelHiddenParams' => ['channel' => 'pedallion'],
+                'panelHiddenParams' => ['channel' => $selectedChannel],
             ])
         </div>
     @else
