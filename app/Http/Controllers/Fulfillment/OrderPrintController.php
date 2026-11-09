@@ -15,6 +15,7 @@ class OrderPrintController extends Controller
         'tiktok' => 'tiktok',
         'ventacart' => 'ventacart',
         'woocommerce' => 'woocommerce',
+        'pedallion' => 'pedallion',
     ];
 
     public function pick(Request $request, string $channel)

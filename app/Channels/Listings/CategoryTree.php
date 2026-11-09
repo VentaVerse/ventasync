@@ -13,6 +13,7 @@ final class CategoryTree
         'tiktok' => ['table' => 'ch_tiktok_categories', 'id' => 'id', 'parent' => 'parent_id', 'leaf' => 'is_leaf', 'store' => null, 'root' => null],
         'ventacart' => ['table' => 'ch_ventacart_categories', 'id' => 'ventacart_category_id', 'parent' => 'parent_id', 'leaf' => null, 'store' => 'store_id', 'root' => 0],
         'woocommerce' => ['table' => 'ch_woocommerce_categories', 'id' => 'woo_category_id', 'parent' => 'parent_id', 'leaf' => null, 'store' => 'store_id', 'root' => 0],
+        'pedallion' => ['table' => 'ch_pedallion_categories', 'id' => 'pedallion_category_id', 'parent' => 'parent_id', 'leaf' => 'leaf', 'store' => 'store_id', 'root' => null],
     ];
 
     private const MAX_DEPTH = 12;

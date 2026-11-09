@@ -13,6 +13,7 @@ final class PushFailureLink
         'tiktok' => 'ext.tiktok.products.index',
         'ventacart' => 'ext.ventacart.listings.index',
         'woocommerce' => 'ext.woocommerce.listings.index',
+        'pedallion' => 'ext.pedallion.listings.index',
     ];
 
     public static function isPush(ScheduledJob $job): bool

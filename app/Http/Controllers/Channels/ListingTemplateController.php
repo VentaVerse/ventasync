@@ -171,7 +171,7 @@ abstract class ListingTemplateController extends Controller
     {
         $ch = $this->channel();
 
-        return route('ext.' . $this->channel() . '.' . (in_array($ch, ['woocommerce', 'ventacart'], true) ? 'listings' : 'products') . '.index', ['store' => $this->storeId()]);
+        return route('ext.' . $this->channel() . '.' . (in_array($ch, ['woocommerce', 'ventacart', 'pedallion'], true) ? 'listings' : 'products') . '.index', ['store' => $this->storeId()]);
     }
 
     private function form(Model $template)

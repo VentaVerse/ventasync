@@ -50,6 +50,7 @@
                 @case('tiktok') @include('ext-tiktok::templates._fields', $fields + ['template' => $template, 'canManage' => $canManage, 'storeId' => $storeId]) @break
                 @case('woocommerce') @include('ext-woocommerce::templates._fields', $fields + ['template' => $template, 'canManage' => $canManage, 'storeId' => $storeId]) @break
                 @case('ventacart') @include('ext-ventacart::templates._fields', $fields + ['template' => $template, 'canManage' => $canManage, 'storeId' => $storeId]) @break
+                @case('pedallion') @include('ext-pedallion::templates._fields', $fields + ['template' => $template, 'canManage' => $canManage, 'storeId' => $storeId]) @break
             @endswitch
         </div>
 

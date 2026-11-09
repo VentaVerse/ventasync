@@ -230,7 +230,6 @@
     .x-table--stack > tbody > tr:not(.co-band) > td[data-label='Return tracking'] { order: 4; }
 
     .x-table--stack > tbody > tr:not(.co-band) > td[data-label='Price'],
-    .x-table--stack > tbody > tr:not(.co-band) > td[data-label='Amount'],
     .x-table--stack > tbody > tr:not(.co-band) > td[data-label='Payment'],
     .x-table--stack > tbody > tr:not(.co-band) > td[data-label='Refund'],
     .x-table--stack > tbody > tr:not(.co-band) > td[data-label='Total'] {
@@ -242,7 +241,6 @@
     }
 
     .x-table--stack > tbody > tr:not(.co-band) > td[data-label='Price']::before,
-    .x-table--stack > tbody > tr:not(.co-band) > td[data-label='Amount']::before,
     .x-table--stack > tbody > tr:not(.co-band) > td[data-label='Payment']::before,
     .x-table--stack > tbody > tr:not(.co-band) > td[data-label='Refund']::before,
     .x-table--stack > tbody > tr:not(.co-band) > td[data-label='Total']::before {
@@ -251,7 +249,6 @@
     }
 
     .x-table--stack > tbody > tr:not(.co-band) > td[data-label='Customer'],
-    .x-table--stack > tbody > tr:not(.co-band) > td[data-label='Date'],
     .x-table--stack > tbody > tr:not(.co-band) > td[data-label='Return'] { order: 8; }
 
     .x-table--stack > tbody > tr.co-band > td {

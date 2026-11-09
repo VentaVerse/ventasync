@@ -235,7 +235,7 @@ abstract class ProductGroupController extends Controller
     private function groupRoute(string $action, ?int $groupId = null): string
     {
         $ch = $this->channel();
-        $key = in_array($ch, ['woocommerce', 'ventacart'], true) ? 'group' : 'id';
+        $key = in_array($ch, ['woocommerce', 'ventacart', 'pedallion'], true) ? 'group' : 'id';
         $params = ['store' => $this->groupStoreId()] + ($groupId !== null ? [$key => $groupId] : []);
 
         return route('ext.' . $this->channel() . '.product-groups.' . $action, $params);

@@ -38,6 +38,12 @@ class OrderPrintLists
             'customer' => 'customer_name',
             'label' => 'WooCommerce',
         ],
+        'pedallion' => [
+            'model' => \Extensions\pedallion\Models\PedallionOrder::class,
+            'ref' => 'order_number',
+            'customer' => 'customer_name',
+            'label' => 'Pedallion',
+        ],
     ];
 
     public static function supports(string $channel): bool

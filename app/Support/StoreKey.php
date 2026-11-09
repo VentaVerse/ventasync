@@ -4,7 +4,7 @@ namespace App\Support;
 
 final class StoreKey
 {
-    private const SOURCE_NAMES_STORE = ['opencart', 'ventacart', 'shopify', 'woocommerce'];
+    private const SOURCE_NAMES_STORE = ['opencart', 'ventacart', 'shopify', 'woocommerce', 'pedallion'];
 
     public const MANUAL = 'manual';
 

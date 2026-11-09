@@ -66,6 +66,12 @@
     </div>
 @endif
 
+@if(! $setting->enabled)
+    <div class="fm-note fm-note--warn" role="status" data-syncing-off>
+        <div class="fm-note__body">Syncing is off for {{ $storeName }}, so nothing is sent or checked from here. <a href="{{ route('ext.ventacart.settings.show', ['store' => $setting->id]) }}">Settings</a></div>
+    </div>
+@endif
+
 <div class="x-segment-bar">
     <div class="x-segment-groups">
         <div class="x-segment-group">
