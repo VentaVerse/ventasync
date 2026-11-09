@@ -13,7 +13,7 @@ use Symfony\Component\HttpFoundation\Response;
 
 final class PackingCheck
 {
-    public const CHANNELS = ['shopee', 'lazada', 'tiktok', 'ventacart'];
+    public const CHANNELS = ['shopee', 'lazada', 'tiktok', 'ventacart', 'pedallion'];
 
     public const WRONG = 'That count is wrong. Count again.';
 
@@ -111,6 +111,7 @@ final class PackingCheck
 
         $ids = match ($channel) {
             'ventacart' => [(int) $request->route('order')],
+            'pedallion' => [(int) $request->route('order')],
             'tiktok' => [(int) $request->route('id')],
             'shopee' => \Extensions\Shopee\Models\ShopeeOrder::query()
                 ->where('store_id', $storeId)
