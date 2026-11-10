@@ -1,7 +1,7 @@
 {
     "id": "lazada",
     "name": "Lazada",
-    "version": "0.31.1",
+    "version": "0.31.2",
     "description": "Lazada marketplace channel: OAuth, products, product groups, orders, returns, brands",
     "logs": {
         "ch_lazada_api_logs": {

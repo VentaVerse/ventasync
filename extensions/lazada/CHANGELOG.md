@@ -1,5 +1,12 @@
 # Lazada changelog
 
+## 0.31.2 (2026-11-10)
+
+### Updates
+
+- Lazada's unused copy of each variation's stock is removed from its table.
+- Some minor improvements.
+
 ## 0.31.1 (2026-11-02)
 
 ### New features

@@ -1,13 +1,16 @@
 # Changelog
 
-## Unreleased
+## 2.0.0-beta.4 (2026-11-10)
+
+### New features
+
+- Each channel's Settings links to where its keys are issued (Shopee Open Platform, Lazada Open Platform, TikTok Shop Partner Center) and to the VentaSync documentation.
 
 ### Updates
 
-- The Products page tabs read All, Live, then Not live, and the page opens on Live.
+- The Products page tabs are rearranged.
 - The dashboard shows revenue and orders as bars side by side, like a channel's overview.
-- The logo at the top of the menu goes to the dashboard.
-- Leftover copies of a store's stock and price, no longer shown anywhere, are removed from the channels' tables.
+- Some minor improvements.
 
 ### Bug fixes
 
