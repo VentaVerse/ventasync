@@ -549,7 +549,7 @@
     font-size: 13px;
     color: var(--bl-ink);
     text-align: right;
-    overflow-wrap: anywhere;
+    white-space: nowrap;
 }
 
 .cs-fact__mono {
@@ -872,3 +872,87 @@
 }
 
 .cs-env-panel { display: flex; flex-direction: column; gap: var(--bl-space-6); }
+
+.cs-source {
+    display: grid;
+    gap: var(--bl-space-2);
+    margin: var(--bl-space-3) 0 0;
+    padding: var(--bl-space-3) var(--bl-space-4);
+    background: var(--bl-brand-wash);
+    border: 1px solid color-mix(in srgb, var(--bl-brand) 30%, var(--bl-rule-2));
+    border-radius: var(--bl-r-ctrl);
+}
+
+.cs-source__row {
+    display: grid;
+    grid-template-columns: 7.5rem minmax(0, 1fr);
+    align-items: baseline;
+    gap: var(--bl-space-3);
+}
+
+.cs-source__label {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--bl-ink-2);
+}
+
+.cs-source__value {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: var(--bl-space-1) var(--bl-space-2);
+    margin: 0;
+    min-width: 0;
+    font-size: 13px;
+    color: var(--bl-ink-2);
+}
+
+.cs-source__link {
+    display: inline-flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 2px var(--bl-space-2);
+    min-width: 0;
+    color: var(--bl-alert-link);
+    text-decoration: none;
+    border-radius: 3px;
+}
+
+.cs-source__name {
+    font-weight: 600;
+    white-space: nowrap;
+    text-decoration: underline;
+    text-decoration-thickness: 1px;
+    text-underline-offset: 3px;
+}
+
+.cs-source__url {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    text-decoration: underline;
+    text-decoration-thickness: 1px;
+    text-underline-offset: 3px;
+    text-decoration-color: color-mix(in srgb, currentColor 45%, transparent);
+    white-space: nowrap;
+}
+
+.cs-source__tail { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+
+.cs-source__icon { flex: none; }
+
+.cs-source__link:hover .cs-source__name,
+.cs-source__link:hover .cs-source__url {
+    text-decoration-thickness: 2px;
+    text-decoration-color: currentColor;
+}
+
+.cs-source__link:focus-visible {
+    outline: 2px solid var(--bl-brand);
+    outline-offset: 2px;
+}
+
+.cs-source__what { font-size: 12px; color: var(--bl-ink-3); }
+
+@media (max-width: 560px) {
+    .cs-source__row { grid-template-columns: 1fr; gap: 2px; }
+}
