@@ -82,7 +82,10 @@
     <div class="cs-grid">
         <section class="fm-section">
             <div class="fm-section__head">
-                <h2 class="fm-section__title">This store</h2>
+                <div>
+                    <h2 class="fm-section__title">This store</h2>
+                    <x-channel.key-source />
+                </div>
             </div>
 
             <form method="POST" action="{{ route('ext.opencart.save') }}">

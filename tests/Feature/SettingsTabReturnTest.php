@@ -185,7 +185,9 @@ class SettingsTabReturnTest extends TestCase
         $this->assertStringContainsString('id="sp-store-name-hint"', $html);
         $this->assertStringContainsString('class="bl-hint fm-label__hint"', $html);
         $this->assertStringNotContainsString('class="fm-hint"', $html, 'no description paragraph under a control on this page');
-        $this->assertStringContainsString('Each environment keeps its own keys and its own token', $html);
+        $this->assertStringNotContainsString('Each environment keeps its own keys and its own token', $html);
+        $this->assertStringContainsString('href="https://open.shopee.com"', $html);
+        $this->assertStringContainsString('href="https://docs.ventasync.com"', $html);
         $this->assertStringNotContainsString('cs-env__note', $html);
     }
 }

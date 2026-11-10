@@ -109,7 +109,7 @@
             <div class="fm-section__head">
                 <div>
                     <h2 class="fm-section__title">Keys and token</h2>
-                    <p class="fm-section__note">Each environment keeps its own keys and its own token.</p>
+                    <x-channel.key-source keys="App Key and App Secret" portal="https://open.lazada.com" portal-name="Lazada Open Platform" />
                 </div>
                 @if($canManageLazada)
                     <div class="x-segment cs-envseg" role="tablist" aria-label="Lazada environment">
@@ -258,7 +258,7 @@
             <div class="fm-section__head">
                 <div>
                     <h2 class="fm-section__title">Keys and token</h2>
-                    <p class="fm-section__note">Each environment keeps its own keys and its own token.</p>
+                    <x-channel.key-source keys="App Key and App Secret" portal="https://open.lazada.com" portal-name="Lazada Open Platform" />
                 </div>
                 @if($canManageLazada)
                     <div class="x-segment cs-envseg" role="tablist" aria-label="Lazada environment">

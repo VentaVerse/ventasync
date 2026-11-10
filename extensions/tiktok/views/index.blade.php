@@ -110,7 +110,7 @@
             <div class="fm-section__head">
                 <div>
                     <h2 class="fm-section__title">Keys and token</h2>
-                    <p class="fm-section__note">Each environment keeps its own keys and its own token.</p>
+                    <x-channel.key-source keys="App Key and App Secret" portal="https://partner.tiktokshop.com" portal-name="TikTok Shop Partner Center" />
                 </div>
                 @if($canManageTiktok)
                     <div class="x-segment cs-envseg" role="tablist" aria-label="TikTok Shop environment">
@@ -262,7 +262,7 @@
             <div class="fm-section__head">
                 <div>
                     <h2 class="fm-section__title">Keys and token</h2>
-                    <p class="fm-section__note">Each environment keeps its own keys and its own token.</p>
+                    <x-channel.key-source keys="App Key and App Secret" portal="https://partner.tiktokshop.com" portal-name="TikTok Shop Partner Center" />
                 </div>
                 @if($canManageTiktok)
                     <div class="x-segment cs-envseg" role="tablist" aria-label="TikTok Shop environment">

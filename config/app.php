@@ -13,6 +13,8 @@ return [
 
     'url' => env('APP_URL', 'http://localhost'),
 
+    'docs_url' => 'https://docs.ventasync.com',
+
     'asset_url' => env('ASSET_URL'),
 
     'timezone' => 'UTC',
