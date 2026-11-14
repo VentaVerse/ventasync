@@ -174,6 +174,9 @@ class MultistoreWorkspaceTest extends TestCase
         if (\Illuminate\Support\Facades\Route::has('ext.'.$channel.'.watermarks.index')) {
             $rows[] = ['Catalog', 'Watermarks', route('ext.'.$channel.'.watermarks.index', ['store' => $storeId])];
         }
+        if (\Illuminate\Support\Facades\Route::has('ext.'.$channel.'.categories.index')) {
+            $rows[] = ['Catalog', 'Categories', route('ext.'.$channel.'.categories.index', ['store' => $storeId])];
+        }
         $rows[] = ['Catalog', 'Import', route('ext.'.$channel.'.products.import', ['store' => $storeId])];
         $rows[] = ['Channel', 'Settings', route('ext.'.$channel.'.settings.show', ['store' => $storeId])];
 

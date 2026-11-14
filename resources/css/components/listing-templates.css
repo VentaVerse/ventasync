@@ -45,6 +45,11 @@
     min-width: 260px;
 }
 
+.lt-apply tbody th,
+.lt-apply tbody td {
+    vertical-align: top;
+}
+
 .lt-apply__field {
     font-weight: 600;
     text-align: left;
@@ -120,6 +125,38 @@
 }
 
 .lt-apply__choice label:has(input:focus-visible) {
+    outline: 2px solid var(--bl-brand-deep);
+    outline-offset: -2px;
+}
+
+.lt-apply__ownhead {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px 14px;
+}
+
+.lt-apply__all button {
+    padding: 4px 10px;
+    font: inherit;
+    font-size: 12px;
+    font-weight: 600;
+    background: none;
+    color: inherit;
+    border: 0;
+    cursor: pointer;
+}
+
+.lt-apply__all button + button {
+    border-left: 1px solid var(--bl-rule-2);
+}
+
+.lt-apply__all button[aria-pressed="true"] {
+    background: var(--bl-ink);
+    color: var(--bl-sheet);
+}
+
+.lt-apply__all button:focus-visible {
     outline: 2px solid var(--bl-brand-deep);
     outline-offset: -2px;
 }

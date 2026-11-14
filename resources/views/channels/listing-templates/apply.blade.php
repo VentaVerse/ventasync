@@ -69,8 +69,16 @@
                                     <span class="lt-apply__same">{{ count($r['matches']) }} already {{ count($r['matches']) === 1 ? 'matches' : 'match' }}</span>
                                 @endif
                                 @if($r['own'] !== [])
-                                    <span class="lt-apply__own">{{ count($r['own']) }} {{ count($r['own']) === 1 ? 'has its own' : 'have their own' }}</span>
-                                    <ul class="lt-apply__list">
+                                    <span class="lt-apply__ownhead">
+                                        <span class="lt-apply__own">{{ count($r['own']) }} {{ count($r['own']) === 1 ? 'has its own' : 'have their own' }}</span>
+                                        @if(count($r['own']) > 1)
+                                            <span class="lt-apply__choice lt-apply__all" role="group" aria-label="{{ $r['label'] }} for all {{ count($r['own']) }} products" data-apply-all>
+                                                <button type="button" data-apply-all-to="keep" aria-pressed="true">Keep all</button>
+                                                <button type="button" data-apply-all-to="replace" aria-pressed="false">Replace all</button>
+                                            </span>
+                                        @endif
+                                    </span>
+                                    <ul class="lt-apply__list" data-apply-field>
                                         @foreach($r['own'] as $o)
                                             <li class="lt-apply__item">
                                                 <span><span class="lt-apply__name">{{ $o['name'] }}</span> <span class="lt-apply__ownval">{{ $o['own'] }}</span></span>
@@ -90,7 +98,7 @@
         @endif
 
         <x-ui.form-bar :cancel="$productsUrl">
-            <x-slot:note>{{ number_format($count) }} {{ $count === 1 ? 'product' : 'products' }} · {{ number_format($fills) }} {{ $fills === 1 ? 'blank to fill' : 'blanks to fill' }}</x-slot:note>
+            <x-slot:note>{{ number_format($count) }} {{ $count === 1 ? 'product' : 'products' }} · {{ number_format($fills) }} {{ $fills === 1 ? 'blank to fill' : 'blanks to fill' }}@if(array_filter($rows, fn ($r) => $r['own'] !== [])) · <span data-apply-replaced>0</span> to replace @endif</x-slot:note>
             <x-slot:primary>
                 <x-ui.button type="submit" variant="primary" :disabled="$rows === []">Apply to {{ number_format($count) }} {{ $count === 1 ? 'product' : 'products' }}</x-ui.button>
             </x-slot:primary>

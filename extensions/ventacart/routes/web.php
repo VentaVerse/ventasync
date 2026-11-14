@@ -33,6 +33,8 @@ Route::middleware(['auth'])->prefix('channels')->group(function () {
     Route::get('/ventacart/{store}/listings/categories/children', [VentaCartListingController::class, 'categoryChildren'])->name('ext.ventacart.listings.category_children');
     Route::get('/ventacart/{store}/listings/categories/path', [VentaCartListingController::class, 'categoryPath'])->name('ext.ventacart.listings.category_path');
     Route::get('/ventacart/{store}/listings/categories/search', [VentaCartListingController::class, 'categorySearch'])->name('ext.ventacart.listings.category_search');
+    Route::get('/ventacart/{store}/categories', [\Extensions\VentaCart\Controllers\VentaCartCategoryController::class, 'index'])->name('ext.ventacart.categories.index');
+    Route::post('/ventacart/{store}/categories/fetch', [\Extensions\VentaCart\Controllers\VentaCartCategoryController::class, 'fetch'])->name('ext.ventacart.categories.fetch')->defaults('permission_tier', 'manage');
     Route::get('/ventacart/{store}/watermarks', [VentaCartWatermarkTemplateController::class, 'index'])->name('ext.ventacart.watermarks.index');
     Route::get('/ventacart/{store}/watermarks/preview', [VentaCartWatermarkTemplateController::class, 'preview'])->name('ext.ventacart.watermarks.preview');
     Route::get('/ventacart/{store}/watermarks/create', [VentaCartWatermarkTemplateController::class, 'create'])->name('ext.ventacart.watermarks.create')->defaults('permission_tier', 'manage');

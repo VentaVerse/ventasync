@@ -112,7 +112,7 @@ abstract class ListingTemplateController extends Controller
         $productIds = $this->productIds($request);
         $templates = $this->query()->orderBy('name')->get();
         if ($productIds === [] || $templates->isEmpty()) {
-            return redirect($this->productsUrl())->with('error', $productIds === [] ? 'No products selected.' : 'Create a listing template first.');
+            return redirect($this->backTo($request))->with('error', $productIds === [] ? 'No products selected.' : 'Create a listing template first.');
         }
         $template = $templates->firstWhere('id', (int) $request->input('template_id')) ?? $templates->first();
 

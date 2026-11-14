@@ -1,5 +1,11 @@
 # VentaCart changelog
 
+## Unreleased
+
+### New features
+
+- Catalog > Categories lists the store's categories by path, with Fetch categories to read the tree again, like Shopee and Lazada.
+
 ## 0.31.2 (2026-11-10)
 
 ### Updates

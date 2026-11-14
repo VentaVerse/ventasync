@@ -72,6 +72,7 @@ class VentaCartExtension extends ExtensionProvider implements \App\Channels\Cont
                     new MenuItem('Listing Templates', 'ext.ventacart.listing-templates.index', 'view_ventacart/listing_template', null, ['store' => $store->id], 'Catalog'),
                     new MenuItem('Description Templates', 'ext.ventacart.description-templates.index', 'view_ventacart/description_template', null, ['store' => $store->id], 'Catalog'),
                     new MenuItem('Watermarks', 'ext.ventacart.watermarks.index', 'view_ventacart/watermark_template', null, ['store' => $store->id], 'Catalog'),
+                    new MenuItem('Categories', 'ext.ventacart.categories.index', 'view_ventacart/category', null, ['store' => $store->id], 'Catalog'),
                     new MenuItem('Import', 'ext.ventacart.products.import', 'view_ventacart/listing', null, ['store' => $store->id], 'Catalog'),
                     new MenuItem('Orders', 'ext.ventacart.orders.index', 'view_ventacart/order', null, ['store' => $store->id], 'Sell'),
                 ],

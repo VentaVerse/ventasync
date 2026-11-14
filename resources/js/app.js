@@ -49,6 +49,7 @@ import './pages/reviews';
 import './pages/settings';
 import './pages/order-form';
 import './pages/push-review';
+import './pages/template-apply';
 
 import { initNavGroups } from './nav-groups';
 import ventasyncPalette from './palette';

@@ -2,8 +2,13 @@
 
 ## Unreleased
 
+### New features
+
+- Apply template has Keep all and Replace all on every field where products have their own value, so a whole group can take the template's category in one click.
+
 ### Updates
 
+- Apply template returns to the Products page you started from, with its group filter, instead of All Products.
 - The bulk Push message says each reason once, with how many products it stopped, instead of naming every product. A single product is named. Each product's own reason stays on its error line.
 
 ## 2.0.0-beta.4.1 (2026-11-10)
