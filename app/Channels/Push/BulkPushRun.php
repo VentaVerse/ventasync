@@ -29,28 +29,52 @@ final class BulkPushRun
                 $warned = $warned || ! empty($answer['warning']);
                 $note = trim((string) ($answer['note'] ?? (! empty($answer['warning']) ? ($answer['message'] ?? '') : '')));
                 if ($note !== '') {
-                    $notes[] = $name . ': ' . $note;
+                    $notes[$note][] = $name;
                 }
             } else {
-                $refused[] = $name . ': ' . trim((string) ($answer['message'] ?? 'it was refused and gave no reason.'));
+                $refused[trim((string) ($answer['message'] ?? '')) ?: 'It was refused and gave no reason.'][] = $name;
             }
         }
 
         $parts = [];
         if ($pushed !== []) {
-            $parts[] = count($pushed) . ' pushed to ' . $channel . '.';
+            $parts[] = (count($pushed) === 1 ? $pushed[0] : count($pushed)) . ' pushed to ' . $channel . '.';
         }
         if ($notes !== []) {
-            $parts[] = implode(' ', $notes);
+            $parts[] = self::grouped($notes, null);
         }
         if ($refused !== []) {
-            $parts[] = count($refused) . ' not pushed. ' . implode(' ', $refused);
+            $parts[] = self::grouped($refused, 'not pushed');
         }
         if ($overflow !== []) {
-            $parts[] = count($overflow) . ' left for a second press: ' . $limit . ' go up at a time.';
+            $parts[] = count($overflow) . ' more selected: press Push again for the next ' . min(count($overflow), $limit) . '.';
         }
 
         return ['key' => $pushed === [] ? 'error' : ($warned ? 'warning' : 'status'), 'message' => implode(' ', $parts)];
+    }
+
+    private static function grouped(array $byReason, ?string $verb): string
+    {
+        uasort($byReason, fn ($a, $b) => count($b) <=> count($a));
+        $total = array_sum(array_map('count', $byReason));
+        $shown = array_slice($byReason, 0, 3, true);
+        $plain = fn (string $reason) => rtrim($reason, '. ');
+
+        if (count($byReason) === 1) {
+            $reason = array_key_first($byReason);
+            $names = $byReason[$reason];
+            $who = count($names) === 1 ? $names[0] : (string) count($names);
+
+            return $verb ? "{$who} {$verb}: {$plain($reason)}." : "{$who}: {$plain($reason)}.";
+        }
+
+        $lines = [];
+        foreach ($shown as $reason => $names) {
+            $lines[] = $plain($reason) . ' (' . count($names) . ')';
+        }
+        $rest = count($byReason) > 3 ? " The rest are on each product's error line." : '';
+
+        return ($verb ? "{$total} {$verb}: " : '') . implode('; ', $lines) . '.' . $rest;
     }
 
     public static function label(int $productId): string

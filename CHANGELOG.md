@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Updates
+
+- The bulk Push message says each reason once, with how many products it stopped, instead of naming every product. A single product is named. Each product's own reason stays on its error line.
+
 ## 2.0.0-beta.4.1 (2026-11-10)
 
 ### Updates
