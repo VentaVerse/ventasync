@@ -16,11 +16,18 @@ final class CategoryTree
         'pedallion' => ['table' => 'ch_pedallion_categories', 'id' => 'pedallion_category_id', 'parent' => 'parent_id', 'leaf' => 'leaf', 'store' => 'store_id', 'root' => null],
     ];
 
+    private const ANY_LEVEL = ['pedallion', 'ventacart', 'woocommerce'];
+
     private const MAX_DEPTH = 12;
 
     public static function knows(string $channel): bool
     {
         return isset(self::SHAPES[$channel]) && Schema::hasTable(self::SHAPES[$channel]['table']);
+    }
+
+    public static function anyLevel(string $channel): bool
+    {
+        return in_array($channel, self::ANY_LEVEL, true);
     }
 
     public static function children(string $channel, int $storeId, ?int $parentId = null): array
@@ -111,9 +118,11 @@ final class CategoryTree
                 }
             });
 
-        $s['leaf'] !== null
-            ? $query->where($s['leaf'], 1)
-            : $query->whereNotIn($s['id'], self::scoped($channel, $storeId)->distinct()->pluck($s['parent'])->filter()->all());
+        if (! self::anyLevel($channel)) {
+            $s['leaf'] !== null
+                ? $query->where($s['leaf'], 1)
+                : $query->whereNotIn($s['id'], self::scoped($channel, $storeId)->distinct()->pluck($s['parent'])->filter()->all());
+        }
 
         $rows = $query->orderBy('name')->limit(max(1, min(50, $limit)))->get([$s['id'] . ' as id', 'name']);
 

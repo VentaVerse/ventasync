@@ -115,4 +115,15 @@ class CategoryPickerTest extends TestCase
         $this->actingAs($this->reader())->getJson($this->url('category_path', ['id' => 0]))
             ->assertStatus(422);
     }
+
+    public function test_a_marketplace_still_needs_the_last_level(): void
+    {
+        $this->assertSame([], \App\Channels\Listings\CategoryTree::search('shopee', $this->store->id, 'Musical'));
+        $this->assertSame([111], array_column(\App\Channels\Listings\CategoryTree::search('shopee', $this->store->id, 'Guitars'), 'id'));
+        view()->share('errors', new \Illuminate\Support\ViewErrorBag);
+        $this->assertStringNotContainsString('data-any-level', view('partials.category-tree-pick', [
+            'name' => 'category_id', 'id' => 'ct', 'label' => 'Category', 'value' => 0, 'channel' => 'shopee', 'storeId' => $this->store->id,
+            'childrenUrl' => '/c', 'pathUrl' => '/p', 'canManage' => true,
+        ])->render());
+    }
 }

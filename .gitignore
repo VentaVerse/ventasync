@@ -72,6 +72,7 @@ temp_for_delete/
 /.playwright-mcp/
 /public/draft-*.html
 /public/mockup-*.html
+/public/drafts
 /storage/*.csv
 /storage/*.sql
 

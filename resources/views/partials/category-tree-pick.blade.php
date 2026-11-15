@@ -20,6 +20,7 @@
          data-children-url="{{ $childrenUrl }}"
          data-path-url="{{ $pathUrl }}"
          @if(! empty($searchUrl)) data-search-url="{{ $searchUrl }}" @endif
+         @if(! empty($channel) && \App\Channels\Listings\CategoryTree::anyLevel($channel)) data-any-level @endif
          @if($ctpValue > 0) data-chosen="{{ $ctpValue }}" @endif>
 
         <input type="hidden" id="{{ $id }}-value" name="{{ $name }}" data-ctp-value data-combo-value

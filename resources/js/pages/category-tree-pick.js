@@ -8,6 +8,7 @@
         const pathUrl = root.getAttribute('data-path-url');
         const searchUrl = root.getAttribute('data-search-url');
         const requiredWord = root.getAttribute('data-combo-required');
+        const anyLevel = root.hasAttribute('data-any-level');
 
         const valueField = root.querySelector('[data-ctp-value]');
         const open = root.querySelector('[data-ctp-open]');
@@ -69,7 +70,7 @@
 
         function drawDraft() {
             if (picked) picked.textContent = draftText();
-            confirm.disabled = !(draft.length && draft[draft.length - 1].leaf);
+            confirm.disabled = !(draft.length && (anyLevel || draft[draft.length - 1].leaf));
         }
 
         function drawColumns() {
@@ -260,7 +261,7 @@
             const out = [];
             levels.forEach(function (level) {
                 (level.items || []).forEach(function (item) {
-                    if (!item.leaf || seen[item.id]) return;
+                    if ((!anyLevel && !item.leaf) || seen[item.id]) return;
                     if (item.name.toLowerCase().indexOf(needle) === -1) return;
                     seen[item.id] = true;
                     out.push(item);

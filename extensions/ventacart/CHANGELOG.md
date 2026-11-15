@@ -6,6 +6,10 @@
 
 - Catalog > Categories lists the store's categories by path, with Fetch categories to read the tree again, like Shopee and Lazada.
 
+### Updates
+
+- A product can sit in any category level. The category picker confirms a parent category as well as a last-level one, and its search finds parents too. A listing with no category is created on the store with none, so pick one before pushing.
+
 ## 0.31.2 (2026-11-10)
 
 ### Updates

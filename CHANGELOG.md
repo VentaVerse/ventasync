@@ -8,6 +8,7 @@
 
 ### Updates
 
+- The category picker can confirm a parent category on Pedallion, VentaCart and WooCommerce, whose stores take a product at any level. Shopee, Lazada and TikTok still need the last level.
 - Apply template returns to the Products page you started from, with its group filter, instead of All Products.
 - The bulk Push message says each reason once, with how many products it stopped, instead of naming every product. A single product is named. Each product's own reason stays on its error line.
 
