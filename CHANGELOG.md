@@ -12,6 +12,10 @@
 - Apply template returns to the Products page you started from, with its group filter, instead of All Products.
 - The bulk Push message says each reason once, with how many products it stopped, instead of naming every product. A single product is named. Each product's own reason stays on its error line.
 
+### Bug fixes
+
+- Picking a VentaCart or WooCommerce category from the search opens the whole tree down to it, as it does on the other channels, instead of only the first column.
+
 ## 2.0.0-beta.4.1 (2026-11-10)
 
 ### Updates

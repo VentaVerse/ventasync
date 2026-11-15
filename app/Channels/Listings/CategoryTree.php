@@ -89,7 +89,9 @@ final class CategoryTree
             array_unshift($chain, [
                 'id' => (int) $row->id,
                 'name' => (string) $row->name,
-                'leaf' => $s['leaf'] === null ? true : (bool) $row->leaf,
+                'leaf' => $s['leaf'] === null
+                    ? ! self::scoped($channel, $storeId)->where($s['parent'], (int) $row->id)->exists()
+                    : (bool) $row->leaf,
             ]);
 
             $parent = $row->parent;
